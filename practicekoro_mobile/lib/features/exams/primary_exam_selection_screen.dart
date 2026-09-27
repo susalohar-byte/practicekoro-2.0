@@ -16,22 +16,39 @@ class _PrimaryExamSelectionScreenState extends State<PrimaryExamSelectionScreen>
   late String _selectedExam;
 
   final List<String> _exams = [
-    'WBSSC Group D',
     'WBP Constable',
-    'WBPSC',
+    'WBPSC Clerkship',
+    'WBSSC Group D',
     'Primary TET',
-    'SSC GD',
-    'Railway (NTPC)',
-    'SSC CGL',
+    'Kolkata Police SI',
+    'SSC GD Constable',
+    'Railway Group D',
+    'WBCS Executive Prelims',
     'Other',
   ];
 
   @override
   void initState() {
     super.initState();
-    _selectedExam = widget.initialExamId == 'wbp-constable'
-        ? 'WBP Constable'
-        : 'WBSSC Group D';
+    if (widget.initialExamId != null) {
+      if (widget.initialExamId == 'wbssc-group-d') {
+        _selectedExam = 'WBSSC Group D';
+      } else if (widget.initialExamId == 'wbpsc-clerkship') {
+        _selectedExam = 'WBPSC Clerkship';
+      } else if (widget.initialExamId == 'primary-tet') {
+        _selectedExam = 'Primary TET';
+      } else if (widget.initialExamId == 'kp-police-si' || widget.initialExamId == 'kp-si') {
+        _selectedExam = 'Kolkata Police SI';
+      } else if (widget.initialExamId == 'ssc-gd') {
+        _selectedExam = 'SSC GD Constable';
+      } else if (widget.initialExamId == 'railway-group-d') {
+        _selectedExam = 'Railway Group D';
+      } else {
+        _selectedExam = 'WBP Constable';
+      }
+    } else {
+      _selectedExam = 'WBP Constable';
+    }
   }
 
   void _onContinue() {

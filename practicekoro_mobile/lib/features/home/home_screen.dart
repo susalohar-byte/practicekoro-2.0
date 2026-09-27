@@ -714,7 +714,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Kolkata Police SI',
                       testsCount: '45 Tests',
                       emblemPath: 'assets/images/exams/emblem_wbp.png',
-                      onTap: () => context.push('/exams/kp-si'),
+                      onTap: () => context.push('/exams/kp-police-si'),
                     ),
                     _buildPopularExamItem(
                       title: 'Railway Group D',

@@ -11,12 +11,33 @@ import 'package:practicekoro_mobile/features/leaderboard/leaderboard_screen.dart
 import 'package:practicekoro_mobile/features/profile/settings_screen.dart';
 import 'package:practicekoro_mobile/features/profile/support_screen.dart';
 
+import 'package:practicekoro_mobile/data/datasources/mock_data.dart';
+import 'package:practicekoro_mobile/features/exams/primary_exam_selection_screen.dart';
+import 'package:practicekoro_mobile/features/exams/exam_selection_screen.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await LocalStorageService.init();
+  });
+
+  group('Standardized Exam Categories & Mock Data Verification', () {
+    test('MockData contains only the 5 standardized curated categories', () {
+      final allowedCategories = {
+        'WB Police (WBP / KP)',
+        'WBPSC (Clerkship / WBCS)',
+        'Teaching (TET / SLST)',
+        'SSC & Central Govt.',
+        'Railways (RRB)',
+      };
+
+      final actualCategories = MockData.exams.map((e) => e.category).toSet();
+      expect(actualCategories.difference(allowedCategories), isEmpty);
+      expect(actualCategories.length, equals(5));
+      expect(MockData.exams.length, equals(12));
+    });
   });
 
   group('Unified Design Token & Component Tests', () {
@@ -94,6 +115,41 @@ void main() {
   });
 
   group('New & Upgraded Screens Smoke Tests', () {
+    testWidgets('PrimaryExamSelectionScreen renders standardized exam choices', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: PrimaryExamSelectionScreen(),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Set Your Primary Exam'), findsOneWidget);
+      expect(find.text('WBP Constable'), findsOneWidget);
+      expect(find.text('WBPSC Clerkship'), findsOneWidget);
+      expect(find.text('WBSSC Group D'), findsOneWidget);
+      expect(find.text('Primary TET'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+    });
+
+    testWidgets('ExamSelectionScreen renders with 5 curated category chips', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ExamSelectionScreen(),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Your\nTarget Exam'), findsOneWidget);
+      expect(find.text('WB Police (WBP / KP)'), findsWidgets);
+      expect(find.text('WBPSC (Clerkship / WBCS)'), findsWidgets);
+      expect(find.text('Teaching (TET / SLST)'), findsWidgets);
+      expect(find.text('SSC & Central Govt.'), findsWidgets);
+      expect(find.text('Railways (RRB)'), findsWidgets);
+      expect(find.text('Continue'), findsOneWidget);
+    });
+
     testWidgets('LeaderboardScreen renders with Rank.tsx parity and podium', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

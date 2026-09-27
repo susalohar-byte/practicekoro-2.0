@@ -5,6 +5,7 @@ import '../../core/components/pk_card.dart';
 import '../../core/components/pk_chip.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
+import '../../data/datasources/mock_data.dart';
 
 class ExamTestsScreen extends StatefulWidget {
   final String examId;
@@ -20,19 +21,21 @@ class _ExamTestsScreenState extends State<ExamTestsScreen> {
   final List<String> _filters = ['All Tests', 'Full Mock', 'Topic Test', 'PYQ'];
 
   String get _seriesTitle {
-    switch (widget.examId) {
-      case 'wbp-constable':
-        return 'WBP Constable';
-      case 'wbpsc-clerkship':
-        return 'WBPSC Clerkship';
-      case 'ssc-gd':
-        return 'SSC GD';
-      case 'railway-group-d':
-        return 'Railway Group D';
-      case 'wbssc-group-d':
-        return 'WBSSC Group D';
-      default:
-        return 'WBP Constable';
+    try {
+      final match = MockData.exams.firstWhere(
+        (e) => e.id == widget.examId || e.slug == widget.examId,
+      );
+      return match.title;
+    } catch (_) {
+      switch (widget.examId) {
+        case 'kp-si':
+        case 'kp-police-si':
+          return 'Kolkata Police SI';
+        case 'ssc-gd':
+          return 'SSC GD Constable';
+        default:
+          return 'WBP Constable';
+      }
     }
   }
 
