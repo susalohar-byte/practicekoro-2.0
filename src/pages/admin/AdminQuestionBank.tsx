@@ -1265,7 +1265,9 @@ export const AdminQuestionBank: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${
+              selectedCategory === 'all' ? 'text-indigo-950 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'
+            }`}>
               Total Questions
             </span>
             <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -1276,10 +1278,10 @@ export const AdminQuestionBank: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {bankStats.total}
             </span>
-            <span className="text-xs font-semibold text-slate-400">questions</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">questions</span>
           </div>
           <div className="mt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Whole repository</span>
+            <span className="text-slate-600 dark:text-slate-400 font-medium">Whole repository</span>
             {selectedCategory === 'all' && (
               <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase tracking-wider">
                 Active
@@ -1299,7 +1301,9 @@ export const AdminQuestionBank: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${
+              selectedCategory === 'topic' ? 'text-blue-950 dark:text-blue-200' : 'text-blue-600 dark:text-blue-400'
+            }`}>
               Topic Tests
             </span>
             <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -1310,10 +1314,10 @@ export const AdminQuestionBank: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {bankStats.topic}
             </span>
-            <span className="text-xs font-semibold text-slate-400">questions</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">questions</span>
           </div>
           <div className="mt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">
               Chapter & Topic tests
             </span>
             {selectedCategory === 'topic' && (
@@ -1335,7 +1339,9 @@ export const AdminQuestionBank: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${
+              selectedCategory === 'full_mock' ? 'text-emerald-950 dark:text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'
+            }`}>
               Full Mock Tests
             </span>
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -1346,10 +1352,10 @@ export const AdminQuestionBank: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {bankStats.fullMock}
             </span>
-            <span className="text-xs font-semibold text-slate-400">questions</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">questions</span>
           </div>
           <div className="mt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">
               Full syllabus papers
             </span>
             {selectedCategory === 'full_mock' && (
@@ -1371,7 +1377,9 @@ export const AdminQuestionBank: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${
+              selectedCategory === 'pyq' ? 'text-amber-950 dark:text-amber-200' : 'text-amber-600 dark:text-amber-400'
+            }`}>
               PYQ Papers
             </span>
             <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
@@ -1382,10 +1390,10 @@ export const AdminQuestionBank: React.FC = () => {
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {bankStats.pyq}
             </span>
-            <span className="text-xs font-semibold text-slate-400">questions</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">questions</span>
           </div>
           <div className="mt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">
               Previous year questions
             </span>
             {selectedCategory === 'pyq' && (
@@ -1462,15 +1470,17 @@ export const AdminQuestionBank: React.FC = () => {
               onClick={() => handleSelectCategory('all')}
               className={`p-2.5 sm:p-3 rounded-xl border text-left font-semibold text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
                 selectedCategory === 'all'
-                  ? 'bg-pk-blue-light/40 dark:bg-pk-primary/20 border-pk-primary text-pk-primary dark:text-pk-blue-bright shadow-2xs ring-1 ring-pk-primary'
+                  ? 'bg-blue-50/80 dark:bg-pk-primary/20 border-pk-primary text-pk-primary dark:text-pk-blue-bright shadow-2xs ring-1 ring-pk-primary'
                   : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <BookOpen className="w-4 h-4 text-pk-primary shrink-0" />
                 <div className="truncate">
-                  <div className="font-bold truncate">All Questions</div>
-                  <div className="text-[10px] text-slate-400 font-normal hidden sm:block">
+                  <div className={`font-bold truncate ${selectedCategory === 'all' ? 'text-pk-primary dark:text-pk-blue-bright' : 'text-slate-800 dark:text-slate-200'}`}>
+                    All Questions
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal hidden sm:block">
                     Whole bank
                   </div>
                 </div>
@@ -1498,8 +1508,10 @@ export const AdminQuestionBank: React.FC = () => {
               <div className="flex items-center gap-2 min-w-0">
                 <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <div className="truncate">
-                  <div className="font-bold truncate">Topic Tests</div>
-                  <div className="text-[10px] text-slate-400 font-normal hidden sm:block">
+                  <div className={`font-bold truncate ${selectedCategory === 'topic' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                    Topic Tests
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal hidden sm:block">
                     Subject & Chapter
                   </div>
                 </div>
@@ -1527,8 +1539,10 @@ export const AdminQuestionBank: React.FC = () => {
               <div className="flex items-center gap-2 min-w-0">
                 <Award className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <div className="truncate">
-                  <div className="font-bold truncate">Full Mock Tests</div>
-                  <div className="text-[10px] text-slate-400 font-normal hidden sm:block">
+                  <div className={`font-bold truncate ${selectedCategory === 'full_mock' ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                    Full Mock Tests
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal hidden sm:block">
                     Full syllabus mocks
                   </div>
                 </div>
@@ -1556,8 +1570,10 @@ export const AdminQuestionBank: React.FC = () => {
               <div className="flex items-center gap-2 min-w-0">
                 <Tag className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <div className="truncate">
-                  <div className="font-bold truncate">PYQ Papers</div>
-                  <div className="text-[10px] text-slate-400 font-normal hidden sm:block">
+                  <div className={`font-bold truncate ${selectedCategory === 'pyq' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                    PYQ Papers
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal hidden sm:block">
                     Previous year papers
                   </div>
                 </div>
