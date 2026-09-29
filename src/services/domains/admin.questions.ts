@@ -1,7 +1,29 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { mapQuestionRow } from './admin.shared';
-import { localQuestions, localTestQuestions } from '@/services/domains/localStore';
+import {
+  localQuestions,
+  localTestQuestions,
+  localSubjects,
+  localChapters,
+} from '@/services/domains/localStore';
 import type { Question } from '@/types';
+
+function enrichQuestionWithTaxonomy(q: Question): Question {
+  const subjectName =
+    q.subjectName || localSubjects.find((s) => s.id === q.subjectId)?.name || undefined;
+  const chapId = q.chapterId || q.topicId;
+  const chapterName =
+    q.chapterName ||
+    q.topicName ||
+    localChapters.find((c) => c.id === chapId)?.name ||
+    undefined;
+  return {
+    ...q,
+    subjectName,
+    chapterName,
+    topicName: q.topicName || chapterName,
+  };
+}
 
 /** Section of the admin API: questions (split from domains/admin.ts, same behaviour). */
 // --------------------------------------------------------------------------
@@ -340,7 +362,8 @@ export async function getAdminQuestionsPaged(
 
 export async function getQuestionById(id: string): Promise<Question | null> {
   if (!isSupabaseConfigured) {
-    return localQuestions.find((q) => q.id === id) || null;
+    const found = localQuestions.find((q) => q.id === id);
+    return found ? enrichQuestionWithTaxonomy(found) : null;
   }
 
   const { data, error } = await supabase
@@ -355,10 +378,83 @@ export async function getQuestionById(id: string): Promise<Question | null> {
     .eq('id', id)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!data) return null;
+  if (!error && data) {
+    return enrichQuestionWithTaxonomy(mapQuestionRow(data));
+  }
 
-  return mapQuestionRow(data);
+  return getPublicQuestionById(id);
+}
+
+export async function getPublicQuestionById(id: string): Promise<Question | null> {
+  if (isSupabaseConfigured) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_public_seo_question_by_id',
+        { p_question_id: id }
+      );
+      if (!rpcError && rpcData && typeof rpcData === 'object' && 'id' in rpcData) {
+        return enrichQuestionWithTaxonomy(rpcData as unknown as Question);
+      }
+    } catch {
+      // RPC may not be deployed yet; fall back to localQuestions
+    }
+  }
+
+  const localFound = localQuestions.find((q) => q.id === id);
+  return localFound ? enrichQuestionWithTaxonomy(localFound) : null;
+}
+
+export async function getPublicQuestions(filters?: {
+  subjectId?: string;
+  search?: string;
+}): Promise<Question[]> {
+  if (isSupabaseConfigured) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_seo_questions', {
+        p_subject_id: filters?.subjectId || null,
+        p_search: filters?.search || null,
+        p_limit: 500,
+      });
+      if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+        return (rpcData as unknown as Question[]).map(enrichQuestionWithTaxonomy);
+      }
+    } catch {
+      // RPC may not be deployed yet; continue to adminList / localQuestions
+    }
+
+    try {
+      const adminList = await getAllAdminQuestions({
+        status: 'active',
+        subjectId: filters?.subjectId,
+        search: filters?.search,
+      });
+      if (adminList.length > 0) {
+        return adminList.map(enrichQuestionWithTaxonomy);
+      }
+    } catch {
+      // Fall through to localQuestions
+    }
+  }
+
+  let questions = localQuestions
+    .filter((q) => q.isActive !== false && q.status !== 'archived' && q.status !== 'draft')
+    .map(enrichQuestionWithTaxonomy);
+
+  if (filters?.subjectId) {
+    questions = questions.filter((q) => q.subjectId === filters.subjectId);
+  }
+  if (filters?.search && filters.search.trim()) {
+    const term = filters.search.trim().toLowerCase();
+    questions = questions.filter(
+      (q) =>
+        q.questionText.toLowerCase().includes(term) ||
+        (q.questionBengaliText && q.questionBengaliText.toLowerCase().includes(term)) ||
+        (q.explanation && q.explanation.toLowerCase().includes(term)) ||
+        (q.explanationBengali && q.explanationBengali.toLowerCase().includes(term))
+    );
+  }
+
+  return questions;
 }
 
 export async function createQuestion(qData: Omit<Question, 'id'>): Promise<Question> {
@@ -651,6 +747,8 @@ export const adminQuestionsApi = {
   getAdminQuestionsCount,
   getAdminQuestionsPaged,
   getQuestionById,
+  getPublicQuestionById,
+  getPublicQuestions,
   createQuestion,
   updateQuestion,
   deleteQuestion,

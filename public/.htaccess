@@ -29,7 +29,14 @@
   RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|woff2?|ttf|eot|ico|json|map)$ [NC]
   RewriteRule ^ - [R=404,L]
 
-  # 5. Fallback all SPA routes to /index.html
+  # 5. Serve prerendered SEO HTML for /questions and /questions/:questionId/:slug
+  RewriteCond %{DOCUMENT_ROOT}/questions/index.html -f
+  RewriteRule ^questions/?$ questions/index.html [L]
+
+  RewriteCond %{DOCUMENT_ROOT}/questions/$1/index.html -f
+  RewriteRule ^questions/([^/]+)(?:/.*)?$ questions/$1/index.html [L]
+
+  # 6. Fallback all SPA routes to /index.html
   # Handles: /, /login, /tests, /tests/:id, /tests/:id/runner, /subscription, /admin, etc.
   RewriteRule ^ index.html [QSA,L]
 </IfModule>

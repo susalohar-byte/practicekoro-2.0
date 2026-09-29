@@ -16,6 +16,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "sitemap": "node scripts/generate-sitemap.mjs",
+    "prerender": "node scripts/prerender.mjs",
+    "build:seo": "npm run build && node scripts/prerender.mjs",
     "deploy:shared": "bash scripts/deploy-shared-hosting.sh",
     "check": "npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
   },
@@ -24,6 +27,7 @@
     "@tanstack/react-query": "^5.67.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "katex": "0.18.9",
     "lottie-react": "^3.1.2",
     "lucide-react": "^0.475.0",
     "motion": "^13.3.0",

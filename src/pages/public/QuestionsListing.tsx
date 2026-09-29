@@ -12,6 +12,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
 import type { Question } from '@/types';
+import { MathText } from '@/components/common/MathText';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { generateFAQPageJsonLd, questionSlug } from '@/utils/seo';
@@ -42,8 +43,7 @@ export const QuestionsListing: React.FC = () => {
     async function load() {
       setLoading(true);
       try {
-        const all = await api.getAllAdminQuestions({
-          status: 'active',
+        const all = await api.getPublicQuestions({
           ...(selectedSubject ? { subjectId: selectedSubject } : {}),
           ...(searchTerm ? { search: searchTerm } : {}),
         });
@@ -230,12 +230,12 @@ export const QuestionsListing: React.FC = () => {
                     </span>
                     <div className="min-w-0 flex-1">
                       <h2 className="text-sm font-medium leading-snug text-slate-900 group-hover:text-brand-600 dark:text-white">
-                        {qText.length > 120 ? qText.substring(0, 120) + '...' : qText}
+                        <MathText>{qText.length > 120 ? qText.substring(0, 120) + '...' : qText}</MathText>
                       </h2>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                         <span className="inline-flex items-center gap-1">
                           <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          {correctAnswer}
+                          <MathText>{correctAnswer}</MathText>
                         </span>
                         {q.subjectName && (
                           <>

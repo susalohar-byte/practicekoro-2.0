@@ -53,6 +53,9 @@ echo "  [ok] .env has Supabase URL + anon key (will be baked into bundle)"
 echo "==> [1/4] Running quality gate (typecheck + lint + tests + build) ..."
 npm run typecheck && npm run lint && npm test && npm run build
 
+echo "==> [1b/4] Generating SEO prerendered question pages & sitemap.xml ..."
+node scripts/prerender.mjs || node scripts/generate-sitemap.mjs
+
 # --- 2. Package -----------------------------------------------------------------
 STAMP=$(date +%Y%m%d-%H%M%S)
 RELEASE_DIR="$ROOT_DIR/release"

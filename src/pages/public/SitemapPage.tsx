@@ -27,7 +27,7 @@ export const SitemapPage: React.FC = () => {
 
     async function load() {
       try {
-        const all = await api.getAllAdminQuestions({ status: 'active' });
+        const all = await api.getPublicQuestions();
         if (!cancelled) setQuestions(all);
       } catch {
         // silently fail
