@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarClock, Layers3, Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { motion } from 'motion/react';
@@ -19,6 +19,8 @@ import {
   FolderTree,
   AlertTriangle,
   ListOrdered,
+  CalendarClock,
+  Layers3,
 } from 'lucide-react';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
