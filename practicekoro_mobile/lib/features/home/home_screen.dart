@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/live_test_model.dart';
 import '../../data/models/test_series_model.dart';
@@ -318,11 +317,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final liveTestAsync = ref.watch(activeLiveTestProvider);
     final popularSeriesAsync = ref.watch(popularTestSeriesProvider);
 
-    final LiveTestModel? activeLive = liveTestAsync.value;
     final List<TestSeriesModel> popularList = popularSeriesAsync.value ?? [];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -333,7 +331,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
           color: const Color(0xFF0158FC),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 104),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
             children: [
               // ==========================================
               // SECTION 1: HEADER
@@ -354,29 +352,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 20),
 
               // ==========================================
-              // SECTION 4: LIVE TEST CARD (Render only when active/scheduled)
+              // SECTION 4: LIVE TEST
               // ==========================================
-              if (activeLive != null) ...[
-                _buildLiveTestCard(activeLive),
-                const SizedBox(height: 22),
-              ],
-
-              // ==========================================
-              // SECTION 5: YOUR SUBJECT PROGRESS
-              // ==========================================
-              _buildSubjectProgressSection(),
+              liveTestAsync.when(
+                data: (liveTest) => liveTest == null
+                    ? _buildLiveTestEmptyState()
+                    : _buildLiveTestCard(liveTest),
+                loading: _buildLiveTestLoadingState,
+                error: (_, _) => _buildLiveTestEmptyState(hasError: true),
+              ),
               const SizedBox(height: 22),
 
               // ==========================================
-              // SECTION 6: POPULAR TEST SERIES (Render only when available)
+              // SECTION 5: POPULAR TEST SERIES
               // ==========================================
-              if (popularList.isNotEmpty) ...[
-                _buildPopularTestSeriesSection(popularList),
-                const SizedBox(height: 22),
-              ],
+              _buildPopularTestSeriesSection(
+                popularList,
+                isLoading: popularSeriesAsync.isLoading,
+                hasError: popularSeriesAsync.hasError,
+              ),
+              const SizedBox(height: 22),
 
               // ==========================================
-              // SECTION 7: QUICK STUDY TOOLS
+              // SECTION 6: QUICK STUDY TOOLS
               // ==========================================
               _buildQuickStudyToolsSection(),
               const SizedBox(height: 12),
@@ -549,8 +547,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: AppColors.heroGradient,
-        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF3B82F6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF2563EB).withValues(alpha: 0.25),
@@ -560,7 +562,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
             // Background Decorative Circles
@@ -689,10 +691,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Test Series',
                 subtitle: 'Full length tests',
                 icon: Icons.assignment_outlined,
-                iconColor: AppColors.primary,
-                textColor: AppColors.navy,
-                bgColor: const Color(0xFFEAF2FF),
-                borderColor: AppColors.softBlue,
+                iconColor: const Color(0xFF2563EB),
+                textColor: const Color(0xFF1E3A8A),
+                bgColor: const Color(0xFFEFF6FF),
+                borderColor: const Color(0xFFDBEAFE),
                 onTap: () => _handleTabNavigation(1, '/test-series'),
               ),
             ),
@@ -702,10 +704,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Topic Practice',
                 subtitle: 'Chapter-wise Qs',
                 icon: Icons.track_changes_rounded,
-                iconColor: AppColors.navy,
-                textColor: AppColors.navy,
-                bgColor: const Color(0xFFF1F6FF),
-                borderColor: const Color(0xFFDCE8FC),
+                iconColor: const Color(0xFF9333EA),
+                textColor: const Color(0xFF581C87),
+                bgColor: const Color(0xFFFAF5FF),
+                borderColor: const Color(0xFFF3E8FF),
                 onTap: () => _handleTabNavigation(2, '/practice'),
               ),
             ),
@@ -719,10 +721,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Previous Year Questions',
                 subtitle: 'Solved 2018-2024',
                 icon: Icons.history_rounded,
-                iconColor: AppColors.brightBlue,
-                textColor: AppColors.navy,
-                bgColor: const Color(0xFFF0F7FF),
-                borderColor: const Color(0xFFDDEBFF),
+                iconColor: const Color(0xFF059669),
+                textColor: const Color(0xFF065F46),
+                bgColor: const Color(0xFFECFDF5),
+                borderColor: const Color(0xFFD1FAE5),
                 onTap: () => context.go('/practice?tab=pyqs'),
               ),
             ),
@@ -732,10 +734,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Performance',
                 subtitle: 'Rank & analysis',
                 icon: Icons.insights_rounded,
-                iconColor: AppColors.primary,
-                textColor: AppColors.navy,
-                bgColor: const Color(0xFFEAF2FF),
-                borderColor: AppColors.softBlue,
+                iconColor: const Color(0xFFD97706),
+                textColor: const Color(0xFF92400E),
+                bgColor: const Color(0xFFFFFBEB),
+                borderColor: const Color(0xFFFEF3C7),
                 onTap: () => _handleTabNavigation(3, '/results'),
               ),
             ),
@@ -757,20 +759,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.navy.withValues(alpha: 0.035),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1.2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,164 +1100,106 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ==========================================
-  // SECTION 5 WIDGET: YOUR SUBJECT PROGRESS
-  // ==========================================
-  Widget _buildSubjectProgressSection() {
-    final subjects = [
-      {
-        'name': 'GK',
-        'pct': 0,
-        'color': const Color(0xFF6366F1),
-        'bgColor': const Color(0xFFEEF2FF),
-      },
-      {
-        'name': 'Math',
-        'pct': 0,
-        'color': const Color(0xFF10B981),
-        'bgColor': const Color(0xFFECFDF5),
-      },
-      {
-        'name': 'Reasoning',
-        'pct': 0,
-        'color': const Color(0xFFF59E0B),
-        'bgColor': const Color(0xFFFFFBEB),
-      },
-      {
-        'name': 'English',
-        'pct': 0,
-        'color': const Color(0xFF3B82F6),
-        'bgColor': const Color(0xFFEFF6FF),
-      },
-      {
-        'name': 'Bengali',
-        'pct': 0,
-        'color': const Color(0xFFEC4899),
-        'bgColor': const Color(0xFFFDF2F8),
-      },
-      {
-        'name': 'Computer Awareness',
-        'pct': 0,
-        'color': const Color(0xFF06B6D4),
-        'bgColor': const Color(0xFFECFEFF),
-      },
-    ];
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Your Subject Progress',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
+  Widget _buildLiveTestLoadingState() {
+    return Container(
+      height: 104,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF60A5FA),
             ),
-            InkWell(
-              onTap: () => _handleTabNavigation(2, '/practice'),
-              child: const Row(
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 14,
-                    color: Color(0xFF0158FC),
-                  ),
-                ],
-              ),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Checking for live tests…',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveTestEmptyState({bool hasError = false}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF1E293B), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // 2-Column Grid of 6 subjects
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: subjects.map((sub) {
-            final name = sub['name'] as String;
-            final pct = sub['pct'] as int;
-            final color = sub['color'] as Color;
-            final bgColor = sub['bgColor'] as Color;
-            final width = (MediaQuery.of(context).size.width - 32 - 10) / 2;
-
-            return SizedBox(
-              width: width,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1.1,
+            child: const Icon(
+              Icons.live_tv_rounded,
+              color: Color(0xFF60A5FA),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'LIVE TEST',
+                  style: TextStyle(
+                    color: Color(0xFF93C5FD),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '$pct%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: color,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: pct / 100.0,
-                        minHeight: 6,
-                        backgroundColor: bgColor,
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 5),
+                Text(
+                  hasError
+                      ? 'Live tests are temporarily unavailable.'
+                      : 'No live test is scheduled right now.',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: hasError ? 'Try again' : 'Browse test series',
+            onPressed: hasError
+                ? () => ref.invalidate(activeLiveTestProvider)
+                : () => _handleTabNavigation(1, '/test-series'),
+            icon: Icon(
+              hasError ? Icons.refresh_rounded : Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ==========================================
-  // SECTION 6 WIDGET: POPULAR TEST SERIES
+  // SECTION 5 WIDGET: POPULAR TEST SERIES
   // ==========================================
   String _resolveExamEmblem(TestSeriesModel series) {
     if (series.iconUrl != null && series.iconUrl!.trim().isNotEmpty) {
@@ -1348,7 +1285,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildPopularTestSeriesSection(List<TestSeriesModel> seriesList) {
+  Widget _buildPopularTestSeriesSection(
+    List<TestSeriesModel> seriesList, {
+    required bool isLoading,
+    required bool hasError,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1389,118 +1330,176 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Horizontal scrolling cards with Exam emblem on left and Title + Arrow CTA on right
-        SizedBox(
-          height: 94,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: seriesList.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final series = seriesList[index];
-              final emblemPath = _resolveExamEmblem(series);
-
-              return InkWell(
-                onTap: () => context.push('/exams/${series.examId}'),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 248,
-                  height: 94,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
+        if (isLoading || hasError || seriesList.isEmpty)
+          Container(
+            height: 82,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+            ),
+            child: Row(
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      hasError
+                          ? Icons.cloud_off_rounded
+                          : Icons.auto_stories_rounded,
+                      color: const Color(0xFF2563EB),
+                      size: 21,
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.softBlue, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Left: Circular Exam Emblem Container
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF2FF),
-                          borderRadius: BorderRadius.circular(17),
-                          border: Border.all(
-                            color: AppColors.softBlue,
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: _buildEmblemImage(emblemPath),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Right: Test Series Title & Bottom-Right Arrow
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              series.title,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                                height: 1.25,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 5),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFEFF6FF),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 13,
-                                  color: Color(0xFF0158FC),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isLoading
+                        ? 'Loading test series…'
+                        : hasError
+                        ? 'Test series could not be loaded.'
+                        : 'Popular test series will appear here soon.',
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              );
-            },
+                if (!isLoading)
+                  IconButton(
+                    tooltip: hasError ? 'Try again' : 'Browse test series',
+                    onPressed: hasError
+                        ? () => ref.invalidate(popularTestSeriesProvider)
+                        : () => _handleTabNavigation(1, '/test-series'),
+                    icon: Icon(
+                      hasError
+                          ? Icons.refresh_rounded
+                          : Icons.arrow_forward_rounded,
+                      color: const Color(0xFF2563EB),
+                      size: 19,
+                    ),
+                  ),
+              ],
+            ),
+          )
+        else
+          // Horizontal scrolling cards with the exam emblem on the left.
+          SizedBox(
+            height: 86,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: seriesList.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final series = seriesList[index];
+                final emblemPath = _resolveExamEmblem(series);
+
+                return InkWell(
+                  onTap: () => context.push('/exams/${series.examId}'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 236,
+                    height: 86,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF0F172A,
+                          ).withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(17),
+                            border: Border.all(color: const Color(0xFFDBEAFE)),
+                          ),
+                          alignment: Alignment.center,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: _buildEmblemImage(emblemPath),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                series.title,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                  height: 1.25,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 5),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEFF6FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 13,
+                                    color: Color(0xFF0158FC),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
 
   // ==========================================
-  // SECTION 7 WIDGET: QUICK STUDY TOOLS
+  // SECTION 6 WIDGET: QUICK STUDY TOOLS
   // ==========================================
   Widget _buildQuickStudyToolsSection() {
     return Column(
