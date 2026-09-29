@@ -132,9 +132,6 @@ const AdminTestQuestions = lazyWithRetry(() =>
     default: module.AdminTestQuestions,
   }))
 );
-const AdminLiveTests = lazyWithRetry(() =>
-  import('@/pages/admin/AdminLiveTests').then((module) => ({ default: module.AdminLiveTests }))
-);
 const AdminFlashcards = lazyWithRetry(() =>
   import('@/pages/admin/AdminFlashcards').then((module) => ({ default: module.AdminFlashcards }))
 );

@@ -76,12 +76,7 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
       iconUrl: item.icon_url || cachedIcons[item.id] || item.iconUrl || undefined,
       isPremium: item.is_premium,
       orderIndex: item.order_index,
-      isActive: item.is_active,
-<<<<<<< HEAD
-      isFeatured: Boolean(item.is_featured),
-=======
-      isPopular: Boolean(item.is_popular),
->>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
+      isPopular: Boolean(item.is_popular || (item as any).is_featured),
       createdAt: item.created_at,
       examTitle: item.exams?.title || undefined,
       testCount: count,
