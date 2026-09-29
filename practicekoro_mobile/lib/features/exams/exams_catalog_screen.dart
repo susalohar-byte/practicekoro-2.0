@@ -1,21 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../data/datasources/mock_data.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/exam_model.dart';
+import '../../data/repositories/catalog_repository.dart';
 
-class ExamsCatalogScreen extends StatefulWidget {
+class ExamsCatalogScreen extends ConsumerStatefulWidget {
   const ExamsCatalogScreen({super.key});
 
   @override
-  State<ExamsCatalogScreen> createState() => _ExamsCatalogScreenState();
+  ConsumerState<ExamsCatalogScreen> createState() => _ExamsCatalogScreenState();
 }
 
-class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
+class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedFilterIndex = 0;
+  bool _isLoading = true;
+  List<ExamModel> _exams = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExams();
+  }
+
+  Future<void> _loadExams() async {
+    final repo = ref.read(catalogRepositoryProvider);
+    final exams = await repo.getExams();
+    if (mounted) {
+      setState(() {
+        _exams = exams;
+        _isLoading = false;
+      });
+    }
+  }
 
   static const List<String> _categories = [
     'All Examinations',
@@ -80,13 +100,15 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
     final selectedCategory = _categories[_selectedFilterIndex];
 
     // Filter exams based on category and search query
-    final filteredExams = MockData.exams.where((exam) {
-      final matchesSearch = query.isEmpty ||
+    final filteredExams = _exams.where((exam) {
+      final matchesSearch =
+          query.isEmpty ||
           exam.title.toLowerCase().contains(query) ||
           exam.category.toLowerCase().contains(query) ||
           (exam.description ?? '').toLowerCase().contains(query);
 
-      final matchesCategory = _selectedFilterIndex == 0 ||
+      final matchesCategory =
+          _selectedFilterIndex == 0 ||
           exam.category.toLowerCase() == selectedCategory.toLowerCase();
 
       return matchesSearch && matchesCategory;
@@ -95,32 +117,26 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
     final isAllView = _selectedFilterIndex == 0 && query.isEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
-          onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              context.go('/home');
-            }
-          },
-        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Explore Examinations',
+              'Test Series',
               style: AppTypography.titleLarge(color: AppColors.navy),
             ),
             const SizedBox(height: 1),
             const Text(
-              'Structured mock tests & syllabus-aligned practice',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.normal),
+              'Choose your exam. Start with a plan.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.normal,
+              ),
             ),
           ],
         ),
@@ -128,6 +144,10 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: _buildSeriesHero(),
+            ),
             // Top Search Bar & Filter Header
             Container(
               color: Colors.white,
@@ -145,16 +165,27 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.search_rounded, color: AppColors.primary, size: 20),
+                        const Icon(
+                          Icons.search_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: TextField(
                             controller: _searchController,
                             onChanged: (_) => setState(() {}),
-                            style: const TextStyle(fontSize: 13.5, color: AppColors.navy),
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              color: AppColors.navy,
+                            ),
                             decoration: const InputDecoration(
-                              hintText: 'Search any exam (e.g. WBP, Clerkship, TET)...',
-                              hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                              hintText:
+                                  'Search any exam (e.g. WBP, Clerkship, TET)...',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF94A3B8),
+                              ),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -167,7 +198,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                               _searchController.clear();
                               setState(() {});
                             },
-                            child: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF64748B)),
+                            child: const Icon(
+                              Icons.clear_rounded,
+                              size: 18,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                       ],
                     ),
@@ -182,23 +217,35 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                       children: List.generate(_categories.length, (idx) {
                         final isSel = _selectedFilterIndex == idx;
                         return GestureDetector(
-                          onTap: () => setState(() => _selectedFilterIndex = idx),
+                          onTap: () =>
+                              setState(() => _selectedFilterIndex = idx),
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
                             decoration: BoxDecoration(
-                              color: isSel ? AppColors.primary : const Color(0xFFF1F5F9),
+                              color: isSel
+                                  ? AppColors.primary
+                                  : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: isSel ? AppColors.primary : const Color(0xFFE2E8F0),
+                                color: isSel
+                                    ? AppColors.primary
+                                    : const Color(0xFFE2E8F0),
                               ),
                             ),
                             child: Text(
                               _categories[idx],
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
-                                color: isSel ? Colors.white : const Color(0xFF475569),
+                                fontWeight: isSel
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                                color: isSel
+                                    ? Colors.white
+                                    : const Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -214,14 +261,101 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
 
             // Content Body: Sectioned or Filtered Grid
             Expanded(
-              child: filteredExams.isEmpty
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : filteredExams.isEmpty
                   ? _buildEmptyState()
                   : isAllView
-                      ? _buildCategorizedSections()
-                      : _buildFilteredList(filteredExams, selectedCategory),
+                  ? _buildCategorizedSections()
+                  : _buildFilteredList(filteredExams, selectedCategory),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSeriesHero() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+      decoration: BoxDecoration(
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'YOUR NEXT MILESTONE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Prepare with a plan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Mocks, topic tests and previous papers',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Color(0xFFFFD166),
+              size: 27,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -237,7 +371,7 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
       itemCount: curatedCategories.length,
       itemBuilder: (context, catIdx) {
         final catName = curatedCategories[catIdx];
-        final catExams = MockData.exams
+        final catExams = _exams
             .where((e) => e.category.toLowerCase() == catName.toLowerCase())
             .toList();
 
@@ -281,16 +415,30 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                       });
                     },
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('View All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        Text(
+                          'View All',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
                         SizedBox(width: 2),
-                        Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primary),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
                       ],
                     ),
                   ),
@@ -299,10 +447,12 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
               const SizedBox(height: 10),
 
               // Exam Cards for this Category
-              ...catExams.map((exam) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildExamCard(exam),
-                  )),
+              ...catExams.map(
+                (exam) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildExamCard(exam),
+                ),
+              ),
             ],
           ),
         );
@@ -323,7 +473,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
           children: [
             Text(
               'Showing ${exams.length} examinations',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF64748B),
+              ),
             ),
             if (_selectedFilterIndex != 0 || _searchController.text.isNotEmpty)
               GestureDetector(
@@ -335,17 +489,23 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                 },
                 child: const Text(
                   'Reset Filters',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 12),
 
-        ...exams.map((exam) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildExamCard(exam),
-            )),
+        ...exams.map(
+          (exam) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildExamCard(exam),
+          ),
+        ),
       ],
     );
   }
@@ -359,18 +519,18 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
 
     return InkWell(
       onTap: () => context.push('/exams/${exam.id}'),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.softBlue.withValues(alpha: 0.8)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: AppColors.navy.withValues(alpha: 0.035),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -382,13 +542,13 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
-                  padding: const EdgeInsets.all(6),
+                  width: 54,
+                  height: 54,
+                  padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    color: const Color(0xFFEAF2FF),
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(color: AppColors.softBlue),
                   ),
                   child: Image.asset(
                     emblem,
@@ -421,7 +581,10 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: _getTagBgColor(tag),
                               borderRadius: BorderRadius.circular(6),
@@ -441,7 +604,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                       const SizedBox(height: 2),
                       Text(
                         exam.category,
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -456,7 +623,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
               exam.description ?? '',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.35),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF475569),
+                height: 1.35,
+              ),
             ),
 
             const SizedBox(height: 12),
@@ -475,14 +646,16 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                 _buildBadge(
                   icon: Icons.quiz_outlined,
                   text: '${((exam.totalTests ?? 25) * 80).clamp(500, 5000)} Qs',
-                  bgColor: const Color(0xFFF0FDF4),
-                  textColor: const Color(0xFF16A34A),
+                  bgColor: const Color(0xFFF1F6FF),
+                  textColor: AppColors.navy,
                 ),
                 _buildBadge(
                   icon: Icons.translate_rounded,
-                  text: LocalStorageService.isBilingualEnabled() ? 'Bilingual (বাংলা ও Eng)' : 'বাংলা মাধ্যম (Bengali)',
-                  bgColor: const Color(0xFFFFFBEB),
-                  textColor: const Color(0xFFB45309),
+                  text: LocalStorageService.isBilingualEnabled()
+                      ? 'Bilingual (বাংলা ও Eng)'
+                      : 'বাংলা মাধ্যম (Bengali)',
+                  bgColor: const Color(0xFFEAF2FF),
+                  textColor: AppColors.primary,
                 ),
               ],
             ),
@@ -498,7 +671,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                 if (exam.totalVacancies != null && exam.totalVacancies! > 0)
                   Text(
                     '${exam.totalVacancies} Vacancies',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F766E),
+                    ),
                   )
                 else
                   const Text(
@@ -506,7 +683,10 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                     style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(10),
@@ -516,10 +696,18 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                     children: [
                       Text(
                         'Explore Tests',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ],
                   ),
                 ),
@@ -550,7 +738,11 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
           const SizedBox(width: 4),
           Text(
             text,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
         ],
       ),
@@ -571,18 +763,30 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                 color: Color(0xFFEFF6FF),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.search_off_rounded, size: 32, color: AppColors.primary),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 32,
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
               'No Examinations Found',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.navy),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: AppColors.navy,
+              ),
             ),
             const SizedBox(height: 6),
             const Text(
               'We couldn\'t find any exams matching your search query or selected category filter.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 18),
             ElevatedButton(
@@ -595,10 +799,18 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Reset All Filters', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              child: const Text(
+                'Reset All Filters',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           ],
         ),

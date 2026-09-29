@@ -88,7 +88,7 @@ final appRouter = GoRouter(
       path: '/test-details/:testId',
       builder: (context, state) {
         final testId = state.pathParameters['testId'] ?? 'test-wbp-001';
-        final title = state.uri.queryParameters['title'] ?? 'WBP Constable Full Mock Test 01';
+        final title = state.uri.queryParameters['title'] ?? 'Mock Test';
         final isPro = state.uri.queryParameters['isPro'] == 'true';
         return TestDetailsScreen(
           testId: testId,

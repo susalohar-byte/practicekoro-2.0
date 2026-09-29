@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ClipboardList, ChevronUp, ChevronDown } from 'lucide-react';
 import { useContentLanguage } from '@/context/MaintenanceContext';
+import { MathText } from '@/components/common/MathText';
 
 interface ShortNotesBoxProps {
   explanation?: string;
@@ -302,7 +303,7 @@ export const ShortNotesBox: React.FC<ShortNotesBoxProps> = ({
       {isMathematics ? (
         /* Mathematics: Preserve raw mathematical steps and formula layout */
         <div className="mt-3.5 text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed font-sans whitespace-pre-line">
-          {normalizedExplanation}
+          <MathText>{normalizedExplanation}</MathText>
         </div>
       ) : (
         /* Non-Mathematics Short Notes: Strict • bullet points without numbering */

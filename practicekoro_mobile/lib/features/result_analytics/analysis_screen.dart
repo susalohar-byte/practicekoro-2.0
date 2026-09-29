@@ -31,8 +31,10 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   Future<void> _loadQuestions() async {
     final catalog = ref.read(catalogRepositoryProvider);
-    final testId = widget.attempt?.testId ?? 'test-wbp-001';
-    final questions = await catalog.getQuestionsForTest(testId);
+    final testId = widget.attempt?.testId ?? '';
+    final questions = testId.isNotEmpty
+        ? await catalog.getQuestionsForTest(testId)
+        : <QuestionModel>[];
     if (mounted) {
       setState(() {
         _questions = questions;
@@ -46,18 +48,18 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     final attempt = widget.attempt ??
         TestAttemptModel(
           id: widget.attemptId,
-          userId: 'student',
-          testId: 'test-wbp-001',
-          testTitle: 'WBP Constable Mock 01',
-          score: 68.0,
-          totalMarks: 100.0,
-          percentage: 68.0,
-          accuracy: 73.9,
-          correctCount: 68,
-          wrongCount: 24,
-          skippedCount: 8,
-          timeSpentSeconds: 2892,
-          totalQuestions: 100,
+          userId: '',
+          testId: '',
+          testTitle: 'Test Analysis',
+          score: 0.0,
+          totalMarks: 0.0,
+          percentage: 0.0,
+          accuracy: 0.0,
+          correctCount: 0,
+          wrongCount: 0,
+          skippedCount: 0,
+          timeSpentSeconds: 0,
+          totalQuestions: 0,
           completedAt: DateTime.now(),
         );
 

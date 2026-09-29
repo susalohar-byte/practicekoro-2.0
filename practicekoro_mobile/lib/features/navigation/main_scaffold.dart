@@ -4,12 +4,17 @@ import '../exams/exams_catalog_screen.dart';
 import '../practice/practice_screen.dart';
 import '../leaderboard/leaderboard_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../core/constants/app_colors.dart';
 
 class MainScaffold extends StatefulWidget {
   final int initialIndex;
   final String? practiceInitialTab;
 
-  const MainScaffold({super.key, this.initialIndex = 0, this.practiceInitialTab});
+  const MainScaffold({
+    super.key,
+    this.initialIndex = 0,
+    this.practiceInitialTab,
+  });
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
@@ -28,6 +33,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+      backgroundColor: AppColors.background,
       body: IndexedStack(
         index: _currentIndex,
         children: [
@@ -47,15 +53,15 @@ class _MainScaffoldState extends State<MainScaffold> {
       bottomNavigationBar: SafeArea(
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          height: 64,
+          height: 68,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: AppColors.borderSubtle, width: 1),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.10),
-                blurRadius: 20,
+                color: AppColors.navy.withValues(alpha: 0.10),
+                blurRadius: 24,
                 spreadRadius: 0,
                 offset: const Offset(0, 6),
               ),
@@ -64,10 +70,30 @@ class _MainScaffoldState extends State<MainScaffold> {
           child: Row(
             children: [
               _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-              _buildNavItem(1, Icons.assignment_rounded, Icons.assignment_outlined, 'Test Series'),
-              _buildNavItem(2, Icons.menu_book_rounded, Icons.menu_book_outlined, 'Practice'),
-              _buildNavItem(3, Icons.bar_chart_rounded, Icons.bar_chart_outlined, 'Results'),
-              _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+              _buildNavItem(
+                1,
+                Icons.assignment_rounded,
+                Icons.assignment_outlined,
+                'Test Series',
+              ),
+              _buildNavItem(
+                2,
+                Icons.menu_book_rounded,
+                Icons.menu_book_outlined,
+                'Practice',
+              ),
+              _buildNavItem(
+                3,
+                Icons.bar_chart_rounded,
+                Icons.bar_chart_outlined,
+                'Results',
+              ),
+              _buildNavItem(
+                4,
+                Icons.person_rounded,
+                Icons.person_outline_rounded,
+                'Profile',
+              ),
             ],
           ),
         ),
@@ -75,7 +101,12 @@ class _MainScaffoldState extends State<MainScaffold> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+  Widget _buildNavItem(
+    int index,
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+  ) {
     final bool isSelected = _currentIndex == index;
     return Expanded(
       child: InkWell(
@@ -89,13 +120,18 @@ class _MainScaffoldState extends State<MainScaffold> {
               width: 44,
               height: 28,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [Color(0xFFEAF2FF), Color(0xFFF4F8FF)],
+                      )
+                    : null,
+                color: isSelected ? null : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 isSelected ? activeIcon : inactiveIcon,
                 size: 20,
-                color: isSelected ? const Color(0xFF0158FC) : const Color(0xFF64748B),
+                color: isSelected ? AppColors.primary : AppColors.secondaryText,
               ),
             ),
             const SizedBox(height: 2),
@@ -104,7 +140,9 @@ class _MainScaffoldState extends State<MainScaffold> {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFF0158FC) : const Color(0xFF64748B),
+                color: isSelected
+                    ? const Color(0xFF0158FC)
+                    : const Color(0xFF64748B),
                 letterSpacing: -0.2,
               ),
             ),

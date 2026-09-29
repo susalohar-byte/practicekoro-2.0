@@ -1,71 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/components/pk_card.dart';
 import '../../core/components/pk_chip.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
-import '../../data/datasources/mock_data.dart';
+import '../../data/repositories/catalog_repository.dart';
 
-class ExamTestsScreen extends StatefulWidget {
+class ExamTestsScreen extends ConsumerStatefulWidget {
   final String examId;
 
   const ExamTestsScreen({super.key, required this.examId});
 
   @override
-  State<ExamTestsScreen> createState() => _ExamTestsScreenState();
+  ConsumerState<ExamTestsScreen> createState() => _ExamTestsScreenState();
 }
 
-class _ExamTestsScreenState extends State<ExamTestsScreen> {
+class _ExamTestsScreenState extends ConsumerState<ExamTestsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All Tests', 'Full Mock', 'Topic Test', 'PYQ'];
-  late final List<Map<String, dynamic>> _tests;
+  bool _isLoading = true;
+  String _title = 'Mock Tests';
+  List<Map<String, dynamic>> _tests = [];
 
   @override
   void initState() {
     super.initState();
-    final exam = MockData.exams.firstWhere(
-      (item) => item.id == widget.examId || item.slug == widget.examId,
-      orElse: () => MockData.exams.first,
-    );
-    _tests = MockData.mockTests.where((test) => test.examId == exam.id).map((test) {
-      final category = switch (test.testType) {
-        'full_mock' => 'Full Mock',
-        'pyq' => 'PYQ',
-        _ => 'Topic Test',
-      };
-      final isLocked = test.isPremium;
-      return {
-        'id': test.id,
-        'title': test.title,
-        'subtitle': '${test.totalQuestions} Questions • ${test.durationMinutes} Minutes',
-        'category': category,
-        'isLocked': isLocked,
-        'tag': category == 'PYQ' ? 'PYQ' : (isLocked ? 'Pro' : 'Free'),
-        'iconColor': category == 'PYQ' ? AppColors.cyan : (isLocked ? AppColors.warning : AppColors.primary),
-        'iconBg': category == 'PYQ' ? AppColors.cyanLight : (isLocked ? AppColors.warningLight : AppColors.veryLightBlue),
-      };
-    }).toList();
+    _loadData();
   }
 
-  String get _seriesTitle {
-    try {
-      final match = MockData.exams.firstWhere(
-        (e) => e.id == widget.examId || e.slug == widget.examId,
-      );
-      return match.title;
-    } catch (_) {
-      switch (widget.examId) {
-        case 'kp-si':
-        case 'kp-police-si':
-          return 'Kolkata Police SI';
-        case 'ssc-gd':
-          return 'SSC GD Constable';
-        default:
-          return 'WBP Constable';
-      }
+  Future<void> _loadData() async {
+    final repo = ref.read(catalogRepositoryProvider);
+    final exam = await repo.getExamById(widget.examId);
+    final tests = await repo.getMockTests(examId: exam?.id ?? widget.examId);
+
+    if (mounted) {
+      setState(() {
+        _title = exam?.title ?? widget.examId.replaceAll('-', ' ').toUpperCase();
+        _tests = tests.map((test) {
+          final category = switch (test.testType) {
+            'full_mock' => 'Full Mock',
+            'pyq' => 'PYQ',
+            _ => 'Topic Test',
+          };
+          final isLocked = test.isPremium;
+          return {
+            'id': test.id,
+            'title': test.title,
+            'subtitle': '${test.totalQuestions} Questions • ${test.durationMinutes} Minutes',
+            'category': category,
+            'isLocked': isLocked,
+            'tag': category == 'PYQ' ? 'PYQ' : (isLocked ? 'Pro' : 'Free'),
+            'iconColor': category == 'PYQ' ? AppColors.cyan : (isLocked ? AppColors.warning : AppColors.primary),
+            'iconBg': category == 'PYQ' ? AppColors.cyanLight : (isLocked ? AppColors.warningLight : AppColors.veryLightBlue),
+          };
+        }).toList();
+        _isLoading = false;
+      });
     }
   }
+
+  String get _seriesTitle => _title;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +87,11 @@ class _ExamTestsScreenState extends State<ExamTestsScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
+            : Column(
           children: [
             // Series Summary Header
             Container(

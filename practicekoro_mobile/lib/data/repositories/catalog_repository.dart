@@ -6,7 +6,6 @@ import '../models/test_model.dart';
 import '../models/question_model.dart';
 import '../models/test_series_model.dart';
 import '../models/live_test_model.dart';
-import '../datasources/mock_data.dart';
 import '../datasources/local_storage.dart';
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
@@ -55,7 +54,7 @@ class CatalogRepository {
         // Fallback to local mock data
       }
     }
-    return MockData.exams;
+    return [];
   }
 
   Future<ExamModel?> getExamById(String examId) async {
@@ -85,7 +84,7 @@ class CatalogRepository {
         // Fallback
       }
     }
-    return MockData.subjects;
+    return [];
   }
 
   Future<List<MockTestModel>> getMockTests({String? examId, String? testType}) async {
@@ -109,14 +108,7 @@ class CatalogRepository {
         // Fallback
       }
     }
-    var list = MockData.mockTests;
-    if (examId != null) {
-      list = list.where((t) => t.examId == examId).toList();
-    }
-    if (testType != null) {
-      list = list.where((t) => t.testType == testType).toList();
-    }
-    return list.isNotEmpty ? list : MockData.mockTests;
+    return [];
   }
 
   Future<MockTestModel?> getTestById(String testId) async {
@@ -124,7 +116,7 @@ class CatalogRepository {
     try {
       return allTests.firstWhere((t) => t.id == testId || t.slug == testId);
     } catch (_) {
-      return MockData.mockTests.first;
+      return null;
     }
   }
 
@@ -163,7 +155,7 @@ class CatalogRepository {
         // Fallback
       }
     }
-    return MockData.sampleQuestions;
+    return [];
   }
 
   Future<LiveTestModel?> getActiveLiveTest() async {
@@ -208,7 +200,7 @@ class CatalogRepository {
         // Fallback
       }
     }
-    return MockData.activeLiveTest;
+    return null;
   }
 
   Future<List<TestSeriesModel>> getPopularTestSeries() async {
@@ -246,7 +238,7 @@ class CatalogRepository {
         // Fallback
       }
     }
-    return MockData.popularTestSeries;
+    return [];
   }
 
   Future<bool> joinLiveTest(String liveTestId, String? userId) async {

@@ -16,52 +16,75 @@ class _TopicScreenState extends State<TopicScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All Topics', 'Weak', 'Attempted'];
 
+  String get _subjectTitle {
+    switch (widget.subjectId.toLowerCase()) {
+      case 'math':
+        return 'Mathematics';
+      case 'reasoning':
+        return 'Reasoning & Mental Ability';
+      case 'gk':
+        return 'General Knowledge';
+      case 'english':
+        return 'English Language';
+      case 'bengali':
+        return 'Bengali Language';
+      case 'computer':
+        return 'Computer Awareness';
+      case 'current-affairs':
+        return 'Current Affairs';
+      case 'environment':
+        return 'Environmental Studies';
+      default:
+        return widget.subjectId.replaceAll('-', ' ').toUpperCase();
+    }
+  }
+
   final List<Map<String, dynamic>> _topics = [
     {
       'title': 'Number System',
-      'questions': '120 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.pin_rounded,
       'color': AppColors.gold,
       'bgColor': AppColors.goldLight,
     },
     {
       'title': 'Simplification',
-      'questions': '95 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.calculate_outlined,
       'color': AppColors.purple,
       'bgColor': AppColors.purpleLight,
     },
     {
       'title': 'Percentage',
-      'questions': '110 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.percent_rounded,
       'color': AppColors.primary,
       'bgColor': AppColors.primaryLight,
     },
     {
       'title': 'Profit & Loss',
-      'questions': '100 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.sell_rounded,
       'color': AppColors.error,
       'bgColor': AppColors.errorLight,
     },
     {
       'title': 'Ratio & Proportion',
-      'questions': '85 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.pie_chart_rounded,
       'color': AppColors.orange,
       'bgColor': AppColors.orangeLight,
     },
     {
       'title': 'Average',
-      'questions': '75 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.bar_chart_rounded,
       'color': AppColors.cyan,
       'bgColor': AppColors.cyanLight,
     },
     {
       'title': 'Time & Work',
-      'questions': '90 Questions',
+      'questions': 'Practice Set',
       'icon': Icons.hourglass_bottom_rounded,
       'color': AppColors.success,
       'bgColor': AppColors.successLight,
@@ -92,17 +115,17 @@ class _TopicScreenState extends State<TopicScreen> {
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Mathematics',
-                  style: TextStyle(
+                  _subjectTitle,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.navy,
                   ),
                 ),
-                Text(
-                  '1,240 Questions',
+                const Text(
+                  'Chapter Practice',
                   style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                 ),
               ],

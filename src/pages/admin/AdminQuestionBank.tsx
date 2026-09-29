@@ -3,6 +3,7 @@ import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import { Button } from '@/components/common/Button';
+import { MathText } from '@/components/common/MathText';
 import {
   BookOpen,
   Plus,
@@ -3192,6 +3193,10 @@ export const AdminQuestionBank: React.FC = () => {
                     onChange={(e) => setBulkRawText(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono leading-relaxed"
                   />
+                  <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    Math/equations: wrap LaTeX in <code>$...$</code>, for example{' '}
+                    <code>{'($^{14}\\text{C}$)'}</code>. Use <code>$$...$$</code> for a centered equation.
+                  </p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -3313,7 +3318,7 @@ export const AdminQuestionBank: React.FC = () => {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="font-bold text-slate-900 dark:text-white">
-                              {q.questionNumber}. {q.questionText}
+                              {q.questionNumber}. <MathText>{q.questionText}</MathText>
                             </p>
                             {q.imageUrl && (
                               <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
@@ -3336,28 +3341,28 @@ export const AdminQuestionBank: React.FC = () => {
                                 q.correctOption === 'A' ? 'text-emerald-500 font-bold' : ''
                               }
                             >
-                              (a) {q.optionA}
+                              (a) <MathText>{q.optionA}</MathText>
                             </span>
                             <span
                               className={
                                 q.correctOption === 'B' ? 'text-emerald-500 font-bold' : ''
                               }
                             >
-                              (b) {q.optionB}
+                              (b) <MathText>{q.optionB}</MathText>
                             </span>
                             <span
                               className={
                                 q.correctOption === 'C' ? 'text-emerald-500 font-bold' : ''
                               }
                             >
-                              (c) {q.optionC}
+                              (c) <MathText>{q.optionC}</MathText>
                             </span>
                             <span
                               className={
                                 q.correctOption === 'D' ? 'text-emerald-500 font-bold' : ''
                               }
                             >
-                              (d) {q.optionD}
+                              (d) <MathText>{q.optionD}</MathText>
                             </span>
                           </div>
                           <p className="text-[10px] text-emerald-600 font-bold pt-0.5">

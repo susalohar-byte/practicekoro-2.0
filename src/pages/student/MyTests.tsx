@@ -51,146 +51,6 @@ interface UnifiedTestRow {
   iconColor: 'blue' | 'purple' | 'green' | 'rose' | 'amber';
 }
 
-/* ───────────────────────── reference data ───────────────────────── */
-const REFERENCE_TESTS: UnifiedTestRow[] = [
-  {
-    id: 'ref-1',
-    testId: 'mock-03',
-    testName: 'WBP Constable - Mock 03',
-    exam: 'WBP Constable',
-    type: 'Mock Test',
-    date: '12 Sep 2026',
-    score: '72/100',
-    scoreVal: 72,
-    totalMarks: 100,
-    accuracy: 78,
-    time: '48m 12s',
-    timeSpentSeconds: 2892,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'blue',
-  },
-  {
-    id: 'ref-2',
-    testId: 'mock-02',
-    testName: 'SSC GD - Mock 02',
-    exam: 'SSC GD',
-    type: 'Mock Test',
-    date: '08 Sep 2026',
-    score: '81/100',
-    scoreVal: 81,
-    totalMarks: 100,
-    accuracy: 82,
-    time: '52m 03s',
-    timeSpentSeconds: 3123,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'purple',
-  },
-  {
-    id: 'ref-3',
-    testId: 'gk-04',
-    testName: 'General Knowledge - Test 04',
-    exam: 'Mixed',
-    type: 'Topic Test',
-    date: '05 Sep 2026',
-    score: '68/100',
-    scoreVal: 68,
-    totalMarks: 100,
-    accuracy: 71,
-    time: '22m 40s',
-    timeSpentSeconds: 1360,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'green',
-  },
-  {
-    id: 'ref-4',
-    testId: 'history-12',
-    testName: 'Indian History - Topic 12',
-    exam: 'WBP Constable',
-    type: 'Topic Test',
-    date: '30 Aug 2026',
-    score: '84/100',
-    scoreVal: 84,
-    totalMarks: 100,
-    accuracy: 88,
-    time: '18m 25s',
-    timeSpentSeconds: 1105,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'rose',
-  },
-  {
-    id: 'ref-5',
-    testId: 'math-01',
-    testName: 'Maths - Full Test 01',
-    exam: 'WBP Constable',
-    type: 'Mock Test',
-    date: '28 Aug 2026',
-    score: '65/100',
-    scoreVal: 65,
-    totalMarks: 100,
-    accuracy: 69,
-    time: '55m 10s',
-    timeSpentSeconds: 3310,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'blue',
-  },
-  {
-    id: 'ref-6',
-    testId: 'eng-topic',
-    testName: 'English - Topic Practice',
-    exam: 'WBP Constable',
-    type: 'Topic Test',
-    date: '25 Aug 2026',
-    score: '78/100',
-    scoreVal: 78,
-    totalMarks: 100,
-    accuracy: 80,
-    time: '20m 15s',
-    timeSpentSeconds: 1215,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'amber',
-  },
-  {
-    id: 'ref-7',
-    testId: 'ca-aug',
-    testName: 'Current Affairs - Aug 2026',
-    exam: 'Mixed',
-    type: 'Topic Test',
-    date: '20 Aug 2026',
-    score: '62/100',
-    scoreVal: 62,
-    totalMarks: 100,
-    accuracy: 66,
-    time: '15m 40s',
-    timeSpentSeconds: 940,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'purple',
-  },
-  {
-    id: 'ref-8',
-    testId: 'reasoning-01',
-    testName: 'Reasoning - Mock 01',
-    exam: 'WBP Constable',
-    type: 'Mock Test',
-    date: '15 Aug 2026',
-    score: '71/100',
-    scoreVal: 71,
-    totalMarks: 100,
-    accuracy: 74,
-    time: '49m 33s',
-    timeSpentSeconds: 2973,
-    isRealAttempt: false,
-    status: 'completed',
-    iconColor: 'rose',
-  },
-];
-
 /* ───────────────────────── helpers ───────────────────────── */
 const ICON_COLOR_MAP: Record<UnifiedTestRow['iconColor'], string> = {
   blue: 'bg-blue-500 dark:bg-blue-600',
@@ -221,13 +81,13 @@ const FILTER_PILLS: { key: TestTypeFilter; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
-const SUBJECTS = [
-  { name: 'General Knowledge', pct: 82, color: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400', Icon: BookOpen },
-  { name: 'Mathematics', pct: 76, color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', Icon: Calculator },
-  { name: 'Reasoning', pct: 68, color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', Icon: Brain },
-  { name: 'English', pct: 71, color: 'bg-purple-500', textColor: 'text-purple-600 dark:text-purple-400', Icon: Languages },
-  { name: 'Bengali', pct: 65, color: 'bg-rose-500', textColor: 'text-rose-600 dark:text-rose-400', Icon: Languages },
-  { name: 'Computer Awareness', pct: 78, color: 'bg-sky-500', textColor: 'text-sky-600 dark:text-sky-400', Icon: Laptop },
+const SUBJECT_DEFS = [
+  { name: 'General Knowledge', color: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400', Icon: BookOpen },
+  { name: 'Mathematics', color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400', Icon: Calculator },
+  { name: 'Reasoning', color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', Icon: Brain },
+  { name: 'English', color: 'bg-purple-500', textColor: 'text-purple-600 dark:text-purple-400', Icon: Languages },
+  { name: 'Bengali', color: 'bg-rose-500', textColor: 'text-rose-600 dark:text-rose-400', Icon: Languages },
+  { name: 'Computer Awareness', color: 'bg-sky-500', textColor: 'text-sky-600 dark:text-sky-400', Icon: Laptop },
 ];
 
 /* ───────────────────── pagination helpers ───────────────────── */
@@ -290,9 +150,9 @@ export const MyTests: React.FC = () => {
 
   /* ── unified rows ── */
   const allTestRows = useMemo<UnifiedTestRow[]>(() => {
-    if (!attempts || attempts.length === 0) return REFERENCE_TESTS;
+    if (!attempts || attempts.length === 0) return [];
 
-    const realRows: UnifiedTestRow[] = attempts.map((a, idx) => {
+    return attempts.map((a, idx) => {
       let typeStr: UnifiedTestRow['type'] = 'Mock Test';
       if (a.testType === 'pyq') typeStr = 'PYQ';
       else if (
@@ -318,13 +178,13 @@ export const MyTests: React.FC = () => {
         id: a.id,
         testId: a.testId,
         testName: a.testTitle || 'Mock Test',
-        exam: a.examTitle || selectedExam?.title || 'WBP Constable',
+        exam: a.examTitle || selectedExam?.title || 'Mock Exam',
         type: typeStr,
         date: dateFormatted,
         score: `${Math.round(a.score)}/${a.totalMarks || 100}`,
         scoreVal: a.score,
         totalMarks: a.totalMarks || 100,
-        accuracy: Math.round(a.accuracy || 75),
+        accuracy: Math.round(a.accuracy || 0),
         time: timeStr,
         timeSpentSeconds: a.timeSpentSeconds,
         isRealAttempt: true,
@@ -332,41 +192,47 @@ export const MyTests: React.FC = () => {
         iconColor,
       };
     });
-
-    if (realRows.length < 8) {
-      const remainingNeeded = 8 - realRows.length;
-      return [...realRows, ...REFERENCE_TESTS.slice(0, remainingNeeded)];
-    }
-    return realRows;
   }, [attempts, selectedExam]);
 
   /* ── metrics ── */
   const metrics = useMemo(() => {
-    const totalAttempted = attempts.length > 0 ? Math.max(attempts.length, 86) : 86;
+    const totalAttempted = attempts.length;
     let computedQuestions = 0;
-    let computedAccuracy = 78;
-    let bestScoreVal = 82;
+    let computedAccuracy = 0;
+    let bestScoreVal = 0;
+    let bestTotalMarks = 0;
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    let totalSkipped = 0;
 
     if (attempts.length > 0) {
-      computedQuestions = attempts.reduce(
-        (sum, a) => sum + (a.correctCount + a.wrongCount + a.skippedCount || 50),
-        0
-      );
-      if (computedQuestions < 4320) computedQuestions = 4320;
+      totalCorrect = attempts.reduce((sum, a) => sum + (a.correctCount || 0), 0);
+      totalWrong = attempts.reduce((sum, a) => sum + (a.wrongCount || 0), 0);
+      totalSkipped = attempts.reduce((sum, a) => sum + (a.skippedCount || 0), 0);
+      computedQuestions = totalCorrect + totalWrong + totalSkipped;
       const sumAcc = attempts.reduce((sum, a) => sum + (a.accuracy || 0), 0);
-      computedAccuracy = Math.round(sumAcc / attempts.length) || 78;
-      const maxScore = Math.max(...attempts.map((a) => a.score || 0));
-      if (maxScore > 0) bestScoreVal = Math.round(maxScore);
-    } else {
-      computedQuestions = 4320;
+      computedAccuracy = Math.round(sumAcc / attempts.length);
+      attempts.forEach((a) => {
+        if ((a.score || 0) >= bestScoreVal) {
+          bestScoreVal = Math.round(a.score || 0);
+          bestTotalMarks = a.totalMarks || 100;
+        }
+      });
     }
+
+    const uniqueDays = new Set(
+      attempts.map((a) => new Date(a.createdAt).toISOString().slice(0, 10))
+    );
 
     return {
       testsAttempted: totalAttempted,
       totalQuestions: computedQuestions.toLocaleString('en-IN'),
       avgAccuracy: computedAccuracy,
-      bestScore: `${bestScoreVal}/100`,
-      dayStreak: 7,
+      bestScore: attempts.length > 0 ? `${bestScoreVal}/${bestTotalMarks}` : '0/0',
+      dayStreak: uniqueDays.size,
+      totalCorrect: totalCorrect.toLocaleString('en-IN'),
+      totalWrong: totalWrong.toLocaleString('en-IN'),
+      totalSkipped: totalSkipped.toLocaleString('en-IN'),
     };
   }, [attempts]);
 
@@ -832,7 +698,9 @@ export const MyTests: React.FC = () => {
                     Consistency Creates Champions
                   </h3>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
-                    You&apos;ve attempted 7 tests this week. Keep up the great work!
+                    {metrics.testsAttempted > 0
+                      ? `You've attempted ${metrics.testsAttempted} tests so far. Keep up the great work!`
+                      : 'Attempt your first mock test today to start tracking your progress!'}
                   </p>
                 </div>
               </div>
@@ -933,9 +801,9 @@ export const MyTests: React.FC = () => {
 
                 <div className="space-y-3 text-xs sm:text-sm font-semibold w-full sm:w-auto sm:min-w-[190px]">
                   {[
-                    { label: 'Correct', value: '3,370', dot: 'bg-emerald-500' },
-                    { label: 'Incorrect', value: '720', dot: 'bg-rose-500' },
-                    { label: 'Unattempted', value: '230', dot: 'bg-slate-400 dark:bg-slate-600' },
+                    { label: 'Correct', value: metrics.totalCorrect, dot: 'bg-emerald-500' },
+                    { label: 'Incorrect', value: metrics.totalWrong, dot: 'bg-rose-500' },
+                    { label: 'Unattempted', value: metrics.totalSkipped, dot: 'bg-slate-400 dark:bg-slate-600' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between gap-6">
                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
@@ -985,29 +853,32 @@ export const MyTests: React.FC = () => {
 
               {/* Subject bars */}
               <div className="space-y-3 pt-1">
-                {SUBJECTS.map((subj) => (
-                  <div key={subj.name} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs sm:text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-6 h-6 rounded-md ${subj.color} text-white flex items-center justify-center shrink-0`}
-                        >
-                          <subj.Icon className="w-3.5 h-3.5" />
+                {SUBJECT_DEFS.map((subj) => {
+                  const pct = attempts.length > 0 ? metrics.avgAccuracy : 0;
+                  return (
+                    <div key={subj.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-6 h-6 rounded-md ${subj.color} text-white flex items-center justify-center shrink-0`}
+                          >
+                            <subj.Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {subj.name}
+                          </span>
                         </div>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {subj.name}
-                        </span>
+                        <span className={`font-extrabold ${subj.textColor}`}>{pct}%</span>
                       </div>
-                      <span className={`font-extrabold ${subj.textColor}`}>{subj.pct}%</span>
+                      <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${subj.color} rounded-full transition-all duration-700 ease-out`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${subj.color} rounded-full transition-all duration-700 ease-out`}
-                        style={{ width: `${subj.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1020,7 +891,7 @@ export const MyTests: React.FC = () => {
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">Your Rank</h3>
                   <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-0.5">
-                    WBP Constable - Mock 03
+                    {allTestRows[0]?.testName || 'Attempt a mock test to see your rank'}
                   </p>
                 </div>
                 <Link
@@ -1038,23 +909,25 @@ export const MyTests: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">
-                      # 147
+                      {attempts[0]?.rank ? `# ${attempts[0].rank}` : '# -'}
                     </p>
                     <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-1">
-                      out of 2,843 students
+                      {attempts.length > 0 ? 'Based on completed tests' : 'No rank recorded yet'}
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100/80 dark:border-emerald-700/40 rounded-xl px-3.5 py-2 text-right shrink-0">
-                  <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs">
-                    <ShieldCheck className="w-4 h-4 shrink-0" />
-                    <span>Top 6%</span>
+                {attempts.length > 0 && (
+                  <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100/80 dark:border-emerald-700/40 rounded-xl px-3.5 py-2 text-right shrink-0">
+                    <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs">
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>Active</span>
+                    </div>
+                    <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      Keep practicing!
+                    </p>
                   </div>
-                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    You&apos;re doing great!
-                  </p>
-                </div>
+                )}
               </div>
             </div>
 

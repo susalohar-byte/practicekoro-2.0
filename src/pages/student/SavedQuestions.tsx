@@ -29,6 +29,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import type { BookmarkItem } from '@/types';
 
@@ -566,13 +567,13 @@ export const SavedQuestions: React.FC = () => {
 
                         {/* Question Text */}
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">
-                          {!isBilingualEnabled
+                          <MathText>{!isBilingualEnabled
                             ? item.question.questionBengaliText || item.question.questionText
-                            : item.question.questionText}
+                            : item.question.questionText}</MathText>
                         </h4>
                         {isBilingualEnabled && item.question.questionBengaliText && (
                           <p className="text-xs text-slate-600 dark:text-slate-300 font-medium font-sans">
-                            {item.question.questionBengaliText}
+                            <MathText>{item.question.questionBengaliText}</MathText>
                           </p>
                         )}
 
@@ -894,9 +895,9 @@ export const SavedQuestions: React.FC = () => {
             {/* Modal Question Content */}
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-snug">
-                {!isBilingualEnabled
+                <MathText>{!isBilingualEnabled
                   ? practiceItem.question.questionBengaliText || practiceItem.question.questionText
-                  : practiceItem.question.questionText}
+                  : practiceItem.question.questionText}</MathText>
               </h3>
 
               {practiceItem.question.imageUrl && (
@@ -946,7 +947,7 @@ export const SavedQuestions: React.FC = () => {
                         <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold flex items-center justify-center shrink-0">
                           {opt}
                         </span>
-                        <span>{optText}</span>
+                        <span><MathText>{optText}</MathText></span>
                       </div>
                       {practiceAnswerChecked && isCorrect && (
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />

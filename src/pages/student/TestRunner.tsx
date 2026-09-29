@@ -21,6 +21,7 @@ import type { MockTest, StudentTestQuestion, AttemptAnswerState } from '@/types'
 import { MaintenanceScreen } from '@/components/common/MaintenanceScreen';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 
 export const TestRunner: React.FC = () => {
@@ -487,7 +488,7 @@ export const TestRunner: React.FC = () => {
             {/* Question Card (Screen 11) */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed">
-                {displayedQuestionText}
+                <MathText>{displayedQuestionText}</MathText>
               </h2>
 
               {/* Question Figure / Diagram (Global Question Feature) */}
@@ -525,7 +526,7 @@ export const TestRunner: React.FC = () => {
                       {optKey}
                     </div>
                     <span className="text-xs sm:text-sm font-semibold flex-1 leading-snug">
-                      {optText}
+                      <MathText>{optText}</MathText>
                     </span>
                   </div>
                 );

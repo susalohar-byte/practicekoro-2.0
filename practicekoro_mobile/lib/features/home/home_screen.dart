@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
-import '../../data/datasources/mock_data.dart';
 import '../../data/models/live_test_model.dart';
 import '../../data/models/test_series_model.dart';
 import '../../data/repositories/catalog_repository.dart';
@@ -21,41 +20,11 @@ typedef PracticeKoroHomeScreen = HomeScreen;
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  Timer? _countdownTimer;
-  Duration _remainingDuration = const Duration(days: 3, hours: 14, minutes: 22);
 
-  final List<Map<String, dynamic>> _searchableItems = [
-    {'title': 'WBP Constable Full Mock 01', 'type': 'Mock Test', 'route': '/test-details/test-wbp-001?title=WBP%20Constable%20Full%20Mock%20Test%2001', 'category': 'test'},
-    {'title': 'WBP Constable PYQ 2024 Official Paper', 'type': 'PYQ Paper', 'route': '/test-details/test-wbp-002?title=WBP%20Constable%20PYQ%202024%20(Prelims)', 'category': 'pyq'},
-    {'title': 'General Knowledge Special', 'type': 'Subject Test', 'route': '/practice/topics/gk', 'category': 'subject'},
-    {'title': 'Mathematics Practice', 'type': 'Subject Test', 'route': '/practice/topics/math', 'category': 'subject'},
-    {'title': 'Reasoning Speed Test', 'type': 'Subject Test', 'route': '/practice/topics/reasoning', 'category': 'subject'},
-    {'title': 'WBPSC Clerkship Mock Series', 'type': 'Test Series', 'route': '/exams/wbpsc-clerkship', 'category': 'series'},
-    {'title': 'SSC GD Constable Series', 'type': 'Test Series', 'route': '/exams/ssc-gd', 'category': 'series'},
-    {'title': 'Railway Group D Practice', 'type': 'Test Series', 'route': '/exams/railway-group-d', 'category': 'series'},
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _startCountdownTimer();
-  }
-
-  void _startCountdownTimer() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          if (_remainingDuration.inSeconds > 0) {
-            _remainingDuration -= const Duration(seconds: 1);
-          }
-        });
-      }
-    });
-  }
+  final List<Map<String, dynamic>> _searchableItems = [];
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -124,11 +93,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         autofocus: true,
                         decoration: InputDecoration(
                           hintText: 'Search mock tests, exams, subjects...',
-                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                          hintStyle: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Color(0xFF64748B),
+                            size: 20,
+                          ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF64748B)),
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
+                                  ),
                                   onPressed: () {
                                     _searchController.clear();
                                     setModalState(() {});
@@ -136,7 +116,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                         ),
                         onChanged: (_) => setModalState(() {}),
                       ),
@@ -145,7 +128,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: 10),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -169,7 +158,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 12),
               Text(
                 '${results.length} Results Found',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                ),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -178,66 +171,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.search_off_rounded, size: 48, color: Color(0xFFCBD5E1)),
+                            const Icon(
+                              Icons.search_off_rounded,
+                              size: 48,
+                              color: Color(0xFFCBD5E1),
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               'No tests or topics found for "$query"',
-                              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       )
                     : ListView.separated(
                         itemCount: results.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         itemBuilder: (context, idx) {
                           final item = results[idx];
                           final isTest = item['category'] == 'test';
                           final isSeries = item['category'] == 'series';
 
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             leading: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: isTest
                                     ? const Color(0xFFEFF6FF)
                                     : isSeries
-                                        ? const Color(0xFFFEF3C7)
-                                        : const Color(0xFFECFDF5),
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 isTest
                                     ? Icons.assignment_outlined
                                     : isSeries
-                                        ? Icons.layers_outlined
-                                        : Icons.menu_book_outlined,
+                                    ? Icons.layers_outlined
+                                    : Icons.menu_book_outlined,
                                 color: isTest
                                     ? const Color(0xFF0158FC)
                                     : isSeries
-                                        ? const Color(0xFFD97706)
-                                        : const Color(0xFF10B981),
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFF10B981),
                                 size: 20,
                               ),
                             ),
                             title: Text(
                               item['title'] as String,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                             subtitle: Text(
                               item['type'] as String,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0158FC),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
                                 'Open',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             onTap: () {
@@ -255,8 +273,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSearchFilterChip(String label, void Function(void Function()) setModalState) {
-    final isSelected = _searchController.text.trim().toLowerCase() == label.toLowerCase();
+  Widget _buildSearchFilterChip(
+    String label,
+    void Function(void Function()) setModalState,
+  ) {
+    final isSelected =
+        _searchController.text.trim().toLowerCase() == label.toLowerCase();
     return InkWell(
       onTap: () {
         setModalState(() {
@@ -273,7 +295,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0158FC) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isSelected ? const Color(0xFF0158FC) : const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF0158FC)
+                : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Text(
           label,
@@ -292,11 +318,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final liveTestAsync = ref.watch(activeLiveTestProvider);
     final popularSeriesAsync = ref.watch(popularTestSeriesProvider);
 
-    final LiveTestModel activeLive = liveTestAsync.value ?? MockData.activeLiveTest;
-    final List<TestSeriesModel> popularList = popularSeriesAsync.value ?? MockData.popularTestSeries;
+    final LiveTestModel? activeLive = liveTestAsync.value;
+    final List<TestSeriesModel> popularList = popularSeriesAsync.value ?? [];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -307,7 +333,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
           color: const Color(0xFF0158FC),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 96), // Clean padding for floating navbar
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 104),
             children: [
               // ==========================================
               // SECTION 1: HEADER
@@ -328,10 +354,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 20),
 
               // ==========================================
-              // SECTION 4: LIVE TEST CARD
+              // SECTION 4: LIVE TEST CARD (Render only when active/scheduled)
               // ==========================================
-              _buildLiveTestCard(activeLive),
-              const SizedBox(height: 22),
+              if (activeLive != null) ...[
+                _buildLiveTestCard(activeLive),
+                const SizedBox(height: 22),
+              ],
 
               // ==========================================
               // SECTION 5: YOUR SUBJECT PROGRESS
@@ -340,10 +368,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 22),
 
               // ==========================================
-              // SECTION 6: POPULAR TEST SERIES
+              // SECTION 6: POPULAR TEST SERIES (Render only when available)
               // ==========================================
-              _buildPopularTestSeriesSection(popularList),
-              const SizedBox(height: 22),
+              if (popularList.isNotEmpty) ...[
+                _buildPopularTestSeriesSection(popularList),
+                const SizedBox(height: 22),
+              ],
 
               // ==========================================
               // SECTION 7: QUICK STUDY TOOLS
@@ -443,59 +473,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: Colors.white,
               border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
             ),
-            child: const Icon(Icons.search_rounded, size: 19, color: Color(0xFF64748B)),
+            child: const Icon(
+              Icons.search_rounded,
+              size: 19,
+              color: Color(0xFF64748B),
+            ),
           ),
         ),
         const SizedBox(width: 8),
 
-        // Notification Bell Icon with "3" badge
+        // Notification Bell Icon
         InkWell(
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Notifications: 3 new mock tests available!'),
+                content: Text('No new notifications'),
                 duration: Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
               ),
             );
           },
           borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-                ),
-                child: const Icon(Icons.notifications_none_rounded, size: 20, color: Color(0xFF64748B)),
-              ),
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    '3',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              size: 20,
+              color: Color(0xFF64748B),
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -517,7 +528,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
                   color: const Color(0xFFEFF6FF),
-                  child: const Icon(Icons.person, color: Color(0xFF0158FC), size: 20),
+                  child: const Icon(
+                    Icons.person,
+                    color: Color(0xFF0158FC),
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -534,16 +549,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1E3A8A),
-            Color(0xFF2563EB),
-            Color(0xFF3B82F6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF2563EB).withValues(alpha: 0.25),
@@ -553,7 +560,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
             // Background Decorative Circles
@@ -600,10 +607,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         const SizedBox(height: 14),
                         InkWell(
-                          onTap: () => _handleTabNavigation(1, '/test-series'),
+                          onTap: () => _handleTabNavigation(2, '/practice'),
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
@@ -627,7 +637,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF1D4ED8)),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 14,
+                                  color: Color(0xFF1D4ED8),
+                                ),
                               ],
                             ),
                           ),
@@ -672,13 +686,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Expanded(
               child: _buildPastelActionCard(
-                title: 'Mock Test',
+                title: 'Test Series',
                 subtitle: 'Full length tests',
                 icon: Icons.assignment_outlined,
-                iconColor: const Color(0xFF2563EB),
-                textColor: const Color(0xFF1E3A8A),
-                bgColor: const Color(0xFFEFF6FF),
-                borderColor: const Color(0xFFDBEAFE),
+                iconColor: AppColors.primary,
+                textColor: AppColors.navy,
+                bgColor: const Color(0xFFEAF2FF),
+                borderColor: AppColors.softBlue,
                 onTap: () => _handleTabNavigation(1, '/test-series'),
               ),
             ),
@@ -688,10 +702,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Topic Practice',
                 subtitle: 'Chapter-wise Qs',
                 icon: Icons.track_changes_rounded,
-                iconColor: const Color(0xFF9333EA),
-                textColor: const Color(0xFF581C87),
-                bgColor: const Color(0xFFFAF5FF),
-                borderColor: const Color(0xFFF3E8FF),
+                iconColor: AppColors.navy,
+                textColor: AppColors.navy,
+                bgColor: const Color(0xFFF1F6FF),
+                borderColor: const Color(0xFFDCE8FC),
                 onTap: () => _handleTabNavigation(2, '/practice'),
               ),
             ),
@@ -702,14 +716,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Expanded(
               child: _buildPastelActionCard(
-                title: 'Previous Year',
+                title: 'Previous Year Questions',
                 subtitle: 'Solved 2018-2024',
                 icon: Icons.history_rounded,
-                iconColor: const Color(0xFF059669),
-                textColor: const Color(0xFF065F46),
-                bgColor: const Color(0xFFECFDF5),
-                borderColor: const Color(0xFFD1FAE5),
-                onTap: () => _handleTabNavigation(1, '/test-series'),
+                iconColor: AppColors.brightBlue,
+                textColor: AppColors.navy,
+                bgColor: const Color(0xFFF0F7FF),
+                borderColor: const Color(0xFFDDEBFF),
+                onTap: () => context.go('/practice?tab=pyqs'),
               ),
             ),
             const SizedBox(width: 12),
@@ -718,10 +732,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'Performance',
                 subtitle: 'Rank & analysis',
                 icon: Icons.insights_rounded,
-                iconColor: const Color(0xFFD97706),
-                textColor: const Color(0xFF92400E),
-                bgColor: const Color(0xFFFFFBEB),
-                borderColor: const Color(0xFFFEF3C7),
+                iconColor: AppColors.primary,
+                textColor: AppColors.navy,
+                bgColor: const Color(0xFFEAF2FF),
+                borderColor: AppColors.softBlue,
                 onTap: () => _handleTabNavigation(3, '/results'),
               ),
             ),
@@ -743,13 +757,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.navy.withValues(alpha: 0.035),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,9 +819,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // SECTION 4 WIDGET: LIVE TEST CARD
   // ==========================================
   Widget _buildLiveTestCard(LiveTestModel liveTest) {
-    final daysStr = _remainingDuration.inDays.toString().padLeft(2, '0');
-    final hoursStr = (_remainingDuration.inHours % 24).toString().padLeft(2, '0');
-    final minsStr = (_remainingDuration.inMinutes % 60).toString().padLeft(2, '0');
+    final now = DateTime.now();
+    final isLiveNow =
+        now.isAfter(liveTest.scheduledStartTime) &&
+        now.isBefore(liveTest.scheduledEndTime);
+    final Duration diff = isLiveNow
+        ? (liveTest.scheduledEndTime.isAfter(now)
+              ? liveTest.scheduledEndTime.difference(now)
+              : Duration.zero)
+        : (liveTest.scheduledStartTime.isAfter(now)
+              ? liveTest.scheduledStartTime.difference(now)
+              : Duration.zero);
+
+    final daysStr = diff.inDays.toString().padLeft(2, '0');
+    final hoursStr = (diff.inHours % 24).toString().padLeft(2, '0');
+    final minsStr = (diff.inMinutes % 60).toString().padLeft(2, '0');
 
     return Container(
       width: double.infinity,
@@ -826,7 +859,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               // Red LIVE TEST badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4.5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEF4444),
                   borderRadius: BorderRadius.circular(20),
@@ -862,12 +898,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildCountdownBox(daysStr, 'Days'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 3),
-                    child: Text(':', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                   _buildCountdownBox(hoursStr, 'Hours'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 3),
-                    child: Text(':', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                   _buildCountdownBox(minsStr, 'Mins'),
                 ],
@@ -891,25 +941,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Metadata row: 90 Mins • 100 Questions • 100 Marks
           Row(
             children: [
-              const Icon(Icons.timer_outlined, size: 14, color: Color(0xFF94A3B8)),
+              const Icon(
+                Icons.timer_outlined,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
               const SizedBox(width: 4),
               Text(
                 '${liveTest.durationMinutes} Mins',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFFCBD5E1),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(width: 14),
-              const Icon(Icons.assignment_outlined, size: 14, color: Color(0xFF94A3B8)),
+              const Icon(
+                Icons.assignment_outlined,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
               const SizedBox(width: 4),
               Text(
                 '${liveTest.totalQuestions} Questions',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFFCBD5E1),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(width: 14),
-              const Icon(Icons.military_tech_outlined, size: 14, color: Color(0xFF94A3B8)),
+              const Icon(
+                Icons.military_tech_outlined,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
               const SizedBox(width: 4),
               Text(
                 '${liveTest.totalMarks.toInt()} Marks',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFFCBD5E1),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -922,10 +996,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Enrolled count
               Row(
                 children: [
-                  const Icon(Icons.people_alt_outlined, size: 15, color: Color(0xFF94A3B8)),
+                  const Icon(
+                    Icons.people_alt_outlined,
+                    size: 15,
+                    color: Color(0xFF94A3B8),
+                  ),
                   const SizedBox(width: 5),
                   Text(
-                    '${liveTest.enrolledCount > 0 ? liveTest.enrolledCount : 1420} Students Registered',
+                    '${liveTest.enrolledCount} Students Registered',
                     style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -939,12 +1017,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               InkWell(
                 onTap: () async {
                   final userId = LocalStorageService.getUserId();
-                  ref.read(catalogRepositoryProvider).joinLiveTest(liveTest.id, userId);
+                  ref
+                      .read(catalogRepositoryProvider)
+                      .joinLiveTest(liveTest.id, userId);
                   context.push('/live-test/${liveTest.testId}');
                 },
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8.5,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF2563EB), Color(0xFF0284C7)],
@@ -972,7 +1055,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ],
                   ),
                 ),
@@ -1023,12 +1110,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ==========================================
   Widget _buildSubjectProgressSection() {
     final subjects = [
-      {'name': 'GK', 'pct': 50, 'color': const Color(0xFF6366F1), 'bgColor': const Color(0xFFEEF2FF)},
-      {'name': 'Math', 'pct': 33, 'color': const Color(0xFF10B981), 'bgColor': const Color(0xFFECFDF5)},
-      {'name': 'Reasoning', 'pct': 50, 'color': const Color(0xFFF59E0B), 'bgColor': const Color(0xFFFFFBEB)},
-      {'name': 'English', 'pct': 33, 'color': const Color(0xFF3B82F6), 'bgColor': const Color(0xFFEFF6FF)},
-      {'name': 'Bengali', 'pct': 25, 'color': const Color(0xFFEC4899), 'bgColor': const Color(0xFFFDF2F8)},
-      {'name': 'Computer Awareness', 'pct': 10, 'color': const Color(0xFF06B6D4), 'bgColor': const Color(0xFFECFEFF)},
+      {
+        'name': 'GK',
+        'pct': 0,
+        'color': const Color(0xFF6366F1),
+        'bgColor': const Color(0xFFEEF2FF),
+      },
+      {
+        'name': 'Math',
+        'pct': 0,
+        'color': const Color(0xFF10B981),
+        'bgColor': const Color(0xFFECFDF5),
+      },
+      {
+        'name': 'Reasoning',
+        'pct': 0,
+        'color': const Color(0xFFF59E0B),
+        'bgColor': const Color(0xFFFFFBEB),
+      },
+      {
+        'name': 'English',
+        'pct': 0,
+        'color': const Color(0xFF3B82F6),
+        'bgColor': const Color(0xFFEFF6FF),
+      },
+      {
+        'name': 'Bengali',
+        'pct': 0,
+        'color': const Color(0xFFEC4899),
+        'bgColor': const Color(0xFFFDF2F8),
+      },
+      {
+        'name': 'Computer Awareness',
+        'pct': 0,
+        'color': const Color(0xFF06B6D4),
+        'bgColor': const Color(0xFFECFEFF),
+      },
     ];
 
     return Column(
@@ -1058,7 +1175,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   SizedBox(width: 2),
-                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0158FC)),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: Color(0xFF0158FC),
+                  ),
                 ],
               ),
             ),
@@ -1080,11 +1201,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return SizedBox(
               width: width,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.1,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1146,24 +1273,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final idLower = series.examId.toLowerCase();
-    final titleLower = '${series.title} ${series.examTitle ?? ''}'.toLowerCase();
+    final titleLower = '${series.title} ${series.examTitle ?? ''}'
+        .toLowerCase();
 
-    if (idLower.contains('wbp') || idLower.contains('kp') || titleLower.contains('wbp') || titleLower.contains('police') || titleLower.contains('constable')) {
+    if (idLower.contains('wbp') ||
+        idLower.contains('kp') ||
+        titleLower.contains('wbp') ||
+        titleLower.contains('police') ||
+        titleLower.contains('constable')) {
       return 'assets/images/exams/emblem_wbp.png';
     }
-    if (idLower.contains('wbpsc') || idLower.contains('wbcs') || titleLower.contains('wbpsc') || titleLower.contains('clerkship') || titleLower.contains('wbcs') || titleLower.contains('food')) {
+    if (idLower.contains('wbpsc') ||
+        idLower.contains('wbcs') ||
+        titleLower.contains('wbpsc') ||
+        titleLower.contains('clerkship') ||
+        titleLower.contains('wbcs') ||
+        titleLower.contains('food')) {
       return 'assets/images/exams/emblem_wbpsc.png';
     }
-    if (idLower.contains('railway') || idLower.contains('rrb') || titleLower.contains('railway') || titleLower.contains('rrb') || titleLower.contains('group d') || titleLower.contains('ntpc')) {
+    if (idLower.contains('railway') ||
+        idLower.contains('rrb') ||
+        titleLower.contains('railway') ||
+        titleLower.contains('rrb') ||
+        titleLower.contains('group d') ||
+        titleLower.contains('ntpc')) {
       return 'assets/images/exams/emblem_railway.png';
     }
-    if (idLower.contains('tet') || titleLower.contains('tet') || titleLower.contains('primary') || titleLower.contains('teach')) {
+    if (idLower.contains('tet') ||
+        titleLower.contains('tet') ||
+        titleLower.contains('primary') ||
+        titleLower.contains('teach')) {
       return 'assets/images/exams/emblem_tet.png';
     }
-    if (idLower.contains('wbssc') || titleLower.contains('wbssc') || titleLower.contains('slst')) {
+    if (idLower.contains('wbssc') ||
+        titleLower.contains('wbssc') ||
+        titleLower.contains('slst')) {
       return 'assets/images/exams/emblem_wbssc.png';
     }
-    if (idLower.contains('ssc') || titleLower.contains('ssc') || titleLower.contains('cgl') || titleLower.contains('gd')) {
+    if (idLower.contains('ssc') ||
+        titleLower.contains('ssc') ||
+        titleLower.contains('cgl') ||
+        titleLower.contains('gd')) {
       return 'assets/images/exams/emblem_ssc.png';
     }
     return 'assets/images/logo.png';
@@ -1173,18 +1323,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (pathOrUrl.startsWith('http')) {
       return Image.network(
         pathOrUrl,
-        width: 44,
-        height: 44,
+        width: 52,
+        height: 52,
         fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.contain),
+        errorBuilder: (_, _, _) => Image.asset(
+          'assets/images/logo.png',
+          width: 52,
+          height: 52,
+          fit: BoxFit.contain,
+        ),
       );
     }
     return Image.asset(
       pathOrUrl,
-      width: 44,
-      height: 44,
+      width: 52,
+      height: 52,
       fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.contain),
+      errorBuilder: (_, _, _) => Image.asset(
+        'assets/images/logo.png',
+        width: 52,
+        height: 52,
+        fit: BoxFit.contain,
+      ),
     );
   }
 
@@ -1217,7 +1377,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   SizedBox(width: 2),
-                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0158FC)),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: Color(0xFF0158FC),
+                  ),
                 ],
               ),
             ),
@@ -1227,7 +1391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // Horizontal scrolling cards with Exam emblem on left and Title + Arrow CTA on right
         SizedBox(
-          height: 86,
+          height: 94,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: seriesList.length,
@@ -1240,13 +1404,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onTap: () => context.push('/exams/${series.examId}'),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  width: 236,
-                  height: 86,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  width: 248,
+                  height: 94,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.softBlue, width: 1),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFF0F172A).withValues(alpha: 0.04),
@@ -1259,12 +1426,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       // Left: Circular Exam Emblem Container
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 58,
+                        height: 58,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                          color: const Color(0xFFEAF2FF),
+                          borderRadius: BorderRadius.circular(17),
+                          border: Border.all(
+                            color: AppColors.softBlue,
+                            width: 1,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -1274,7 +1444,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ],
                         ),
                         alignment: Alignment.center,
-                        child: ClipOval(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
                           child: _buildEmblemImage(emblemPath),
                         ),
                       ),

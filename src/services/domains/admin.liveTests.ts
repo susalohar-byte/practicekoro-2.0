@@ -85,7 +85,7 @@ export async function getLiveTests(examId?: string): Promise<LiveTest[]> {
     const { data, error } = await query;
     if (error) throw error;
     if (!data || data.length === 0) {
-      return localLiveTests.map((lt) => enrichLiveTest(lt));
+      return [];
     }
 
     const enriched = data.map((item: any) => {
@@ -119,8 +119,8 @@ export async function getLiveTests(examId?: string): Promise<LiveTest[]> {
     }
     return enriched;
   } catch (err) {
-    console.warn('Supabase getLiveTests fallback:', err);
-    return localLiveTests.map((lt) => enrichLiveTest(lt));
+    console.warn('Supabase getLiveTests error:', err);
+    return [];
   }
 }
 
@@ -487,7 +487,7 @@ export async function getLiveTestLeaderboard(liveTestId: string): Promise<LiveTe
         p_live_test_id: liveTestId,
       });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         return data.map((row: any) => ({
           id: row.participant_id,
           liveTestId,
@@ -505,8 +505,9 @@ export async function getLiveTestLeaderboard(liveTestId: string): Promise<LiveTe
         }));
       }
     } catch (err) {
-      console.warn('Supabase getLiveTestLeaderboard RPC fallback:', err);
+      console.warn('Supabase getLiveTestLeaderboard RPC error:', err);
     }
+    return [];
   }
 
   // Local fallback calculation with deterministic tie-breaking

@@ -13,6 +13,7 @@ import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 import { TopicTests } from '@/pages/student/TopicTests';
 import {
@@ -461,9 +462,9 @@ export const Practice: React.FC = () => {
 
             <div className="space-y-2">
               <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed">
-                {!isBilingualEnabled || languageMode === 'bengali'
+                <MathText>{!isBilingualEnabled || languageMode === 'bengali'
                   ? currentQuestion.questionBengaliText || currentQuestion.questionText
-                  : currentQuestion.questionText || currentQuestion.questionBengaliText}
+                  : currentQuestion.questionText || currentQuestion.questionBengaliText}</MathText>
               </p>
             </div>
 
@@ -522,7 +523,7 @@ export const Practice: React.FC = () => {
                     >
                       {opt}
                     </span>
-                    <span className="text-sm font-medium pt-0.5 flex-1">{optText}</span>
+                    <span className="text-sm font-medium pt-0.5 flex-1"><MathText>{optText}</MathText></span>
 
                     {isAnswerSubmitted && isCorrectOption && (
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />

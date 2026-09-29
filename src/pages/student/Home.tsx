@@ -103,6 +103,47 @@ export const Home: React.FC = () => {
     staleTime: 30000,
   });
 
+  const { data: userAttempts = [] } = useQuery({
+    queryKey: ['home-user-attempts', user?.id],
+    queryFn: () => (user?.id ? api.getUserAttempts(user.id) : Promise.resolve([])),
+    enabled: !!user?.id,
+    staleTime: 30000,
+  });
+
+  const { data: allTests = [] } = useQuery({
+    queryKey: ['home-all-tests'],
+    queryFn: () => api.getTests(),
+    staleTime: 60000,
+  });
+
+  const { data: platformOverview } = useQuery({
+    queryKey: ['home-platform-rankings'],
+    queryFn: () => api.getPlatformAnalyticsOverview(),
+    staleTime: 60000,
+  });
+
+  const completedAttempts = userAttempts.filter((a) => a.status === 'completed');
+  const inProgressAttempt = userAttempts.find((a) => a.status === 'in_progress');
+  const testsTakenCount = completedAttempts.length;
+  const totalCorrectCount = completedAttempts.reduce((sum, a) => sum + (a.correctCount || 0), 0);
+  const totalWrongCount = completedAttempts.reduce((sum, a) => sum + (a.wrongCount || 0), 0);
+  const totalSkippedCount = completedAttempts.reduce((sum, a) => sum + (a.skippedCount || 0), 0);
+  const questionsPracticedCount = totalCorrectCount + totalWrongCount;
+  const overallAccuracyPct =
+    completedAttempts.length > 0
+      ? Math.round(
+          completedAttempts.reduce((sum, a) => sum + (a.accuracy || 0), 0) /
+            completedAttempts.length
+        )
+      : 0;
+  const activeStreakDays = (() => {
+    if (completedAttempts.length === 0) return 0;
+    const uniqueDays = new Set(
+      completedAttempts.map((a) => new Date(a.createdAt).toISOString().slice(0, 10))
+    );
+    return uniqueDays.size;
+  })();
+
   const liveStartAt = activeLiveTest?.startAt || activeLiveTest?.scheduledStartTime;
   const startTime = liveStartAt ? new Date(liveStartAt).getTime() : Date.now() + 300000000;
   const durationMs = (activeLiveTest?.durationMinutes || 90) * 60 * 1000;
@@ -201,157 +242,124 @@ export const Home: React.FC = () => {
 
   const displayName = user?.fullName?.split(' ')[0]?.toUpperCase() || 'CANDIDATE';
 
-  // Subject list matching screenshot
+  // Subject categories for practice
   const subjects = [
     {
       id: 'math',
       title: 'Mathematics',
-      questions: '1,240 Questions',
+      questions: 'Topic Practice',
       color: 'bg-blue-600 text-white',
       symbol: '∑',
     },
     {
       id: 'reasoning',
       title: 'Reasoning',
-      questions: '960 Questions',
+      questions: 'Topic Practice',
       color: 'bg-rose-500 text-white',
       symbol: '🎗',
     },
     {
       id: 'gk',
       title: 'General Knowledge',
-      questions: '1,520 Questions',
+      questions: 'Topic Practice',
       color: 'bg-emerald-500 text-white',
       symbol: '🌐',
     },
     {
       id: 'english',
       title: 'English',
-      questions: '1,010 Questions',
+      questions: 'Topic Practice',
       color: 'bg-purple-600 text-white',
       symbol: 'A',
     },
     {
       id: 'bengali',
       title: 'Bengali',
-      questions: '820 Questions',
+      questions: 'Topic Practice',
       color: 'bg-amber-500 text-white',
       symbol: 'অ',
     },
     {
       id: 'computer',
       title: 'Computer Awareness',
-      questions: '640 Questions',
+      questions: 'Topic Practice',
       color: 'bg-sky-500 text-white',
       symbol: '💻',
     },
     {
       id: 'current-affairs',
       title: 'Current Affairs',
-      questions: '420 Questions',
+      questions: 'Topic Practice',
       color: 'bg-pink-500 text-white',
       symbol: '📅',
     },
     {
       id: 'environment',
       title: 'Environment',
-      questions: '310 Questions',
+      questions: 'Topic Practice',
       color: 'bg-teal-500 text-white',
       symbol: '🌱',
     },
   ];
 
-  // Recommended tests
-  const recommendedTests = [
-    {
-      id: 'rec-1',
-      title: 'WBP Constable Full Mock Test 01',
-      badge: 'Popular',
-      badgeType: 'orange',
-      questions: '100 Questions',
-      duration: '90 Minutes',
+  // Recommended tests derived from real backend tests
+  const recommendedTests = allTests
+    .filter((t) => {
+      if (recommendedTab === 'pyq') return t.testType === 'pyq';
+      if (recommendedTab === 'topic') return t.testType === 'topic' || t.testType === 'chapter_mock' || t.testType === 'subject_mock';
+      return true;
+    })
+    .slice(0, 3)
+    .map((t, idx) => ({
+      id: t.id,
+      title: t.title,
+      badge: t.testType === 'pyq' ? 'PYQ' : !t.isPremium ? 'Free' : 'Mock Test',
+      badgeType: idx % 3 === 0 ? 'orange' : idx % 3 === 1 ? 'blue' : 'rose',
+      questions: `${t.totalQuestions || 0} Questions`,
+      duration: `${t.durationMinutes || 60} Minutes`,
       lang: 'Online CBT',
-      iconBg: 'bg-blue-50 text-blue-600 border-blue-100',
-    },
-    {
-      id: 'rec-2',
-      title: 'WBSSC Group D Previous Year Paper',
-      badge: 'New',
-      badgeType: 'blue',
-      questions: '100 Questions',
-      duration: '90 Minutes',
-      lang: 'Online CBT',
-      iconBg: 'bg-amber-50 text-amber-600 border-amber-100',
-    },
-    {
-      id: 'rec-3',
-      title: 'General Knowledge Practice Set',
-      badge: 'Trending',
-      badgeType: 'rose',
-      questions: '50 Questions',
-      duration: '30 Minutes',
-      lang: 'Online CBT',
-      iconBg: 'bg-blue-50 text-blue-600 border-blue-100',
-    },
-  ];
+      iconBg:
+        idx % 2 === 0
+          ? 'bg-blue-50 text-blue-600 border-blue-100'
+          : 'bg-amber-50 text-amber-600 border-amber-100',
+    }));
 
-  // Recent mock test history
-  const recentTests = [
-    {
-      id: 'rt-1',
-      title: 'WBP Constable - Mock 03',
-      date: '10 Sep 2026',
-      score: 72,
-      total: 100,
-      color: 'text-blue-600 border-blue-500',
-      iconBg: 'bg-blue-50 text-blue-600',
-    },
-    {
-      id: 'rt-2',
-      title: 'SSC GD - Mock 02',
-      date: '08 Sep 2026',
-      score: 81,
-      total: 100,
-      color: 'text-purple-600 border-purple-500',
-      iconBg: 'bg-purple-50 text-purple-600',
-    },
-    {
-      id: 'rt-3',
-      title: 'WBSSC Group D - Mock 01',
-      date: '05 Sep 2026',
-      score: 68,
-      total: 100,
-      color: 'text-emerald-600 border-emerald-500',
-      iconBg: 'bg-emerald-50 text-emerald-600',
-    },
-    {
-      id: 'rt-4',
-      title: 'General Knowledge - Test 04',
-      date: '02 Sep 2026',
-      score: 76,
-      total: 100,
-      color: 'text-rose-600 border-rose-500',
-      iconBg: 'bg-rose-50 text-rose-600',
-    },
-    {
-      id: 'rt-5',
-      title: 'Maths - Topic Test 12',
-      date: '30 Aug 2026',
-      score: 84,
-      total: 100,
-      color: 'text-teal-600 border-teal-500',
-      iconBg: 'bg-blue-50 text-blue-600',
-    },
-  ];
+  // Recent mock test history derived from real completed attempts
+  const recentTests = completedAttempts.slice(0, 5).map((att, idx) => {
+    const colors = [
+      { color: 'text-blue-600 border-blue-500', iconBg: 'bg-blue-50 text-blue-600' },
+      { color: 'text-purple-600 border-purple-500', iconBg: 'bg-purple-50 text-purple-600' },
+      { color: 'text-emerald-600 border-emerald-500', iconBg: 'bg-emerald-50 text-emerald-600' },
+      { color: 'text-rose-600 border-rose-500', iconBg: 'bg-rose-50 text-rose-600' },
+      { color: 'text-teal-600 border-teal-500', iconBg: 'bg-blue-50 text-blue-600' },
+    ];
+    const style = colors[idx % colors.length];
+    return {
+      id: att.id,
+      testId: att.testId,
+      title: att.testTitle || 'Mock Test',
+      date: new Date(att.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      score: Math.round(att.score || 0),
+      total: att.totalMarks || 100,
+      color: style.color,
+      iconBg: style.iconBg,
+    };
+  });
 
-  // Leaderboard data
-  const leaderboardEntries = [
-    { rank: 1, name: 'Ananya P.', score: '98.6%', icon: '👑', isUser: false },
-    { rank: 2, name: 'Rohit S.', score: '97.2%', icon: '🥈', isUser: false },
-    { rank: 3, name: 'Sayon D.', score: '96.8%', icon: '🥉', isUser: false },
-    { rank: 4, name: 'Priya M.', score: '96.1%', icon: '4', isUser: false },
-    { rank: 5, name: 'Arindam D.', score: '95.4%', icon: '5', isUser: false },
-  ];
+  // Leaderboard data from real platform rankings
+  const leaderboardEntries = (platformOverview?.studentRankings || []).slice(0, 5).map((r) => ({
+    rank: r.rank,
+    name: r.name,
+    score: `${Math.round(r.accuracy || 0)}%`,
+    icon: r.rank === 1 ? '👑' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : String(r.rank),
+    isUser: r.userId === user?.id,
+  }));
+  const userLeaderboardRank =
+    (platformOverview?.studentRankings || []).find((r) => r.userId === user?.id)?.rank || null;
 
   // Theme styles come from the shared banner theme map (also used by the
   // admin live preview) — see src/utils/bannerTheme.ts.
@@ -640,7 +648,7 @@ export const Home: React.FC = () => {
             <FileCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">12</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{testsTakenCount}</div>
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tests Taken</div>
           </div>
         </div>
@@ -651,7 +659,7 @@ export const Home: React.FC = () => {
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">342</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{questionsPracticedCount}</div>
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Questions Practiced</div>
           </div>
         </div>
@@ -662,7 +670,7 @@ export const Home: React.FC = () => {
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">78%</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{overallAccuracyPct}%</div>
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Accuracy</div>
           </div>
         </div>
@@ -673,7 +681,7 @@ export const Home: React.FC = () => {
             <Flame className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">7</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{activeStreakDays}</div>
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Day Streak</div>
           </div>
         </div>
@@ -744,7 +752,7 @@ export const Home: React.FC = () => {
 
           <div className="flex items-center justify-between pt-3 border-t border-slate-800">
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              👥 <span>{(activeLiveTest.enrolledCount ?? 0) > 0 ? (activeLiveTest.enrolledCount ?? 0).toLocaleString() : '1,420'} Students {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}</span>
+              👥 <span>{(activeLiveTest.enrolledCount ?? 0).toLocaleString()} Students {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}</span>
             </div>
             {isLiveNow ? (
               <Link
@@ -775,62 +783,69 @@ export const Home: React.FC = () => {
         </div>
       )}
 
-      {/* 3. CONTINUE YOUR TEST (Midnight Navy Banner) */}
-      <div className="rounded-3xl bg-[#0c1b3d] text-white p-6 sm:p-7 shadow-lg relative overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">Continue Your Test</h3>
-          <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider">
-            IN PROGRESS
-          </span>
-        </div>
-
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center shrink-0">
-              <FileText className="w-6 h-6 text-blue-400" />
+      {/* 3. CONTINUE YOUR TEST (Midnight Navy Banner - Only shown if user has a real in_progress attempt) */}
+      {inProgressAttempt && (() => {
+        const answeredCount = (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0);
+        const totalQuestions = Math.max(1, answeredCount + (inProgressAttempt.skippedCount || 0));
+        const progressPct = Math.min(100, Math.round((answeredCount / totalQuestions) * 100));
+        return (
+          <div className="rounded-3xl bg-[#0c1b3d] text-white p-6 sm:p-7 shadow-lg relative overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">Continue Your Test</h3>
+              <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider">
+                IN PROGRESS
+              </span>
             </div>
-            <div>
-              <h4 className="text-base sm:text-lg font-bold text-white mb-1">
-                WBP Constable 2024 Prelims Official Paper
-              </h4>
-              <p className="text-xs sm:text-sm text-slate-300 mb-4">
-                Attempted 45/100 questions • 55 minutes remaining
-              </p>
-              <div className="flex items-center gap-3">
-                <Link
-                  to="/exams"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/30 active:scale-95"
-                >
-                  <span>Resume Test</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => navigate('/exams')}
-                  className="px-4 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-semibold transition-all active:scale-95"
-                >
-                  View Details
-                </button>
+
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center shrink-0">
+                  <FileText className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h4 className="text-base sm:text-lg font-bold text-white mb-1">
+                    {inProgressAttempt.testTitle || 'Mock Test'}
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-300 mb-4">
+                    Attempted {answeredCount}/{totalQuestions} questions
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      to={`/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/30 active:scale-95"
+                    >
+                      <span>Resume Test</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/exams/${inProgressAttempt.testId}`)}
+                      className="px-4 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-semibold transition-all active:scale-95"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar and motivational clock script */}
+              <div className="w-full lg:w-80 flex flex-col items-end gap-3">
+                <div className="w-full flex items-center gap-3">
+                  <div className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${progressPct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-300">{progressPct}%</span>
+                </div>
+                <div className="flex items-center gap-2 text-right">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <p className="text-xs text-blue-200 font-serif italic">"Finish what you started!"</p>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Progress bar and motivational clock script */}
-          <div className="w-full lg:w-80 flex flex-col items-end gap-3">
-            <div className="w-full flex items-center gap-3">
-              <div className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: '45%' }} />
-              </div>
-              <span className="text-xs font-bold text-slate-300">45%</span>
-            </div>
-            <div className="flex items-center gap-2 text-right">
-              <Clock className="w-4 h-4 text-blue-400" />
-              <p className="text-xs text-blue-200 font-serif italic">"Finish what you started!"</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* LIVE TEST */}
       {liveTest && (() => {
@@ -1042,62 +1057,68 @@ export const Home: React.FC = () => {
         </div>
 
         {/* 3 Recommended Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recommendedTests.map((test) => (
-            <div
-              key={test.id}
-              className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-xs transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center border ${test.iconBg}`}
-                  >
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                      test.badgeType === 'orange'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                        : test.badgeType === 'blue'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                    }`}
-                  >
-                    {test.badge}
-                  </span>
-                </div>
-
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 leading-snug">
-                  {test.title}
-                </h4>
-
-                <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 mb-5">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                    <span>{test.questions}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                    <span>{test.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Globe2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                    <span>{test.lang}</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => navigate('/exams')}
-                className="w-full py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+        {recommendedTests.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500">
+            No tests available in this category yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recommendedTests.map((test) => (
+              <div
+                key={test.id}
+                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-xs transition-all"
               >
-                <span>Start Test</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center border ${test.iconBg}`}
+                    >
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        test.badgeType === 'orange'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                          : test.badgeType === 'blue'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                      }`}
+                    >
+                      {test.badge}
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 leading-snug">
+                    {test.title}
+                  </h4>
+
+                  <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 mb-5">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                      <span>{test.questions}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                      <span>{test.duration}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Globe2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                      <span>{test.lang}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => navigate(`/exams/${test.id}`)}
+                  className="w-full py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                >
+                  <span>Start Test</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 7. YOUR PROGRESS */}
@@ -1134,13 +1155,13 @@ export const Home: React.FC = () => {
                   stroke="#0158FC"
                   strokeWidth="10"
                   strokeDasharray="251.2"
-                  strokeDashoffset="55.2" // 78% accuracy
+                  strokeDashoffset={String(251.2 * (1 - overallAccuracyPct / 100))}
                   strokeLinecap="round"
                   fill="transparent"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">78%</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{overallAccuracyPct}%</span>
                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Overall Accuracy</span>
               </div>
             </div>
@@ -1152,21 +1173,21 @@ export const Home: React.FC = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                   Correct
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">342</span>
+                <span className="font-bold text-slate-900 dark:text-white">{totalCorrectCount}</span>
               </div>
               <div className="flex items-center justify-between gap-6">
                 <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   Incorrect
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">78</span>
+                <span className="font-bold text-slate-900 dark:text-white">{totalWrongCount}</span>
               </div>
               <div className="flex items-center justify-between gap-6">
                 <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
                   Skipped
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">20</span>
+                <span className="font-bold text-slate-900 dark:text-white">{totalSkippedCount}</span>
               </div>
             </div>
           </div>
@@ -1183,55 +1204,21 @@ export const Home: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Mathematics</span>
-                  <span className="text-slate-900 dark:text-white font-bold">82%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: '82%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Reasoning</span>
-                  <span className="text-slate-900 dark:text-white font-bold">78%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '78%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">General Knowledge</span>
-                  <span className="text-slate-900 dark:text-white font-bold">68%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-400 rounded-full" style={{ width: '68%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">English</span>
-                  <span className="text-slate-900 dark:text-white font-bold">71%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '71%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 dark:text-slate-300">Bengali</span>
-                  <span className="text-slate-900 dark:text-white font-bold">70%</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-blue-400 rounded-full" style={{ width: '70%' }} />
-                </div>
-              </div>
+              {['Mathematics', 'Reasoning', 'General Knowledge', 'English', 'Bengali'].map((subjName, idx) => {
+                const pct = completedAttempts.length > 0 ? overallAccuracyPct : 0;
+                const barColors = ['bg-blue-600', 'bg-blue-500', 'bg-blue-400', 'bg-blue-500', 'bg-blue-400'];
+                return (
+                  <div key={subjName}>
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-slate-700 dark:text-slate-300">{subjName}</span>
+                      <span className="text-slate-900 dark:text-white font-bold">{pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className={`h-full ${barColors[idx]} rounded-full`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1251,39 +1238,45 @@ export const Home: React.FC = () => {
             </Link>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {recentTests.map((test) => (
-              <div key={test.id} className="py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${test.iconBg}`}
-                  >
-                    <FileText className="w-5 h-5" />
+          {recentTests.length === 0 ? (
+            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
+              No mock tests attempted yet. Start your first test to track your progress!
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {recentTests.map((test) => (
+                <div key={test.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${test.iconBg}`}
+                    >
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                        {test.title}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{test.date}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                      {test.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{test.date}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold border ${test.color}`}
-                  >
-                    {test.score}/{test.total}
-                  </span>
-                  <Link
-                    to="/results"
-                    className="text-xs font-semibold text-[#0158FC] dark:text-blue-400 hover:underline"
-                  >
-                    View Result
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold border ${test.color}`}
+                    >
+                      {test.score}/{test.total}
+                    </span>
+                    <Link
+                      to={`/exams/${test.testId}/results/${test.id}`}
+                      className="text-xs font-semibold text-[#0158FC] dark:text-blue-400 hover:underline"
+                    >
+                      View Result
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Rank */}
@@ -1340,25 +1333,33 @@ export const Home: React.FC = () => {
               <span>Score</span>
             </div>
 
-            {leaderboardEntries.map((item) => (
-              <div
-                key={item.rank}
-                className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
-              >
-                <span className="w-8 font-bold text-base">{item.icon}</span>
-                <div className="flex items-center gap-2 flex-1">
-                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
-                    {item.name.charAt(0)}
-                  </div>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{item.name}</span>
-                </div>
-                <span className="font-black text-slate-900 dark:text-white">{item.score}</span>
+            {leaderboardEntries.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                Rankings will appear as students complete mock tests.
               </div>
-            ))}
+            ) : (
+              leaderboardEntries.map((item) => (
+                <div
+                  key={item.rank}
+                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <span className="w-8 font-bold text-base">{item.icon}</span>
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
+                      {item.name.charAt(0)}
+                    </div>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.name}</span>
+                  </div>
+                  <span className="font-black text-slate-900 dark:text-white">{item.score}</span>
+                </div>
+              ))
+            )}
 
             {/* User Row Highlight */}
             <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 mt-3">
-              <span className="w-8 font-black text-blue-700 dark:text-blue-400">#147</span>
+              <span className="w-8 font-black text-blue-700 dark:text-blue-400">
+                {userLeaderboardRank ? `#${userLeaderboardRank}` : '#-'}
+              </span>
               <div className="flex items-center gap-2 flex-1">
                 <img
                   src={user?.avatarUrl || '/images/student_avatar.png'}
@@ -1372,7 +1373,7 @@ export const Home: React.FC = () => {
                   You ({user?.fullName?.split(' ')[0] || 'Candidate'})
                 </span>
               </div>
-              <span className="font-black text-blue-700 dark:text-blue-400">78.3%</span>
+              <span className="font-black text-blue-700 dark:text-blue-400">{overallAccuracyPct}%</span>
             </div>
           </div>
         </div>

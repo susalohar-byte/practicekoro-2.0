@@ -608,8 +608,8 @@ export async function getItemAnalysis(
     }
   }
 
-  // Fallback to localItemAnalysisStore
-  if (items.length === 0) {
+  // Fallback to localItemAnalysisStore only when Supabase is not configured
+  if (!isSupabaseConfigured && items.length === 0) {
     items = [...localItemAnalysisStore];
   }
 

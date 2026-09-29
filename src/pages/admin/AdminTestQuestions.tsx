@@ -40,6 +40,7 @@ import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { isMathematicsQuestion, isMathematicsSubject } from '@/utils/shortNotes';
 import { QuestionImageField } from '@/components/admin/QuestionImageField';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 
 export const AdminTestQuestions: React.FC = () => {
@@ -1599,13 +1600,13 @@ export const AdminTestQuestions: React.FC = () => {
 
                         {/* English Question */}
                         <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-relaxed">
-                          {q.questionText}
+                          <MathText>{q.questionText}</MathText>
                         </p>
 
                         {/* Bengali Question (if provided) */}
                         {q.questionBengaliText && (
                           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                            {q.questionBengaliText}
+                            <MathText>{q.questionBengaliText}</MathText>
                           </p>
                         )}
 
@@ -1629,7 +1630,7 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               A
                             </span>
-                            <span>{q.optionA}</span>
+                            <span><MathText>{q.optionA}</MathText></span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1641,7 +1642,7 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               B
                             </span>
-                            <span>{q.optionB}</span>
+                            <span><MathText>{q.optionB}</MathText></span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1653,7 +1654,7 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               C
                             </span>
-                            <span>{q.optionC}</span>
+                            <span><MathText>{q.optionC}</MathText></span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1665,7 +1666,7 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               D
                             </span>
-                            <span>{q.optionD}</span>
+                            <span><MathText>{q.optionD}</MathText></span>
                           </div>
                         </div>
 
@@ -1875,12 +1876,12 @@ export const AdminTestQuestions: React.FC = () => {
                     </div>
 
                     <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-relaxed">
-                      {q.questionText}
+                      <MathText>{q.questionText}</MathText>
                     </p>
 
                     {q.questionBengaliText && (
                       <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                        {q.questionBengaliText}
+                        <MathText>{q.questionBengaliText}</MathText>
                       </p>
                     )}
 
@@ -1904,7 +1905,7 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           A
                         </span>
-                        <span>{q.optionA}</span>
+                        <span><MathText>{q.optionA}</MathText></span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1916,7 +1917,7 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           B
                         </span>
-                        <span>{q.optionB}</span>
+                        <span><MathText>{q.optionB}</MathText></span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1928,7 +1929,7 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           C
                         </span>
-                        <span>{q.optionC}</span>
+                        <span><MathText>{q.optionC}</MathText></span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1940,7 +1941,7 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           D
                         </span>
-                        <span>{q.optionD}</span>
+                        <span><MathText>{q.optionD}</MathText></span>
                       </div>
                     </div>
 
@@ -2082,6 +2083,10 @@ export const AdminTestQuestions: React.FC = () => {
                 placeholder="1. ভারতের প্রথম রাষ্ট্রপতি কে ছিলেন?&#10;(a) ড. রাজেন্দ্র প্রসাদ&#10;(b) জওহরলাল নেহরু&#10;(c) সর্বপল্লী রাধাকৃষ্ণন&#10;(d) ড. বি. আর. আম্বেদকর&#10;&#10;সঠিক উত্তর: (a) ড. রাজেন্দ্র প্রসাদ"
                 className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF] leading-relaxed"
               />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Math/equations: wrap LaTeX in <code>$...$</code>, for example{' '}
+                <code>{'($^{14}\\text{C}$)'}</code>. Use <code>$$...$$</code> for a centered equation.
+              </p>
             </div>
 
             {/* Parse Validation Summary */}

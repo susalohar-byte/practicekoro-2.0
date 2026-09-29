@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '@/services/api';
 import type { Question } from '@/types';
+import { MathText } from '@/components/common/MathText';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { JsonLd } from '@/components/seo/JsonLd';
 import {
@@ -258,11 +259,11 @@ export const QuestionPage: React.FC = () => {
           {/* Question text */}
           <div className="px-5 py-4">
             <h1 className="text-lg font-semibold leading-relaxed text-slate-900 dark:text-white">
-              {qText}
+              <MathText>{qText}</MathText>
             </h1>
             {question.questionBengaliText && question.questionText !== question.questionBengaliText && (
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {question.questionText}
+                <MathText>{question.questionText}</MathText>
               </p>
             )}
             {question.imageUrl && (
@@ -306,7 +307,7 @@ export const QuestionPage: React.FC = () => {
                         : 'text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    {optionText}
+                    <MathText>{optionText}</MathText>
                   </span>
                   {showAnswer && isCorrect && (
                     <CheckCircle2 className="ml-auto h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />

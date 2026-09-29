@@ -1114,10 +1114,10 @@ export const adminCommerceApi = {
 
         if (error) {
           console.warn('Failed to fetch coupons from database:', error);
-          return localCoupons;
+          return [];
         }
 
-        if (data && data.length > 0) {
+        if (data) {
           return data.map((d: any) => ({
             id: d.id,
             code: d.code,
@@ -1140,6 +1140,7 @@ export const adminCommerceApi = {
       } catch (err) {
         console.warn('Error loading coupons:', err);
       }
+      return [];
     }
     return localCoupons;
   },
@@ -1306,8 +1307,14 @@ export const adminCommerceApi = {
           };
         }
       } catch (err) {
-        console.warn('Coupon validation RPC error, falling back to local evaluation:', err);
+        console.warn('Coupon validation RPC error:', err);
       }
+      return {
+        valid: false,
+        discountAmount: 0,
+        finalPrice: amount,
+        message: 'Invalid or inactive coupon code.',
+      };
     }
 
     // Local evaluation fallback
@@ -1461,8 +1468,8 @@ export const adminCommerceApi = {
       }
     }
 
-    // Local Fallback if Supabase not configured or returns empty
-    if (payments.length === 0) {
+    // Local Fallback ONLY if Supabase not configured
+    if (!isSupabaseConfigured && payments.length === 0) {
       payments = (localPayments as any[])
         .filter((p) => {
           const dateVal = p.created_at || p.createdAt;
@@ -1671,12 +1678,12 @@ export const adminCommerceApi = {
           answersData = answersRes.data;
         }
       } catch (err) {
-        console.warn('Supabase platform analytics query failed, using fallback:', err);
+        console.warn('Supabase platform analytics query failed:', err);
       }
     }
 
-    // Fallback if local mode or empty profiles in database
-    if (studentProfiles.length === 0) {
+    // Fallback ONLY if local mode (Supabase not configured)
+    if (!isSupabaseConfigured && studentProfiles.length === 0) {
       studentProfiles = localStudents.map((s) => ({
         id: s.id,
         full_name: s.fullName,
@@ -1689,21 +1696,27 @@ export const adminCommerceApi = {
     // Compute Student Performance metrics
     const totalStudents = studentProfiles.length;
     const activeStudentIds = new Set(attempts.map((a) => a.user_id).filter(Boolean));
-    const activeStudents = activeStudentIds.size > 0 ? activeStudentIds.size : Math.min(totalStudents, Math.ceil(totalStudents * 0.7));
-    const testsAttempted = attempts.length > 0 ? attempts.length : 48;
+    const activeStudents =
+      activeStudentIds.size > 0
+        ? activeStudentIds.size
+        : !isSupabaseConfigured
+          ? Math.min(totalStudents, Math.ceil(totalStudents * 0.7))
+          : 0;
+    const testsAttempted = attempts.length > 0 ? attempts.length : !isSupabaseConfigured ? 48 : 0;
 
     let totalCorrect = attempts.reduce((acc, curr) => acc + Number(curr.correct_count || 0), 0);
     let totalWrong = attempts.reduce((acc, curr) => acc + Number(curr.wrong_count || 0), 0);
     let questionsAnswered = totalCorrect + totalWrong;
 
-    if (questionsAnswered === 0) {
+    if (!isSupabaseConfigured && questionsAnswered === 0) {
       // Deterministic fallback for dev/demo
       totalCorrect = 1420;
       totalWrong = 380;
       questionsAnswered = 1800;
     }
 
-    const overallAccuracy = Number(((totalCorrect / questionsAnswered) * 100).toFixed(1));
+    const overallAccuracy =
+      questionsAnswered > 0 ? Number(((totalCorrect / questionsAnswered) * 100).toFixed(1)) : 0;
 
     // Group attempts by user for individual ranking
     const studentStatsMap = new Map<
@@ -1749,8 +1762,8 @@ export const adminCommerceApi = {
         let totalScore = stats?.totalScore || 0;
         const lastActive = stats?.lastActive || student.created_at;
 
-        // Provide realistic demo scoring if mock data has 0 attempts recorded
-        if (totalTests === 0 && attempts.length === 0) {
+        // Provide realistic demo scoring ONLY when Supabase is not configured
+        if (!isSupabaseConfigured && totalTests === 0 && attempts.length === 0) {
           totalTests = Math.max(1, 15 - (idx % 12));
           questionsAttempted = totalTests * 20;
           const sampleAcc = Math.max(45, 96 - idx * 4.5);
@@ -1773,7 +1786,7 @@ export const adminCommerceApi = {
           correctCount,
           accuracy,
           totalScore,
-          isPro: activeSubUserIds.has(student.id) || idx % 3 === 0,
+          isPro: activeSubUserIds.has(student.id) || (!isSupabaseConfigured && idx % 3 === 0),
           lastActive,
         };
       })
@@ -1813,10 +1826,20 @@ export const adminCommerceApi = {
     const performanceTrend: PerformanceTrendPoint[] = Array.from(trendMap.entries()).map(([dateStr, val], idx) => {
       const d = new Date(dateStr + 'T12:00:00');
       const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      // If no attempts on that day, generate baseline trend point
-      const attemptsCount = val.attempts > 0 ? val.attempts : Math.max(3, (idx + 2) * 2);
-      const averageAccuracy = val.count > 0 ? Number((val.totalAcc / val.count).toFixed(1)) : Number((72 + (idx % 4) * 3).toFixed(1));
-      const averageScore = val.count > 0 ? Number((val.totalScore / val.count).toFixed(1)) : Number((38 + idx * 4).toFixed(1));
+      const attemptsCount =
+        val.attempts > 0 ? val.attempts : !isSupabaseConfigured ? Math.max(3, (idx + 2) * 2) : 0;
+      const averageAccuracy =
+        val.count > 0
+          ? Number((val.totalAcc / val.count).toFixed(1))
+          : !isSupabaseConfigured
+            ? Number((72 + (idx % 4) * 3).toFixed(1))
+            : 0;
+      const averageScore =
+        val.count > 0
+          ? Number((val.totalScore / val.count).toFixed(1))
+          : !isSupabaseConfigured
+            ? Number((38 + idx * 4).toFixed(1))
+            : 0;
 
       return {
         date: dateStr,
@@ -1891,8 +1914,8 @@ export const adminCommerceApi = {
       mostWrongQuestions.sort((a, b) => b.failureRate - a.failureRate || b.wrongCount - a.wrongCount);
     }
 
-    // If answers data was empty, provide realistic mock diagnostic items from local questions
-    if (mostWrongQuestions.length === 0) {
+    // If answers data was empty AND Supabase is not configured, provide demo diagnostic items
+    if (!isSupabaseConfigured && mostWrongQuestions.length === 0) {
       localQuestions.slice(0, 5).forEach((q, idx) => {
         const sub = localSubjects.find((s) => s.id === q.subjectId)?.name || 'General Science';
         const chap = localChapters.find((c) => c.id === q.chapterId)?.name || 'Fundamental Concept';
@@ -1929,8 +1952,8 @@ export const adminCommerceApi = {
         });
       });
       weakestTopics.sort((a, b) => a.accuracyRate - b.accuracyRate);
-    } else {
-      // Mock weakest topics
+    } else if (!isSupabaseConfigured) {
+      // Mock weakest topics (local demo mode only)
       const sampleTopics = [
         { name: 'Indian Constitution & Polity', sub: 'Polity & Governance', acc: 38.4, total: 142 },
         { name: 'Arithmetic & Number Systems', sub: 'Mathematics', acc: 42.1, total: 198 },
@@ -1962,8 +1985,8 @@ export const adminCommerceApi = {
         });
       });
       weakestSubjects.sort((a, b) => a.accuracyRate - b.accuracyRate);
-    } else {
-      // Mock weakest subjects
+    } else if (!isSupabaseConfigured) {
+      // Mock weakest subjects (local demo mode only)
       const sampleSubjects = [
         { name: 'Polity & Constitution', acc: 41.5, total: 240 },
         { name: 'Mathematics & Numerical Ability', acc: 47.3, total: 320 },
@@ -1981,8 +2004,8 @@ export const adminCommerceApi = {
       });
     }
 
-    // Revenue fallbacks if in local mode
-    if (totalRevenue === 0 && localPayments.length > 0) {
+    // Revenue fallbacks ONLY if in local mode
+    if (!isSupabaseConfigured && totalRevenue === 0 && localPayments.length > 0) {
       totalRevenue = localPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
       monthlyRevenue = Math.round(totalRevenue * 0.45);
       paidStudents = Math.max(1, Math.round(totalStudents * 0.35));
@@ -2007,9 +2030,15 @@ export const adminCommerceApi = {
       },
       revenue: {
         totalRevenue,
-        monthlyRevenue: monthlyRevenue || Math.round(totalRevenue * 0.4),
-        paidStudents: paidStudents || Math.max(1, Math.round(totalStudents * 0.35)),
-        activeSubscriptions: activeSubscriptions || Math.max(1, Math.round(paidStudents * 0.8)),
+        monthlyRevenue: isSupabaseConfigured
+          ? monthlyRevenue
+          : monthlyRevenue || Math.round(totalRevenue * 0.4),
+        paidStudents: isSupabaseConfigured
+          ? paidStudents
+          : paidStudents || Math.max(1, Math.round(totalStudents * 0.35)),
+        activeSubscriptions: isSupabaseConfigured
+          ? activeSubscriptions
+          : activeSubscriptions || Math.max(1, Math.round(paidStudents * 0.8)),
         revenueTrend: revenueRangeStats.dailyTrend,
       },
     };

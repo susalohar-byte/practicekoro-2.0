@@ -125,7 +125,7 @@ class LocalStorageService {
   }
 
   static String? getUserId() {
-    return _prefs?.getString('pk_user_id') ?? 'student-mock-user-1';
+    return _prefs?.getString('pk_user_id');
   }
 
   static Future<void> saveUserId(String id) async {

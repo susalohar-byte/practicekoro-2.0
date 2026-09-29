@@ -14,7 +14,7 @@ export async function getSupportTickets(): Promise<SupportTicketItem[]> {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         return data.map((d: any) => ({
           id: d.id,
           userId: d.user_id || undefined,
@@ -32,11 +32,9 @@ export async function getSupportTickets(): Promise<SupportTicketItem[]> {
         }));
       }
     } catch (err) {
-      console.warn(
-        'Failed to load support tickets from Supabase, falling back to local store:',
-        err
-      );
+      console.warn('Failed to load support tickets from Supabase:', err);
     }
+    return [];
   }
 
   return [...localSupportTickets];
@@ -147,7 +145,7 @@ export async function getStudentSupportTickets(userId?: string): Promise<Support
           .eq('user_id', targetUserId)
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           return data.map((d: any) => ({
             id: d.id,
             userId: d.user_id || undefined,
@@ -165,12 +163,10 @@ export async function getStudentSupportTickets(userId?: string): Promise<Support
           }));
         }
       } catch (err) {
-        console.warn(
-          'Failed to load student support tickets from Supabase, using local store:',
-          err
-        );
+        console.warn('Failed to load student support tickets from Supabase:', err);
       }
     }
+    return [];
   }
 
   if (userId) {

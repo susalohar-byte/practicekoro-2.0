@@ -11,7 +11,6 @@ import 'package:practicekoro_mobile/features/leaderboard/leaderboard_screen.dart
 import 'package:practicekoro_mobile/features/profile/settings_screen.dart';
 import 'package:practicekoro_mobile/features/profile/support_screen.dart';
 
-import 'package:practicekoro_mobile/data/datasources/mock_data.dart';
 import 'package:practicekoro_mobile/features/exams/primary_exam_selection_screen.dart';
 import 'package:practicekoro_mobile/features/exams/exam_selection_screen.dart';
 
@@ -21,23 +20,6 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await LocalStorageService.init();
-  });
-
-  group('Standardized Exam Categories & Mock Data Verification', () {
-    test('MockData contains only the 5 standardized curated categories', () {
-      final allowedCategories = {
-        'WB Police (WBP / KP)',
-        'WBPSC (Clerkship / WBCS)',
-        'Teaching (TET / SLST)',
-        'SSC & Central Govt.',
-        'Railways (RRB)',
-      };
-
-      final actualCategories = MockData.exams.map((e) => e.category).toSet();
-      expect(actualCategories.difference(allowedCategories), isEmpty);
-      expect(actualCategories.length, equals(5));
-      expect(MockData.exams.length, equals(12));
-    });
   });
 
   group('Unified Design Token & Component Tests', () {
@@ -150,7 +132,7 @@ void main() {
       expect(find.text('Continue'), findsOneWidget);
     });
 
-    testWidgets('LeaderboardScreen renders with Rank.tsx parity and podium', (tester) async {
+    testWidgets('LeaderboardScreen renders real scope filters and empty/error state without dummy data', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: LeaderboardScreen(),
@@ -159,21 +141,14 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify tabs and headers
-      expect(find.text('Rank & Leaderboard'), findsOneWidget);
-      expect(find.text('Your Rank (Web)'), findsOneWidget);
-      expect(find.text('Statewide Podium'), findsOneWidget);
-      expect(find.text('STUDENT RANKINGS'), findsOneWidget);
-      expect(find.text('Best Rank'), findsOneWidget);
-      expect(find.text('Completed Tests'), findsOneWidget);
-
-      // Switch to Statewide Podium tab
-      await tester.tap(find.text('Statewide Podium'));
-      await tester.pumpAndSettle();
-
+      // Verify headers and scope tabs
+      expect(find.text('Results'), findsOneWidget);
+      expect(find.text('YOUR PROGRESS, YOUR PLACE'), findsOneWidget);
+      expect(find.text('See how you rank'), findsOneWidget);
       expect(find.text('All India'), findsOneWidget);
       expect(find.text('West Bengal'), findsOneWidget);
-      expect(find.text('You (Susanta Lohar)'), findsOneWidget);
+      expect(find.text('District'), findsOneWidget);
+      expect(find.text('You (Susanta Lohar)'), findsNothing);
     });
 
     testWidgets('SettingsScreen renders language toggle and target exam', (tester) async {

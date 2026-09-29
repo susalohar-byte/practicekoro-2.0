@@ -70,7 +70,7 @@ export const catalogApi = {
       ]);
 
       const data = examsRes.data;
-      if (examsRes.error || !data || data.length === 0) return MOCK_EXAMS;
+      if (examsRes.error || !data || data.length === 0) return [];
 
       const statsMap: Record<string, { testsCount: number; questionsCount: number }> = {};
       data.forEach((e: ExamRow) => {
@@ -111,7 +111,7 @@ export const catalogApi = {
         questionsCount: statsMap[item.id]?.questionsCount ?? 0,
       }));
     } catch {
-      return MOCK_EXAMS;
+      return [];
     }
   },
 
@@ -139,7 +139,7 @@ export const catalogApi = {
       }
 
       const { data, error } = await query;
-      if (error || !data || data.length === 0) return fallback();
+      if (error || !data || data.length === 0) return [];
       return (data as SubjectRow[]).map((item) => ({
         id: item.id,
         examId: item.exam_id ?? undefined,
@@ -151,7 +151,7 @@ export const catalogApi = {
         isActive: item.is_active,
       }));
     } catch {
-      return fallback();
+      return [];
     }
   },
 
@@ -165,7 +165,7 @@ export const catalogApi = {
         .eq('is_active', true)
         .order('order_index', { ascending: true });
 
-      if (error || !data || data.length === 0) return MOCK_CHAPTERS[subjectId] || [];
+      if (error || !data || data.length === 0) return [];
       return (data as ChapterRow[]).map((item) => ({
         id: item.id,
         subjectId: item.subject_id,
@@ -176,7 +176,7 @@ export const catalogApi = {
         isActive: item.is_active,
       }));
     } catch {
-      return MOCK_CHAPTERS[subjectId] || [];
+      return [];
     }
   },
 
@@ -190,7 +190,7 @@ export const catalogApi = {
         .select('*')
         .eq('is_active', true)
         .order('order_index', { ascending: true });
-      if (error || !data || data.length === 0) return Object.values(MOCK_CHAPTERS).flat();
+      if (error || !data || data.length === 0) return [];
       return (data as ChapterRow[]).map((item) => ({
         id: item.id,
         subjectId: item.subject_id,
@@ -202,7 +202,7 @@ export const catalogApi = {
         isActive: item.is_active,
       }));
     } catch {
-      return Object.values(MOCK_CHAPTERS).flat();
+      return [];
     }
   },
 
@@ -301,13 +301,7 @@ export const catalogApi = {
       const { data, error } = await query.order('order_index', { ascending: true });
 
       if (error || !data || data.length === 0) {
-        return localTests.filter(
-          (t) =>
-            t.isActive &&
-            (t.status === 'published' || !t.status) &&
-            (!examId || t.examId === examId) &&
-            (!chapterId || t.chapterId === chapterId)
-        );
+        return [];
       }
       return data.map((item) => ({
         id: item.id,
@@ -341,13 +335,7 @@ export const catalogApi = {
         testSeriesTitle: item.test_series?.title,
       }));
     } catch {
-      return localTests.filter(
-        (t) =>
-          t.isActive &&
-          (t.status === 'published' || !t.status) &&
-          (!examId || t.examId === examId) &&
-          (!chapterId || t.chapterId === chapterId)
-      );
+      return [];
     }
   },
 
@@ -400,7 +388,7 @@ export const catalogApi = {
 
         const { data, error } = await query.order('order_index', { ascending: true });
         if (error || !data || data.length === 0) {
-          return fallback();
+          return [];
         }
 
         return data.map((item) => ({
@@ -435,7 +423,7 @@ export const catalogApi = {
           testSeriesTitle: item.test_series?.title,
         }));
       } catch {
-        return fallback();
+        return [];
       }
     }
 
@@ -532,7 +520,7 @@ export const catalogApi = {
         `)
         .eq('id', testId)
         .maybeSingle();
-      if (error || !data) return mockFound || null;
+      if (error || !data) return null;
       const row = data as any;
       return {
         id: row.id,
@@ -565,7 +553,7 @@ export const catalogApi = {
         testSeriesTitle: row.test_series?.title || undefined,
       };
     } catch {
-      return mockFound || null;
+      return null;
     }
   },
 
@@ -645,7 +633,7 @@ export const catalogApi = {
         .order('question_order', { ascending: true });
 
       if (error || !data || data.length === 0) {
-        return MOCK_QUESTIONS[testId] || MOCK_QUESTIONS['test-indus-01'] || [];
+        return [];
       }
 
       return (
@@ -680,7 +668,7 @@ export const catalogApi = {
         };
       });
     } catch {
-      return MOCK_QUESTIONS[testId] || MOCK_QUESTIONS['test-indus-01'] || [];
+      return [];
     }
   },
 
@@ -1511,32 +1499,7 @@ export const catalogApi = {
 
       const { data, error } = await query;
       if (error || !data || data.length === 0) {
-        return localTestSeries
-          .filter((s) => s.isActive && (!examId || s.examId === examId))
-          .map((s) => {
-            const exam = localExams.find((e) => e.id === s.examId);
-            const sTests = localTests.filter(
-              (t) =>
-                t.testSeriesId === s.id &&
-                t.isActive &&
-                (t.status === 'published' || !t.status)
-            );
-            return {
-              ...s,
-              iconUrl: s.iconUrl || cachedIcons[s.id] || undefined,
-              examTitle: exam?.title,
-              testCount: sTests.length,
-              testsCount: sTests.length,
-              fullMockCount: sTests.filter((t) => t.testType === 'full_mock').length,
-              pyqTestCount: sTests.filter((t) => t.testType === 'pyq').length,
-              topicTestCount: sTests.filter(
-                (t) =>
-                  t.testType === 'topic' ||
-                  t.testType === 'chapter_mock' ||
-                  t.testType === 'subject_mock'
-              ).length,
-            };
-          });
+        return [];
       }
 
       return data.map((item: any) => {
@@ -1575,12 +1538,7 @@ export const catalogApi = {
         };
       });
     } catch {
-      return localTestSeries
-        .filter((s) => s.isActive && (!examId || s.examId === examId))
-        .map((s) => ({
-          ...s,
-          iconUrl: s.iconUrl || cachedIcons[s.id] || undefined,
-        }));
+      return [];
     }
   },
 
@@ -1615,12 +1573,7 @@ export const catalogApi = {
         .order('order_index', { ascending: true });
 
       if (error || !data || data.length === 0) {
-        return localTests.filter(
-          (t) =>
-            t.testSeriesId === seriesId &&
-            t.isActive &&
-            (t.status === 'published' || !t.status)
-        );
+        return [];
       }
 
       return data.map((item: any) => ({
@@ -1655,12 +1608,7 @@ export const catalogApi = {
         testSeriesTitle: item.test_series?.title,
       }));
     } catch {
-      return localTests.filter(
-        (t) =>
-          t.testSeriesId === seriesId &&
-          t.isActive &&
-          (t.status === 'published' || !t.status)
-      );
+      return [];
     }
   },
 };

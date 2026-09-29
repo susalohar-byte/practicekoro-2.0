@@ -65,8 +65,8 @@ interface ProfileExtras {
 
 const DEFAULT_EXTRAS: ProfileExtras = {
   headline: 'Aspirant | Keep Learning Keep Growing 🌱',
-  phone: '9547771118',
-  location: 'Purulia, West Bengal',
+  phone: '',
+  location: '',
   learningGoal: 'Clear WBP Constable 2024 with a top rank and secure a government job.',
   subjects: [
     'General Knowledge',
@@ -227,16 +227,16 @@ export const Profile: React.FC = () => {
     return attempts.filter((a) => a.status === 'completed');
   }, [attempts]);
 
-  const testsCount = completedAttempts.length > 0 ? completedAttempts.length : 86;
+  const testsCount = completedAttempts.length;
 
   const avgAccuracy = useMemo(() => {
-    if (completedAttempts.length === 0) return 78;
+    if (completedAttempts.length === 0) return 0;
     const totalAcc = completedAttempts.reduce((acc, a) => acc + (a.accuracy || 0), 0);
     return Math.round(totalAcc / completedAttempts.length);
   }, [completedAttempts]);
 
   const bestScoreDisplay = useMemo(() => {
-    if (completedAttempts.length === 0) return '82/100';
+    if (completedAttempts.length === 0) return '0/0';
     let maxSc = 0;
     let maxTm = 100;
     completedAttempts.forEach((a) => {
@@ -249,9 +249,37 @@ export const Profile: React.FC = () => {
     return `${Math.round(maxSc)}/${Math.round(maxTm)}`;
   }, [completedAttempts]);
 
-  // Streak & Rank
-  const dayStreak = 7;
-  const currentRank = 147;
+  // Streak & Rank & Monthly Progress derived from real attempts
+  const dayStreak = useMemo(() => {
+    if (completedAttempts.length === 0) return 0;
+    const uniqueDays = new Set(
+      completedAttempts
+        .map((a) => (a.createdAt || '').slice(0, 10))
+        .filter(Boolean)
+    );
+    return uniqueDays.size;
+  }, [completedAttempts]);
+
+  const currentRank = completedAttempts[0]?.rank || 0;
+
+  const questionsSolvedCount = useMemo(
+    () =>
+      completedAttempts.reduce(
+        (sum, a) => sum + (a.correctCount || 0) + (a.wrongCount || 0),
+        0
+      ),
+    [completedAttempts]
+  );
+
+  const hoursStudied = useMemo(
+    () =>
+      Math.round(
+        completedAttempts.reduce((sum, a) => sum + (a.timeSpentSeconds || 0), 0) / 3600
+      ),
+    [completedAttempts]
+  );
+
+  const goalProgressPct = Math.min(100, avgAccuracy);
 
   // Member Since date
   const memberSince = useMemo(() => {
@@ -261,13 +289,13 @@ export const Profile: React.FC = () => {
       const year = date.getFullYear();
       return `Member since ${month} ${year}`;
     }
-    return 'Member since Sep 2025';
+    return 'Member';
   }, [user?.createdAt]);
 
   // Open Edit Profile Modal
   const openEditProfile = () => {
-    setEditName(user?.fullName || 'Susanta Lohar');
-    setEditPhone(user?.phone || extras.phone || '9547771118');
+    setEditName(user?.fullName || '');
+    setEditPhone(user?.phone || extras.phone || '');
     setEditHeadline(extras.headline || 'Aspirant | Keep Learning Keep Growing 🌱');
     const userDist = user?.district || (extras.location?.includes(',') ? extras.location.split(',')[0].trim() : '');
     setEditDistrict(userDist);
@@ -387,8 +415,8 @@ export const Profile: React.FC = () => {
     const exportData = {
       profile: {
         id: user?.id,
-        name: user?.fullName || 'Susanta Lohar',
-        email: user?.email || 'susanta.me@gmail.com',
+        name: user?.fullName || 'Student',
+        email: user?.email || '',
         phone: user?.phone || extras.phone,
         location: extras.location,
         headline: extras.headline,
@@ -400,7 +428,7 @@ export const Profile: React.FC = () => {
         averageAccuracy: `${avgAccuracy}%`,
         bestScore: bestScoreDisplay,
         dayStreak: dayStreak,
-        currentRank: `#${currentRank}`,
+        currentRank: currentRank > 0 ? `#${currentRank}` : '#-',
       },
       interests: extras.subjects,
       completedAttempts: completedAttempts.slice(0, 50).map((a) => ({
@@ -438,67 +466,36 @@ export const Profile: React.FC = () => {
   // Avatar source resolution
   const avatarSrc = user?.avatarUrl || '/images/profile_user_avatar.jpg';
 
-  // Exams list matching the reference design layout
+  // Exams list derived from real exams catalog
   const displayExams = useMemo(() => {
-    const list: Array<{
-      id: string;
-      title: string;
-      badgeText: string;
-      badgeBg: string;
-      badgeBorder: string;
-      isPrimary: boolean;
-      originalExam?: Exam;
-    }> = [];
-
-    // 1. Primary Exam: WBP Constable
-    const wbp = exams.find((e) => e?.title?.toLowerCase()?.includes('wbp') || e?.slug?.includes('wbp'));
-    list.push({
-      id: wbp?.id || 'wbp-constable',
-      title: selectedExam?.title || 'WBP Constable',
-      badgeText: 'WB',
-      badgeBg: 'bg-blue-50 text-[#1e60f2]',
-      badgeBorder: 'border-blue-200/80',
-      isPrimary: true,
-      originalExam: wbp || selectedExam || undefined,
+    const badges = [
+      { badgeText: 'WB', badgeBg: 'bg-blue-50 text-[#1e60f2]', badgeBorder: 'border-blue-200/80' },
+      { badgeText: '{ }', badgeBg: 'bg-emerald-50 text-emerald-600', badgeBorder: 'border-emerald-200/80' },
+      { badgeText: '🏛️', badgeBg: 'bg-amber-50 text-amber-600', badgeBorder: 'border-amber-200/80' },
+      { badgeText: 'A', badgeBg: 'bg-rose-50 text-rose-600', badgeBorder: 'border-rose-200/80' },
+    ];
+    const ordered: Exam[] = [];
+    if (selectedExam) {
+      ordered.push(selectedExam);
+    }
+    for (const ex of exams) {
+      if (ex && !ordered.some((o) => o.id === ex.id)) {
+        ordered.push(ex);
+      }
+      if (ordered.length >= 4) break;
+    }
+    return ordered.map((ex, idx) => {
+      const style = badges[idx % badges.length];
+      return {
+        id: ex.id,
+        title: ex.title,
+        badgeText: ex.title.slice(0, 2).toUpperCase() || style.badgeText,
+        badgeBg: style.badgeBg,
+        badgeBorder: style.badgeBorder,
+        isPrimary: idx === 0,
+        originalExam: ex,
+      };
     });
-
-    // 2. SSC GD
-    const ssc = exams.find((e) => e?.title?.toLowerCase()?.includes('ssc') || e?.slug?.includes('ssc'));
-    list.push({
-      id: ssc?.id || 'ssc-gd',
-      title: ssc?.title || 'SSC GD',
-      badgeText: '{ }',
-      badgeBg: 'bg-emerald-50 text-emerald-600',
-      badgeBorder: 'border-emerald-200/80',
-      isPrimary: false,
-      originalExam: ssc,
-    });
-
-    // 3. WBCS
-    const wbcs = exams.find((e) => e?.title?.toLowerCase()?.includes('wbcs') || e?.slug?.includes('wbcs'));
-    list.push({
-      id: wbcs?.id || 'wbcs',
-      title: wbcs?.title || 'WBCS',
-      badgeText: '🏛️',
-      badgeBg: 'bg-amber-50 text-amber-600',
-      badgeBorder: 'border-amber-200/80',
-      isPrimary: false,
-      originalExam: wbcs,
-    });
-
-    // 4. Primary TET
-    const tet = exams.find((e) => e?.title?.toLowerCase()?.includes('tet') || e?.slug?.includes('tet'));
-    list.push({
-      id: tet?.id || 'primary-tet',
-      title: tet?.title || 'Primary TET',
-      badgeText: 'A',
-      badgeBg: 'bg-rose-50 text-rose-600',
-      badgeBorder: 'border-rose-200/80',
-      isPrimary: false,
-      originalExam: tet,
-    });
-
-    return list;
   }, [exams, selectedExam]);
 
   return (
@@ -555,7 +552,7 @@ export const Profile: React.FC = () => {
               <div className="relative group shrink-0">
                 <img
                   src={avatarSrc}
-                  alt={user?.fullName || 'Susanta Lohar'}
+                  alt={user?.fullName || 'Student'}
                   className="w-20 h-20 sm:w-22 sm:h-22 rounded-full object-cover ring-4 ring-white dark:ring-slate-800 shadow-md border border-slate-200 dark:border-slate-700"
                   onError={(e) => {
                     e.currentTarget.src = '/images/profile_user_avatar.jpg';
@@ -577,7 +574,7 @@ export const Profile: React.FC = () => {
                 {/* Name Row */}
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                    {user?.fullName || 'Susanta Lohar'}
+                    {user?.fullName || 'Student'}
                   </h2>
                   <button
                     type="button"
@@ -599,15 +596,15 @@ export const Profile: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
                   <span className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.email || 'susanta.me@gmail.com'}</span>
+                    <span>{user?.email || 'No email linked'}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.phone || extras.phone || '9547771118'}</span>
+                    <span>{user?.phone || extras.phone || 'Not added'}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.district ? `${user.district}, West Bengal` : (extras.location || 'Purulia, West Bengal')}</span>
+                    <span>{user?.district ? `${user.district}, West Bengal` : (extras.location || 'West Bengal')}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -710,7 +707,7 @@ export const Profile: React.FC = () => {
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
-                #{currentRank}
+                {currentRank > 0 ? `#${currentRank}` : '#-'}
               </div>
               <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
                 Current Rank
@@ -918,7 +915,7 @@ export const Profile: React.FC = () => {
                       stroke="#1e60f2"
                       strokeWidth="9"
                       strokeDasharray={2 * Math.PI * 40}
-                      strokeDashoffset={2 * Math.PI * 40 * (1 - 0.68)}
+                      strokeDashoffset={2 * Math.PI * 40 * (1 - goalProgressPct / 100)}
                       strokeLinecap="round"
                       fill="transparent"
                       className="transition-all duration-1000 ease-out"
@@ -926,7 +923,7 @@ export const Profile: React.FC = () => {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                     <span className="text-xl font-black text-slate-900 dark:text-white leading-none">
-                      68%
+                      {goalProgressPct}%
                     </span>
                     <span className="text-[10px] text-slate-400 font-semibold mt-0.5">
                       Goal Progress
@@ -941,21 +938,21 @@ export const Profile: React.FC = () => {
                       <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                       Tests Taken
                     </span>
-                    <span className="font-extrabold text-slate-900 dark:text-white">32</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">{testsCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <span className="w-2 h-2 rounded-full bg-teal-500"></span>
                       Hours Studied
                     </span>
-                    <span className="font-extrabold text-slate-900 dark:text-white">18h</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">{hoursStudied}h</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       Questions Solved
                     </span>
-                    <span className="font-extrabold text-slate-900 dark:text-white">1,240</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">{questionsSolvedCount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>

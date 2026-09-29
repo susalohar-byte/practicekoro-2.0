@@ -14,56 +14,7 @@ class _SavedQuestionsScreenState extends State<SavedQuestionsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Bookmarks', 'Incorrect'];
 
-  final List<Map<String, dynamic>> _savedList = [
-    {
-      'title': 'Photosynthesis',
-      'subject': 'Biology',
-      'date': '12 Jan 2025',
-      'icon': Icons.eco_rounded,
-      'color': AppColors.success,
-      'type': 'Bookmarks',
-    },
-    {
-      'title': 'Panchayati Raj System',
-      'subject': 'Polity',
-      'date': '10 Jan 2025',
-      'icon': Icons.account_balance_rounded,
-      'color': AppColors.gold,
-      'type': 'Bookmarks',
-    },
-    {
-      'title': 'Simplification',
-      'subject': 'Mathematics',
-      'date': '8 Jan 2025',
-      'icon': Icons.calculate_rounded,
-      'color': AppColors.primary,
-      'type': 'Incorrect',
-    },
-    {
-      'title': 'National Parks',
-      'subject': 'GK',
-      'date': '5 Jan 2025',
-      'icon': Icons.public_rounded,
-      'color': AppColors.cyan,
-      'type': 'Bookmarks',
-    },
-    {
-      'title': 'Blood Circulation',
-      'subject': 'Biology',
-      'date': '2 Jan 2025',
-      'icon': Icons.favorite_rounded,
-      'color': AppColors.error,
-      'type': 'Incorrect',
-    },
-    {
-      'title': 'English Grammar',
-      'subject': 'English',
-      'date': '28 Dec 2024',
-      'icon': Icons.translate_rounded,
-      'color': AppColors.purple,
-      'type': 'Bookmarks',
-    },
-  ];
+  final List<Map<String, dynamic>> _savedList = [];
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +54,18 @@ class _SavedQuestionsScreenState extends State<SavedQuestionsScreen> {
 
             // List of Saved Questions
             Expanded(
-              child: ListView.builder(
+              child: items.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No saved questions yet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                 itemCount: items.length,
                 itemBuilder: (context, index) {

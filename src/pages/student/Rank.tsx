@@ -56,357 +56,6 @@ const GoldenLaurelWreath: React.FC = () => (
   </svg>
 );
 
-// Dataset matching the reference mockup for WBP Constable & other exams with West Bengal districts
-const LEADERBOARD_DATA: Record<string, LeaderboardUser[]> = {
-  'WBP Constable': [
-    {
-      rank: 1,
-      name: 'Ananya Pramanik',
-      avatarUrl: '/images/leaderboard_ananya.jpg',
-      fallbackText: 'AP',
-      tests: 86,
-      avgScore: 92.4,
-      accuracy: 94,
-      totalMarks: 7946,
-      streak: 18,
-      tag: 'Topper',
-      exam: 'WBP Constable',
-      district: 'Hooghly',
-    },
-    {
-      rank: 2,
-      name: 'Rohit Sarkar',
-      avatarUrl: '/images/leaderboard_rohit.jpg',
-      fallbackText: 'RS',
-      tests: 78,
-      avgScore: 88.1,
-      accuracy: 90,
-      totalMarks: 6872,
-      streak: 14,
-      tag: 'Achiever',
-      exam: 'WBP Constable',
-      district: 'North 24 Parganas',
-    },
-    {
-      rank: 3,
-      name: 'Priya Mondal',
-      avatarUrl: '/images/leaderboard_priya.jpg',
-      fallbackText: 'PM',
-      tests: 72,
-      avgScore: 86.7,
-      accuracy: 88,
-      totalMarks: 6242,
-      streak: 11,
-      tag: 'Star Performer',
-      exam: 'WBP Constable',
-      district: 'Howrah',
-    },
-    {
-      rank: 4,
-      name: 'Arindam Das',
-      avatarUrl: '/images/avatar_arindam.jpg',
-      fallbackText: 'AD',
-      tests: 68,
-      avgScore: 84.2,
-      accuracy: 87,
-      totalMarks: 5820,
-      streak: 12,
-      exam: 'WBP Constable',
-      district: 'Purulia',
-    },
-    {
-      rank: 5,
-      name: 'Sayon Dutta',
-      avatarUrl: '/images/avatar_sayon.jpg',
-      fallbackText: 'SD',
-      tests: 65,
-      avgScore: 82.9,
-      accuracy: 85,
-      totalMarks: 5610,
-      streak: 10,
-      exam: 'WBP Constable',
-      district: 'Kolkata',
-    },
-    {
-      rank: 6,
-      name: 'Sneha Paul',
-      avatarUrl: '/images/avatar_sneha.jpg',
-      fallbackText: 'SP',
-      tests: 63,
-      avgScore: 81.4,
-      accuracy: 84,
-      totalMarks: 5420,
-      streak: 9,
-      exam: 'WBP Constable',
-      district: 'Bankura',
-    },
-    {
-      rank: 7,
-      name: 'Koushik Maity',
-      avatarUrl: '/images/avatar_koushik.jpg',
-      fallbackText: 'KM',
-      tests: 60,
-      avgScore: 79.8,
-      accuracy: 82,
-      totalMarks: 5210,
-      streak: 8,
-      exam: 'WBP Constable',
-      district: 'Purba Medinipur',
-    },
-    {
-      rank: 8,
-      name: 'Mousumi Khatun',
-      avatarUrl: '/images/avatar_mousumi.jpg',
-      fallbackText: 'MK',
-      tests: 58,
-      avgScore: 78.6,
-      accuracy: 81,
-      totalMarks: 5040,
-      streak: 7,
-      exam: 'WBP Constable',
-      district: 'Murshidabad',
-    },
-    {
-      rank: 9,
-      name: 'Abhishek Roy',
-      avatarUrl: '/images/avatar_abhishek.jpg',
-      fallbackText: 'AR',
-      tests: 56,
-      avgScore: 77.1,
-      accuracy: 80,
-      totalMarks: 4880,
-      streak: 6,
-      exam: 'WBP Constable',
-      district: 'Paschim Bardhaman',
-    },
-    {
-      rank: 10,
-      name: 'Tania Saha',
-      avatarUrl: '/images/avatar_tania.jpg',
-      fallbackText: 'TS',
-      tests: 54,
-      avgScore: 76.3,
-      accuracy: 79,
-      totalMarks: 4620,
-      streak: 5,
-      exam: 'WBP Constable',
-      district: 'Nadia',
-    },
-  ],
-  'KP SI': [
-    {
-      rank: 1,
-      name: 'Debasish Ghosh',
-      avatarUrl: '/images/leaderboard_rohit.jpg',
-      fallbackText: 'DG',
-      tests: 74,
-      avgScore: 89.5,
-      accuracy: 91,
-      totalMarks: 6623,
-      streak: 15,
-      tag: 'Topper',
-      exam: 'KP SI',
-      district: 'Kolkata',
-    },
-    {
-      rank: 2,
-      name: 'Poulomi Das',
-      avatarUrl: '/images/leaderboard_priya.jpg',
-      fallbackText: 'PD',
-      tests: 69,
-      avgScore: 86.2,
-      accuracy: 88,
-      totalMarks: 5948,
-      streak: 12,
-      tag: 'Achiever',
-      exam: 'KP SI',
-      district: 'South 24 Parganas',
-    },
-    {
-      rank: 3,
-      name: 'Rupam Mondal',
-      avatarUrl: '/images/avatar_arindam.jpg',
-      fallbackText: 'RM',
-      tests: 65,
-      avgScore: 84.1,
-      accuracy: 86,
-      totalMarks: 5466,
-      streak: 9,
-      tag: 'Star Performer',
-      exam: 'KP SI',
-      district: 'Howrah',
-    },
-    {
-      rank: 4,
-      name: 'Suman Roy',
-      avatarUrl: '/images/avatar_sayon.jpg',
-      fallbackText: 'SR',
-      tests: 61,
-      avgScore: 81.3,
-      accuracy: 83,
-      totalMarks: 4959,
-      streak: 8,
-      exam: 'KP SI',
-      district: 'Purulia',
-    },
-    {
-      rank: 5,
-      name: 'Anirban Bera',
-      avatarUrl: '/images/avatar_koushik.jpg',
-      fallbackText: 'AB',
-      tests: 57,
-      avgScore: 79.5,
-      accuracy: 81,
-      totalMarks: 4531,
-      streak: 7,
-      exam: 'KP SI',
-      district: 'Paschim Medinipur',
-    },
-  ],
-  'WBPSC Clerkship': [
-    {
-      rank: 1,
-      name: 'Sujata Majumder',
-      avatarUrl: '/images/leaderboard_ananya.jpg',
-      fallbackText: 'SM',
-      tests: 81,
-      avgScore: 91.2,
-      accuracy: 93,
-      totalMarks: 7387,
-      streak: 16,
-      tag: 'Topper',
-      exam: 'WBPSC Clerkship',
-      district: 'Kolkata',
-    },
-    {
-      rank: 2,
-      name: 'Bikram Sarkar',
-      avatarUrl: '/images/avatar_sayon.jpg',
-      fallbackText: 'BS',
-      tests: 76,
-      avgScore: 87.8,
-      accuracy: 89,
-      totalMarks: 6672,
-      streak: 13,
-      tag: 'Achiever',
-      exam: 'WBPSC Clerkship',
-      district: 'Jalpaiguri',
-    },
-    {
-      rank: 3,
-      name: 'Ankita Sen',
-      avatarUrl: '/images/avatar_sneha.jpg',
-      fallbackText: 'AS',
-      tests: 70,
-      avgScore: 85.4,
-      accuracy: 87,
-      totalMarks: 5978,
-      streak: 10,
-      tag: 'Star Performer',
-      exam: 'WBPSC Clerkship',
-      district: 'Hooghly',
-    },
-  ],
-};
-
-// Helper to generate a realistic, high-quality leaderboard when filtered by any West Bengal District
-const getDistrictLeaderboard = (
-  baseList: LeaderboardUser[],
-  targetDistrict: string
-): LeaderboardUser[] => {
-  const directMatches = baseList.filter((u) => u.district === targetDistrict);
-  const pool: LeaderboardUser[] = [...directMatches];
-
-  // Specific seeds for districts to guarantee all 23 districts look authentic & active
-  const districtSeedNames = [
-    { name: 'Arindam Das', score: 87.2, tests: 76, acc: 91, streak: 14 },
-    { name: 'Sourav Mahato', score: 85.0, tests: 72, acc: 89, streak: 12 },
-    { name: 'Payel Banerjee', score: 83.4, tests: 68, acc: 87, streak: 10 },
-    { name: 'Debolina Mukherjee', score: 81.8, tests: 64, acc: 85, streak: 9 },
-    { name: 'Subham Ghosh', score: 80.2, tests: 61, acc: 84, streak: 8 },
-    { name: 'Puja Bauri', score: 78.6, tests: 58, acc: 82, streak: 7 },
-    { name: 'Sandip Hansda', score: 77.1, tests: 55, acc: 80, streak: 6 },
-    { name: 'Barnali Dey', score: 75.8, tests: 52, acc: 79, streak: 5 },
-    { name: 'Amitava Sen', score: 74.5, tests: 50, acc: 78, streak: 5 },
-    { name: 'Bikash Kalindi', score: 73.2, tests: 48, acc: 76, streak: 4 },
-  ];
-
-  for (let i = 0; i < districtSeedNames.length && pool.length < 10; i++) {
-    const seed = districtSeedNames[i];
-    if (!pool.some((p) => p.name === seed.name)) {
-      pool.push({
-        rank: pool.length + 1,
-        name: seed.name,
-        avatarUrl: `/images/avatar_${(i % 5) + 1}.jpg`,
-        fallbackText: seed.name
-          .split(' ')
-          .map((w) => w[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase(),
-        tests: seed.tests,
-        avgScore: seed.score,
-        accuracy: seed.acc,
-        totalMarks: Math.round(seed.score * seed.tests),
-        streak: seed.streak,
-        district: targetDistrict,
-      });
-    }
-  }
-
-  // Sort descending by average score and re-rank
-  pool.sort((a, b) => b.avgScore - a.avgScore);
-  return pool.map((item, idx) => ({
-    ...item,
-    rank: idx + 1,
-    district: targetDistrict,
-    tag:
-      idx === 0
-        ? 'District Topper'
-        : idx === 1
-          ? 'Achiever'
-          : idx === 2
-            ? 'Star Performer'
-            : item.tag,
-  }));
-};
-
-// Top performers across exams list
-const TOP_PERFORMERS_BY_EXAM = [
-  {
-    exam: 'WBP Constable',
-    student: 'Ananya P.',
-    score: '92.4',
-    medal: 'gold',
-  },
-  {
-    exam: 'WBSSC Group D',
-    student: 'Rohit S.',
-    score: '89.1',
-    medal: 'silver',
-  },
-  {
-    exam: 'SSC GD',
-    student: 'Priya M.',
-    score: '87.6',
-    medal: 'bronze',
-  },
-  {
-    exam: 'Primary TET',
-    student: 'Arindam D.',
-    score: '85.2',
-    rank: 4,
-    avatarUrl: '/images/avatar_arindam.jpg',
-  },
-  {
-    exam: 'WBPSC Clerkship',
-    student: 'Mousumi K.',
-    score: '84.8',
-    rank: 5,
-    avatarUrl: '/images/avatar_mousumi.jpg',
-  },
-];
-
 export const Rank: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -419,6 +68,7 @@ export const Rank: React.FC = () => {
   );
   const [selectedPeriod, setSelectedPeriod] = useState<string>('This Month');
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
+  const [platformRankings, setPlatformRankings] = useState<LeaderboardUser[]>([]);
 
   // Keep selectedDistrict in sync when user profile district is loaded
   useEffect(() => {
@@ -427,50 +77,95 @@ export const Rank: React.FC = () => {
     }
   }, [user?.district]);
 
-  // Load genuine student test attempts
+  // Load genuine student test attempts and real platform rankings
   useEffect(() => {
-    if (!user) return;
     let isMounted = true;
+    if (user) {
+      api
+        .getUserAttempts(user.id)
+        .then((data) => {
+          if (isMounted) setAttempts(data || []);
+        })
+        .catch((err) => {
+          console.error('Failed to load user attempts for rank page:', err);
+        });
+    }
+
     api
-      .getUserAttempts(user.id)
-      .then((data) => {
-        if (isMounted) setAttempts(data || []);
+      .getPlatformAnalyticsOverview()
+      .then((overview) => {
+        if (!isMounted || !overview?.studentRankings) return;
+        const activeRanked = overview.studentRankings
+          .filter((r) => r.totalTests > 0)
+          .map((r, idx): LeaderboardUser => {
+            const avgSc =
+              r.totalTests > 0 ? Number((r.totalScore / r.totalTests).toFixed(1)) : 0;
+            const initials = (r.name || 'AS')
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase();
+            return {
+              rank: idx + 1,
+              name: r.name || 'Aspirant',
+              avatarUrl: '/images/profile_user_avatar.jpg',
+              fallbackText: initials,
+              tests: r.totalTests,
+              avgScore: avgSc,
+              accuracy: Math.round(r.accuracy || 0),
+              totalMarks: Math.round(r.totalScore || 0),
+              streak: r.totalTests > 0 ? 1 : 0,
+              tag: idx === 0 ? 'Topper' : idx === 1 ? 'Achiever' : idx === 2 ? 'Star Performer' : undefined,
+              exam: selectedExam,
+              district: 'West Bengal',
+              isCurrentUser: r.userId === user?.id,
+            };
+          });
+        setPlatformRankings(activeRanked);
       })
       .catch((err) => {
-        console.error('Failed to load user attempts for rank page:', err);
+        console.error('Failed to load platform rankings:', err);
       });
+
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user, selectedExam]);
 
-  // Compute live user stats from their actual test attempts or use benchmark
+  // Compute live user stats strictly from their actual test attempts
   const completedAttempts = useMemo(() => {
     return attempts.filter((a) => a.status === 'completed');
   }, [attempts]);
 
-  const userTestCount = completedAttempts.length > 0 ? completedAttempts.length : 32;
+  const userTestCount = completedAttempts.length;
   const userAvgScore =
     completedAttempts.length > 0
       ? Number((completedAttempts.reduce((s, a) => s + (a.score || 0), 0) / completedAttempts.length).toFixed(1))
-      : 68.4;
+      : 0;
   const userAccuracy =
     completedAttempts.length > 0
       ? Math.round(completedAttempts.reduce((s, a) => s + (a.accuracy || 0), 0) / completedAttempts.length)
-      : 72;
+      : 0;
   const userTotalMarks =
     completedAttempts.length > 0
       ? Math.round(completedAttempts.reduce((s, a) => s + (a.score || 0), 0))
-      : 2980;
+      : 0;
+  const userStreak = useMemo(() => {
+    if (completedAttempts.length === 0) return 0;
+    return new Set(completedAttempts.map((a) => new Date(a.createdAt).toISOString().slice(0, 10))).size;
+  }, [completedAttempts]);
 
-  // Active exam list - filtered by district if District scope is selected
+  // Active leaderboard from real platform rankings
   const currentLeaderboard = useMemo(() => {
-    const base = LEADERBOARD_DATA[selectedExam] || LEADERBOARD_DATA['WBP Constable'];
     if (selectedScope === 'District') {
-      return getDistrictLeaderboard(base, selectedDistrict);
+      const filtered = platformRankings.filter(
+        (u) => !u.district || u.district === selectedDistrict || u.district === 'West Bengal'
+      );
+      return filtered.map((u, idx) => ({ ...u, rank: idx + 1 }));
     }
-    return base;
-  }, [selectedExam, selectedScope, selectedDistrict]);
+    return platformRankings;
+  }, [platformRankings, selectedScope, selectedDistrict]);
 
   const top1 = currentLeaderboard.find((u) => u.rank === 1);
   const top2 = currentLeaderboard.find((u) => u.rank === 2);
@@ -478,26 +173,26 @@ export const Rank: React.FC = () => {
   const restRanks = currentLeaderboard.filter((u) => u.rank > 3);
 
   // Student's effective district
-  const userDistrict = user?.district || 'Purulia';
+  const userDistrict = user?.district || '';
 
-  // Live calculation of user's district rank
-  const userDistrictRank = useMemo(() => {
-    const targetDist = selectedScope === 'District' ? selectedDistrict : userDistrict;
-    const base = LEADERBOARD_DATA[selectedExam] || LEADERBOARD_DATA['WBP Constable'];
-    const distBoard = getDistrictLeaderboard(base, targetDist);
+  // Live calculation of user's rank
+  const computedUserRank = useMemo(() => {
+    const matched = currentLeaderboard.find((u) => u.isCurrentUser);
+    if (matched) return matched.rank;
+    if (completedAttempts.length === 0) return 0;
     let countAbove = 0;
-    distBoard.forEach((c) => {
-      if (c.avgScore > userAvgScore) {
-        countAbove++;
-      }
+    currentLeaderboard.forEach((c) => {
+      if (c.avgScore > userAvgScore) countAbove++;
     });
-    return Math.max(1, countAbove + 1);
-  }, [selectedScope, selectedDistrict, userDistrict, selectedExam, userAvgScore]);
+    return countAbove + 1;
+  }, [currentLeaderboard, completedAttempts.length, userAvgScore]);
+
+  const userDistrictRank = computedUserRank;
 
   // Current user row
-  const displayName = user?.fullName || 'Susanta Lohar';
+  const displayName = user?.fullName || 'Candidate';
   const currentUserRow: LeaderboardUser = {
-    rank: selectedScope === 'District' ? userDistrictRank : 147,
+    rank: computedUserRank,
     name: displayName,
     avatarUrl: user?.avatarUrl || '/images/profile_user_avatar.jpg',
     fallbackText: displayName
@@ -510,8 +205,8 @@ export const Rank: React.FC = () => {
     avgScore: userAvgScore,
     accuracy: userAccuracy,
     totalMarks: userTotalMarks,
-    streak: 4,
-    district: userDistrict,
+    streak: userStreak,
+    district: userDistrict || 'West Bengal',
     isCurrentUser: true,
   };
 
@@ -883,6 +578,13 @@ export const Rank: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm font-semibold">
+                  {currentLeaderboard.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
+                        No leaderboard rankings recorded yet. Complete a mock test to be the first on the board!
+                      </td>
+                    </tr>
+                  )}
                   {restRanks.map((student) => (
                     <tr
                       key={student.rank}
@@ -936,7 +638,7 @@ export const Rank: React.FC = () => {
                   {/* STICKY / HIGHLIGHTED CURRENT USER ROW */}
                   <tr className="bg-[#eff6ff] dark:bg-blue-950/40 border-t-2 border-blue-200 dark:border-blue-800">
                     <td className="py-3 pl-6 pr-3 font-black text-[#1e60f2] text-sm">
-                      {currentUserRow.rank}
+                      {currentUserRow.rank > 0 ? currentUserRow.rank : '-'}
                     </td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-3">
@@ -955,12 +657,14 @@ export const Rank: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-[#1e60f2] dark:text-blue-300 px-2 py-0.5 rounded-full">
                               <MapPin className="w-2.5 h-2.5 shrink-0" />
-                              <span>{currentUserRow.district || userDistrict}</span>
+                              <span>{currentUserRow.district || userDistrict || 'West Bengal'}</span>
                             </span>
                             <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
-                              {selectedScope === 'District'
-                                ? `District Rank #${userDistrictRank}`
-                                : `Statewide Rank #${currentUserRow.rank}`}
+                              {currentUserRow.rank > 0
+                                ? selectedScope === 'District'
+                                  ? `District Rank #${userDistrictRank}`
+                                  : `Statewide Rank #${currentUserRow.rank}`
+                                : 'Unranked'}
                             </span>
                           </div>
                         </div>
@@ -1009,25 +713,27 @@ export const Rank: React.FC = () => {
                 )}
               </div>
 
-              {/* Big Rank Number & Improvement Badge */}
+              {/* Big Rank Number */}
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-slate-400 text-2xl font-bold">#</span>
                     <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {selectedScope === 'District' ? userDistrictRank : 147}
+                      {currentUserRow.rank > 0 ? currentUserRow.rank : '-'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 font-medium mt-0.5">
-                    {selectedScope === 'District'
-                      ? `out of 184 aspirants in ${selectedDistrict}`
-                      : 'out of 2,843 aspirants in West Bengal'}
+                    {currentLeaderboard.length > 0
+                      ? `out of ${currentLeaderboard.length} ranked aspirants`
+                      : 'Complete a mock test to get ranked'}
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/80">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>23</span>
-                </div>
+                {currentUserRow.rank > 0 && (
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/80">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Active</span>
+                  </div>
+                )}
               </div>
 
               {/* Rank Comparison: Statewide vs District */}
@@ -1037,21 +743,29 @@ export const Rank: React.FC = () => {
                     <Globe className="w-3.5 h-3.5 text-[#1e60f2]" />
                     <span>Statewide (WB):</span>
                   </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white">#147</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white">
+                    {currentUserRow.rank > 0 ? `#${currentUserRow.rank}` : '#-'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                    <span>District ({userDistrict}):</span>
+                    <span>District ({userDistrict || 'Not Set'}):</span>
                   </span>
-                  <span className="font-black text-[#1e60f2]">#{userDistrictRank}</span>
+                  <span className="font-black text-[#1e60f2]">
+                    {userDistrictRank > 0 ? `#${userDistrictRank}` : '#-'}
+                  </span>
                 </div>
               </div>
 
-              {/* Rank Improvement Alert */}
+              {/* Rank Status Alert */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-xs font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Rank improved by 23 places!</span>
+                <span>
+                  {userTestCount > 0
+                    ? `You have completed ${userTestCount} mock tests!`
+                    : 'Attempt mock tests to climb the leaderboard!'}
+                </span>
               </div>
 
               {/* 3 Metrics Row */}
@@ -1091,7 +805,7 @@ export const Rank: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
-                  Top Performers by Exam
+                  Top Performers
                 </h3>
                 <button
                   type="button"
@@ -1102,41 +816,44 @@ export const Rank: React.FC = () => {
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {TOP_PERFORMERS_BY_EXAM.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Trophy or Avatar */}
-                      <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-base">
-                        {item.medal === 'gold' && '🏆'}
-                        {item.medal === 'silver' && '🥈'}
-                        {item.medal === 'bronze' && '🥉'}
-                        {!item.medal && (
-                          <img
-                            src={item.avatarUrl || '/images/avatar_arindam.jpg'}
-                            alt={item.student}
-                            className="w-6 h-6 rounded-full object-cover"
-                          />
-                        )}
+              {currentLeaderboard.length === 0 ? (
+                <div className="py-4 text-center text-xs text-slate-400">
+                  Top performers will appear as students complete mock tests.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {currentLeaderboard.slice(0, 5).map((item, index) => (
+                    <div
+                      key={item.rank}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 text-base">
+                          {index === 0 && '🏆'}
+                          {index === 1 && '🥈'}
+                          {index === 2 && '🥉'}
+                          {index > 2 && (
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                              #{index + 1}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 dark:text-white truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {item.exam || selectedExam}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-white truncate">
-                          {item.exam}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {item.student}
-                        </p>
-                      </div>
+                      <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm shrink-0">
+                        {item.avgScore}
+                      </span>
                     </div>
-                    <span className="font-black text-slate-900 dark:text-white text-xs sm:text-sm shrink-0">
-                      {item.score}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* CARD 3: "Motivational Quote & Potted Plant" */}

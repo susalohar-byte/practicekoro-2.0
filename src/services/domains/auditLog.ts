@@ -134,8 +134,9 @@ export async function getAdminAuditLogs(
         return { logs: mapped, total: count || mapped.length };
       }
     } catch (err) {
-      console.warn('[AuditLog] Supabase fetch error, using local store:', err);
+      console.warn('[AuditLog] Supabase fetch error:', err);
     }
+    return { logs: [], total: 0 };
   }
 
   // Local fallback
@@ -259,8 +260,9 @@ export async function getStaffMembers(): Promise<AdminStaffMember[]> {
           });
       }
     } catch (err) {
-      console.warn('[Staff] Supabase fetch error, fallback to local store:', err);
+      console.warn('[Staff] Supabase fetch error:', err);
     }
+    return [];
   }
 
   return [...localStaffUsers];

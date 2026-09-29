@@ -3,6 +3,7 @@ import { Eye, X } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 import type { Question } from '@/types';
 
@@ -33,7 +34,7 @@ export const PreviewQuestionModal: React.FC<PreviewQuestionModalProps> = ({
 
         <div className="space-y-3">
           <p className="text-sm font-black text-slate-900 dark:text-white leading-relaxed">
-            {question.questionBengaliText || question.questionText}
+            <MathText>{question.questionBengaliText || question.questionText}</MathText>
           </p>
 
           <QuestionImage
@@ -60,7 +61,7 @@ export const PreviewQuestionModal: React.FC<PreviewQuestionModalProps> = ({
                   }`}
                 >
                   <span>
-                    ({opt.key.toLowerCase()}) {opt.text}
+                    ({opt.key.toLowerCase()}) <MathText>{opt.text}</MathText>
                   </span>
                   {isCorrect && (
                     <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-600 text-white font-black">

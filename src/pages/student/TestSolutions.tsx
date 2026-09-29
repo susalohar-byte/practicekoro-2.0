@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { MathText } from '@/components/common/MathText';
 import type { QuestionSolution, MockTest } from '@/types';
 
 export const TestSolutions: React.FC = () => {
@@ -256,13 +257,13 @@ export const TestSolutions: React.FC = () => {
               {/* Question Text */}
               <div className="space-y-1">
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                  {!isBilingualEnabled
+                  <MathText>{!isBilingualEnabled
                     ? sol.questionBengaliText || sol.questionText
-                    : sol.questionText}
+                    : sol.questionText}</MathText>
                 </h3>
                 {isBilingualEnabled && sol.questionBengaliText && (
                   <p className="text-xs sm:text-sm text-slate-600 font-medium">
-                    {sol.questionBengaliText}
+                    <MathText>{sol.questionBengaliText}</MathText>
                   </p>
                 )}
 
@@ -299,7 +300,7 @@ export const TestSolutions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-white border border-current flex items-center justify-center font-bold text-[10px] shrink-0">
                           {opt}
                         </span>
-                        <span>{optText}</span>
+                        <span><MathText>{optText}</MathText></span>
                       </div>
 
                       {isAnswer && (

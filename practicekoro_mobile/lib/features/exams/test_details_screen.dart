@@ -19,7 +19,7 @@ class TestDetailsScreen extends StatefulWidget {
   const TestDetailsScreen({
     super.key,
     required this.testId,
-    this.testTitle = 'WBP Constable Full Mock Test 01',
+    this.testTitle = 'Mock Test',
     this.totalQuestions = 85,
     this.durationMinutes = 60,
     this.totalMarks = 85.0,
