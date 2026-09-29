@@ -86,6 +86,7 @@ async function bootstrap(): Promise<void> {
       { LanguageProvider },
       { ErrorBoundary },
       { App },
+      { HelmetProvider },
     ] = await Promise.all([
       import('react'),
       import('react-dom/client'),
@@ -98,6 +99,7 @@ async function bootstrap(): Promise<void> {
       import('@/context/LanguageContext'),
       import('@/components/common/ErrorBoundary'),
       import('./App'),
+      import('react-helmet-async'),
     ]);
 
     clearChunkReloadGuard();
@@ -113,23 +115,25 @@ async function bootstrap(): Promise<void> {
 
     createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
-        <ErrorBoundary area="PracticeKoro">
-          <LanguageProvider>
-            <QueryClientProvider client={queryClient}>
-              <BrowserRouter>
-                <ThemeProvider>
-                  <AuthProvider>
-                    <ExamProvider>
-                      <MaintenanceProvider>
-                        <App />
-                      </MaintenanceProvider>
-                    </ExamProvider>
-                  </AuthProvider>
-                </ThemeProvider>
-              </BrowserRouter>
-            </QueryClientProvider>
-          </LanguageProvider>
-        </ErrorBoundary>
+        <HelmetProvider>
+          <ErrorBoundary area="PracticeKoro">
+            <LanguageProvider>
+              <QueryClientProvider client={queryClient}>
+                <BrowserRouter>
+                  <ThemeProvider>
+                    <AuthProvider>
+                      <ExamProvider>
+                        <MaintenanceProvider>
+                          <App />
+                        </MaintenanceProvider>
+                      </ExamProvider>
+                    </AuthProvider>
+                  </ThemeProvider>
+                </BrowserRouter>
+              </QueryClientProvider>
+            </LanguageProvider>
+          </ErrorBoundary>
+        </HelmetProvider>
       </React.StrictMode>
     );
   } catch (error) {

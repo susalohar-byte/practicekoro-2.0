@@ -5,6 +5,19 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { ProtectedRoute, AdminRoute, PublicOnlyRoute } from '@/components/layout/ProtectedRoute';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
+// Public SEO Pages (no auth required, Google-indexable)
+const QuestionPage = lazyWithRetry(() =>
+  import('@/pages/public/QuestionPage').then((module) => ({ default: module.QuestionPage }))
+);
+const QuestionsListing = lazyWithRetry(() =>
+  import('@/pages/public/QuestionsListing').then((module) => ({
+    default: module.QuestionsListing,
+  }))
+);
+const SitemapPage = lazyWithRetry(() =>
+  import('@/pages/public/SitemapPage').then((module) => ({ default: module.SitemapPage }))
+);
+
 const Landing = lazyWithRetry(() =>
   import('@/pages/Landing').then((module) => ({ default: module.Landing }))
 );
@@ -346,6 +359,12 @@ export const App: React.FC = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Public SEO Question Pages (Google-indexable, no auth) */}
+        <Route path="/questions" element={<QuestionsListing />} />
+        <Route path="/questions/:questionId/:slug" element={<QuestionPage />} />
+        <Route path="/questions/:questionId" element={<QuestionPage />} />
+        <Route path="/sitemap" element={<SitemapPage />} />
 
         {/* Auth Public-Only Routes */}
         <Route

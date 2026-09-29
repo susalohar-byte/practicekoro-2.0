@@ -1,31 +1,21 @@
-# Sitemap
-Sitemap: https://practicekoro.online/sitemap.xml
-
-# Allow all search engines
-User-agent: Googlebot
-Allow: /
-Crawl-delay: 1
-
-User-agent: Bingbot
-Allow: /
-Crawl-delay: 2
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Allow: /questions
+Allow: /questions/*
+Allow: /test-series
+Allow: /terms
+Allow: /privacy
+Allow: /refund-policy
+Allow: /contact-us
 
-# Block admin and private routes
-Disallow: /admin/
-Disallow: /student/
-Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /settings
+Disallow: /results
+Disallow: /saved-questions
+Disallow: /login
+Disallow: /register
 
-# Allow important resources
-Allow: /icons/
-Allow: /favicon.svg
-Allow: /favicon.ico
-Allow: /manifest.json
+Sitemap: https://practicekoro.online/sitemap.xml
