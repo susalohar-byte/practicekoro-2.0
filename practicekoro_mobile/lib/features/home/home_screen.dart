@@ -1138,6 +1138,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ==========================================
   // SECTION 6 WIDGET: POPULAR TEST SERIES
   // ==========================================
+  String _resolveExamEmblem(TestSeriesModel series) {
+    if (series.iconUrl != null && series.iconUrl!.trim().isNotEmpty) {
+      final url = series.iconUrl!.trim();
+      if (url.startsWith('http') || url.startsWith('assets/')) {
+        return url;
+      }
+    }
+
+    final idLower = series.examId.toLowerCase();
+    final titleLower = '${series.title} ${series.examTitle ?? ''}'.toLowerCase();
+
+    if (idLower.contains('wbp') || idLower.contains('kp') || titleLower.contains('wbp') || titleLower.contains('police') || titleLower.contains('constable')) {
+      return 'assets/images/exams/emblem_wbp.png';
+    }
+    if (idLower.contains('wbpsc') || idLower.contains('wbcs') || titleLower.contains('wbpsc') || titleLower.contains('clerkship') || titleLower.contains('wbcs') || titleLower.contains('food')) {
+      return 'assets/images/exams/emblem_wbpsc.png';
+    }
+    if (idLower.contains('railway') || idLower.contains('rrb') || titleLower.contains('railway') || titleLower.contains('rrb') || titleLower.contains('group d') || titleLower.contains('ntpc')) {
+      return 'assets/images/exams/emblem_railway.png';
+    }
+    if (idLower.contains('tet') || titleLower.contains('tet') || titleLower.contains('primary') || titleLower.contains('teach')) {
+      return 'assets/images/exams/emblem_tet.png';
+    }
+    if (idLower.contains('wbssc') || titleLower.contains('wbssc') || titleLower.contains('slst')) {
+      return 'assets/images/exams/emblem_wbssc.png';
+    }
+    if (idLower.contains('ssc') || titleLower.contains('ssc') || titleLower.contains('cgl') || titleLower.contains('gd')) {
+      return 'assets/images/exams/emblem_ssc.png';
+    }
+    return 'assets/images/logo.png';
+  }
+
+  Widget _buildEmblemImage(String pathOrUrl) {
+    if (pathOrUrl.startsWith('http')) {
+      return Image.network(
+        pathOrUrl,
+        width: 44,
+        height: 44,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.contain),
+      );
+    }
+    return Image.asset(
+      pathOrUrl,
+      width: 44,
+      height: 44,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.contain),
+    );
+  }
+
   Widget _buildPopularTestSeriesSection(List<TestSeriesModel> seriesList) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1159,7 +1210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: const Row(
                 children: [
                   Text(
-                    'View All',
+                    'See All',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
@@ -1175,23 +1226,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Horizontal scrolling cards with ONLY: Exam logo, Exam name, Test Series name, and Arrow CTA!
+        // Horizontal scrolling cards with Exam emblem on left and Title + Arrow CTA on right
         SizedBox(
-          height: 124,
+          height: 86,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: seriesList.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final series = seriesList[index];
-              final examName = series.examTitle ?? 'West Bengal Exam';
+              final emblemPath = _resolveExamEmblem(series);
 
               return InkWell(
                 onTap: () => context.push('/exams/${series.examId}'),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  width: 230,
-                  padding: const EdgeInsets.all(14),
+                  width: 236,
+                  height: 86,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1204,66 +1256,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Row(
                     children: [
-                      // Top Row: Exam Icon + Exam Name Badge
-                      Row(
-                        children: [
-                          Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFFDBEAFE)),
+                      // Left: Circular Exam Emblem Container
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
                             ),
-                            child: const Icon(Icons.shield_outlined, size: 14, color: Color(0xFF0158FC)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              examName,
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: ClipOval(
+                          child: _buildEmblemImage(emblemPath),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Right: Test Series Title & Bottom-Right Arrow
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              series.title,
                               style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF64748B),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                                height: 1.25,
                               ),
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
-                      ),
-
-                      // Test Series Title
-                      Text(
-                        series.title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      // Bottom Row: Clean Arrow CTA
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Container(
-                            width: 26,
-                            height: 26,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEFF6FF),
-                              shape: BoxShape.circle,
+                            const SizedBox(height: 5),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEFF6FF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 13,
+                                  color: Color(0xFF0158FC),
+                                ),
+                              ),
                             ),
-                            child: const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0158FC)),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

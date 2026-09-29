@@ -452,8 +452,8 @@ class MockData {
     TestSeriesModel(
       id: 'ts-wbp-constable',
       examId: 'wbp-constable',
-      title: 'WBP Constable 2026 Test Series',
-      slug: 'wbp-constable-2026',
+      title: 'WBP Constable Full Test Series',
+      slug: 'wbp-constable-full',
       examTitle: 'WBP Constable',
       isPopular: true,
       testCount: 45,
@@ -461,8 +461,8 @@ class MockData {
     TestSeriesModel(
       id: 'ts-wbpsc-clerkship',
       examId: 'wbpsc-clerkship',
-      title: 'WBPSC Clerkship Ultimate Mock Series',
-      slug: 'wbpsc-clerkship-ultimate',
+      title: 'WBPSC Clerkship Test Series',
+      slug: 'wbpsc-clerkship-test-series',
       examTitle: 'WBPSC Clerkship',
       isPopular: true,
       testCount: 35,
@@ -470,8 +470,8 @@ class MockData {
     TestSeriesModel(
       id: 'ts-railway-group-d',
       examId: 'rrb-group-d',
-      title: 'Railway Group D Full Mock Test Series',
-      slug: 'railway-group-d-mocks',
+      title: 'Railway Group D Test Series',
+      slug: 'railway-group-d-test-series',
       examTitle: 'Railway Group D',
       isPopular: true,
       testCount: 40,
@@ -479,8 +479,8 @@ class MockData {
     TestSeriesModel(
       id: 'ts-wbcs-prelims',
       examId: 'wbcs-prelims',
-      title: 'WBCS Prelims Comprehensive Test Series',
-      slug: 'wbcs-prelims-comp',
+      title: 'WBCS Prelims Test Series',
+      slug: 'wbcs-prelims-test-series',
       examTitle: 'WBCS Prelims',
       isPopular: true,
       testCount: 60,

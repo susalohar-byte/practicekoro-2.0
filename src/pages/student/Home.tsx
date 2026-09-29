@@ -25,6 +25,37 @@ import {
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { api } from '@/services/api';
 
+const resolvePopularSeriesEmblem = (series: {
+  iconUrl?: string | null;
+  examId?: string | null;
+  title: string;
+  examTitle?: string | null;
+}) => {
+  if (series.iconUrl && series.iconUrl.trim().length > 0) {
+    return series.iconUrl.trim();
+  }
+  const combined = `${series.examId || ''} ${series.title || ''} ${series.examTitle || ''}`.toLowerCase();
+  if (combined.includes('wbp') || combined.includes('constable') || combined.includes('police') || combined.includes('kp')) {
+    return '/images/exams/emblem_wbp.png';
+  }
+  if (combined.includes('wbpsc') || combined.includes('clerkship') || combined.includes('wbcs') || combined.includes('misc') || combined.includes('food')) {
+    return '/images/exams/emblem_wbpsc.png';
+  }
+  if (combined.includes('rail') || combined.includes('rrb') || combined.includes('ntpc') || combined.includes('group d') || combined.includes('group-d')) {
+    return '/images/exams/emblem_railway.png';
+  }
+  if (combined.includes('tet') || combined.includes('teach') || combined.includes('primary')) {
+    return '/images/exams/emblem_tet.png';
+  }
+  if (combined.includes('wbssc') || combined.includes('slst') || combined.includes('school')) {
+    return '/images/exams/emblem_wbssc.png';
+  }
+  if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('chsl') || combined.includes('gd')) {
+    return '/images/exams/emblem_ssc.png';
+  }
+  return '/logo-icon.png';
+};
+
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
   const navigate = useNavigate();
@@ -811,44 +842,51 @@ export const Home: React.FC = () => {
       {popularTestSeries.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-1.5">
               <span>🔥</span> Popular Test Series
             </h3>
             <Link
               to="/test-series"
               className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
             >
-              View All <ChevronRight className="w-4 h-4" />
+              See All <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {popularTestSeries.map((series) => (
-              <Link
-                key={series.id}
-                to={`/test-series/${series.id}`}
-                className="group flex flex-col justify-between p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all active:scale-[0.99]"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#0158FC] text-xs font-bold">
-                      🛡️
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
+            {popularTestSeries.map((series) => {
+              const emblem = resolvePopularSeriesEmblem(series);
+
+              return (
+                <Link
+                  key={series.id}
+                  to={`/test-series/${series.id}`}
+                  className="group flex-shrink-0 w-[240px] sm:w-auto flex items-center gap-3.5 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all active:scale-[0.99]"
+                >
+                  <div className="w-12 h-12 rounded-full p-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-center shrink-0">
+                    <img
+                      src={emblem}
+                      alt=""
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/logo-icon.png';
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
+                    <h4 className="text-[13px] font-extrabold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
+                      {series.title}
+                    </h4>
+                    <div className="flex justify-end mt-1.5">
+                      <div className="w-6 h-6 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#0158FC] group-hover:bg-[#0158FC] group-hover:text-white flex items-center justify-center transition-colors">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">
-                      {series.examTitle || 'Exam Series'}
-                    </span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
-                    {series.title}
-                  </h4>
-                </div>
-                <div className="flex justify-end pt-3">
-                  <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-slate-800 group-hover:bg-[#0158FC] text-[#0158FC] group-hover:text-white flex items-center justify-center transition-colors">
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
