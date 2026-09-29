@@ -114,6 +114,16 @@ export const liveRevisionApi = {
     const {data,error}=await q; if(error) throw error;
     return (data||[]).map((r:any)=>({flashcardId:String(r.flashcard_id),status:r.status,reviewCount:Number(r.review_count||0),lastReviewedAt:r.last_reviewed_at,nextReviewAt:r.next_review_at,difficulty:r.difficulty||'medium'}));
   },
+  async getDueCards(userId:string, limit=20):Promise<Flashcard[]> {
+    if(!isSupabaseConfigured) return [];
+    const {data: progress,error}=await supabase.from('flashcard_progress').select('flashcard_id').eq('user_id',userId).lte('next_review_at',new Date().toISOString()).limit(limit);
+    if(error) throw error;
+    const ids=(progress||[]).map((r:any)=>r.flashcard_id);
+    if(!ids.length) return [];
+    const {data:cards,error:cardError}=await supabase.from('flashcards').select('*').in('id',ids).eq('status','published');
+    if(cardError) throw cardError;
+    return (cards||[]).map(mapCard);
+  },
   async reviewCard(userId:string,cardId:string,rating:'again'|'hard'|'good'|'easy'):Promise<FlashcardProgress>{
     if(!isSupabaseConfigured) throw new Error('Supabase is not configured');
     const minutes={again:10,hard:24*60,good:3*24*60,easy:7*24*60}[rating]; const now=new Date(); const next=new Date(now.getTime()+minutes*60000);
