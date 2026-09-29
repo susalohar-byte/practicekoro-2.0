@@ -21,7 +21,6 @@ import {
   ListOrdered,
   CalendarClock,
   Layers3,
-  Radio,
 } from 'lucide-react';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
@@ -101,12 +100,6 @@ export const AdminLayout: React.FC = () => {
           label: 'Test Series',
           path: '/admin/test-series',
           icon: ListOrdered,
-          permission: 'canManageTests',
-        },
-        {
-          label: 'Live Tests',
-          path: '/admin/live-tests',
-          icon: Radio,
           permission: 'canManageTests',
         },
         {

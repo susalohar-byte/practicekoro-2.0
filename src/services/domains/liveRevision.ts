@@ -1,5 +1,6 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { MockTest, TestSeries } from '@/types';
+import { getActiveLiveTest, getLiveTests } from './admin.liveTests';
 
 export type LiveTestStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'archived';
 
@@ -60,53 +61,114 @@ const mapCard = (r: any): Flashcard => ({
 
 export const liveRevisionApi = {
   async getFeaturedLiveTest(): Promise<LiveTest | null> {
-    if (!isSupabaseConfigured) return null;
-    const now = new Date().toISOString();
-    const select = '*, tests(id,title,duration_minutes,total_questions,total_marks,passing_marks,negative_marking,test_type,is_premium,is_active,exam_id,test_series_id)';
-    const { data: live } = await supabase.from('live_tests').select(select).eq('status','live').eq('visibility','public').lte('scheduled_start_at',now).gt('scheduled_end_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
-    if (live) return mapLive(live);
-    const { data: next, error } = await supabase.from('live_tests').select(select).eq('status','scheduled').eq('visibility','public').gt('scheduled_start_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
-    if (error) throw error;
-    return next ? mapLive(next) : null;
+    if (isSupabaseConfigured) {
+      try {
+        const now = new Date().toISOString();
+        const select = '*, tests(id,title,duration_minutes,total_questions,total_marks,passing_marks,negative_marking,test_type,is_premium,is_active,exam_id,test_series_id)';
+        const { data: live } = await supabase.from('live_tests').select(select).eq('status','live').eq('visibility','public').lte('scheduled_start_at',now).gt('scheduled_end_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
+        if (live) return mapLive(live);
+        const { data: next, error } = await supabase.from('live_tests').select(select).eq('status','scheduled').eq('visibility','public').gt('scheduled_start_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
+        if (!error && next) return mapLive(next);
+      } catch {
+        // Fallback to active live test from local store
+      }
+    }
+    const fallback = await getActiveLiveTest();
+    if (!fallback) return null;
+    return {
+      id: fallback.id,
+      title: fallback.title,
+      description: fallback.instructions || null,
+      testId: fallback.testId,
+      examId: fallback.examId,
+      testSeriesId: fallback.testSeriesId,
+      scheduledStartAt: fallback.scheduledStartTime,
+      scheduledEndAt: fallback.scheduledEndTime,
+      durationMinutes: fallback.durationMinutes,
+      instructions: fallback.instructions || null,
+      subscriptionRequired: false,
+      rankingEnabled: true,
+      status: (fallback.status as any) || 'scheduled',
+      resultVisibility: 'immediate',
+      test: {
+        id: fallback.testId,
+        title: fallback.testTitle || fallback.title,
+        durationMinutes: fallback.durationMinutes,
+        totalQuestions: fallback.totalQuestions,
+        totalMarks: fallback.totalMarks,
+        passingMarks: Math.floor(fallback.totalMarks * 0.4),
+        negativeMarking: fallback.negativeMarking,
+        testType: 'full',
+        isPremium: false,
+        isActive: true,
+      } as any,
+    };
   },
   async getLiveTestsForAdmin(): Promise<LiveTest[]> {
-    if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('live_tests').select('*, tests(id,title,duration_minutes,total_questions,total_marks,passing_marks,negative_marking,test_type,is_premium,is_active,exam_id,test_series_id)').order('scheduled_start_at',{ascending:false});
-    if (error) throw error; return (data || []).map(mapLive);
-  },
-  async createLiveTest(payload: Record<string, unknown>): Promise<LiveTest> {
-    const { data, error } = await supabase.from('live_tests').insert(payload).select('*, tests(*)').single();
-    if (error) throw error; return mapLive(data);
-  },
-  async updateLiveTest(id: string, payload: Record<string, unknown>): Promise<LiveTest> {
-    const { data, error } = await supabase.from('live_tests').update(payload).eq('id',id).select('*, tests(*)').single();
-    if (error) throw error; return mapLive(data);
+    const list = await getLiveTests();
+    return list.map((lt) => ({
+      id: lt.id,
+      title: lt.title,
+      description: lt.instructions || null,
+      testId: lt.testId,
+      examId: lt.examId,
+      testSeriesId: lt.testSeriesId,
+      scheduledStartAt: lt.scheduledStartTime,
+      scheduledEndAt: lt.scheduledEndTime,
+      durationMinutes: lt.durationMinutes,
+      instructions: lt.instructions || null,
+      subscriptionRequired: false,
+      rankingEnabled: true,
+      status: (lt.status as any) || 'scheduled',
+      resultVisibility: 'immediate',
+    }));
   },
   async joinLiveTest(liveTestId: string, userId: string) {
-    const { error } = await supabase.from('live_test_participants').upsert({live_test_id:liveTestId,user_id:userId,status:'registered'},{onConflict:'live_test_id,user_id'});
-    if (error) throw error;
+    if (!isSupabaseConfigured) return;
+    try {
+      await supabase.from('live_test_participants').upsert({live_test_id:liveTestId,user_id:userId,status:'registered'},{onConflict:'live_test_id,user_id'});
+    } catch {
+      // safe fallback
+    }
   },
   async isRegistered(liveTestId: string, userId: string) {
-    const { data, error } = await supabase.from('live_test_participants').select('id').eq('live_test_id',liveTestId).eq('user_id',userId).maybeSingle();
-    if (error) throw error; return Boolean(data);
+    if (!isSupabaseConfigured) return false;
+    try {
+      const { data } = await supabase.from('live_test_participants').select('id').eq('live_test_id',liveTestId).eq('user_id',userId).maybeSingle();
+      return Boolean(data);
+    } catch {
+      return false;
+    }
   },
   async getFeaturedTestSeries(): Promise<TestSeries[]> {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('test_series').select('*, exams:exam_id(title)').eq('is_active',true).eq('is_featured',true).order('order_index',{ascending:true}).limit(8);
-    if (error) throw error;
-    return (data || []).map((r:any)=>({id:String(r.id),examId:String(r.exam_id),title:String(r.title),slug:r.slug,description:r.description??undefined,iconUrl:r.icon_url??undefined,isPremium:Boolean(r.is_premium),isActive:Boolean(r.is_active),orderIndex:Number(r.order_index||0),examTitle:r.exams?.title??undefined})) as TestSeries[];
+    try {
+      const { data, error } = await supabase.from('test_series').select('*, exams:exam_id(title)').eq('is_active',true).eq('is_featured',true).order('order_index',{ascending:true}).limit(8);
+      if (error) return [];
+      return (data || []).map((r:any)=>({id:String(r.id),examId:String(r.exam_id),title:String(r.title),slug:r.slug,description:r.description??undefined,iconUrl:r.icon_url??undefined,isPremium:Boolean(r.is_premium),isActive:Boolean(r.is_active),orderIndex:Number(r.order_index||0),examTitle:r.exams?.title??undefined})) as TestSeries[];
+    } catch {
+      return [];
+    }
   },
   async getAllFlashcardDecksForAdmin(): Promise<FlashcardDeck[]> {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('flashcard_decks').select('*, flashcards(id)').order('order_index', { ascending: true });
-    if (error) throw error;
-    return (data || []).map(mapDeck);
+    try {
+      const { data, error } = await supabase.from('flashcard_decks').select('*, flashcards(id)').order('order_index', { ascending: true });
+      if (error) return [];
+      return (data || []).map(mapDeck);
+    } catch {
+      return [];
+    }
   },
   async getFlashcardsForAdmin(deckId: string): Promise<Flashcard[]> {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('flashcards').select('*').eq('deck_id', deckId).order('order_index', { ascending: true });
-    if (error) throw error;
-    return (data || []).map(mapCard);
+    try {
+      const { data, error } = await supabase.from('flashcards').select('*').eq('deck_id', deckId).order('order_index', { ascending: true });
+      if (error) return [];
+      return (data || []).map(mapCard);
+    } catch {
+      return [];
+    }
   },
   async createFlashcardDeck(payload: Record<string, unknown>): Promise<FlashcardDeck> {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
@@ -122,31 +184,51 @@ export const liveRevisionApi = {
   },
   async getDecks(filters: {examId?:string;subjectId?:string;chapterId?:string} = {}): Promise<FlashcardDeck[]> {
     if (!isSupabaseConfigured) return [];
-    let q:any=supabase.from('flashcard_decks').select('*, flashcards(id)').eq('status','published').order('order_index',{ascending:true});
-    if(filters.examId) q=q.eq('exam_id',filters.examId); if(filters.subjectId) q=q.eq('subject_id',filters.subjectId); if(filters.chapterId) q=q.eq('chapter_id',filters.chapterId);
-    const {data,error}=await q; if(error) throw error; return (data||[]).map(mapDeck);
+    try {
+      let q:any=supabase.from('flashcard_decks').select('*, flashcards(id)').eq('status','published').order('order_index',{ascending:true});
+      if(filters.examId) q=q.eq('exam_id',filters.examId); if(filters.subjectId) q=q.eq('subject_id',filters.subjectId); if(filters.chapterId) q=q.eq('chapter_id',filters.chapterId);
+      const {data,error}=await q;
+      if(error) return [];
+      return (data||[]).map(mapDeck);
+    } catch {
+      return [];
+    }
   },
   async getDeckCards(deckId:string):Promise<Flashcard[]> {
     if(!isSupabaseConfigured) return [];
-    const {data,error}=await supabase.from('flashcards').select('*').eq('deck_id',deckId).eq('status','published').order('order_index',{ascending:true});
-    if(error) throw error; return (data||[]).map(mapCard);
+    try {
+      const {data,error}=await supabase.from('flashcards').select('*').eq('deck_id',deckId).eq('status','published').order('order_index',{ascending:true});
+      if(error) return [];
+      return (data||[]).map(mapCard);
+    } catch {
+      return [];
+    }
   },
   async getProgress(userId:string, cardIds?:string[]):Promise<FlashcardProgress[]> {
     if(!isSupabaseConfigured) return [];
-    let q:any=supabase.from('flashcard_progress').select('*').eq('user_id',userId);
-    if(cardIds?.length) q=q.in('flashcard_id',cardIds);
-    const {data,error}=await q; if(error) throw error;
-    return (data||[]).map((r:any)=>({flashcardId:String(r.flashcard_id),status:r.status,reviewCount:Number(r.review_count||0),lastReviewedAt:r.last_reviewed_at,nextReviewAt:r.next_review_at,difficulty:r.difficulty||'medium'}));
+    try {
+      let q:any=supabase.from('flashcard_progress').select('*').eq('user_id',userId);
+      if(cardIds?.length) q=q.in('flashcard_id',cardIds);
+      const {data,error}=await q;
+      if(error) return [];
+      return (data||[]).map((r:any)=>({flashcardId:String(r.flashcard_id),status:r.status,reviewCount:Number(r.review_count||0),lastReviewedAt:r.last_reviewed_at,nextReviewAt:r.next_review_at,difficulty:r.difficulty||'medium'}));
+    } catch {
+      return [];
+    }
   },
   async getDueCards(userId:string, limit=20):Promise<Flashcard[]> {
     if(!isSupabaseConfigured) return [];
-    const {data: progress,error}=await supabase.from('flashcard_progress').select('flashcard_id').eq('user_id',userId).lte('next_review_at',new Date().toISOString()).limit(limit);
-    if(error) throw error;
-    const ids=(progress||[]).map((r:any)=>r.flashcard_id);
-    if(!ids.length) return [];
-    const {data:cards,error:cardError}=await supabase.from('flashcards').select('*').in('id',ids).eq('status','published');
-    if(cardError) throw cardError;
-    return (cards||[]).map(mapCard);
+    try {
+      const {data: progress,error}=await supabase.from('flashcard_progress').select('flashcard_id').eq('user_id',userId).lte('next_review_at',new Date().toISOString()).limit(limit);
+      if(error) return [];
+      const ids=(progress||[]).map((r:any)=>r.flashcard_id);
+      if(!ids.length) return [];
+      const {data:cards,error:cardError}=await supabase.from('flashcards').select('*').in('id',ids).eq('status','published');
+      if(cardError) return [];
+      return (cards||[]).map(mapCard);
+    } catch {
+      return [];
+    }
   },
   async reviewCard(userId:string,cardId:string,rating:'again'|'hard'|'good'|'easy'):Promise<FlashcardProgress>{
     if(!isSupabaseConfigured) throw new Error('Supabase is not configured');
