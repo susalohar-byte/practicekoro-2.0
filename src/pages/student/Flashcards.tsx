@@ -36,7 +36,7 @@ export const Flashcards: React.FC = () => {
   };
 
   const openDeck = async (deck: FlashcardDeck, mode?: 5|10|20) => {
-    setLoading(true); setSelected(deck); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode || null);
+    setLoading(true); setSelected(deck); setIndex(0); setFlipped(false); setSessionMode(mode || null);
     try { setCards(await api.getDeckCards(deck.id)); } finally { setLoading(false); }
   };
 

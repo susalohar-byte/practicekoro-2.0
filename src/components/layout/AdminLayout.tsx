@@ -19,12 +19,9 @@ import {
   FolderTree,
   AlertTriangle,
   ListOrdered,
-<<<<<<< HEAD
   CalendarClock,
   Layers3,
-=======
   Radio,
->>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
 } from 'lucide-react';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';

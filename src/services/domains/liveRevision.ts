@@ -96,6 +96,30 @@ export const liveRevisionApi = {
     if (error) throw error;
     return (data || []).map((r:any)=>({id:String(r.id),examId:String(r.exam_id),title:String(r.title),slug:r.slug,description:r.description??undefined,iconUrl:r.icon_url??undefined,isPremium:Boolean(r.is_premium),isActive:Boolean(r.is_active),orderIndex:Number(r.order_index||0),examTitle:r.exams?.title??undefined})) as TestSeries[];
   },
+  async getAllFlashcardDecksForAdmin(): Promise<FlashcardDeck[]> {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.from('flashcard_decks').select('*, flashcards(id)').order('order_index', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(mapDeck);
+  },
+  async getFlashcardsForAdmin(deckId: string): Promise<Flashcard[]> {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.from('flashcards').select('*').eq('deck_id', deckId).order('order_index', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(mapCard);
+  },
+  async createFlashcardDeck(payload: Record<string, unknown>): Promise<FlashcardDeck> {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { data, error } = await supabase.from('flashcard_decks').insert(payload).select().single();
+    if (error) throw error;
+    return mapDeck(data);
+  },
+  async createFlashcard(payload: Record<string, unknown>): Promise<Flashcard> {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { data, error } = await supabase.from('flashcards').insert(payload).select().single();
+    if (error) throw error;
+    return mapCard(data);
+  },
   async getDecks(filters: {examId?:string;subjectId?:string;chapterId?:string} = {}): Promise<FlashcardDeck[]> {
     if (!isSupabaseConfigured) return [];
     let q:any=supabase.from('flashcard_decks').select('*, flashcards(id)').eq('status','published').order('order_index',{ascending:true});

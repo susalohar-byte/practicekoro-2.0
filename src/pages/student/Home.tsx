@@ -24,8 +24,6 @@ import {
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { api } from '@/services/api';
-import { cn } from '@/lib/utils';
-import { api } from '@/services/api';
 
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();

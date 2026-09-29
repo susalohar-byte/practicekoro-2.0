@@ -76,6 +76,7 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
       iconUrl: item.icon_url || cachedIcons[item.id] || item.iconUrl || undefined,
       isPremium: item.is_premium,
       orderIndex: item.order_index,
+      isActive: Boolean(item.is_active ?? true),
       isPopular: Boolean(item.is_popular || (item as any).is_featured),
       createdAt: item.created_at,
       examTitle: item.exams?.title || undefined,
@@ -127,12 +128,7 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
     description: seriesData.description || null,
     is_premium: seriesData.isPremium ?? false,
     order_index: seriesData.orderIndex || 0,
-    is_active: seriesData.isActive ?? true,
-<<<<<<< HEAD
-    is_featured: seriesData.isFeatured ?? false,
-=======
-    is_popular: seriesData.isPopular ?? false,
->>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
+    is_popular: seriesData.isPopular ?? (seriesData as any).isFeatured ?? false,
   };
   if (seriesData.iconUrl) {
     insertPayload.icon_url = seriesData.iconUrl;
@@ -245,11 +241,8 @@ export async function updateTestSeries(
   if (updates.isPremium !== undefined) payload.is_premium = updates.isPremium;
   if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
-<<<<<<< HEAD
-  if (updates.isFeatured !== undefined) payload.is_featured = updates.isFeatured;
-=======
   if (updates.isPopular !== undefined) payload.is_popular = updates.isPopular;
->>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
+  if ((updates as any).isFeatured !== undefined && updates.isPopular === undefined) payload.is_popular = (updates as any).isFeatured;
   if (updates.examId !== undefined) payload.exam_id = updates.examId;
   if (updates.iconUrl !== undefined) payload.icon_url = updates.iconUrl || null;
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, CheckCircle2, Clock3, FileText, Trophy, Users, ArrowRight } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock3, FileText, Trophy, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { api, type LiveTest } from '@/services/api';
+import { api, type LiveTest as LiveTestData } from '@/services/api';
 
 const formatCountdown = (target: string) => {
   const diff = Math.max(0, new Date(target).getTime() - Date.now());
@@ -17,7 +17,7 @@ const formatCountdown = (target: string) => {
 export const LiveTest: React.FC = () => {
   const { user, isPro } = useAuth();
   const navigate = useNavigate();
-  const [test, setTest] = useState<LiveTest | null>(null);
+  const [test, setTest] = useState<LiveTestData | null>(null);
   const [registered, setRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
