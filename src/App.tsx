@@ -62,6 +62,12 @@ const SavedQuestions = lazyWithRetry(() =>
 const Rank = lazyWithRetry(() =>
   import('@/pages/student/Rank').then((module) => ({ default: module.Rank }))
 );
+const LiveTest = lazyWithRetry(() =>
+  import('@/pages/student/LiveTest').then((module) => ({ default: module.LiveTest }))
+);
+const Flashcards = lazyWithRetry(() =>
+  import('@/pages/student/Flashcards').then((module) => ({ default: module.Flashcards }))
+);
 const Onboarding = lazyWithRetry(() =>
   import('@/pages/student/Onboarding').then((module) => ({ default: module.Onboarding }))
 );
@@ -122,6 +128,12 @@ const AdminTestQuestions = lazyWithRetry(() =>
   import('@/pages/admin/AdminTestQuestions').then((module) => ({
     default: module.AdminTestQuestions,
   }))
+);
+const AdminLiveTests = lazyWithRetry(() =>
+  import('@/pages/admin/AdminLiveTests').then((module) => ({ default: module.AdminLiveTests }))
+);
+const AdminFlashcards = lazyWithRetry(() =>
+  import('@/pages/admin/AdminFlashcards').then((module) => ({ default: module.AdminFlashcards }))
 );
 const AdminSubscriptions = lazyWithRetry(() =>
   import('@/pages/admin/AdminSubscriptions').then((module) => ({
@@ -254,6 +266,9 @@ export const App: React.FC = () => {
           />
           <Route path="practice" element={<Practice />} />
           <Route path="practice/*" element={<Practice />} />
+          <Route path="live-test" element={<ProtectedRoute><LiveTest /></ProtectedRoute>} />
+          <Route path="quick-revision" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
+          <Route path="flashcards" element={<Navigate to="/quick-revision" replace />} />
           <Route
             path="results"
             element={
@@ -437,6 +452,22 @@ export const App: React.FC = () => {
             element={
               <AdminRoute requiredPermission="canManageTests">
                 <AdminTests />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="live-tests"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminLiveTests />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="flashcards"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminFlashcards />
               </AdminRoute>
             }
           />
