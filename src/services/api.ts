@@ -7,6 +7,7 @@ import { subscriptionApi } from '@/services/domains/subscription';
 import { adminCommerceApi } from '@/services/domains/adminCommerce';
 import { adminApi } from '@/services/domains/admin';
 import * as auditLogDomain from '@/services/domains/auditLog';
+import { liveRevisionApi } from '@/services/domains/liveRevision';
 
 export const api = {
   ...catalogApi,
@@ -14,6 +15,7 @@ export const api = {
   ...adminCommerceApi,
   ...adminApi,
   ...auditLogDomain,
+  ...liveRevisionApi,
 };
 
 export type { Exam, Subject, Chapter, TestSeries, MockTest, Question } from '@/types';
