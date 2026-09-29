@@ -14,7 +14,6 @@ export const Flashcards: React.FC = () => {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sessionMode, setSessionMode] = useState<5|10|20|null>(null);
-  const [reviewed, setReviewed] = useState(0);
   const [dueCount, setDueCount] = useState(0);
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export const Flashcards: React.FC = () => {
 
   const openDue = async (mode: 5|10|20) => {
     if (!user?.id) return;
-    setLoading(true); setSelected({id:'due',title:"Today's Revision",status:'published',orderIndex:0} as FlashcardDeck); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode);
+    setLoading(true); setSelected({id:'due',title:"Today's Revision",status:'published',orderIndex:0} as FlashcardDeck); setIndex(0); setFlipped(false); setSessionMode(mode);
     try { setCards((await api.getDueCards(user.id, mode)).slice(0, mode)); } finally { setLoading(false); }
   };
 
@@ -44,7 +43,7 @@ export const Flashcards: React.FC = () => {
   const rate = async (rating: Rating) => {
     if (!current || !user?.id) return;
     await api.reviewCard(user.id, current.id, rating);
-    setReviewed(v => v + 1); setFlipped(false);
+    setFlipped(false);
     if (index + 1 < sessionCards.length) setIndex(v => v + 1);
     else setSelected(null);
   };
