@@ -77,6 +77,7 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
       isPremium: item.is_premium,
       orderIndex: item.order_index,
       isActive: item.is_active,
+      isFeatured: Boolean(item.is_featured),
       createdAt: item.created_at,
       examTitle: item.exams?.title || undefined,
       testCount: count,
@@ -128,6 +129,7 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
     is_premium: seriesData.isPremium ?? false,
     order_index: seriesData.orderIndex || 0,
     is_active: seriesData.isActive ?? true,
+    is_featured: seriesData.isFeatured ?? false,
   };
   if (seriesData.iconUrl) {
     insertPayload.icon_url = seriesData.iconUrl;
@@ -227,6 +229,7 @@ export async function updateTestSeries(
   if (updates.isPremium !== undefined) payload.is_premium = updates.isPremium;
   if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+  if (updates.isFeatured !== undefined) payload.is_featured = updates.isFeatured;
   if (updates.examId !== undefined) payload.exam_id = updates.examId;
   if (updates.iconUrl !== undefined) payload.icon_url = updates.iconUrl || null;
 
