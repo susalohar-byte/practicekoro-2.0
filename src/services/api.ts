@@ -19,4 +19,4 @@ export const api = {
 };
 
 export type { Exam, Subject, Chapter, TestSeries, MockTest, Question } from '@/types';
-export type { LiveTest, Flashcard, FlashcardDeck, FlashcardProgress } from '@/services/domains/liveRevision';
+export type { LiveTest } from '@/services/domains/liveRevision';

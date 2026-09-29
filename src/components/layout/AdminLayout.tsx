@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   ListOrdered,
   CalendarClock,
-  Layers3,
 } from 'lucide-react';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
@@ -88,12 +87,6 @@ export const AdminLayout: React.FC = () => {
           label: 'Live Tests',
           path: '/admin/live-tests',
           icon: CalendarClock,
-          permission: 'canManageTests',
-        },
-        {
-          label: 'Flashcards',
-          path: '/admin/flashcards',
-          icon: Layers3,
           permission: 'canManageTests',
         },
         {

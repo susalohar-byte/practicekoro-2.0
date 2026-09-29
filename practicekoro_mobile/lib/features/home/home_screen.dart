@@ -1532,18 +1532,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: _buildStudyToolCard(
-                title: 'Flashcards',
-                subtitle: 'Quick revision',
-                icon: Icons.style_outlined,
-                iconColor: const Color(0xFF8B5CF6),
-                bgColor: const Color(0xFFF5F3FF),
-                borderColor: const Color(0xFFEDE9FE),
-                onTap: () => _handleTabNavigation(2, '/practice'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildStudyToolCard(
                 title: 'Study Notes',
                 subtitle: 'Summaries',
                 icon: Icons.menu_book_outlined,

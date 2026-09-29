@@ -878,10 +878,9 @@ export const Home: React.FC = () => {
       {/* QUICK STUDY TOOLS */}
       <div>
         <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Quick Study Tools</h3></div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
             ['Weak Topics','Focus & improve','/practice',Target,'bg-blue-50 text-[#0158FC]'],
-            ['Flashcards','Quick revision','/quick-revision',Sparkles,'bg-rose-50 text-rose-600'],
             ['Study Resources','Notes & exam-ready summaries','/practice',BookOpen,'bg-violet-50 text-violet-600'],
           ].map(([title,desc,to,Icon,cls]) => {
             const ToolIcon = Icon as React.ComponentType<{className?:string}>;
