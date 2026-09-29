@@ -174,6 +174,7 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
     isPremium: data.is_premium,
     orderIndex: data.order_index,
     isActive: data.is_active,
+    isFeatured: Boolean(data.is_featured),
     iconUrl: seriesData.iconUrl || (data as any)?.icon_url || undefined,
     createdAt: data.created_at,
     examTitle: (data as any).exams?.title || undefined,
@@ -265,6 +266,7 @@ export async function updateTestSeries(
     isPremium: data.is_premium,
     orderIndex: data.order_index,
     isActive: data.is_active,
+    isFeatured: Boolean(data.is_featured),
     createdAt: data.created_at,
     examTitle: (data as any).exams?.title || undefined,
   };
