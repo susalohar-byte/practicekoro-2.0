@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
@@ -25,10 +24,8 @@ import {
   Sparkles,
   AlertCircle,
   AlertTriangle,
-  ExternalLink,
   ChevronRight,
   Upload,
-  Network,
   GripVertical,
 } from 'lucide-react';
 import type { Exam, MockTest } from '@/types';
@@ -430,9 +427,10 @@ export const AdminExams: React.FC = () => {
   const stats = useMemo(() => {
     const total = exams.length;
     const active = exams.filter((e) => e.isActive).length;
+    const inactive = total - active;
     const testsCount = tests.filter((t) => !!t.examId).length;
     const catCount = categories.length;
-    return { total, active, testsCount, catCount };
+    return { total, active, inactive, testsCount, catCount };
   }, [exams, tests, categories]);
 
   // Filtered Exams
@@ -665,56 +663,6 @@ export const AdminExams: React.FC = () => {
         </div>
       )}
 
-      {/* Sub-Navigation Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <Link
-            to="/admin/exams"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-indigo-600 text-white shadow-xs"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            Exams Directory ({exams.length})
-          </Link>
-          <Link
-            to="/admin/exam-topics"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            title="Map and customize syllabus topics for exams"
-          >
-            <Network className="w-3.5 h-3.5 text-indigo-500" />
-            Exam ↔ Topic Mapping
-          </Link>
-          <Link
-            to="/admin/tests"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-          >
-            <FileText className="w-3.5 h-3.5 text-indigo-500" />
-            Mock & Topic Tests
-          </Link>
-          <Link
-            to="/admin/subjects"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-          >
-            <Layers className="w-3.5 h-3.5 text-blue-500" />
-            Subjects & Topics
-          </Link>
-          <Link
-            to="/admin/question-bank"
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
-            Question Bank
-          </Link>
-        </div>
-
-        <Link
-          to="/admin/tests?tab=topic"
-          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
-        >
-          <span>Manage Topic Tests</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
-
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
@@ -731,22 +679,12 @@ export const AdminExams: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Define target recruitment exams. Topic Tests are automatically enabled by default for
-              every exam with centralized syllabus chapters and mock test simulations.
+              Create and manage target recruitment exams, categories, and active platform availability.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            to="/admin/exam-topics"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
-            title="Map and customize syllabus topics for examinations"
-          >
-            <Network className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>Topic Mapping</span>
-          </Link>
-
           <Button
             size="sm"
             variant="outline"
@@ -776,7 +714,7 @@ export const AdminExams: React.FC = () => {
             <Shield className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</div>
-          <p className="text-[11px] text-slate-400">Target recruitment exams</p>
+          <p className="text-[11px] text-slate-400">Total recruitment exams</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
@@ -792,13 +730,13 @@ export const AdminExams: React.FC = () => {
 
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Linked Mock Tests</span>
-            <FileText className="w-4 h-4 text-sky-500" />
+            <span className="text-xs font-medium">Inactive / Draft</span>
+            <AlertCircle className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">
-            {stats.testsCount}
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+            {stats.inactive}
           </div>
-          <p className="text-[11px] text-slate-400">Full tests & PYQ papers</p>
+          <p className="text-[11px] text-slate-400">Hidden from students</p>
         </div>
 
         <div
@@ -1124,67 +1062,15 @@ export const AdminExams: React.FC = () => {
                     {exam.description || 'No detailed description provided for this exam.'}
                   </p>
 
-                  {/* Metrics Badge Row */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    <Link
-                      to={`/admin/tests?examId=${exam.id}&tab=full_mock`}
-                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 flex items-center gap-2 transition-colors group/mock"
-                      title="Manage Full Mock Tests for this exam"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 leading-none">Full Mock</p>
-                        <p className="font-bold text-slate-900 dark:text-white mt-0.5 group-hover/mock:text-indigo-600 dark:group-hover/mock:text-indigo-400">
-                          {testCount} Tests
-                        </p>
-                      </div>
-                    </Link>
-
-                    <Link
-                      to={`/admin/tests?examId=${exam.id}&tab=topic`}
-                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 flex items-center gap-2 transition-colors group/topic"
-                      title="Topic Tests are available by default. Click to manage topic tests for this exam."
-                    >
-                      <Layers className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 leading-none">Topic Tests</p>
-                        <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 group-hover/topic:text-blue-600 dark:group-hover/topic:text-blue-400 flex items-center gap-1">
-                          <span>Active</span>
-                          <ChevronRight className="w-3 h-3 opacity-60" />
-                        </p>
-                      </div>
-                    </Link>
-                  </div>
                 </div>
 
                 {/* Card Footer Actions */}
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <Link
-                      to={`/admin/question-bank?examId=${exam.id}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                      title="View all questions for this exam in Question Bank"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Question Bank</span>
-                    </Link>
-                    <span className="text-slate-300 dark:text-slate-700">•</span>
-                    <Link
-                      to={`/admin/exam-topics?examId=${exam.id}`}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                      title="Configure syllabus topics mapped to this exam"
-                    >
-                      <Network className="w-3 h-3" />
-                      <span>Topic Scope</span>
-                    </Link>
-                    <span className="text-slate-300 dark:text-slate-700">•</span>
-                    <Link
-                      to="/admin/tests"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <span>Tests</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="font-semibold text-[11px]">
+                      {testCount} {testCount === 1 ? 'Mock Test' : 'Mock Tests'}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -1192,17 +1078,18 @@ export const AdminExams: React.FC = () => {
                       type="button"
                       onClick={() => openEditModal(exam)}
                       title="Edit Exam"
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/50 transition-colors"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setExamToDelete(exam)}
                       title="Delete Exam"
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1285,13 +1172,10 @@ export const AdminExams: React.FC = () => {
 
                       {/* Associated Tests */}
                       <td className="p-4 text-center">
-                        <Link
-                          to="/admin/tests"
-                          className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-sky-500" />
+                        <span className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
+                          <FileText className="w-3.5 h-3.5 text-slate-400" />
                           <span>{testCount}</span>
-                        </Link>
+                        </span>
                       </td>
 
                       {/* Order Index */}
@@ -1322,31 +1206,10 @@ export const AdminExams: React.FC = () => {
                       {/* Actions */}
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <Link
-                            to={`/admin/question-bank?examId=${exam.id}`}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="View Exam in Question Bank"
-                          >
-                            <BookOpen className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            to={`/admin/tests?examId=${exam.id}&tab=topic`}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="Manage Topic Tests for this Exam"
-                          >
-                            <Layers className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            to={`/admin/exam-topics?examId=${exam.id}`}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="Configure Exam-Topic Mapping & Syllabus Scope"
-                          >
-                            <Network className="w-4 h-4" />
-                          </Link>
                           <button
                             type="button"
                             onClick={() => openEditModal(exam)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             title="Edit Exam"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1354,7 +1217,7 @@ export const AdminExams: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setExamToDelete(exam)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                             title="Delete Exam"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1386,8 +1249,7 @@ export const AdminExams: React.FC = () => {
                     {editingExam ? 'Edit Target Exam' : 'Add Target Recruitment Exam'}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Configure exam identity, URL path, and categorization (Topic Tests active by
-                    default)
+                    Configure exam title, category, URL slug, and icon
                   </p>
                 </div>
               </div>
@@ -1401,33 +1263,6 @@ export const AdminExams: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {editingExam ? (
-                <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
-                    <Network className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span className="text-[11px] font-medium">
-                      Want to customize or restrict specific syllabus topics for this exam?
-                    </span>
-                  </div>
-                  <Link
-                    to={`/admin/exam-topics?examId=${editingExam.id}`}
-                    className="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors inline-flex items-center gap-1 shrink-0 shadow-xs"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span>Topic Scope</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                  <span>
-                    No syllabus mapping required. Standard topic tests and subjects are
-                    automatically enabled for this exam.
-                  </span>
-                </div>
-              )}
               {formError && (
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />

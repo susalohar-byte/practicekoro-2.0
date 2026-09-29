@@ -3,7 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AdminExamTopics } from './AdminExamTopics';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { AdminExams } from './AdminExams';
 import { api } from '@/services/api';
 
 vi.mock('@/context/AuthContext', () => ({
@@ -137,31 +136,6 @@ describe('AdminExamTopics Integration & Navigation', () => {
     const navLink = screen.getAllByRole('link', { name: /Manage Exams/i })[0];
     expect(navLink).toBeInTheDocument();
     expect(navLink).toHaveAttribute('href', '/admin/exams');
-  });
-
-  it('renders "Exam ↔ Topic Mapping" links in AdminExams directory', async () => {
-    render(
-      <MemoryRouter initialEntries={['/admin/exams']}>
-        <AdminExams />
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      // Sub-nav tab
-      expect(screen.getByRole('link', { name: 'Exam ↔ Topic Mapping' })).toBeInTheDocument();
-      // Header quick action button
-      expect(screen.getByRole('link', { name: 'Topic Mapping' })).toBeInTheDocument();
-    });
-
-    // Topic Scope link on exam cards
-    await waitFor(() => {
-      const topicScopeLinks = screen.getAllByRole('link', { name: /Topic Scope/i });
-      expect(topicScopeLinks.length).toBeGreaterThan(0);
-      expect(topicScopeLinks[0]).toHaveAttribute(
-        'href',
-        '/admin/exam-topics?examId=exam_wb_police'
-      );
-    });
   });
 
   it('loads and preselects exam based on ?examId= query parameter in AdminExamTopics', async () => {
