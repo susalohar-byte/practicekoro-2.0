@@ -153,6 +153,7 @@ export interface TestSeries {
   isPremium: boolean;
   orderIndex: number;
   isActive: boolean;
+  isFeatured?: boolean;
   iconUrl?: string;
   createdAt?: string;
   examTitle?: string;
