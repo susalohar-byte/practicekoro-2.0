@@ -23,6 +23,12 @@ vi.mock('@/context/MaintenanceContext', () => ({
     appSettings: [],
     reloadSettings: vi.fn(),
   }),
+  useContentLanguage: () => ({
+    contentLanguageMode: 'bengali_only',
+    isBilingualEnabled: false,
+    isBengaliOnly: true,
+    updateContentLanguageMode: vi.fn(),
+  }),
 }));
 
 vi.mock('@/context/ThemeContext', () => ({
@@ -59,9 +65,9 @@ vi.mock('@/services/api', () => ({
 
 describe('AdminExams Category Management Updates', () => {
   const mockCategories = [
-    { id: 'cat_police', name: 'Police Exams', orderIndex: 0, isActive: true },
-    { id: 'cat_ssc', name: 'SSC & Railway', orderIndex: 1, isActive: true },
-    { id: 'cat_civil', name: 'Civil Services', orderIndex: 2, isActive: true },
+    { id: 'cat_wbp', name: 'WB Police (WBP / KP)', orderIndex: 0, isActive: true },
+    { id: 'cat_ssc', name: 'SSC & Central Govt.', orderIndex: 1, isActive: true },
+    { id: 'cat_tet', name: 'Teaching (TET / SLST)', orderIndex: 2, isActive: true },
   ];
 
   const mockExams = [
@@ -69,7 +75,7 @@ describe('AdminExams Category Management Updates', () => {
       id: 'exam_wbp',
       title: 'WBP Constable',
       slug: 'wbp-constable',
-      category: 'Police Exams',
+      category: 'WB Police (WBP / KP)',
       orderIndex: 0,
       isActive: true,
       totalTests: 10,
@@ -79,7 +85,7 @@ describe('AdminExams Category Management Updates', () => {
       id: 'exam_ssc',
       title: 'SSC MTS',
       slug: 'ssc-mts',
-      category: 'SSC & Railway',
+      category: 'SSC & Central Govt.',
       orderIndex: 1,
       isActive: true,
       totalTests: 5,
@@ -138,13 +144,13 @@ describe('AdminExams Category Management Updates', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Drag to reorder "Police Exams"/)).toBeInTheDocument();
-      expect(screen.getByTitle(/Drag to reorder "SSC & Railway"/)).toBeInTheDocument();
-      expect(screen.getByTitle(/Drag to reorder "Civil Services"/)).toBeInTheDocument();
+      expect(screen.getByTitle(/Drag to reorder "WB Police \(WBP \/ KP\)"/)).toBeInTheDocument();
+      expect(screen.getByTitle(/Drag to reorder "SSC & Central Govt\."/)).toBeInTheDocument();
+      expect(screen.getByTitle(/Drag to reorder "Teaching \(TET \/ SLST\)"/)).toBeInTheDocument();
     });
 
     // Verify draggable attribute is present on the category pill containers
-    const policePill = screen.getByTitle(/Drag to reorder "Police Exams"/);
+    const policePill = screen.getByTitle(/Drag to reorder "WB Police \(WBP \/ KP\)"/);
     expect(policePill).toHaveAttribute('draggable', 'true');
   });
 
@@ -168,15 +174,15 @@ describe('AdminExams Category Management Updates', () => {
       expect(screen.getByText('Manage Exam Categories')).toBeInTheDocument();
     });
 
-    // Find delete button for "Civil Services" (which has 0 exams)
+    // Find delete button for "Teaching (TET / SLST)" (which has 0 exams)
     const deleteButtons = screen.getAllByTitle(/delete category/i);
     expect(deleteButtons.length).toBeGreaterThan(0);
 
-    // Click delete on Civil Services
+    // Click delete on Teaching (TET / SLST)
     fireEvent.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => {
-      expect(api.deleteExamCategory).toHaveBeenCalledWith('Civil Services');
+      expect(api.deleteExamCategory).toHaveBeenCalledWith('Teaching (TET / SLST)');
       expect(api.getExamCategories).toHaveBeenCalledTimes(2); // Initial load + refresh after delete
     });
   });
@@ -272,14 +278,14 @@ describe('AdminQuestionBank Selection UI Updates', () => {
 
     // Verify 3 selected is displayed with Delete Selected button
     await waitFor(() => {
-      expect(screen.getByText('3 selected')).toBeInTheDocument();
+      expect(screen.getByText(/3 selected/i)).toBeInTheDocument();
       expect(screen.getByText('Delete Selected (3)')).toBeInTheDocument();
     });
 
     // Click again to unselect all
     fireEvent.click(selectAllBtn);
     await waitFor(() => {
-      expect(screen.queryByText('3 selected')).toBeNull();
+      expect(screen.queryByText(/3 selected/i)).toBeNull();
     });
   });
 
@@ -300,9 +306,9 @@ describe('AdminQuestionBank Selection UI Updates', () => {
 
 describe('AdminExams Drag & Drop Reordering Execution', () => {
   const mockCategories = [
-    { id: 'cat_police', name: 'Police Exams', orderIndex: 0, isActive: true },
-    { id: 'cat_ssc', name: 'SSC & Railway', orderIndex: 1, isActive: true },
-    { id: 'cat_civil', name: 'Civil Services', orderIndex: 2, isActive: true },
+    { id: 'cat_wbp', name: 'WB Police (WBP / KP)', orderIndex: 0, isActive: true },
+    { id: 'cat_ssc', name: 'SSC & Central Govt.', orderIndex: 1, isActive: true },
+    { id: 'cat_tet', name: 'Teaching (TET / SLST)', orderIndex: 2, isActive: true },
   ];
 
   beforeEach(() => {
@@ -321,13 +327,13 @@ describe('AdminExams Drag & Drop Reordering Execution', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Drag to reorder "Police Exams"/)).toBeInTheDocument();
+      expect(screen.getByTitle(/Drag to reorder "WB Police \(WBP \/ KP\)"/)).toBeInTheDocument();
     });
 
-    const policePill = screen.getByTitle(/Drag to reorder "Police Exams"/);
-    const sscPill = screen.getByTitle(/Drag to reorder "SSC & Railway"/);
+    const policePill = screen.getByTitle(/Drag to reorder "WB Police \(WBP \/ KP\)"/);
+    const sscPill = screen.getByTitle(/Drag to reorder "SSC & Central Govt\."/);
 
-    // Simulate HTML5 drag start on Police Exams (index 0)
+    // Simulate HTML5 drag start on WB Police (index 0)
     const dataTransfer = {
       setData: vi.fn(),
       getData: vi.fn(() => '0'),
@@ -341,9 +347,9 @@ describe('AdminExams Drag & Drop Reordering Execution', () => {
 
     await waitFor(() => {
       expect(api.reorderExamCategories).toHaveBeenCalledWith([
-        { name: 'SSC & Railway', orderIndex: 1 },
-        { name: 'Police Exams', orderIndex: 2 },
-        { name: 'Civil Services', orderIndex: 3 },
+        { name: 'SSC & Central Govt.', orderIndex: 1 },
+        { name: 'WB Police (WBP / KP)', orderIndex: 2 },
+        { name: 'Teaching (TET / SLST)', orderIndex: 3 },
       ]);
     });
   });

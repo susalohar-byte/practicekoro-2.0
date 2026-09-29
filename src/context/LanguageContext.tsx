@@ -14,11 +14,10 @@ interface LanguageContextType {
 
 function lookup(lang: AppLang, path: string): string | undefined {
   const parts = path.split('.');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let node: any = DICTIONARIES[lang];
+  let node: Record<string, unknown> | unknown = DICTIONARIES[lang];
   for (const part of parts) {
     if (node == null || typeof node !== 'object') return undefined;
-    node = node[part];
+    node = (node as Record<string, unknown>)[part];
   }
   return typeof node === 'string' ? node : undefined;
 }

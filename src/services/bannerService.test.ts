@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('@/lib/supabase', () => ({
+  isSupabaseConfigured: false,
+  supabase: {},
+  supabaseRuntime: {},
+}));
+
 import { bannerService } from './bannerService';
 
 describe('bannerService Enterprise Architecture', () => {

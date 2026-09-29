@@ -7,7 +7,7 @@ function Probe() {
   return (
     <div>
       <span data-testid="lang">{lang}</span>
-      <span data-testid="hero">{t('hero.eyebrow')}</span>
+      <span data-testid="hero">{t('hero.headlineLead')}</span>
       <span data-testid="missing">{t('nope.missing.key')}</span>
       <button type="button" onClick={() => setLang('en')}>
         to-en
@@ -36,16 +36,14 @@ describe('LanguageContext', () => {
   it('defaults to Bengali-first when nothing is stored', () => {
     renderWithProvider();
     expect(screen.getByTestId('lang').textContent).toBe('bn');
-    expect(screen.getByTestId('hero').textContent).toBe('পশ্চিমবঙ্গের #১ সরকারি চাকরি প্র্যাকটিস প্ল্যাটফর্ম');
+    expect(screen.getByTestId('hero').textContent).toBe('আত্মবিশ্বাসের সাথে জয়');
   });
 
   it('restores the stored language and switches with persistence', async () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
     renderWithProvider();
     expect(screen.getByTestId('lang').textContent).toBe('en');
-    expect(screen.getByTestId('hero').textContent).toBe(
-      "West Bengal's #1 Govt Exam Practice Platform"
-    );
+    expect(screen.getByTestId('hero').textContent).toBe('Crack Your Dream Govt Exam');
 
     await act(async () => {
       fireEvent.click(screen.getByText('to-bn'));
@@ -63,8 +61,6 @@ describe('LanguageContext', () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
     render(<Probe />);
     expect(screen.getByTestId('lang').textContent).toBe('en');
-    expect(screen.getByTestId('hero').textContent).toBe(
-      "West Bengal's #1 Govt Exam Practice Platform"
-    );
+    expect(screen.getByTestId('hero').textContent).toBe('Crack Your Dream Govt Exam');
   });
 });

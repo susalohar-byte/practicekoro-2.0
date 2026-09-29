@@ -11,7 +11,9 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
   try {
     const raw = localStorage.getItem('practicekoro_series_icons');
     if (raw) cachedIcons = JSON.parse(raw);
-  } catch {}
+  } catch {
+    // ignore parse error
+  }
 
   if (!isSupabaseConfigured) {
     return localTestSeries
@@ -115,7 +117,9 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
         const icons = raw ? JSON.parse(raw) : {};
         icons[id] = seriesData.iconUrl;
         localStorage.setItem('practicekoro_series_icons', JSON.stringify(icons));
-      } catch {}
+      } catch {
+        // ignore localStorage write error
+      }
     }
     return newSeries;
   }
@@ -173,7 +177,9 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
       const icons = raw ? JSON.parse(raw) : {};
       icons[data.id] = seriesData.iconUrl;
       localStorage.setItem('practicekoro_series_icons', JSON.stringify(icons));
-    } catch {}
+    } catch {
+      // ignore localStorage write error
+    }
   }
 
   return {
