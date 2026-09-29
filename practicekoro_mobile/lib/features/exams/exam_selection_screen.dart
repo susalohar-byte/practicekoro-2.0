@@ -4,7 +4,9 @@ import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 
 class ExamSelectionScreen extends StatefulWidget {
-  const ExamSelectionScreen({super.key});
+  final bool isProfileChange;
+
+  const ExamSelectionScreen({super.key, this.isProfileChange = false});
 
   @override
   State<ExamSelectionScreen> createState() => _ExamSelectionScreenState();
@@ -136,16 +138,16 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
     super.dispose();
   }
 
-  void _onContinue() {
+  Future<void> _onContinue() async {
     final selected = _exams.firstWhere((e) => e['id'] == _selectedExamId);
-    LocalStorageService.saveTargetExam(selected['title'] as String);
-    LocalStorageService.setOnboardingCompleted(true);
-    context.go('/home');
-  }
-
-  void _onSkip() {
-    LocalStorageService.setOnboardingCompleted(true);
-    context.go('/home');
+    await LocalStorageService.saveTargetExam(selected['title'] as String);
+    await LocalStorageService.setOnboardingCompleted(true);
+    if (!mounted) return;
+    if (widget.isProfileChange) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
   }
 
   @override
@@ -191,15 +193,12 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton(
-                    onPressed: _onSkip,
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
-                      ),
+                  const Text(
+                    'Target Exam',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ],

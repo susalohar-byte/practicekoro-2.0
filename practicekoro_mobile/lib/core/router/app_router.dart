@@ -4,7 +4,6 @@ import '../../features/navigation/main_scaffold.dart';
 import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/exams/exam_selection_screen.dart';
-import '../../features/exams/primary_exam_selection_screen.dart';
 import '../../features/exams/exam_tests_screen.dart';
 import '../../features/exams/test_details_screen.dart';
 import '../../features/practice/topic_screen.dart';
@@ -43,16 +42,16 @@ final appRouter = GoRouter(
     // 4. Exam Selection
     GoRoute(
       path: '/exam-selection',
-      builder: (context, state) => const ExamSelectionScreen(),
+      builder: (context, state) => ExamSelectionScreen(
+        isProfileChange: state.extra == 'profile',
+      ),
     ),
 
-    // 5. Primary Exam Selection
+    // Legacy duplicate selector route: target exam selection happens once in
+    // onboarding and can be changed later from Profile.
     GoRoute(
       path: '/primary-exam',
-      builder: (context, state) {
-        final initialId = state.extra as String?;
-        return PrimaryExamSelectionScreen(initialExamId: initialId);
-      },
+      redirect: (context, state) => '/home',
     ),
 
     // 6. Home Screen (via MainScaffold tab 0)
@@ -140,7 +139,10 @@ final appRouter = GoRouter(
     // 15, 16, 18, 20, 21. Practice Screen (via MainScaffold tab 2)
     GoRoute(
       path: '/practice',
-      builder: (context, state) => const MainScaffold(initialIndex: 2),
+      builder: (context, state) => MainScaffold(
+        initialIndex: 2,
+        practiceInitialTab: state.uri.queryParameters['tab'],
+      ),
     ),
 
     // 17. Topic Practice Screen

@@ -22,6 +22,16 @@ class LocalStorageService {
 
   static String? getSelectedExam() => getTargetExam();
 
+  static const String _leaderboardDistrictKey = 'pk_leaderboard_district';
+
+  static Future<void> saveLeaderboardDistrict(String district) async {
+    await _prefs?.setString(_leaderboardDistrictKey, district);
+  }
+
+  static String? getLeaderboardDistrict() {
+    return _prefs?.getString(_leaderboardDistrictKey);
+  }
+
   static const String _onboardingCompleteKey = 'pk_onboarding_completed';
 
   static bool isOnboardingCompleted() {

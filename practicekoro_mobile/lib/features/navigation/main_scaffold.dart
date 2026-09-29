@@ -7,8 +7,9 @@ import '../profile/profile_screen.dart';
 
 class MainScaffold extends StatefulWidget {
   final int initialIndex;
+  final String? practiceInitialTab;
 
-  const MainScaffold({super.key, this.initialIndex = 0});
+  const MainScaffold({super.key, this.initialIndex = 0, this.practiceInitialTab});
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
@@ -38,7 +39,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             },
           ),
           const ExamsCatalogScreen(),
-          const PracticeScreen(),
+          PracticeScreen(initialTab: widget.practiceInitialTab ?? 'subjects'),
           const LeaderboardScreen(),
           const ProfileScreen(),
         ],

@@ -197,7 +197,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => context.push('/exam-selection'),
+                    onPressed: () async {
+                      await context.push<void>('/exam-selection', extra: 'profile');
+                      _loadProfileData();
+                    },
                     child: Text(
                       'Change',
                       style: AppTypography.titleSmall(color: AppColors.primary),

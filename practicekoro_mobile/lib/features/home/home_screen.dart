@@ -25,9 +25,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Duration _remainingDuration = const Duration(days: 3, hours: 14, minutes: 22);
 
   final List<Map<String, dynamic>> _searchableItems = [
-    {'title': 'WBP Constable Full Mock 01', 'type': 'Mock Test', 'route': '/live-test/test-wbp-001', 'category': 'test'},
-    {'title': 'WBP Constable Full Mock 02', 'type': 'Mock Test', 'route': '/live-test/test-wbp-001', 'category': 'test'},
-    {'title': 'WBP Constable PYQ 2021 Solved', 'type': 'PYQ Paper', 'route': '/live-test/test-wbp-001', 'category': 'pyq'},
+    {'title': 'WBP Constable Full Mock 01', 'type': 'Mock Test', 'route': '/test-details/test-wbp-001?title=WBP%20Constable%20Full%20Mock%20Test%2001', 'category': 'test'},
+    {'title': 'WBP Constable PYQ 2024 Official Paper', 'type': 'PYQ Paper', 'route': '/test-details/test-wbp-002?title=WBP%20Constable%20PYQ%202024%20(Prelims)', 'category': 'pyq'},
     {'title': 'General Knowledge Special', 'type': 'Subject Test', 'route': '/practice/topics/gk', 'category': 'subject'},
     {'title': 'Mathematics Practice', 'type': 'Subject Test', 'route': '/practice/topics/math', 'category': 'subject'},
     {'title': 'Reasoning Speed Test', 'type': 'Subject Test', 'route': '/practice/topics/reasoning', 'category': 'subject'},

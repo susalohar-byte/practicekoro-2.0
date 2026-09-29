@@ -46,7 +46,7 @@ class ResultScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
-          onPressed: () => context.go('/home'),
+          onPressed: () => context.go('/results'),
         ),
         title: const Text(
           'Test Result',
@@ -132,113 +132,47 @@ class ResultScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Dual Scorecard: Your Score & Rank
+            // Score summary
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEAF2FF), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFD9E7FD)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  // Left: Your Score
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Your Score',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '${attempt.score.toInt()}',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            Text(
-                              ' / ${attempt.totalMarks.toInt()}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  const Text('YOUR SCORE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(attempt.score.toStringAsFixed(attempt.score % 1 == 0 ? 0 : 1), style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: -1.2)),
+                      Text(' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                    ],
                   ),
-
-                  // Divider
-                  Container(width: 1, height: 50, color: const Color(0xFFE2E8F0)),
-
-                  // Right: Rank
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'All Bengal Rank',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              '#1243',
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.navy,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.arrow_upward_rounded, size: 10, color: Color(0xFF16A34A)),
-                                  Text(
-                                    '12%',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: 10),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD9E7FD))), child: Text('${attempt.percentage.toStringAsFixed(1)}% score', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.navy))),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Triple Metric Row: Correct, Incorrect, Skipped
+                        // Triple Metric Row: Correct, Incorrect, Skipped
             Row(
               children: [
                 Expanded(
@@ -301,15 +235,17 @@ class ResultScreen extends StatelessWidget {
                     iconColor: const Color(0xFFF59E0B),
                     label: 'Time Spent',
                     value: timeStr,
-                    subtext: 'Avg. 34s / question',
+                    subtext: attempt.totalQuestions > 0
+                        ? 'Avg. ${(attempt.timeSpentSeconds / attempt.totalQuestions).round()}s / question'
+                        : 'Average time per question',
                   ),
                   const Divider(height: 24, color: Color(0xFFF1F5F9)),
                   _buildAnalysisRow(
                     icon: Icons.leaderboard_outlined,
                     iconColor: const Color(0xFF8B5CF6),
-                    label: 'Percentile',
-                    value: '84.2%',
-                    subtext: 'Better than 84% users',
+                    label: 'Questions',
+                    value: '${attempt.totalQuestions}',
+                    subtext: 'In this test',
                   ),
                 ],
               ),
@@ -336,6 +272,20 @@ class ResultScreen extends StatelessWidget {
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward_rounded, size: 18),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            OutlinedButton.icon(
+              onPressed: () => context.go('/results'),
+              icon: const Icon(Icons.leaderboard_rounded),
+              label: const Text('View Leaderboard'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: Color(0xFFBFDBFE)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
 

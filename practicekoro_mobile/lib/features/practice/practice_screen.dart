@@ -9,14 +9,24 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
 
 class PracticeScreen extends StatefulWidget {
-  const PracticeScreen({super.key});
+  final String initialTab;
+
+  const PracticeScreen({super.key, this.initialTab = 'subjects'});
 
   @override
   State<PracticeScreen> createState() => _PracticeScreenState();
 }
 
 class _PracticeScreenState extends State<PracticeScreen> {
-  String _activeTab = 'subjects'; // 'subjects', 'topics', 'pyqs'
+  late String _activeTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTab = const {'subjects', 'topics', 'pyqs'}.contains(widget.initialTab)
+        ? widget.initialTab
+        : 'subjects';
+  }
 
   final List<Map<String, dynamic>> _subjects = [
     {
@@ -88,32 +98,11 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   final List<Map<String, dynamic>> _pyqPapers = [
     {
-      'id': 'pyq-wbp-2021',
-      'title': 'WBP Constable 2021 Official Paper',
+      'id': 'test-wbp-002',
+      'title': 'WBP Constable PYQ 2024 (Prelims)',
       'subtitle': '85 Questions • 60 Mins • Solved',
-      'year': '2021',
+      'year': '2024',
       'isPro': false,
-    },
-    {
-      'id': 'pyq-wbp-2019',
-      'title': 'WBP Constable 2019 Official Paper',
-      'subtitle': '85 Questions • 60 Mins • Solved',
-      'year': '2019',
-      'isPro': false,
-    },
-    {
-      'id': 'pyq-wbpsc-clerk-2019',
-      'title': 'WBPSC Clerkship 2019 Shift 1 Paper',
-      'subtitle': '100 Questions • 90 Mins • Solved',
-      'year': '2019',
-      'isPro': true,
-    },
-    {
-      'id': 'pyq-food-si-2019',
-      'title': 'WB Food SI 2019 Official Question Paper',
-      'subtitle': '100 Questions • 90 Mins • Solved',
-      'year': '2019',
-      'isPro': true,
     },
   ];
 
@@ -214,7 +203,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                     title: t['title'] as String,
                     questionsCount: t['questions'] as String,
                     progress: t['progress'] as double,
-                    onPractice: () => context.push('/live-test/test-wbp-001'),
+                    onPractice: () => context.push('/practice/topics/${t['subject']}'),
                   ),
                 );
               }),

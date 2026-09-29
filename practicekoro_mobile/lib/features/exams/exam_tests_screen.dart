@@ -19,6 +19,34 @@ class ExamTestsScreen extends StatefulWidget {
 class _ExamTestsScreenState extends State<ExamTestsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All Tests', 'Full Mock', 'Topic Test', 'PYQ'];
+  late final List<Map<String, dynamic>> _tests;
+
+  @override
+  void initState() {
+    super.initState();
+    final exam = MockData.exams.firstWhere(
+      (item) => item.id == widget.examId || item.slug == widget.examId,
+      orElse: () => MockData.exams.first,
+    );
+    _tests = MockData.mockTests.where((test) => test.examId == exam.id).map((test) {
+      final category = switch (test.testType) {
+        'full_mock' => 'Full Mock',
+        'pyq' => 'PYQ',
+        _ => 'Topic Test',
+      };
+      final isLocked = test.isPremium;
+      return {
+        'id': test.id,
+        'title': test.title,
+        'subtitle': '${test.totalQuestions} Questions • ${test.durationMinutes} Minutes',
+        'category': category,
+        'isLocked': isLocked,
+        'tag': category == 'PYQ' ? 'PYQ' : (isLocked ? 'Pro' : 'Free'),
+        'iconColor': category == 'PYQ' ? AppColors.cyan : (isLocked ? AppColors.warning : AppColors.primary),
+        'iconBg': category == 'PYQ' ? AppColors.cyanLight : (isLocked ? AppColors.warningLight : AppColors.veryLightBlue),
+      };
+    }).toList();
+  }
 
   String get _seriesTitle {
     try {
@@ -38,79 +66,6 @@ class _ExamTestsScreenState extends State<ExamTestsScreen> {
       }
     }
   }
-
-  final List<Map<String, dynamic>> _tests = [
-    {
-      'id': 'test-wbp-001',
-      'title': 'Full Mock Test 01',
-      'subtitle': '85 Questions • 60 Minutes',
-      'category': 'Full Mock',
-      'isLocked': false,
-      'tag': 'Free',
-      'iconColor': AppColors.primary,
-      'iconBg': AppColors.veryLightBlue,
-    },
-    {
-      'id': 'test-wbp-002',
-      'title': 'Full Mock Test 02',
-      'subtitle': '85 Questions • 60 Minutes',
-      'category': 'Full Mock',
-      'isLocked': true,
-      'tag': 'Pro',
-      'iconColor': AppColors.warning,
-      'iconBg': AppColors.warningLight,
-    },
-    {
-      'id': 'test-topic-gk-01',
-      'title': 'General Knowledge - 01',
-      'subtitle': '25 Questions • 20 Minutes',
-      'category': 'Topic Test',
-      'isLocked': false,
-      'tag': 'Topic',
-      'iconColor': AppColors.success,
-      'iconBg': AppColors.successLight,
-    },
-    {
-      'id': 'test-topic-gk-02',
-      'title': 'General Knowledge - 02',
-      'subtitle': '25 Questions • 20 Minutes',
-      'category': 'Topic Test',
-      'isLocked': true,
-      'tag': 'Pro',
-      'iconColor': AppColors.warning,
-      'iconBg': AppColors.warningLight,
-    },
-    {
-      'id': 'test-topic-reas-01',
-      'title': 'Reasoning - 01',
-      'subtitle': '25 Questions • 20 Minutes',
-      'category': 'Topic Test',
-      'isLocked': false,
-      'tag': 'Topic',
-      'iconColor': AppColors.purple,
-      'iconBg': AppColors.purpleLight,
-    },
-    {
-      'id': 'test-topic-reas-02',
-      'title': 'Reasoning - 02',
-      'subtitle': '25 Questions • 20 Minutes',
-      'category': 'Topic Test',
-      'isLocked': true,
-      'tag': 'Pro',
-      'iconColor': AppColors.warning,
-      'iconBg': AppColors.warningLight,
-    },
-    {
-      'id': 'pyq-wbp-2021',
-      'title': 'Previous Year Paper 2021',
-      'subtitle': '85 Questions • 60 Minutes',
-      'category': 'PYQ',
-      'isLocked': false,
-      'tag': 'PYQ',
-      'iconColor': AppColors.cyan,
-      'iconBg': AppColors.cyanLight,
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +145,18 @@ class _ExamTestsScreenState extends State<ExamTestsScreen> {
 
             // Tests List
             Expanded(
-              child: ListView.separated(
+              child: filteredTests.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No tests are available in this category yet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: filteredTests.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 10),
