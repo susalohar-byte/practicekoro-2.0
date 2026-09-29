@@ -3,6 +3,10 @@ import path from 'node:path';
 
 export default defineConfig({
   root: import.meta.dirname,
+  // Unit tests must never read from or write to the production Supabase project.
+  define: {
+    'import.meta.env.VITE_ENABLE_DEMO_MODE': JSON.stringify('true'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

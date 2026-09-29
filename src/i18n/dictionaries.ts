@@ -19,7 +19,7 @@ export const en = {
     getStarted: 'Get Started',
   },
   hero: {
-    eyebrow: 'For Government Job Exam Aspirants',
+    eyebrow: "West Bengal's #1 Govt Exam Practice Platform",
     headlineLead: 'Crack Your Dream Govt Exam',
     headlineHighlight: 'with Confidence',
     // Leading space intentional: BN tail ('।') takes none.
@@ -46,7 +46,7 @@ export const bn: Dictionary = {
     getStarted: 'শুরু করো',
   },
   hero: {
-    eyebrow: 'For Government Job Exam Aspirants',
+    eyebrow: 'পশ্চিমবঙ্গের #১ সরকারি চাকরি প্র্যাকটিস প্ল্যাটফর্ম',
     headlineLead: 'আত্মবিশ্বাসের সাথে জয়',
     headlineHighlight: 'করো স্বপ্নের সরকারি',
     headlineTail: ' চাকরি।',

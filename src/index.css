@@ -299,12 +299,12 @@
   }
 
   /* Inputs keep readable text */
-  .dark .bg-white input {
+  .dark [class~='bg-white'] input {
     color: rgb(241 245 249);
   }
-  .dark input.bg-white,
-  .dark textarea.bg-white,
-  .dark select.bg-white {
+  .dark input[class~='bg-white'],
+  .dark textarea[class~='bg-white'],
+  .dark select[class~='bg-white'] {
     background-color: rgb(15 23 42);
   }
 

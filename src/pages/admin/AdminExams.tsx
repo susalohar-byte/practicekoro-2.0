@@ -35,6 +35,15 @@ import {
   LEGACY_EXAM_CATEGORY_NAMES,
 } from '@/services/domains/admin.examCategories';
 
+const STORAGE_KEY_CATEGORIES = 'practicekoro_exam_categories';
+const DEFAULT_EXAM_CATEGORIES = [
+  'WB Police (WBP / KP)',
+  'WBPSC (Clerkship / WBCS)',
+  'Teaching (TET / SLST)',
+  'SSC & Central Govt.',
+  'Railways (RRB)',
+];
+
 export const AdminExams: React.FC = () => {
   // Data States
   const [exams, setExams] = useState<Exam[]>([]);
@@ -60,23 +69,14 @@ export const AdminExams: React.FC = () => {
   const [deleteError, setDeleteError] = useState('');
 
   // Category Management States
-  const STORAGE_KEY_CATEGORIES = 'practicekoro_exam_categories';
-  const DEFAULT_EXAM_CATEGORIES = [
-    'WB Police (WBP / KP)',
-    'WBPSC (Clerkship / WBCS)',
-    'Teaching (TET / SLST)',
-    'SSC & Central Govt.',
-    'Railways (RRB)',
-  ];
-
   const [categories, setCategories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CATEGORIES);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasLegacy = parsed.some((c: string) =>
-            typeof c === 'string' && LEGACY_EXAM_CATEGORY_NAMES.has(c.toLowerCase())
+          const hasLegacy = parsed.some(
+            (c: string) => typeof c === 'string' && LEGACY_EXAM_CATEGORY_NAMES.has(c.toLowerCase())
           );
           if (!hasLegacy) return parsed;
         }
