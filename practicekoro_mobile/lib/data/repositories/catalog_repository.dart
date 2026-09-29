@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/exam_model.dart';
@@ -161,12 +162,13 @@ class CatalogRepository {
   Future<LiveTestModel?> getActiveLiveTest() async {
     final client = _supabase;
     if (client != null) {
+      // 1. Try public.live_tests table
       try {
         final response = await client
             .from('live_tests')
             .select('*, exams(title, icon_name)')
             .eq('is_published', true)
-            .inFilter('status', ['live', 'scheduled'])
+            .inFilter('status', ['live', 'upcoming', 'scheduled'])
             .order('scheduled_start_time', ascending: true)
             .limit(1);
         if (response.isNotEmpty) {
@@ -174,7 +176,7 @@ class CatalogRepository {
           final examData = item['exams'] as Map<String, dynamic>?;
           return LiveTestModel(
             id: item['id'] as String,
-            title: item['title'] as String,
+            title: (item['title'] as String?) ?? 'Live Mock Test',
             examId: (item['exam_id'] as String?) ?? '',
             testSeriesId: item['test_series_id'] as String?,
             testId: (item['test_id'] as String?) ?? '',
@@ -197,7 +199,71 @@ class CatalogRepository {
           );
         }
       } catch (_) {
-        // Fallback
+        // Fallback to app_settings
+      }
+
+      // 2. Fallback to public.app_settings ('live_tests_schedule_list')
+      try {
+        final setting = await client
+            .from('app_settings')
+            .select('value')
+            .eq('id', 'live_tests_schedule_list')
+            .maybeSingle();
+        if (setting != null && setting['value'] != null) {
+          dynamic raw = setting['value'];
+          if (raw is String) {
+            raw = jsonDecode(raw);
+          }
+          if (raw is List && raw.isNotEmpty) {
+            final now = DateTime.now();
+            Map<String, dynamic>? chosen;
+            for (final entry in raw) {
+              if (entry is Map<String, dynamic>) {
+                final st = (entry['status'] as String?) ?? 'upcoming';
+                if (st == 'cancelled') continue;
+                final startStr = (entry['startAt'] ?? entry['scheduledStartTime'] ?? '') as String;
+                final startDt = DateTime.tryParse(startStr) ?? now;
+                final dur = (entry['durationMinutes'] as num?)?.toInt() ?? 90;
+                final endDt = startDt.add(Duration(minutes: dur));
+                if (now.isBefore(endDt) && st != 'ended') {
+                  chosen = entry;
+                  break;
+                }
+                chosen ??= entry;
+              }
+            }
+            if (chosen != null) {
+              final startStr = (chosen['startAt'] ?? chosen['scheduledStartTime'] ?? '') as String;
+              final startDt = DateTime.tryParse(startStr) ?? DateTime.now();
+              final dur = (chosen['durationMinutes'] as num?)?.toInt() ?? 90;
+              final endDt = startDt.add(Duration(minutes: dur));
+              final nowDt = DateTime.now();
+              final derivedStatus = nowDt.isBefore(startDt)
+                  ? 'scheduled'
+                  : (nowDt.isBefore(endDt) ? 'live' : 'completed');
+
+              return LiveTestModel(
+                id: (chosen['id'] as String?) ?? 'live-test',
+                title: (chosen['title'] as String?) ?? 'Live Mock Test',
+                examId: (chosen['examId'] as String?) ?? '',
+                testSeriesId: chosen['testSeriesId'] as String?,
+                testId: (chosen['testId'] as String?) ?? '',
+                scheduledStartTime: startDt,
+                scheduledEndTime: endDt,
+                durationMinutes: dur,
+                totalQuestions: (chosen['totalQuestions'] as num?)?.toInt() ?? 100,
+                totalMarks: (chosen['totalMarks'] as num?)?.toDouble() ?? 100.0,
+                negativeMarking: (chosen['negativeMarking'] as num?)?.toDouble() ?? 0.25,
+                status: derivedStatus,
+                isPublished: (chosen['isPublished'] as bool?) ?? true,
+                enrolledCount: (chosen['enrolledCount'] as num?)?.toInt() ?? 0,
+                examTitle: chosen['examTitle'] as String?,
+              );
+            }
+          }
+        }
+      } catch (_) {
+        // Ignore fallback error
       }
     }
     return null;

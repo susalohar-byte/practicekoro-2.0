@@ -78,12 +78,16 @@ export const TestRunner: React.FC = () => {
           // ignore setting fetch failure
         }
 
+        const liveTestIdParam = searchParams.get('liveTestId');
         let activeAttemptId = attemptId;
         if (!activeAttemptId) {
           const newAttempt = await api.startTestAttempt(testId);
           activeAttemptId = newAttempt.attemptId;
           setAttemptId(activeAttemptId);
-          navigate(`/exams/${testId}/runner?attemptId=${activeAttemptId}`, { replace: true });
+          const runnerParams = new URLSearchParams();
+          runnerParams.set('attemptId', activeAttemptId);
+          if (liveTestIdParam) runnerParams.set('liveTestId', liveTestIdParam);
+          navigate(`/exams/${testId}/runner?${runnerParams.toString()}`, { replace: true });
         }
 
         const [testData, qData, attemptData] = await Promise.all([
@@ -94,7 +98,8 @@ export const TestRunner: React.FC = () => {
 
         // If attempt is already completed, redirect to results immediately (idempotency)
         if (attemptData?.status === 'completed') {
-          navigate(`/exams/${testId}/results/${activeAttemptId}`, { replace: true });
+          const resultsUrl = `/exams/${testId}/results/${activeAttemptId}${liveTestIdParam ? `?liveTestId=${encodeURIComponent(liveTestIdParam)}` : ''}`;
+          navigate(resultsUrl, { replace: true });
           return;
         }
 
@@ -145,7 +150,7 @@ export const TestRunner: React.FC = () => {
       }
     }
     init();
-  }, [testId, attemptId, user, isAdmin, navigate]);
+  }, [testId, attemptId, user, isAdmin, navigate, searchParams]);
 
   // Submit test handler (Server-authoritative identity via auth.uid())
   const handleSubmitTest = useCallback(async () => {

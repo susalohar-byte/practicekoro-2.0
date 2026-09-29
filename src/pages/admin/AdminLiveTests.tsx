@@ -17,10 +17,25 @@ import {
   Eye,
   Trash2,
   ExternalLink,
+  Play,
+  Square,
 } from 'lucide-react';
 import type { LiveTest, MockTest, LiveTestParticipant } from '@/types';
 import { getErrorMessage } from '@/lib/errors';
 import { Link } from 'react-router-dom';
+
+const toLocalDateInputValue = (date: Date): string => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const toLocalTimeInputValue = (date: Date): string => {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${min}`;
+};
 
 export const AdminLiveTests: React.FC = () => {
   const [liveTests, setLiveTests] = useState<LiveTest[]>([]);
@@ -40,6 +55,8 @@ export const AdminLiveTests: React.FC = () => {
 
   // Create / Edit Form State
   const [selectedTestId, setSelectedTestId] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [launchImmediately, setLaunchImmediately] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('20:00');
   const [regDeadlineTime, setRegDeadlineTime] = useState('19:55');
@@ -69,6 +86,15 @@ export const AdminLiveTests: React.FC = () => {
     loadData();
   }, [loadData]);
 
+  // Subscribe to live test updates
+  useEffect(() => {
+    if (typeof api.subscribeToLiveTestUpdates !== 'function') return;
+    const unsubscribe = api.subscribeToLiveTestUpdates(() => {
+      api.getLiveTests().then(setLiveTests).catch(() => {});
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Set of testIds that currently have an active (upcoming or live) live test
   const activeTestIds = useMemo(() => {
     return new Set(
@@ -81,10 +107,13 @@ export const AdminLiveTests: React.FC = () => {
   const openCreateModal = () => {
     setFormError('');
     setFormSuccess(false);
-    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
-    setStartDate(tomorrow.toISOString().split('T')[0]);
-    setStartTime('20:00');
-    setRegDeadlineTime('19:55');
+    setCustomTitle('');
+    setLaunchImmediately(false);
+    const soon = new Date(Date.now() + 2 * 3600 * 1000);
+    setStartDate(toLocalDateInputValue(soon));
+    setStartTime(toLocalTimeInputValue(soon));
+    const regTime = new Date(soon.getTime() - 5 * 60 * 1000);
+    setRegDeadlineTime(toLocalTimeInputValue(regTime));
     setRankingEnabled(true);
     setSubscriptionRequired(false);
 
@@ -98,16 +127,15 @@ export const AdminLiveTests: React.FC = () => {
     setEditingLiveTest(lt);
     setFormError('');
     setFormSuccess(false);
+    setCustomTitle(lt.title || '');
     const dateObj = new Date(lt.startAt);
-    setStartDate(dateObj.toISOString().split('T')[0]);
-    const hh = String(dateObj.getHours()).padStart(2, '0');
-    const mm = String(dateObj.getMinutes()).padStart(2, '0');
-    setStartTime(`${hh}:${mm}`);
+    setStartDate(toLocalDateInputValue(dateObj));
+    setStartTime(toLocalTimeInputValue(dateObj));
     if (lt.registrationDeadline) {
       const regObj = new Date(lt.registrationDeadline);
-      setRegDeadlineTime(`${String(regObj.getHours()).padStart(2, '0')}:${String(regObj.getMinutes()).padStart(2, '0')}`);
+      setRegDeadlineTime(toLocalTimeInputValue(regObj));
     } else {
-      setRegDeadlineTime(`${hh}:${mm}`);
+      setRegDeadlineTime(toLocalTimeInputValue(dateObj));
     }
     setRankingEnabled(lt.rankingEnabled);
     setSubscriptionRequired(lt.subscriptionRequired);
@@ -122,20 +150,39 @@ export const AdminLiveTests: React.FC = () => {
     }
 
     if (activeTestIds.has(selectedTestId)) {
-      setFormError('This test already has an active or scheduled Live Test event. Choose another test or cancel the existing event.');
+      setFormError(
+        'This test already has an active or scheduled Live Test event. Choose another test or cancel the existing event.'
+      );
       return;
     }
 
     try {
       setIsSubmitting(true);
       setFormError('');
-      const startAt = new Date(`${startDate}T${startTime}:00`).toISOString();
-      const regDeadline = regDeadlineTime
-        ? new Date(`${startDate}T${regDeadlineTime}:00`).toISOString()
-        : startAt;
+
+      let startAt: string;
+      let regDeadline: string;
+
+      if (launchImmediately) {
+        startAt = new Date().toISOString();
+        regDeadline = startAt;
+      } else {
+        const parsedStart = new Date(`${startDate}T${startTime}:00`);
+        if (isNaN(parsedStart.getTime())) {
+          setFormError('Please enter a valid start date and time.');
+          setIsSubmitting(false);
+          return;
+        }
+        startAt = parsedStart.toISOString();
+        const parsedReg = regDeadlineTime
+          ? new Date(`${startDate}T${regDeadlineTime}:00`)
+          : parsedStart;
+        regDeadline = !isNaN(parsedReg.getTime()) ? parsedReg.toISOString() : startAt;
+      }
 
       await api.scheduleLiveTest({
         testId: selectedTestId,
+        title: customTitle.trim() || undefined,
         startAt,
         registrationDeadline: regDeadline,
         rankingEnabled,
@@ -147,7 +194,7 @@ export const AdminLiveTests: React.FC = () => {
       setTimeout(() => {
         setIsCreateModalOpen(false);
         setFormSuccess(false);
-      }, 1000);
+      }, 600);
     } catch (err: any) {
       setFormError(getErrorMessage(err, 'Failed to schedule Live Test.'));
     } finally {
@@ -162,12 +209,20 @@ export const AdminLiveTests: React.FC = () => {
     try {
       setIsSubmitting(true);
       setFormError('');
-      const startAt = new Date(`${startDate}T${startTime}:00`).toISOString();
-      const regDeadline = regDeadlineTime
-        ? new Date(`${startDate}T${regDeadlineTime}:00`).toISOString()
-        : startAt;
+      const parsedStart = new Date(`${startDate}T${startTime}:00`);
+      if (isNaN(parsedStart.getTime())) {
+        setFormError('Please enter a valid start date and time.');
+        setIsSubmitting(false);
+        return;
+      }
+      const startAt = parsedStart.toISOString();
+      const parsedReg = regDeadlineTime
+        ? new Date(`${startDate}T${regDeadlineTime}:00`)
+        : parsedStart;
+      const regDeadline = !isNaN(parsedReg.getTime()) ? parsedReg.toISOString() : startAt;
 
       await api.updateLiveTest(editingLiveTest.id, {
+        title: customTitle.trim() || editingLiveTest.title,
         startAt,
         registrationDeadline: regDeadline,
         rankingEnabled,
@@ -180,11 +235,35 @@ export const AdminLiveTests: React.FC = () => {
         setIsEditModalOpen(false);
         setEditingLiveTest(null);
         setFormSuccess(false);
-      }, 1000);
+      }, 600);
     } catch (err: any) {
       setFormError(getErrorMessage(err, 'Failed to update schedule.'));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleStartLiveNow = async (lt: LiveTest) => {
+    try {
+      const nowIso = new Date().toISOString();
+      await api.updateLiveTest(lt.id, {
+        startAt: nowIso,
+        registrationDeadline: nowIso,
+        status: 'live',
+      });
+      await loadData();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Failed to start Live Test now'));
+    }
+  };
+
+  const handleEndLiveTest = async (lt: LiveTest) => {
+    if (!window.confirm(`End the Live Test "${lt.title}" now and finalize rankings?`)) return;
+    try {
+      await api.updateLiveTest(lt.id, { status: 'ended' });
+      await loadData();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Failed to end Live Test'));
     }
   };
 
@@ -199,7 +278,7 @@ export const AdminLiveTests: React.FC = () => {
   };
 
   const handleDeleteLiveTest = async (lt: LiveTest) => {
-    if (!window.confirm(`Are you sure you want to permanently delete this event record?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${lt.title}"?`)) return;
     try {
       await api.deleteLiveTest(lt.id);
       await loadData();
@@ -234,6 +313,21 @@ export const AdminLiveTests: React.FC = () => {
       return matchSearch && matchStatus;
     });
   }, [liveTests, searchTerm, statusFilter]);
+
+  const stats = useMemo(() => {
+    const liveCount = liveTests.filter((t) => t.status === 'live').length;
+    const upcomingCount = liveTests.filter(
+      (t) => t.status === 'upcoming' || t.status === 'scheduled'
+    ).length;
+    const endedCount = liveTests.filter(
+      (t) => t.status === 'ended' || t.status === 'completed'
+    ).length;
+    const totalRegistrations = liveTests.reduce(
+      (sum, t) => sum + (t.participantsCount || t.enrolledCount || 0),
+      0
+    );
+    return { liveCount, upcomingCount, endedCount, totalRegistrations };
+  }, [liveTests]);
 
   const getStatusBadge = (status: LiveTest['status']) => {
     switch (status) {
@@ -286,23 +380,77 @@ export const AdminLiveTests: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              LIVE TESTS
+              LIVE MOCK TESTS
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Scheduled live examination events. Powered directly by your existing Mock Tests.
+              Schedule or launch live examination events powered by your existing Mock Tests.
             </p>
           </div>
         </div>
 
-        <Button
-          onClick={openCreateModal}
-          variant="primary"
-          size="sm"
-          className="bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-md shadow-rose-600/20 active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Live Test</span>
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/live-test"
+            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Student Live View</span>
+          </Link>
+          <Button
+            onClick={openCreateModal}
+            variant="primary"
+            size="sm"
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-md shadow-rose-600/20 active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Live Test</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center">
+            <Radio className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900 dark:text-white">{stats.liveCount}</div>
+            <div className="text-[11px] font-semibold text-slate-500">Live Right Now</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center">
+            <CalendarClock className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900 dark:text-white">{stats.upcomingCount}</div>
+            <div className="text-[11px] font-semibold text-slate-500">Upcoming Scheduled</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900 dark:text-white">{stats.endedCount}</div>
+            <div className="text-[11px] font-semibold text-slate-500">Completed Events</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-900 dark:text-white">
+              {stats.totalRegistrations.toLocaleString()}
+            </div>
+            <div className="text-[11px] font-semibold text-slate-500">Total Registrations</div>
+          </div>
+        </div>
       </div>
 
       {/* 2. Filter Bar */}
@@ -311,7 +459,7 @@ export const AdminLiveTests: React.FC = () => {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search live tests by title..."
+            placeholder="Search live tests by title or exam..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-rose-500"
@@ -349,7 +497,7 @@ export const AdminLiveTests: React.FC = () => {
               No Live Tests Found
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
-              Schedule any existing test into a Live Test event using the button below.
+              Schedule any existing Mock Test into a Live Test event using the button below.
             </p>
             <Button
               onClick={openCreateModal}
@@ -380,7 +528,6 @@ export const AdminLiveTests: React.FC = () => {
                   const isFinished = lt.status === 'ended' || lt.status === 'completed';
                   const isLive = lt.status === 'live';
                   const isUpcoming = lt.status === 'upcoming' || lt.status === 'scheduled';
-                  const isCancelled = lt.status === 'cancelled';
 
                   return (
                     <tr
@@ -408,7 +555,13 @@ export const AdminLiveTests: React.FC = () => {
                       <td className="px-5 py-4 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{startDateObj.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          <span>
+                            {startDateObj.toLocaleDateString(undefined, {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
                         </div>
                       </td>
 
@@ -416,20 +569,27 @@ export const AdminLiveTests: React.FC = () => {
                       <td className="px-5 py-4 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
                         <div className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{startDateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>
+                            {startDateObj.toLocaleTimeString(undefined, {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
                         </div>
                       </td>
 
                       {/* 4. Status */}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        {getStatusBadge(lt.status)}
-                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">{getStatusBadge(lt.status)}</td>
 
                       {/* 5. Participants */}
                       <td className="px-5 py-4 whitespace-nowrap font-semibold text-slate-800 dark:text-slate-200">
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{lt.participantsCount ? lt.participantsCount.toLocaleString() : (lt.enrolledCount || 0).toLocaleString()}</span>
+                          <span>
+                            {lt.participantsCount
+                              ? lt.participantsCount.toLocaleString()
+                              : (lt.enrolledCount || 0).toLocaleString()}
+                          </span>
                         </div>
                       </td>
 
@@ -447,7 +607,7 @@ export const AdminLiveTests: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* 7. Actions: View, Edit Schedule, Cancel, View Results */}
+                      {/* 7. Actions */}
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* View Details */}
@@ -459,14 +619,38 @@ export const AdminLiveTests: React.FC = () => {
                             <Eye className="w-4 h-4" />
                           </button>
 
-                          {/* Edit Schedule (available for upcoming tests) */}
+                          {/* Go Live Now (available for upcoming tests) */}
                           {isUpcoming && (
+                            <button
+                              onClick={() => handleStartLiveNow(lt)}
+                              title="Start Live Test Immediately"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors flex items-center gap-1 shadow-2xs"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>Go Live Now</span>
+                            </button>
+                          )}
+
+                          {/* Edit Schedule (available for upcoming or live tests) */}
+                          {(isUpcoming || isLive) && (
                             <button
                               onClick={() => openEditModal(lt)}
                               title="Edit Schedule & Settings"
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
                             >
-                              Edit Schedule
+                              Edit
+                            </button>
+                          )}
+
+                          {/* End Live Test (available for live tests) */}
+                          {isLive && (
+                            <button
+                              onClick={() => handleEndLiveTest(lt)}
+                              title="End Live Test & Finalize Rankings"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-700 bg-amber-100 hover:bg-amber-200 transition-colors flex items-center gap-1"
+                            >
+                              <Square className="w-3 h-3 fill-current" />
+                              <span>End Now</span>
                             </button>
                           )}
 
@@ -489,20 +673,18 @@ export const AdminLiveTests: React.FC = () => {
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200/80 transition-colors flex items-center gap-1"
                             >
                               <Trophy className="w-3 h-3" />
-                              <span>View Results</span>
+                              <span>Results</span>
                             </button>
                           )}
 
-                          {/* Delete (available for cancelled or ended tests) */}
-                          {(isCancelled || isFinished) && (
-                            <button
-                              onClick={() => handleDeleteLiveTest(lt)}
-                              title="Delete Record"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          {/* Delete */}
+                          <button
+                            onClick={() => handleDeleteLiveTest(lt)}
+                            title="Delete Record"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -517,7 +699,7 @@ export const AdminLiveTests: React.FC = () => {
       {/* CREATE LIVE TEST MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-5">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-5 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -525,7 +707,7 @@ export const AdminLiveTests: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">Create Live Test</h3>
-                  <p className="text-[11px] text-slate-500">Select any test to schedule as a live event</p>
+                  <p className="text-[11px] text-slate-500">Select any test to launch or schedule as a live event</p>
                 </div>
               </div>
               <button
@@ -546,7 +728,7 @@ export const AdminLiveTests: React.FC = () => {
             {formSuccess && (
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Live Test scheduled successfully!</span>
+                <span>Live Test created and published successfully!</span>
               </div>
             )}
 
@@ -554,7 +736,7 @@ export const AdminLiveTests: React.FC = () => {
               {/* Select Existing Test */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Select Existing Test *
+                  Select Existing Mock Test *
                 </label>
                 <select
                   value={selectedTestId}
@@ -572,48 +754,100 @@ export const AdminLiveTests: React.FC = () => {
                     );
                   })}
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">Questions, duration, and marks will be inherited automatically from this test.</p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Questions, duration, and marks will be inherited automatically from this test.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Start Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={startDate}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-              </div>
-
+              {/* Optional Custom Event Title */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Registration Deadline
+                  Event Display Title <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
-                  type="time"
-                  value={regDeadlineTime}
-                  onChange={(e) => setRegDeadlineTime(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                  type="text"
+                  placeholder="Leave blank to use selected test title"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-rose-500"
                 />
               </div>
+
+              {/* Launch Timing Mode */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Launch Timing
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLaunchImmediately(true)}
+                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      launchImmediately
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    <Radio className="w-3.5 h-3.5" />
+                    <span>Start Live Now</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLaunchImmediately(false)}
+                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      !launchImmediately
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    <span>Schedule Date/Time</span>
+                  </button>
+                </div>
+              </div>
+
+              {!launchImmediately && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        required={!launchImmediately}
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Start Time *
+                      </label>
+                      <input
+                        type="time"
+                        required={!launchImmediately}
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Registration Deadline
+                    </label>
+                    <input
+                      type="time"
+                      value={regDeadlineTime}
+                      onChange={(e) => setRegDeadlineTime(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
@@ -676,7 +910,13 @@ export const AdminLiveTests: React.FC = () => {
                   className="text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5"
                 >
                   <Radio className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Scheduling...' : 'MAKE LIVE'}</span>
+                  <span>
+                    {isSubmitting
+                      ? 'Saving...'
+                      : launchImmediately
+                        ? 'LAUNCH LIVE NOW'
+                        : 'SCHEDULE LIVE TEST'}
+                  </span>
                 </Button>
               </div>
             </form>
@@ -716,6 +956,18 @@ export const AdminLiveTests: React.FC = () => {
             )}
 
             <form onSubmit={handleUpdateSchedule} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Event Display Title
+                </label>
+                <input
+                  type="text"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -856,17 +1108,22 @@ export const AdminLiveTests: React.FC = () => {
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Registration Cutoff</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {viewingDetailsTest.registrationDeadline ? new Date(viewingDetailsTest.registrationDeadline).toLocaleTimeString() : 'At Start'}
+                    {viewingDetailsTest.registrationDeadline
+                      ? new Date(viewingDetailsTest.registrationDeadline).toLocaleTimeString()
+                      : 'At Start'}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Duration</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{viewingDetailsTest.durationMinutes} Minutes</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {viewingDetailsTest.durationMinutes} Minutes
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Marks & Questions</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {viewingDetailsTest.totalQuestions} Qs • {viewingDetailsTest.totalMarks} Marks (-{viewingDetailsTest.negativeMarking} neg)
+                    {viewingDetailsTest.totalQuestions} Qs • {viewingDetailsTest.totalMarks} Marks (-
+                    {viewingDetailsTest.negativeMarking} neg)
                   </span>
                 </div>
               </div>
@@ -960,7 +1217,9 @@ export const AdminLiveTests: React.FC = () => {
                           {row.accuracy != null ? `${row.accuracy}%` : '-'}
                         </td>
                         <td className="py-2.5 px-3 text-slate-500 font-mono">
-                          {row.timeTaken ? `${Math.floor(row.timeTaken / 60)}m ${row.timeTaken % 60}s` : '-'}
+                          {row.timeTaken
+                            ? `${Math.floor(row.timeTaken / 60)}m ${row.timeTaken % 60}s`
+                            : '-'}
                         </td>
                       </tr>
                     ))}

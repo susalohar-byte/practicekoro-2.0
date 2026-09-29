@@ -78,11 +78,8 @@ export const Home: React.FC = () => {
     retry: 1,
   });
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [liveClock, setLiveClock] = useState(Date.now());
   const [isHovered, setIsHovered] = useState(false);
-  const { data: liveTest } = useQuery({ queryKey: ['home-live-test'], queryFn: () => api.getFeaturedLiveTest(), refetchInterval: 30000 });
   const { data: featuredSeries = [] } = useQuery({ queryKey: ['home-featured-series'], queryFn: () => api.getFeaturedTestSeries(), refetchInterval: 60000 });
-  useEffect(() => { const id = window.setInterval(() => setLiveClock(Date.now()), 1000); return () => window.clearInterval(id); }, []);
 
   // Real-time tick for countdown
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -94,7 +91,10 @@ export const Home: React.FC = () => {
   const { data: activeLiveTest } = useQuery({
     queryKey: ['active-live-test'],
     queryFn: () => api.getActiveLiveTest(),
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
   });
 
   const { data: popularTestSeries = [] } = useQuery({
@@ -201,13 +201,23 @@ export const Home: React.FC = () => {
     return () => window.removeEventListener('pk_open_onboarding', handleOpenTour);
   }, []);
 
-  // Real-time synchronization for banner changes
+  // Real-time synchronization for banner and live test changes
   useEffect(() => {
-    const unsubscribe = bannerService.subscribeToBannerUpdates(() => {
+    const unsubscribeBanners = bannerService.subscribeToBannerUpdates(() => {
       queryClient.invalidateQueries({ queryKey: ['hero-banners'] });
       queryClient.refetchQueries({ queryKey: ['hero-banners'] });
     });
-    return () => unsubscribe();
+    const unsubscribeLiveTests =
+      typeof api.subscribeToLiveTestUpdates === 'function'
+        ? api.subscribeToLiveTestUpdates(() => {
+            queryClient.invalidateQueries({ queryKey: ['active-live-test'] });
+            queryClient.refetchQueries({ queryKey: ['active-live-test'] });
+          })
+        : () => {};
+    return () => {
+      unsubscribeBanners();
+      unsubscribeLiveTests();
+    };
   }, [queryClient]);
 
   // Auto rotation every 5s when not hovered or touched
@@ -844,34 +854,6 @@ export const Home: React.FC = () => {
               </div>
             </div>
           </div>
-        );
-      })()}
-
-      {/* LIVE TEST */}
-      {liveTest && (() => {
-        const liveStart = liveTest.startAt || liveTest.scheduledStartAt || '';
-        const liveEnd = liveTest.scheduledEndTime || liveTest.scheduledEndAt || '';
-        const start = liveStart ? new Date(liveStart).getTime() : 0;
-        const end = liveEnd ? new Date(liveEnd).getTime() : start + (liveTest.durationMinutes || 90) * 60000;
-        const isLive = liveClock >= start && liveClock <= end;
-        const diff = Math.max(0, start - liveClock);
-        const days = Math.floor(diff / 86400000);
-        const hours = Math.floor((diff % 86400000) / 3600000);
-        const mins = Math.floor((diff % 3600000) / 60000);
-        return (
-          <Link to="/live-test" className="block rounded-3xl bg-gradient-to-br from-[#063585] to-[#0158FC] p-5 text-white shadow-lg shadow-blue-500/10 hover:shadow-xl transition">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <span className="inline-flex rounded-full bg-red-500 px-3 py-1 text-[10px] font-black uppercase">{isLive ? 'Live Now' : 'Live Test'}</span>
-                <h3 className="mt-3 text-lg font-black">{liveTest.title}</h3>
-                <p className="mt-1 text-xs text-blue-100">{liveStart ? new Date(liveStart).toLocaleString() : ''} · {liveTest.totalQuestions || 0} Questions · {liveTest.durationMinutes} Minutes</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isLive && <><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(days).padStart(2,'0')}</b><small className="text-[9px]">DAYS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(hours).padStart(2,'0')}</b><small className="text-[9px]">HRS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(mins).padStart(2,'0')}</b><small className="text-[9px]">MIN</small></span></>}
-                <span className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-black text-[#0158FC]">{isLive ? 'Join Now' : 'Register'} <ArrowRight className="h-4 w-4"/></span>
-              </div>
-            </div>
-          </Link>
         );
       })()}
 

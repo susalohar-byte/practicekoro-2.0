@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   CalendarClock,
   CheckCircle2,
@@ -31,6 +31,10 @@ const formatCountdown = (target: string) => {
 export const LiveTest: React.FC = () => {
   const { user, isPro } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedIdParam = searchParams.get('id');
+
+  const [allTests, setAllTests] = useState<LiveTestData[]>([]);
   const [test, setTest] = useState<LiveTestData | null>(null);
   const [registered, setRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,30 +46,61 @@ export const LiveTest: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const active = await api.getActiveLiveTest();
-      setTest(active);
+      const [list, active] = await Promise.all([
+        api.getLiveTests(),
+        api.getActiveLiveTest(),
+      ]);
 
-      if (active && user?.id) {
-        const isReg = await api.isLiveTestRegistered(active.id, user.id);
-        setRegistered(isReg);
+      const visibleList = list.filter((lt) => lt.status !== 'cancelled');
+      setAllTests(visibleList);
 
-        // Fetch leaderboard to see user's submission if ended or participating
-        if (active.rankingEnabled) {
-          const ranks = await api.getLiveTestLeaderboard(active.id);
-          setLeaderboard(ranks);
-          const mine = ranks.find((r) => r.userId === user.id);
-          if (mine) setUserResult(mine);
+      const chosen =
+        (selectedIdParam ? list.find((lt) => lt.id === selectedIdParam) : null) ||
+        active ||
+        visibleList[0] ||
+        null;
+
+      setTest(chosen);
+
+      if (chosen) {
+        if (user?.id) {
+          const isReg = await api.isLiveTestRegistered(chosen.id, user.id);
+          setRegistered(isReg);
+        } else {
+          setRegistered(false);
         }
+
+        if (chosen.rankingEnabled) {
+          const ranks = await api.getLiveTestLeaderboard(chosen.id);
+          setLeaderboard(ranks);
+          const mine = user?.id ? ranks.find((r) => r.userId === user.id) || null : null;
+          setUserResult(mine);
+        } else {
+          setLeaderboard([]);
+          setUserResult(null);
+        }
+      } else {
+        setLeaderboard([]);
+        setUserResult(null);
       }
     } catch (err) {
       console.error('Failed to load active live test:', err);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedIdParam]);
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Real-time subscription when admin creates/updates a live test
+  useEffect(() => {
+    if (typeof api.subscribeToLiveTestUpdates !== 'function') return;
+    const unsubscribe = api.subscribeToLiveTestUpdates(() => {
+      loadData();
+    });
+    return () => unsubscribe();
   }, [loadData]);
 
   useEffect(() => {
@@ -76,6 +111,7 @@ export const LiveTest: React.FC = () => {
   const state = useMemo(() => {
     if (!test) return 'empty';
     if (test.status === 'cancelled') return 'cancelled';
+    if (test.status === 'ended' || test.status === 'completed') return 'ended';
     const start = new Date(test.startAt || test.scheduledStartAt || '').getTime();
     const duration = test.durationMinutes || 90;
     const end = start + duration * 60 * 1000;
@@ -126,21 +162,23 @@ export const LiveTest: React.FC = () => {
 
     try {
       setActionLoading(true);
-      // Validate server start time & register start
       const res = await api.joinLiveTestEvent(test.id, user.id);
       if (!res.success) {
         alert(res.error || 'Cannot enter Live Test at this time.');
         return;
       }
 
-      // Enter existing test runner with liveTestId query param
-      navigate(`/exams/${test.testId}/runner?liveTestId=${test.id}`);
+      navigate(`/exams/${test.testId}/runner?liveTestId=${encodeURIComponent(test.id)}`);
     } catch (err) {
       console.error('Join failed:', err);
       alert('Error entering Live Test. Please try again.');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleSelectEvent = (lt: LiveTestData) => {
+    setSearchParams({ id: lt.id });
   };
 
   if (loading) {
@@ -183,8 +221,8 @@ export const LiveTest: React.FC = () => {
       <div className="pk-content space-y-6">
         <div>
           <p className="text-xs font-semibold text-slate-400">Home / Live Test Event</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[#0B1F44] tracking-tight">
-            Live Test
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[#0B1F44] dark:text-white tracking-tight">
+            Live Mock Tests
           </h1>
         </div>
 
@@ -217,6 +255,12 @@ export const LiveTest: React.FC = () => {
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-700 text-slate-200">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   EVENT ENDED
+                </span>
+              )}
+
+              {test.examTitle && (
+                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white border border-white/15">
+                  {test.examTitle}
                 </span>
               )}
 
@@ -306,10 +350,23 @@ export const LiveTest: React.FC = () => {
           {/* Action Footer Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 dark:border-slate-850 p-5 bg-white dark:bg-slate-950">
             <div>
-              {registered ? (
+              {userResult ? (
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>
+                    You completed this Live Test! Score: {userResult.score}/{test.totalMarks}
+                    {userResult.rank ? ` • Rank #${userResult.rank}` : ''}
+                  </span>
+                </div>
+              ) : registered ? (
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-4 w-4" />
                   <span>You are registered for this Live Test.</span>
+                </div>
+              ) : state === 'live' ? (
+                <div className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                  <Radio className="h-4 w-4 animate-pulse" />
+                  <span>Live examination window is open right now! Click Join to start immediately.</span>
                 </div>
               ) : (
                 <div className="text-xs text-slate-600 dark:text-slate-400">
@@ -318,7 +375,7 @@ export const LiveTest: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {state === 'upcoming' && (
                 <>
                   {!registered ? (
@@ -342,34 +399,61 @@ export const LiveTest: React.FC = () => {
               )}
 
               {state === 'live' && (
-                <Button
-                  onClick={handleJoin}
-                  disabled={actionLoading}
-                  variant="primary"
-                  size="sm"
-                  className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black flex items-center gap-2 px-6 shadow-lg shadow-rose-600/30 text-sm active:scale-95 animate-pulse"
-                >
-                  <Radio className="w-4 h-4" />
-                  <span>{actionLoading ? 'Entering...' : 'JOIN LIVE TEST NOW'}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+                <>
+                  {userResult?.attemptId && (
+                    <Link
+                      to={`/exams/${test.testId}/results/${userResult.attemptId}?liveTestId=${encodeURIComponent(test.id)}`}
+                      className="pk-primary-btn inline-flex items-center gap-1.5"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>View My Result</span>
+                    </Link>
+                  )}
+                  <Button
+                    onClick={handleJoin}
+                    disabled={actionLoading}
+                    variant="primary"
+                    size="sm"
+                    className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black flex items-center gap-2 px-6 shadow-lg shadow-rose-600/30 text-sm active:scale-95"
+                  >
+                    <Radio className="w-4 h-4 animate-pulse" />
+                    <span>
+                      {actionLoading
+                        ? 'Entering...'
+                        : userResult
+                          ? 'RE-ATTEMPT LIVE TEST'
+                          : 'JOIN LIVE TEST NOW'}
+                    </span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </>
               )}
 
-              {state === 'ended' && userResult && (
+              {state === 'ended' && userResult?.attemptId && (
                 <Link
-                  to={`/exams/${test.testId}/results/${userResult.attemptId}?liveTestId=${test.id}`}
+                  to={`/exams/${test.testId}/results/${userResult.attemptId}?liveTestId=${encodeURIComponent(test.id)}`}
                   className="pk-primary-btn inline-flex items-center gap-1.5"
                 >
                   <Award className="w-4 h-4" />
                   <span>View My Result & Analysis</span>
                 </Link>
               )}
+
+              {state === 'ended' && !userResult && (
+                <Link
+                  to={`/exams/${test.testId}/runner`}
+                  className="px-5 py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-2 shadow-sm transition-colors"
+                >
+                  <span>Attempt as Practice Mock</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Student's Own Result Banner (If ended and student participated) */}
-        {state === 'ended' && userResult && (
+        {/* Student's Own Result Banner (If student participated) */}
+        {userResult && (
           <div className="bg-gradient-to-r from-indigo-900 to-[#063585] text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shrink-0 shadow-lg">
@@ -385,16 +469,89 @@ export const LiveTest: React.FC = () => {
               </div>
             </div>
 
-            <Link
-              to={`/exams/${test.testId}/results/${userResult.attemptId}?liveTestId=${test.id}`}
-              className="px-5 py-2.5 rounded-xl bg-white text-[#063585] font-black text-xs hover:bg-blue-50 transition-colors shrink-0 text-center"
-            >
-              Detailed Solutions & Insights
-            </Link>
+            {userResult.attemptId && (
+              <Link
+                to={`/exams/${test.testId}/results/${userResult.attemptId}?liveTestId=${encodeURIComponent(test.id)}`}
+                className="px-5 py-2.5 rounded-xl bg-white text-[#063585] font-black text-xs hover:bg-blue-50 transition-colors shrink-0 text-center"
+              >
+                Detailed Solutions & Insights
+              </Link>
+            )}
           </div>
         )}
 
-        {/* Statewide Leaderboard (When ranking is enabled and test has submissions) */}
+        {/* All Scheduled & Past Live Tests Switcher (Shown when multiple events exist) */}
+        {allTests.length > 1 && (
+          <div className="pk-panel p-5 border border-slate-200/80 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <CalendarClock className="w-4 h-4 text-[#0158FC]" />
+                <span>All Live Test Events ({allTests.length})</span>
+              </h3>
+              <span className="text-[11px] text-slate-400">Select an event to view details or join</span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {allTests.map((item) => {
+                const isSelected = item.id === test.id;
+                const itemStart = new Date(item.startAt).getTime();
+                const itemEnd = itemStart + (item.durationMinutes || 90) * 60000;
+                const itemState =
+                  item.status === 'ended' || item.status === 'completed'
+                    ? 'ended'
+                    : now < itemStart
+                      ? 'upcoming'
+                      : now <= itemEnd
+                        ? 'live'
+                        : 'ended';
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelectEvent(item)}
+                    className={`text-left p-4 rounded-2xl border transition-all ${
+                      isSelected
+                        ? 'border-[#0158FC] bg-blue-50/60 dark:bg-blue-950/30 ring-2 ring-[#0158FC]/20'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      {itemState === 'live' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500 text-white">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          LIVE NOW
+                        </span>
+                      ) : itemState === 'upcoming' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800">
+                          UPCOMING
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-600">
+                          ENDED
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {new Date(item.startAt).toLocaleDateString(undefined, {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </span>
+                    </div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-1">
+                      {item.title}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      {item.durationMinutes}m • {item.totalQuestions} Qs • {item.totalMarks} Marks
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Statewide Leaderboard (When ranking is enabled) */}
         {test.rankingEnabled && (
           <div className="pk-panel p-6 border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-850 mb-4">
@@ -421,8 +578,8 @@ export const LiveTest: React.FC = () => {
             {leaderboard.length === 0 ? (
               <div className="text-center py-12 text-xs text-slate-400">
                 {state === 'ended'
-                  ? 'Leaderboard results are being compiled.'
-                  : 'Leaderboard will be published as candidates submit the test.'}
+                  ? 'No ranked submissions recorded for this event.'
+                  : 'Leaderboard updates live as candidates submit the test.'}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -486,7 +643,9 @@ export const LiveTest: React.FC = () => {
                             {row.accuracy != null ? `${row.accuracy}%` : '-'}
                           </td>
                           <td className="py-3 px-4 text-slate-500 font-mono">
-                            {row.timeTaken ? `${Math.floor(row.timeTaken / 60)}m ${row.timeTaken % 60}s` : '-'}
+                            {row.timeTaken
+                              ? `${Math.floor(row.timeTaken / 60)}m ${row.timeTaken % 60}s`
+                              : '-'}
                           </td>
                         </tr>
                       );
