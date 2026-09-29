@@ -15,11 +15,26 @@ export const Flashcards: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sessionMode, setSessionMode] = useState<5|10|20|null>(null);
   const [reviewed, setReviewed] = useState(0);
+  const [dueCount, setDueCount] = useState(0);
 
-  useEffect(() => { api.getDecks().then(setDecks).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    const load = async () => {
+      if (!user?.id) { setLoading(false); return; }
+      const [d, due] = await Promise.all([api.getDecks(), api.getDueCards(user.id, 20)]);
+      setDecks(d); setDueCount(due.length);
+      setLoading(false);
+    };
+    load().catch(() => setLoading(false));
+  }, [user?.id]);
 
   const current = cards[index];
   const sessionCards = useMemo(() => sessionMode ? cards.slice(0, sessionMode) : cards, [cards, sessionMode]);
+
+  const openDue = async (mode: 5|10|20) => {
+    if (!user?.id) return;
+    setLoading(true); setSelected(null); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode);
+    try { setCards((await api.getDueCards(user.id, mode)).slice(0, mode)); } finally { setLoading(false); }
+  };
 
   const openDeck = async (deck: FlashcardDeck, mode?: 5|10|20) => {
     setLoading(true); setSelected(deck); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode || null);
@@ -67,8 +82,9 @@ export const Flashcards: React.FC = () => {
     <div className="pk-student-page">
       <div className="pk-content space-y-5">
         <div><p className="text-xs font-semibold text-slate-400">Practice / Quick Revision</p><h1 className="mt-1 text-2xl font-black text-[#0B1F44]">Quick Revision</h1><p className="mt-1 text-sm text-slate-500">Revise smart. Remember more.</p></div>
-        <div className="grid grid-cols-3 gap-3 max-w-xl">
-          {[5,10,20].map(n=><button key={n} disabled={!decks.length} onClick={()=>openDeck(decks[0], n as 5|10|20)} className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{n}</div><div className="text-xs font-bold text-[#0B1F44]">Quick {n}</div><div className="text-[10px] text-slate-400">cards</div></button>)}
+        <div className="grid max-w-2xl gap-3 sm:grid-cols-4">
+          <button disabled={!dueCount} onClick={()=>openDue(10)} className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{dueCount}</div><div className="text-xs font-bold text-[#0B1F44]">Today's Revision</div><div className="text-[10px] text-slate-400">cards due</div></button>
+          {[5,10,20].map(n=><button key={n} disabled={!decks.length} onClick={()=>openDeck(decks[0], n as 5|10|20) className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{n}</div><div className="text-xs font-bold text-[#0B1F44]">Quick {n}</div><div className="text-[10px] text-slate-400">cards</div></button>)}
         </div>
         {loading ? <div className="pk-panel p-8">Loading decks...</div> : decks.length === 0 ? <div className="pk-panel p-8 text-center"><Layers3 className="mx-auto h-9 w-9 text-slate-300"/><h2 className="mt-2 font-black text-[#0B1F44]">No revision decks yet</h2><p className="text-sm text-slate-500">Published flashcard decks from Admin will appear here.</p></div> :
           <div><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black text-[#0B1F44]">Your Decks</h2></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
