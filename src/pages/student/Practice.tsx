@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import {
   usePracticeRevision,
   useRemoveBookmark,
@@ -100,6 +101,7 @@ export const Practice: React.FC = () => {
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState<boolean>(false);
   const [sessionAnswers, setSessionAnswers] = useState<PracticeAnswerRecord[]>([]);
   const [isSessionComplete, setIsSessionComplete] = useState<boolean>(false);
+  const { isBilingualEnabled } = useContentLanguage();
   const [languageMode, setLanguageMode] = useState<'bengali' | 'english'>('bengali');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
@@ -406,17 +408,19 @@ export const Practice: React.FC = () => {
 
               {/* Controls */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLanguageMode((prev) => (prev === 'bengali' ? 'english' : 'bengali'));
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors"
-                  title="Switch question language"
-                >
-                  <Languages className="w-3.5 h-3.5 text-[#0158FC]" />
-                  <span>{languageMode === 'bengali' ? 'বাংলা' : 'English'}</span>
-                </button>
+                {isBilingualEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLanguageMode((prev) => (prev === 'bengali' ? 'english' : 'bengali'));
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors"
+                    title="Switch question language"
+                  >
+                    <Languages className="w-3.5 h-3.5 text-[#0158FC]" />
+                    <span>{languageMode === 'bengali' ? 'বাংলা' : 'English'}</span>
+                  </button>
+                )}
 
                 <Button
                   size="sm"
@@ -457,9 +461,9 @@ export const Practice: React.FC = () => {
 
             <div className="space-y-2">
               <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed">
-                {languageMode === 'bengali'
-                  ? (currentQuestion.questionBengaliText || currentQuestion.questionText)
-                  : (currentQuestion.questionText || currentQuestion.questionBengaliText)}
+                {!isBilingualEnabled || languageMode === 'bengali'
+                  ? currentQuestion.questionBengaliText || currentQuestion.questionText
+                  : currentQuestion.questionText || currentQuestion.questionBengaliText}
               </p>
             </div>
 
@@ -561,7 +565,11 @@ export const Practice: React.FC = () => {
                   explanation={currentQuestion.explanationBengali || currentQuestion.explanation}
                   isMathematics={isMathematicsQuestion(currentQuestion)}
                   title={
-                    isMathematicsQuestion(currentQuestion) ? undefined : 'শর্ট নোটস (Short Notes)'
+                    isMathematicsQuestion(currentQuestion)
+                      ? undefined
+                      : !isBilingualEnabled
+                        ? 'শর্ট নোটস'
+                        : 'শর্ট নোটস (Short Notes)'
                   }
                   defaultExpanded={true}
                   collapsible={false}
@@ -1567,9 +1575,11 @@ export const Practice: React.FC = () => {
                             </div>
 
                             <h3 className="text-sm font-bold text-slate-900 dark:text-white pt-0.5">
-                              {q.questionText}
+                              {!isBilingualEnabled
+                                ? q.questionBengaliText || q.questionText
+                                : q.questionText}
                             </h3>
-                            {q.questionBengaliText && (
+                            {isBilingualEnabled && q.questionBengaliText && (
                               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium font-sans">
                                 {q.questionBengaliText}
                               </p>
@@ -1773,9 +1783,11 @@ export const Practice: React.FC = () => {
                             </div>
 
                             <h3 className="text-sm font-bold text-slate-900 dark:text-white pt-0.5">
-                              {q.questionText}
+                              {!isBilingualEnabled
+                                ? q.questionBengaliText || q.questionText
+                                : q.questionText}
                             </h3>
-                            {q.questionBengaliText && (
+                            {isBilingualEnabled && q.questionBengaliText && (
                               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium font-sans">
                                 {q.questionBengaliText}
                               </p>

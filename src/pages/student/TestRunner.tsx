@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
@@ -44,6 +45,7 @@ export const TestRunner: React.FC = () => {
   const [visited, setVisited] = useState<Set<string>>(new Set());
   // Question language follows the global setting.
   const { lang: language, setLang: setLanguage } = useLanguage();
+  const { isBilingualEnabled } = useContentLanguage();
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [timeSpent, setTimeSpent] = useState<number>(0);
 
@@ -341,9 +343,10 @@ export const TestRunner: React.FC = () => {
   const currentAnswer = answers[currentQ.id]?.selectedOption || null;
   const isCurrentMarked = answers[currentQ.id]?.isMarkedForReview || false;
 
-  // Language content fallback
-  const displayedQuestionText =
-    language === 'bn' && currentQ.questionBengaliText
+  // Language content fallback: When bilingual is OFF, ALWAYS use Bengali.
+  const displayedQuestionText = !isBilingualEnabled
+    ? currentQ.questionBengaliText || currentQ.questionText
+    : language === 'bn' && currentQ.questionBengaliText
       ? currentQ.questionBengaliText
       : currentQ.questionText;
 
@@ -367,17 +370,19 @@ export const TestRunner: React.FC = () => {
 
         {/* Right Tools: Language Toggle & Submit */}
         <div className="flex items-center gap-2">
-          {/* Language Toggle (global setting, persisted by LanguageProvider) */}
-          <button
-            onClick={() => {
-              setLanguage(language === 'bn' ? 'en' : 'bn');
-            }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors active:scale-95"
-            title="Toggle Question Language"
-          >
-            <Languages className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>{language === 'bn' ? 'বাংলা' : 'ENG'}</span>
-          </button>
+          {/* Language Toggle (only visible when Bilingual mode is ON) */}
+          {isBilingualEnabled && (
+            <button
+              onClick={() => {
+                setLanguage(language === 'bn' ? 'en' : 'bn');
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors active:scale-95"
+              title="Toggle Question Language"
+            >
+              <Languages className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{language === 'bn' ? 'বাংলা' : 'ENG'}</span>
+            </button>
+          )}
 
           {/* Palette Drawer Toggle */}
           <button

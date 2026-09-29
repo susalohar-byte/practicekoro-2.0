@@ -15,7 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _selectedLang = 'bn';
   String _targetExam = 'WBP Constable';
   bool _dailyReminder = true;
   bool _examAlerts = true;
@@ -70,61 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Language Preference
-            PKCard(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.veryLightBlue,
-                          borderRadius: AppRadius.rMd,
-                        ),
-                        child: const Icon(Icons.translate_rounded, color: AppColors.primary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Question Language',
-                              style: AppTypography.titleMedium(color: AppColors.textPrimary),
-                            ),
-                            Text(
-                              'Default language for questions and explanations',
-                              style: AppTypography.bodySmall(color: AppColors.secondaryText),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildRadioTile(
-                    title: 'বাংলা (Bengali)',
-                    subtitle: 'Questions and explanations in Bengali by default',
-                    isSelected: _selectedLang == 'bn',
-                    onTap: () => setState(() => _selectedLang = 'bn'),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildRadioTile(
-                    title: 'English',
-                    subtitle: 'Questions and explanations in English by default',
-                    isSelected: _selectedLang == 'en',
-                    onTap: () => setState(() => _selectedLang = 'en'),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // 2. Target Exam
+            // Target Exam
             PKCard(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -284,53 +229,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: AppTypography.bodySmall(color: AppColors.textMuted),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRadioTile({
-    required String title,
-    required String subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.rMd,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.veryLightBlue : Colors.white,
-          borderRadius: AppRadius.rMd,
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.titleSmall(
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: AppTypography.bodySmall(color: AppColors.secondaryText),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
           ],
         ),
       ),

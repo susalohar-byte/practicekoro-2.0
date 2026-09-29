@@ -70,6 +70,10 @@ final appRouter = GoRouter(
       path: '/exams',
       builder: (context, state) => const MainScaffold(initialIndex: 1),
     ),
+    GoRoute(
+      path: '/test-series',
+      builder: (context, state) => const MainScaffold(initialIndex: 1),
+    ),
 
     // 8 & 9. Test Series Details & Test List Within Exam Series
     GoRoute(

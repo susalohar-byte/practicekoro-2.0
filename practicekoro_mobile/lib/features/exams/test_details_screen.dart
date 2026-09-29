@@ -32,7 +32,6 @@ class TestDetailsScreen extends StatefulWidget {
 }
 
 class _TestDetailsScreenState extends State<TestDetailsScreen> {
-  String _selectedLanguage = 'bn';
   bool _agreedToInstructions = true;
   bool _isPro = false;
 
@@ -107,9 +106,9 @@ class _TestDetailsScreenState extends State<TestDetailsScreen> {
                           color: AppColors.veryLightBlue,
                           borderRadius: AppRadius.rPill,
                         ),
-                        child: const Text(
-                          'BILINGUAL (EN/BN)',
-                          style: TextStyle(
+                        child: Text(
+                          LocalStorageService.isBilingualEnabled() ? 'BILINGUAL (EN/BN)' : 'বাংলা মাধ্যম',
+                          style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
@@ -138,34 +137,6 @@ class _TestDetailsScreenState extends State<TestDetailsScreen> {
                       _specItem('Duration', '${widget.durationMinutes}m'),
                       _specItem('Total Marks', '${widget.totalMarks.toInt()}'),
                       _specItem('Negative', '-${widget.negativeMarks}'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Language Selection
-            PKCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Default Question Language',
-                    style: AppTypography.titleSmall(color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _langOption('বাংলা (Bengali)', 'bn'),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _langOption('English', 'en'),
-                      ),
                     ],
                   ),
                 ],
@@ -280,34 +251,6 @@ class _TestDetailsScreenState extends State<TestDetailsScreen> {
             style: AppTypography.labelSmall(color: AppColors.secondaryText),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _langOption(String name, String code) {
-    final isSelected = _selectedLanguage == code;
-    return InkWell(
-      onTap: () => setState(() => _selectedLanguage = code),
-      borderRadius: AppRadius.rMd,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.veryLightBlue : Colors.white,
-          borderRadius: AppRadius.rMd,
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          name,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppColors.primary : AppColors.textPrimary,
-          ),
-        ),
       ),
     );
   }

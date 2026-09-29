@@ -63,7 +63,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           child: Row(
             children: [
               _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-              _buildNavItem(1, Icons.layers_rounded, Icons.layers_outlined, 'Exams'),
+              _buildNavItem(1, Icons.assignment_rounded, Icons.assignment_outlined, 'Test Series'),
               _buildNavItem(2, Icons.menu_book_rounded, Icons.menu_book_outlined, 'Practice'),
               _buildNavItem(3, Icons.bar_chart_rounded, Icons.bar_chart_outlined, 'Results'),
               _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),

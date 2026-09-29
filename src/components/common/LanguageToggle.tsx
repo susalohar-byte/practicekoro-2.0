@@ -1,6 +1,7 @@
 import React from 'react';
 import { Languages } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
 
 interface LanguageToggleProps {
@@ -8,12 +9,16 @@ interface LanguageToggleProps {
 }
 
 /**
- * Global বাংলা / ENG switch. Drives the shared LanguageContext, so UI copy
- * (migrated surfaces) and question content language follow one setting,
- * persisted to localStorage under `practicekoro_language`.
+ * Global বাংলা / ENG switch. Drives the shared LanguageContext.
+ * When bilingual mode is disabled (Bengali Only), this toggle is hidden from students.
  */
 export const LanguageToggle: React.FC<LanguageToggleProps> = ({ className }) => {
   const { lang, setLang } = useLanguage();
+  const { isBilingualEnabled } = useContentLanguage();
+
+  if (!isBilingualEnabled) {
+    return null;
+  }
 
   return (
     <div

@@ -22,7 +22,7 @@ class PKTestCard extends StatelessWidget {
     required this.title,
     required this.questionsCount,
     required this.duration,
-    this.language = 'Bilingual (EN/BN)',
+    this.language = 'বাংলা (Bengali)',
     this.badge,
     this.badgeColor,
     required this.onStart,

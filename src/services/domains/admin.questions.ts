@@ -386,16 +386,18 @@ export async function createQuestion(qData: Omit<Question, 'id'>): Promise<Quest
       chapter_id: effectiveTopicId,
       topic_id: effectiveTopicId,
       subject_id: qData.subjectId || null,
-      question_text: qData.questionText,
-      question_bengali_text: qData.questionBengaliText || null,
+      question_text: qData.questionText || qData.questionBengaliText || '',
+      question_bengali_text:
+        qData.questionBengaliText ||
+        (/[\u0980-\u09FF]/.test(qData.questionText) ? qData.questionText : null),
       image_url: qData.imageUrl || null,
       option_a: qData.optionA,
       option_b: qData.optionB,
       option_c: qData.optionC,
       option_d: qData.optionD,
       correct_option: qData.correctOption,
-      explanation: qData.explanation || null,
-      explanation_bengali: qData.explanationBengali || null,
+      explanation: qData.explanation || qData.explanationBengali || null,
+      explanation_bengali: qData.explanationBengali || qData.explanation || null,
       difficulty: qData.difficulty || 'medium',
       default_marks: qData.defaultMarks ?? 1.0,
       // Questions never carry negative marks — scoring uses the test-level scheme.

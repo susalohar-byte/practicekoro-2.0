@@ -32,12 +32,29 @@ class LocalStorageService {
     await _prefs?.setBool(_onboardingCompleteKey, completed);
   }
 
+  static const String _contentLanguageModeKey = 'pk_content_language_mode';
+
+  static Future<void> setContentLanguageMode(String mode) async {
+    await _prefs?.setString(_contentLanguageModeKey, mode);
+  }
+
+  static String getContentLanguageMode() {
+    return _prefs?.getString(_contentLanguageModeKey) ?? 'bengali_only';
+  }
+
+  static bool isBilingualEnabled() {
+    return getContentLanguageMode() == 'bilingual';
+  }
+
   static Future<void> saveLanguagePreference(bool preferBengali) async {
     await _prefs?.setBool('pk_prefer_bengali', preferBengali);
   }
 
   static bool getLanguagePreference() {
-    return _prefs?.getBool('pk_prefer_bengali') ?? false; // Default to English
+    if (!isBilingualEnabled()) {
+      return true; // Strictly Bengali when bilingual is disabled
+    }
+    return _prefs?.getBool('pk_prefer_bengali') ?? true; // Default to Bengali
   }
 
   static Future<void> saveAttempt(TestAttemptModel attempt) async {
@@ -95,5 +112,13 @@ class LocalStorageService {
       } catch (_) {}
     }
     return null;
+  }
+
+  static String? getUserId() {
+    return _prefs?.getString('pk_user_id') ?? 'student-mock-user-1';
+  }
+
+  static Future<void> saveUserId(String id) async {
+    await _prefs?.setString('pk_user_id', id);
   }
 }

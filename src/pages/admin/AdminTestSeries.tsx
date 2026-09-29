@@ -57,6 +57,7 @@ export const AdminTestSeries: React.FC = () => {
   const [description, setDescription] = useState('');
   const [iconUrl, setIconUrl] = useState('');
   const [isPremium, setIsPremium] = useState(false);
+  const [isPopular, setIsPopular] = useState(false);
   const [orderIndex, setOrderIndex] = useState(1);
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -103,6 +104,7 @@ export const AdminTestSeries: React.FC = () => {
     setDescription('');
     setIconUrl('');
     setIsPremium(false);
+    setIsPopular(false);
     setOrderIndex(seriesList.length + 1);
     setIsActive(true);
     setIsFeatured(false);
@@ -118,6 +120,7 @@ export const AdminTestSeries: React.FC = () => {
     setDescription(series.description || '');
     setIconUrl(series.iconUrl || '');
     setIsPremium(series.isPremium);
+    setIsPopular(Boolean(series.isPopular));
     setOrderIndex(series.orderIndex);
     setIsActive(series.isActive);
     setIsFeatured(Boolean(series.isFeatured));
@@ -133,6 +136,18 @@ export const AdminTestSeries: React.FC = () => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
       setSlug(generated);
+    }
+  };
+
+  const handleTogglePopular = async (series: TestSeries) => {
+    try {
+      const nextPopular = !series.isPopular;
+      await api.updateTestSeries(series.id, { isPopular: nextPopular });
+      setSeriesList((prev) =>
+        prev.map((s) => (s.id === series.id ? { ...s, isPopular: nextPopular } : s))
+      );
+    } catch (err) {
+      console.error('Failed to toggle popular flag:', err);
     }
   };
 
@@ -155,6 +170,7 @@ export const AdminTestSeries: React.FC = () => {
           description: description.trim() || undefined,
           iconUrl: iconUrl.trim() || undefined,
           isPremium,
+          isPopular,
           orderIndex: Number(orderIndex),
           isActive,
           isFeatured,
@@ -173,6 +189,7 @@ export const AdminTestSeries: React.FC = () => {
           description: description.trim() || undefined,
           iconUrl: iconUrl.trim() || undefined,
           isPremium,
+          isPopular,
           orderIndex: Number(orderIndex),
           isActive,
           isFeatured,
@@ -498,6 +515,7 @@ export const AdminTestSeries: React.FC = () => {
                 <th className="p-4">Target Exam</th>
                 <th className="p-4">Access Tier</th>
                 <th className="p-4">Assigned Tests</th>
+                <th className="p-4">Popular</th>
                 <th className="p-4">Order</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
@@ -506,13 +524,13 @@ export const AdminTestSeries: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-500 dark:text-slate-400">
                     Loading test series...
                   </td>
                 </tr>
               ) : filteredSeries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-500 dark:text-slate-400">
                     No test series found for the selected filter.
                   </td>
                 </tr>
@@ -570,6 +588,20 @@ export const AdminTestSeries: React.FC = () => {
                               📜 {series.pyqTestCount || 0} PYQ
                             </span>
                           </div>
+                        </button>
+                      </td>
+                      <td className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePopular(series)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
+                            series.isPopular
+                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-200/50 dark:border-slate-700/50'
+                          }`}
+                          title={series.isPopular ? 'Click to remove from Home Popular list' : 'Click to feature on Home Popular list'}
+                        >
+                          {series.isPopular ? '🔥 Popular' : 'Off'}
                         </button>
                       </td>
                       <td className="p-4 font-bold text-indigo-400">#{series.orderIndex}</td>
@@ -1522,6 +1554,16 @@ export const AdminTestSeries: React.FC = () => {
                       className="rounded border-slate-300 dark:border-slate-700 text-amber-500 focus:ring-amber-400"
                     />
                     <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Pro Pass Only</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isPopular}
+                      onChange={(e) => setIsPopular(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-rose-500 focus:ring-rose-400"
+                    />
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">🔥 Feature as Popular on Home</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">

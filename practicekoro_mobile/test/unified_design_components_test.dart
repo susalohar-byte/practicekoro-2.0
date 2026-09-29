@@ -186,7 +186,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Settings & Preferences'), findsOneWidget);
-      expect(find.text('Question Language'), findsOneWidget);
       expect(find.text('Primary Target Exam'), findsOneWidget);
       expect(find.text('Daily Mock Test Reminder'), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);

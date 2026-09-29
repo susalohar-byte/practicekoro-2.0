@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Globe,
+  Languages,
   Sliders,
   CreditCard,
   Server,
@@ -88,6 +89,13 @@ export const AdminSettings: React.FC = () => {
   const [supportAddress, setSupportAddress] = useState('West Bengal, India');
 
   // --------------------------------------------------------------------------
+  // Content Language Mode State (Bengali Only vs Bilingual)
+  // --------------------------------------------------------------------------
+  const [contentLanguageMode, setContentLanguageMode] = useState<'bengali_only' | 'bilingual'>('bengali_only');
+  const [isSavingLanguageMode, setIsSavingLanguageMode] = useState(false);
+  const [langModeSuccess, setLangModeSuccess] = useState(false);
+
+  // --------------------------------------------------------------------------
   // Exam Defaults
   // --------------------------------------------------------------------------
   const [defaultDuration, setDefaultDuration] = useState(60);
@@ -142,6 +150,14 @@ export const AdminSettings: React.FC = () => {
           setSupportHours(String(val));
         if (s.key === 'support_address' || s.id === 'general_support_address')
           setSupportAddress(String(val));
+        if (
+          s.key === 'content_language_mode' ||
+          s.id === 'content_language_mode' ||
+          s.id === 'general_content_language_mode'
+        ) {
+          const modeVal = String(val).replace(/^"|"$/g, '').trim().toLowerCase();
+          setContentLanguageMode(modeVal === 'bilingual' ? 'bilingual' : 'bengali_only');
+        }
 
         if (s.key === 'default_duration_minutes' || s.id === 'exam_default_duration')
           setDefaultDuration(Number(val));
@@ -370,6 +386,28 @@ export const AdminSettings: React.FC = () => {
   };
 
   // --------------------------------------------------------------------------
+  // Dedicated Save for Content Language Mode
+  // --------------------------------------------------------------------------
+  const handleSaveLanguageModeDirectly = async (mode: 'bengali_only' | 'bilingual') => {
+    try {
+      setIsSavingLanguageMode(true);
+      setErrorMessage('');
+      setContentLanguageMode(mode);
+      await api.updateAppSettings([{ id: 'content_language_mode', value: mode }]);
+      await checkMaintenanceMode();
+      setLangModeSuccess(true);
+      setTimeout(() => setLangModeSuccess(false), 3000);
+    } catch (err: unknown) {
+      console.error('Failed to update language mode:', err);
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to update content language mode'
+      );
+    } finally {
+      setIsSavingLanguageMode(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // Save All Settings
   // --------------------------------------------------------------------------
   const handleSaveAll = async (e: React.FormEvent) => {
@@ -387,6 +425,7 @@ export const AdminSettings: React.FC = () => {
         { id: 'general_support_whatsapp', value: supportWhatsapp },
         { id: 'general_support_hours', value: supportHours },
         { id: 'general_support_address', value: supportAddress },
+        { id: 'content_language_mode', value: contentLanguageMode },
 
         { id: 'exam_default_duration', value: defaultDuration },
         { id: 'exam_default_marks', value: defaultMarks },
@@ -814,7 +853,133 @@ export const AdminSettings: React.FC = () => {
       {/* Main Settings Form */}
       <form onSubmit={handleSaveAll} className="space-y-6">
         {/* ==================================================================== */}
-        {/* SECTION 2: BRAND & OFFICIAL CONTACT DETAILS                          */}
+        {/* SECTION 2: CONTENT LANGUAGE MODE (BENGALI ONLY vs BILINGUAL)         */}
+        {/* ==================================================================== */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
+                <Languages className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Content Language Mode (কনটেন্ট ভাষা মোড)</span>
+                  <span
+                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                      contentLanguageMode === 'bengali_only'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                    }`}
+                  >
+                    {contentLanguageMode === 'bengali_only' ? 'Bengali Only (Active)' : 'Bilingual (Active)'}
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Global language setting for students, question upload, and question creation.
+                </p>
+              </div>
+            </div>
+
+            {langModeSuccess && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                Language Mode Saved
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Mode 1: Bengali Only */}
+            <div
+              onClick={() => handleSaveLanguageModeDirectly('bengali_only')}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                contentLanguageMode === 'bengali_only'
+                  ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      Bengali Only (ডিফল্ট - শুধুমাত্র বাংলা)
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                      Bilingual OFF
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    শিক্ষার্থীদের জন্য ওয়েব ও মোবাইল অ্যাপে শুধুমাত্র বাংলায় প্রশ্ন, অপশন ও শর্ট নোটস প্রদর্শিত হবে। প্রশ্ন তৈরিতে ইংরেজি ফিল্ডের কোনো বাধ্যবাধকতা নেই।
+                  </p>
+                </div>
+                <div className="shrink-0 pt-0.5">
+                  <input
+                    type="radio"
+                    name="content_language_mode"
+                    checked={contentLanguageMode === 'bengali_only'}
+                    onChange={() => handleSaveLanguageModeDirectly('bengali_only')}
+                    className="w-4 h-4 text-emerald-600 accent-emerald-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Mode 2: Bilingual */}
+            <div
+              onClick={() => handleSaveLanguageModeDirectly('bilingual')}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                contentLanguageMode === 'bilingual'
+                  ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      Bilingual (বাংলা ও ইংরেজি)
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                      Bilingual ON
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    বাংলা ও ইংরেজি উভয় মাধ্যমে প্রশ্ন ও অপশন সাপোর্ট করবে। শিক্ষার্থীদের টেস্ট রানার ও সলিউশনে ভাষা পরিবর্তন করার টগল সক্রিয় থাকবে।
+                  </p>
+                </div>
+                <div className="shrink-0 pt-0.5">
+                  <input
+                    type="radio"
+                    name="content_language_mode"
+                    checked={contentLanguageMode === 'bilingual'}
+                    onChange={() => handleSaveLanguageModeDirectly('bilingual')}
+                    className="w-4 h-4 text-blue-600 accent-blue-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>
+                <strong>Data Safe:</strong> পূর্বের সমস্ত ইংরেজি তথ্য ও ডাটাবেস রেকর্ড সম্পূর্ণ সুরক্ষিত আছে। Bilingual মোড বন্ধ থাকা অবস্থায় কোনো ইংরেজি ডেটা মুছে ফেলা হয় না।
+              </span>
+            </div>
+            <button
+              type="button"
+              disabled={isSavingLanguageMode}
+              onClick={() => handleSaveLanguageModeDirectly(contentLanguageMode)}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shrink-0 hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+            >
+              {isSavingLanguageMode ? 'Saving...' : 'Apply Mode'}
+            </button>
+          </div>
+        </div>
+
+        {/* ==================================================================== */}
+        {/* SECTION 3: BRAND & OFFICIAL CONTACT DETAILS                          */}
         {/* ==================================================================== */}
         <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">

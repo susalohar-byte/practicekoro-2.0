@@ -2,6 +2,8 @@ import '../models/exam_model.dart';
 import '../models/subject_model.dart';
 import '../models/test_model.dart';
 import '../models/question_model.dart';
+import '../models/test_series_model.dart';
+import '../models/live_test_model.dart';
 
 class MockData {
   static const List<ExamModel> exams = [
@@ -426,6 +428,62 @@ class MockData {
       marks: 1.0,
       negativeMarks: 0.25,
       subjectName: 'Geography',
+    ),
+  ];
+
+  static final LiveTestModel activeLiveTest = LiveTestModel(
+    id: 'live-wbp-weekly-01',
+    title: 'WBP Constable Weekly Test',
+    examId: 'wbp-constable',
+    testId: 'test-wbp-constable-mock-1',
+    scheduledStartTime: DateTime.now().add(const Duration(days: 3, hours: 14, minutes: 22)),
+    scheduledEndTime: DateTime.now().add(const Duration(days: 3, hours: 15, minutes: 52)),
+    durationMinutes: 90,
+    totalQuestions: 100,
+    totalMarks: 100.0,
+    negativeMarking: 0.25,
+    status: 'scheduled',
+    isPublished: true,
+    enrolledCount: 1420,
+    examTitle: 'WBP Constable',
+  );
+
+  static const List<TestSeriesModel> popularTestSeries = [
+    TestSeriesModel(
+      id: 'ts-wbp-constable',
+      examId: 'wbp-constable',
+      title: 'WBP Constable 2026 Test Series',
+      slug: 'wbp-constable-2026',
+      examTitle: 'WBP Constable',
+      isPopular: true,
+      testCount: 45,
+    ),
+    TestSeriesModel(
+      id: 'ts-wbpsc-clerkship',
+      examId: 'wbpsc-clerkship',
+      title: 'WBPSC Clerkship Ultimate Mock Series',
+      slug: 'wbpsc-clerkship-ultimate',
+      examTitle: 'WBPSC Clerkship',
+      isPopular: true,
+      testCount: 35,
+    ),
+    TestSeriesModel(
+      id: 'ts-railway-group-d',
+      examId: 'rrb-group-d',
+      title: 'Railway Group D Full Mock Test Series',
+      slug: 'railway-group-d-mocks',
+      examTitle: 'Railway Group D',
+      isPopular: true,
+      testCount: 40,
+    ),
+    TestSeriesModel(
+      id: 'ts-wbcs-prelims',
+      examId: 'wbcs-prelims',
+      title: 'WBCS Prelims Comprehensive Test Series',
+      slug: 'wbcs-prelims-comp',
+      examTitle: 'WBCS Prelims',
+      isPopular: true,
+      testCount: 60,
     ),
   ];
 }

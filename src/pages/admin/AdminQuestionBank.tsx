@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { Button } from '@/components/common/Button';
 import {
   BookOpen,
@@ -52,6 +53,7 @@ export type QuestionCategory = 'all' | 'topic' | 'full_mock' | 'pyq';
 
 export const AdminQuestionBank: React.FC = () => {
   const { user: currentAdmin } = useAuth();
+  const { isBilingualEnabled } = useContentLanguage();
   const [searchParams] = useSearchParams();
   const querySource = searchParams.get('source');
   const querySubjectId = searchParams.get('subjectId');
@@ -642,6 +644,7 @@ export const AdminQuestionBank: React.FC = () => {
         // Create and link directly to selected Full Mock Test or PYQ (Section 12, 15)
         await api.createQuestionForTest(singleExamTestId, {
           questionText: singleQuestionText.trim(),
+          questionBengaliText: singleQuestionText.trim(),
           imageUrl: singleImageUrl.trim() || undefined,
           optionA: singleOptA.trim(),
           optionB: singleOptB.trim(),
@@ -662,6 +665,7 @@ export const AdminQuestionBank: React.FC = () => {
         // Create and assign directly to the selected Topic Test
         await api.createQuestionForTest(singleTopicTestId, {
           questionText: singleQuestionText.trim(),
+          questionBengaliText: singleQuestionText.trim(),
           imageUrl: singleImageUrl.trim() || undefined,
           optionA: singleOptA.trim(),
           optionB: singleOptB.trim(),
@@ -684,6 +688,7 @@ export const AdminQuestionBank: React.FC = () => {
         // Save to question repository with metadata
         await api.createQuestion({
           questionText: singleQuestionText.trim(),
+          questionBengaliText: singleQuestionText.trim(),
           imageUrl: singleImageUrl.trim() || undefined,
           optionA: singleOptA.trim(),
           optionB: singleOptB.trim(),
@@ -906,14 +911,14 @@ export const AdminQuestionBank: React.FC = () => {
   // Edit Question
   const handleOpenEdit = (q: Question) => {
     setEditingQuestion(q);
-    setEditQText(q.questionText);
+    setEditQText(!isBilingualEnabled && q.questionBengaliText ? q.questionBengaliText : (q.questionBengaliText || q.questionText));
     setEditQImageUrl(q.imageUrl || '');
     setEditQOptA(q.optionA);
     setEditQOptB(q.optionB);
     setEditQOptC(q.optionC);
     setEditQOptD(q.optionD);
     setEditQCorrect(q.correctOption);
-    setEditQExplanation(q.explanation || q.explanationBengali || '');
+    setEditQExplanation(q.explanationBengali || q.explanation || '');
     setEditQError('');
     setIsEditModalOpen(true);
   };
@@ -925,7 +930,10 @@ export const AdminQuestionBank: React.FC = () => {
       setIsUpdatingQ(true);
       setEditQError('');
       await api.updateQuestion(editingQuestion.id, {
-        questionText: editQText.trim(),
+        questionText: !isBilingualEnabled
+          ? (editingQuestion.questionText && editingQuestion.questionText !== editingQuestion.questionBengaliText ? editingQuestion.questionText : editQText.trim())
+          : editQText.trim(),
+        questionBengaliText: editQText.trim(),
         imageUrl: editQImageUrl.trim() || undefined,
         optionA: editQOptA.trim(),
         optionB: editQOptB.trim(),
@@ -2666,11 +2674,15 @@ export const AdminQuestionBank: React.FC = () => {
               {/* Question Text */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Question Text (English or Bengali) *
+                  {!isBilingualEnabled ? 'Question Text (বাংলা প্রশ্ন) *' : 'Question Text (English or Bengali) *'}
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Type or paste the complete question text..."
+                  placeholder={
+                    !isBilingualEnabled
+                      ? 'সম্পূর্ণ প্রশ্নটি বাংলা ভাষায় লিখুন...'
+                      : 'Type or paste the complete question text...'
+                  }
                   value={singleQuestionText}
                   onChange={(e) => setSingleQuestionText(e.target.value)}
                   required
@@ -3476,12 +3488,13 @@ export const AdminQuestionBank: React.FC = () => {
             <form onSubmit={handleUpdateQuestion} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Question Text *
+                  {!isBilingualEnabled ? 'Question Text (বাংলা প্রশ্ন) *' : 'Question Text *'}
                 </label>
                 <textarea
                   rows={3}
                   value={editQText}
                   onChange={(e) => setEditQText(e.target.value)}
+                  placeholder={!isBilingualEnabled ? 'সম্পূর্ণ প্রশ্নটি বাংলা ভাষায় লিখুন...' : 'Type or paste question text...'}
                   required
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
                 />

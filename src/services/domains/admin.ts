@@ -17,6 +17,7 @@ import { adminBulkImportsApi } from './admin.bulkImports';
 import { adminNotificationsApi } from './admin.notifications';
 import { adminSupportApi } from './admin.support';
 import { adminSettingsApi } from './admin.settings';
+import { adminLiveTestsApi } from './admin.liveTests';
 
 export const adminApi = {
   ...adminExamsApi,
@@ -24,6 +25,7 @@ export const adminApi = {
   ...adminChaptersApi,
   ...adminTestSeriesApi,
   ...adminTestsApi,
+  ...adminLiveTestsApi,
   ...adminQuestionsApi,
   ...adminExamCategoriesApi,
   ...adminTestQuestionsApi,

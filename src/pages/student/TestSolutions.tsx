@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -23,6 +24,7 @@ import type { QuestionSolution, MockTest } from '@/types';
 export const TestSolutions: React.FC = () => {
   const { testId, attemptId } = useParams<{ testId: string; attemptId: string }>();
   const { user } = useAuth();
+  const { isBilingualEnabled } = useContentLanguage();
   const navigate = useNavigate();
 
   const [solutions, setSolutions] = useState<QuestionSolution[]>([]);
@@ -254,9 +256,11 @@ export const TestSolutions: React.FC = () => {
               {/* Question Text */}
               <div className="space-y-1">
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                  {sol.questionText}
+                  {!isBilingualEnabled
+                    ? sol.questionBengaliText || sol.questionText
+                    : sol.questionText}
                 </h3>
-                {sol.questionBengaliText && (
+                {isBilingualEnabled && sol.questionBengaliText && (
                   <p className="text-xs sm:text-sm text-slate-600 font-medium">
                     {sol.questionBengaliText}
                   </p>
@@ -320,7 +324,13 @@ export const TestSolutions: React.FC = () => {
                   <ShortNotesBox
                     explanation={sol.explanationBengali || sol.explanation}
                     isMathematics={isSolMath}
-                    title={isSolMath ? undefined : 'শর্ট নোটস (Short Notes)'}
+                    title={
+                      isSolMath
+                        ? undefined
+                        : !isBilingualEnabled
+                          ? 'শর্ট নোটস'
+                          : 'শর্ট নোটস (Short Notes)'
+                    }
                     defaultExpanded={true}
                     collapsible={false}
                   />

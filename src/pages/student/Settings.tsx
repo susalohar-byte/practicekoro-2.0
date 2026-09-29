@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import {
@@ -28,6 +29,7 @@ export const Settings: React.FC = () => {
 
   // Language preference: state for UI and question content.
   const { lang: language, setLang: handleLanguageChange } = useLanguage();
+  const { isBilingualEnabled } = useContentLanguage();
 
   const handleLogout = async () => {
     await logout();
@@ -73,51 +75,68 @@ export const Settings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => handleLanguageChange('bn')}
-            className={`p-4 rounded-xl border text-left flex items-center justify-between transition-all ${
-              language === 'bn'
-                ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-500 shadow-sm'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
-          >
-            <div>
-              <p className="text-sm font-bold text-slate-900">বাংলা (Bengali)</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Questions and explanations in Bengali by default
-              </p>
-            </div>
-            {language === 'bn' && (
-              <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
-                <Check className="w-4 h-4 stroke-[3]" />
+        {isBilingualEnabled ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => handleLanguageChange('bn')}
+              className={`p-4 rounded-xl border text-left flex items-center justify-between transition-all ${
+                language === 'bn'
+                  ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-500 shadow-sm'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <div>
+                <p className="text-sm font-bold text-slate-900">বাংলা (Bengali)</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Questions and explanations in Bengali by default
+                </p>
               </div>
-            )}
-          </button>
+              {language === 'bn' && (
+                <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </div>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleLanguageChange('en')}
-            className={`p-4 rounded-xl border text-left flex items-center justify-between transition-all ${
-              language === 'en'
-                ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-500 shadow-sm'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
-          >
+            <button
+              type="button"
+              onClick={() => handleLanguageChange('en')}
+              className={`p-4 rounded-xl border text-left flex items-center justify-between transition-all ${
+                language === 'en'
+                  ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-500 shadow-sm'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <div>
+                <p className="text-sm font-bold text-slate-900">English</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Questions and explanations in English by default
+                </p>
+              </div>
+              {language === 'en' && (
+                <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </div>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl border border-brand-200 bg-brand-50/40 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-slate-900">English</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Questions and explanations in English by default
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-slate-900">বাংলা (Bengali Only)</p>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-brand-600 text-white">সক্রিয়</span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                মক টেস্ট এবং প্রশ্নাবলী সম্পূর্ণ বাংলা ভাষায় প্রস্তুত করা হয়েছে।
               </p>
             </div>
-            {language === 'en' && (
-              <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
-                <Check className="w-4 h-4 stroke-[3]" />
-              </div>
-            )}
-          </button>
-        </div>
+            <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
+              <Check className="w-4 h-4 stroke-[3]" />
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* B2. Target Exam Preference */}

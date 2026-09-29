@@ -158,11 +158,47 @@ export interface TestSeries {
   createdAt?: string;
   examTitle?: string;
   examCategory?: string;
+  isPopular?: boolean;
   testCount?: number;
   testsCount?: number;
   fullMockCount?: number;
   topicTestCount?: number;
   pyqTestCount?: number;
+}
+
+export interface LiveTest {
+  id: string;
+  title: string;
+  examId: string;
+  testSeriesId?: string;
+  testId: string;
+  scheduledStartTime: string;
+  scheduledEndTime: string;
+  durationMinutes: number;
+  totalQuestions: number;
+  totalMarks: number;
+  negativeMarking: number;
+  instructions?: string;
+  status: 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled';
+  isPublished: boolean;
+  enrolledCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+  examTitle?: string;
+  testTitle?: string;
+  testSeriesTitle?: string;
+}
+
+export interface LiveTestParticipation {
+  id: string;
+  liveTestId: string;
+  userId: string;
+  attemptId?: string;
+  joinedAt: string;
+  status: 'joined' | 'started' | 'submitted' | 'abandoned';
+  score?: number;
+  accuracy?: number;
+  rank?: number;
 }
 
 export interface MockTest {

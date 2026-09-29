@@ -106,6 +106,16 @@ export async function updateAppSettings(
       key: 'website_url',
       description: 'Official web application domain',
     },
+    content_language_mode: {
+      category: 'general',
+      key: 'content_language_mode',
+      description: 'Global content language mode: bengali_only (default) or bilingual',
+    },
+    general_content_language_mode: {
+      category: 'general',
+      key: 'content_language_mode',
+      description: 'Global content language mode: bengali_only (default) or bilingual',
+    },
     exam_default_duration: {
       category: 'exam_defaults',
       key: 'default_duration_minutes',

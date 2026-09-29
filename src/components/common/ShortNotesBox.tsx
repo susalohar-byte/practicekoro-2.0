@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ClipboardList, ChevronUp, ChevronDown } from 'lucide-react';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 
 interface ShortNotesBoxProps {
   explanation?: string;
@@ -205,9 +206,21 @@ export const ShortNotesBox: React.FC<ShortNotesBoxProps> = ({
   isMathematics = false,
 }) => {
   const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded);
+  const { isBilingualEnabled } = useContentLanguage();
 
-  // Determine display title based on mathematics vs non-mathematics
-  const displayTitle = title || (isMathematics ? 'Explanation' : 'Short Notes');
+  // Determine display title based on language mode and mathematics vs non-mathematics
+  let displayTitle = title;
+  if (!displayTitle) {
+    displayTitle = isMathematics
+      ? (isBilingualEnabled ? 'Explanation' : 'সমাধান')
+      : (isBilingualEnabled ? 'Short Notes' : 'শর্ট নোটস');
+  } else if (!isBilingualEnabled) {
+    if (displayTitle.includes('(Short Notes)')) {
+      displayTitle = displayTitle.replace(/\s*\(Short Notes\)/i, '').trim();
+    } else if (displayTitle.toLowerCase().trim() === 'short notes') {
+      displayTitle = 'শর্ট নোটস';
+    }
+  }
 
   // Normalize escaped \n or \\n from DB
   const normalizedExplanation = useMemo(() => {

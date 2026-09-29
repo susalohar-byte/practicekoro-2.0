@@ -27,6 +27,8 @@ import type {
   QuestionItemAnalysis,
   AdminPaymentRow,
   AdminStudentRow,
+  LiveTest,
+  LiveTestParticipation,
 } from '@/types';
 
 // Shared in-memory fallback stores (used when Supabase is unconfigured).
@@ -48,6 +50,30 @@ export const localChapters: Chapter[] = Object.values(MOCK_CHAPTERS).flat();
 export const localTestSeries: TestSeries[] = Object.values(MOCK_TEST_SERIES).flat();
 export const localTests: MockTest[] = Object.values(MOCK_TESTS).flat();
 export const localQuestions: Question[] = Object.values(MOCK_QUESTIONS).flat();
+
+export const localLiveTests: LiveTest[] = [
+  {
+    id: 'live-wbp-weekly-01',
+    title: 'WBP Constable Weekly Test',
+    examId: 'wbp-constable',
+    testId: 'test-indus-01',
+    scheduledStartTime: new Date(Date.now() + 2 * 24 * 3600 * 1000 + 18 * 3600 * 1000 + 30 * 60 * 1000).toISOString(),
+    scheduledEndTime: new Date(Date.now() + 2 * 24 * 3600 * 1000 + 20 * 3600 * 1000).toISOString(),
+    durationMinutes: 90,
+    totalQuestions: 100,
+    totalMarks: 100.0,
+    negativeMarking: 0.25,
+    instructions: 'Official West Bengal Police Constable pattern. 100 Questions, 90 Minutes, 0.25 Negative Marking. Statewide ranking and detailed analysis will be available immediately upon completion.',
+    status: 'scheduled',
+    isPublished: true,
+    enrolledCount: 12450,
+    createdAt: new Date().toISOString(),
+    examTitle: 'WBP Constable',
+    testTitle: 'WBP Constable Full Mock 01',
+  },
+];
+
+export const localLiveTestParticipations: LiveTestParticipation[] = [];
 
 export const localExamCategories: ExamCategory[] = [
   { id: 'cat_wb_police', name: 'WB Police (WBP / KP)', orderIndex: 1, isActive: true },
@@ -251,6 +277,14 @@ export const localAppSettings: AppSettingItem[] = [
     key: 'website_url',
     value: 'https://practicekoro.online',
     description: 'Official web application domain',
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'content_language_mode',
+    category: 'general',
+    key: 'content_language_mode',
+    value: 'bengali_only',
+    description: 'Global content language mode: bengali_only (default) or bilingual',
     updatedAt: new Date().toISOString(),
   },
   {

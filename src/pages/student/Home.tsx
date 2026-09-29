@@ -23,6 +23,7 @@ import {
   Headphones,
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
+import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
 
@@ -52,6 +53,31 @@ export const Home: React.FC = () => {
   const { data: liveTest } = useQuery({ queryKey: ['home-live-test'], queryFn: () => api.getFeaturedLiveTest(), refetchInterval: 30000 });
   const { data: featuredSeries = [] } = useQuery({ queryKey: ['home-featured-series'], queryFn: () => api.getFeaturedTestSeries(), refetchInterval: 60000 });
   useEffect(() => { const id = window.setInterval(() => setLiveClock(Date.now()), 1000); return () => window.clearInterval(id); }, []);
+
+  // Real-time tick for countdown
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const { data: activeLiveTest } = useQuery({
+    queryKey: ['active-live-test'],
+    queryFn: () => api.getActiveLiveTest(),
+    staleTime: 30000,
+  });
+
+  const { data: popularTestSeries = [] } = useQuery({
+    queryKey: ['popular-test-series'],
+    queryFn: () => api.getPopularTestSeries(),
+    staleTime: 30000,
+  });
+
+  const startTime = activeLiveTest ? new Date(activeLiveTest.scheduledStartTime).getTime() : Date.now() + 300000000;
+  const timeDiff = Math.max(0, startTime - currentTime);
+  const countdownDays = String(Math.floor(timeDiff / (1000 * 60 * 60 * 24))).padStart(2, '0');
+  const countdownHours = String(Math.floor((timeDiff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+  const countdownMinutes = String(Math.floor((timeDiff / (1000 * 60)) % 60)).padStart(2, '0');
 
   // Keep slide index within valid bounds whenever active banners change
   useEffect(() => {
@@ -614,6 +640,57 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
+      {/* LIVE TEST CARD (Synced with Mobile UI & Supabase) */}
+      {activeLiveTest && (
+        <div className="rounded-3xl bg-[#0F172A] text-white p-5 sm:p-6 shadow-xl border border-slate-800 relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            {/* Red LIVE TEST badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black tracking-wider uppercase">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              LIVE TEST
+            </div>
+
+            {/* Countdown timer boxes: 03 Days : 14 Hours : 22 Mins */}
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                <span className="font-extrabold text-sm">{countdownDays}</span> <span className="text-[10px] text-slate-400">Days</span>
+              </div>
+              <span className="text-slate-500 font-bold">:</span>
+              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                <span className="font-extrabold text-sm">{countdownHours}</span> <span className="text-[10px] text-slate-400">Hours</span>
+              </div>
+              <span className="text-slate-500 font-bold">:</span>
+              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                <span className="font-extrabold text-sm">{countdownMinutes}</span> <span className="text-[10px] text-slate-400">Mins</span>
+              </div>
+            </div>
+          </div>
+
+          <h4 className="text-lg sm:text-xl font-black text-white mb-2 tracking-tight">
+            {activeLiveTest.title}
+          </h4>
+
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-300 mb-5 flex-wrap">
+            <span className="flex items-center gap-1.5">⏱️ {activeLiveTest.durationMinutes} Mins</span>
+            <span className="flex items-center gap-1.5">📝 {activeLiveTest.totalQuestions} Questions</span>
+            <span className="flex items-center gap-1.5">🏆 {activeLiveTest.totalMarks} Marks</span>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+              👥 <span>{activeLiveTest.enrolledCount > 0 ? activeLiveTest.enrolledCount.toLocaleString() : '1,420'} Students Registered</span>
+            </div>
+            <Link
+              to={`/test/${activeLiveTest.testId}/start`}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs font-black transition-all shadow-md shadow-blue-500/25 active:scale-95"
+            >
+              <span>Join Now</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* 3. CONTINUE YOUR TEST (Midnight Navy Banner) */}
       <div className="rounded-3xl bg-[#0c1b3d] text-white p-6 sm:p-7 shadow-lg relative overflow-hidden">
         {/* Header */}
@@ -731,6 +808,52 @@ export const Home: React.FC = () => {
           {!featuredSeries.length && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500">Featured test series will appear here after Admin publishes them.</div>}
         </div>
       </div>
+
+      {/* 🔥 POPULAR TEST SERIES (Controlled dynamically by Admin isPopular flag) */}
+      {popularTestSeries.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>🔥</span> Popular Test Series
+            </h3>
+            <Link
+              to="/test-series"
+              className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {popularTestSeries.map((series) => (
+              <Link
+                key={series.id}
+                to={`/test-series/${series.id}`}
+                className="group flex flex-col justify-between p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all active:scale-[0.99]"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#0158FC] text-xs font-bold">
+                      🛡️
+                    </div>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">
+                      {series.examTitle || 'Exam Series'}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
+                    {series.title}
+                  </h4>
+                </div>
+                <div className="flex justify-end pt-3">
+                  <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-slate-800 group-hover:bg-[#0158FC] text-[#0158FC] group-hover:text-white flex items-center justify-center transition-colors">
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 5. PRACTICE BY SUBJECT (8 Subject Cards) */}
       <div>

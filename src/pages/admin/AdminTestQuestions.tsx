@@ -39,10 +39,12 @@ import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { isMathematicsQuestion, isMathematicsSubject } from '@/utils/shortNotes';
 import { QuestionImageField } from '@/components/admin/QuestionImageField';
 import { QuestionImage } from '@/components/common/QuestionImage';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 
 export const AdminTestQuestions: React.FC = () => {
   const { testId: routeTestId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const { isBilingualEnabled } = useContentLanguage();
 
   // ---------------------------------------------------------------------------
   // Data States
@@ -624,7 +626,7 @@ export const AdminTestQuestions: React.FC = () => {
           chapterId: test.chapterId || test.topicId,
           topicId: test.chapterId || test.topicId,
           questionText: q.questionText,
-          questionBengaliText: undefined,
+          questionBengaliText: q.questionText,
           optionA: q.optionA,
           optionB: q.optionB,
           optionC: q.optionC,
@@ -677,18 +679,23 @@ export const AdminTestQuestions: React.FC = () => {
     try {
       setIsCreating(true);
       setCreateError('');
+      const effectiveQuestionBengali = !isBilingualEnabled
+        ? newQuestionText.trim()
+        : (newQuestionBengali.trim() || newQuestionText.trim());
+
       const res = await api.createQuestionForTest(currentTestId, {
         subjectId: test.subjectId,
         chapterId: test.chapterId || test.topicId,
         topicId: test.chapterId || test.topicId,
         questionText: newQuestionText.trim(),
-        questionBengaliText: newQuestionBengali.trim() || undefined,
+        questionBengaliText: effectiveQuestionBengali,
         optionA: newOptionA.trim(),
         optionB: newOptionB.trim(),
         optionC: newOptionC.trim(),
         optionD: newOptionD.trim(),
         correctOption: newCorrectOption,
         explanation: newExplanation.trim() || undefined,
+        explanationBengali: newExplanation.trim() || undefined,
         difficulty: 'medium',
         defaultMarks: newMarks,
         // Optional diagram/figure image (global support for all tests & questions)
@@ -2112,31 +2119,48 @@ export const AdminTestQuestions: React.FC = () => {
             )}
 
             <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Question Text (English) *
-                </label>
-                <textarea
-                  rows={2}
-                  value={newQuestionText}
-                  onChange={(e) => setNewQuestionText(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
-                  placeholder="Enter question text in English"
-                />
-              </div>
+              {!isBilingualEnabled ? (
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Question Text (বাংলা প্রশ্ন) *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newQuestionText}
+                    onChange={(e) => setNewQuestionText(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
+                    placeholder="সম্পূর্ণ প্রশ্নটি বাংলা ভাষায় লিখুন..."
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Question Text (English) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={newQuestionText}
+                      onChange={(e) => setNewQuestionText(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
+                      placeholder="Enter question text in English"
+                    />
+                  </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Question Text (Bengali)
-                </label>
-                <textarea
-                  rows={2}
-                  value={newQuestionBengali}
-                  onChange={(e) => setNewQuestionBengali(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
-                  placeholder="বাংলায় প্রশ্ন লিখুন (ঐচ্ছিক)"
-                />
-              </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Question Text (Bengali)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={newQuestionBengali}
+                      onChange={(e) => setNewQuestionBengali(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
+                      placeholder="বাংলায় প্রশ্ন লিখুন (ঐচ্ছিক)"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

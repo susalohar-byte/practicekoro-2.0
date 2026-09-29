@@ -49,27 +49,6 @@ class _SolutionsScreenState extends ConsumerState<SolutionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Question Solutions & Explanations', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.navy)),
-        actions: [
-          IconButton(
-            tooltip: 'Language',
-            onPressed: () {
-              setState(() => _preferBengali = !_preferBengali);
-              LocalStorageService.saveLanguagePreference(_preferBengali);
-            },
-            icon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.blueLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _preferBengali ? 'BN' : 'EN',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -180,19 +159,22 @@ class _SolutionsScreenState extends ConsumerState<SolutionsScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(Icons.menu_book_rounded, size: 16, color: AppColors.primary),
-                                        SizedBox(width: 6),
+                                        const Icon(Icons.menu_book_rounded, size: 16, color: AppColors.primary),
+                                        const SizedBox(width: 6),
                                         Text(
-                                          'Explanation:',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.navy),
+                                          LocalStorageService.isBilingualEnabled() ? 'Explanation:' : 'শর্ট নোটস:',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.navy),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      q.getLocalizedExplanation(_preferBengali) ?? 'No additional explanation provided for this question.',
+                                      q.getLocalizedExplanation(_preferBengali) ??
+                                          (!LocalStorageService.isBilingualEnabled()
+                                              ? 'এই প্রশ্নের জন্য কোনো শর্ট নোটস উপলব্ধ নেই।'
+                                              : 'No additional explanation provided for this question.'),
                                       style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.45),
                                     ),
                                   ],

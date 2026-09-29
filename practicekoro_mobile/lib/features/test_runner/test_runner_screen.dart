@@ -27,7 +27,6 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
 
   int _currentIndex = 0;
   final Map<String, AttemptAnswerState> _answers = {};
-  String _language = 'bn'; // 'bn' or 'en'
 
   Timer? _timer;
   int _secondsRemaining = 3572;
@@ -420,35 +419,6 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
           style: AppTypography.titleMedium(color: AppColors.navy),
         ),
         actions: [
-          // Bilingual Language Toggle Button
-          InkWell(
-            onTap: () => setState(() => _language = _language == 'bn' ? 'en' : 'bn'),
-            borderRadius: AppRadius.rPill,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.veryLightBlue,
-                borderRadius: AppRadius.rPill,
-                border: Border.all(color: AppColors.softBlue),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.translate_rounded, size: 13, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    _language == 'bn' ? 'বাংলা' : 'ENG',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           // Palette Button
           IconButton(
             icon: const Icon(Icons.grid_view_rounded, size: 20, color: AppColors.navy),
@@ -608,7 +578,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            currentQ.questionText,
+                            currentQ.getLocalizedQuestion(LocalStorageService.getLanguagePreference()),
                             style: AppTypography.titleLarge(color: AppColors.navy).copyWith(
                               fontSize: 16,
                               height: 1.45,

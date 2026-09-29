@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/datasources/mock_data.dart';
+import '../../data/datasources/local_storage.dart';
 import '../../data/models/exam_model.dart';
 
 class ExamsCatalogScreen extends StatefulWidget {
@@ -479,7 +480,7 @@ class _ExamsCatalogScreenState extends State<ExamsCatalogScreen> {
                 ),
                 _buildBadge(
                   icon: Icons.translate_rounded,
-                  text: 'Bilingual (বাংলা ও Eng)',
+                  text: LocalStorageService.isBilingualEnabled() ? 'Bilingual (বাংলা ও Eng)' : 'বাংলা মাধ্যম (Bengali)',
                   bgColor: const Color(0xFFFFFBEB),
                   textColor: const Color(0xFFB45309),
                 ),

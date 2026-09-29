@@ -178,7 +178,8 @@ export async function bulkCreateQuestionsFromTxt(params: {
     try {
       const created = await createQuestion({
         questionText: q.questionText,
-        questionBengaliText: /[\u0980-\u09FF]/.test(q.questionText) ? q.questionText : undefined,
+        questionBengaliText:
+          /[\u0980-\u09FF]/.test(q.questionText) ? q.questionText : q.questionText,
         imageUrl: q.imageUrl,
         optionA: q.optionA,
         optionB: q.optionB,
@@ -186,8 +187,7 @@ export async function bulkCreateQuestionsFromTxt(params: {
         optionD: q.optionD,
         correctOption: q.correctOption,
         explanation: q.explanation,
-        explanationBengali:
-          q.explanation && /[\u0980-\u09FF]/.test(q.explanation) ? q.explanation : undefined,
+        explanationBengali: q.explanation,
         subjectId: params.subjectId,
         topicId: params.topicId,
         chapterId: params.topicId,

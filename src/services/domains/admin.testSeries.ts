@@ -77,7 +77,11 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
       isPremium: item.is_premium,
       orderIndex: item.order_index,
       isActive: item.is_active,
+<<<<<<< HEAD
       isFeatured: Boolean(item.is_featured),
+=======
+      isPopular: Boolean(item.is_popular),
+>>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
       createdAt: item.created_at,
       examTitle: item.exams?.title || undefined,
       testCount: count,
@@ -129,7 +133,11 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
     is_premium: seriesData.isPremium ?? false,
     order_index: seriesData.orderIndex || 0,
     is_active: seriesData.isActive ?? true,
+<<<<<<< HEAD
     is_featured: seriesData.isFeatured ?? false,
+=======
+    is_popular: seriesData.isPopular ?? false,
+>>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
   };
   if (seriesData.iconUrl) {
     insertPayload.icon_url = seriesData.iconUrl;
@@ -141,8 +149,20 @@ export async function createTestSeries(seriesData: Omit<TestSeries, 'id'>): Prom
     .select('*, exams:exam_id(title)')
     .single();
 
+  if (error && (error.message?.includes('is_popular') || error.code === 'PGRST204')) {
+    delete insertPayload.is_popular;
+    const retry = await supabase
+      .from('test_series')
+      .insert(insertPayload)
+      .select('*, exams:exam_id(title)')
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error && (error.message?.includes('icon_url') || error.code === 'PGRST204')) {
     delete insertPayload.icon_url;
+    delete insertPayload.is_popular;
     const retry = await supabase
       .from('test_series')
       .insert(insertPayload)
@@ -230,7 +250,11 @@ export async function updateTestSeries(
   if (updates.isPremium !== undefined) payload.is_premium = updates.isPremium;
   if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+<<<<<<< HEAD
   if (updates.isFeatured !== undefined) payload.is_featured = updates.isFeatured;
+=======
+  if (updates.isPopular !== undefined) payload.is_popular = updates.isPopular;
+>>>>>>> ea80f8e (feat(ui): exact Home UI matching reference, real Live Test system, popular test series sync, and purge bilingual toggles)
   if (updates.examId !== undefined) payload.exam_id = updates.examId;
   if (updates.iconUrl !== undefined) payload.icon_url = updates.iconUrl || null;
 
@@ -241,8 +265,21 @@ export async function updateTestSeries(
     .select('*, exams:exam_id(title)')
     .single();
 
+  if (error && (error.message?.includes('is_popular') || error.code === 'PGRST204')) {
+    delete payload.is_popular;
+    const retry = await supabase
+      .from('test_series')
+      .update(payload)
+      .eq('id', id)
+      .select('*, exams:exam_id(title)')
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error && (error.message?.includes('icon_url') || error.code === 'PGRST204')) {
     delete payload.icon_url;
+    delete payload.is_popular;
     const retry = await supabase
       .from('test_series')
       .update(payload)
@@ -286,8 +323,16 @@ export async function deleteTestSeries(id: string): Promise<boolean> {
   return true;
 }
 
+export async function getPopularTestSeries(): Promise<TestSeries[]> {
+  const all = await getTestSeries();
+  const popular = all.filter((s) => s.isPopular && s.isActive);
+  if (popular.length > 0) return popular;
+  return all.filter((s) => s.isActive).slice(0, 5);
+}
+
 export const adminTestSeriesApi = {
   getTestSeries,
+  getPopularTestSeries,
   createTestSeries,
   updateTestSeries,
   deleteTestSeries,

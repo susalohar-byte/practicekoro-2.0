@@ -26,6 +26,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { QuestionImage } from '@/components/common/QuestionImage';
 import { StudentNavbar } from '@/components/layout/StudentNavbar';
@@ -96,6 +97,7 @@ function formatDate(dateStr?: string): string {
 
 export const SavedQuestions: React.FC = () => {
   const { user } = useAuth();
+  const { isBilingualEnabled } = useContentLanguage();
   const { onToggleMobileSidebar } = useOutletContext<{ onToggleMobileSidebar?: () => void }>() || {};
 
   const [items, setItems] = useState<BookmarkItem[]>([]);
@@ -564,8 +566,15 @@ export const SavedQuestions: React.FC = () => {
 
                         {/* Question Text */}
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">
-                          {item.question.questionText}
+                          {!isBilingualEnabled
+                            ? item.question.questionBengaliText || item.question.questionText
+                            : item.question.questionText}
                         </h4>
+                        {isBilingualEnabled && item.question.questionBengaliText && (
+                          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium font-sans">
+                            {item.question.questionBengaliText}
+                          </p>
+                        )}
 
                         {/* Optional Question Image */}
                         {item.question.imageUrl && (
@@ -885,7 +894,9 @@ export const SavedQuestions: React.FC = () => {
             {/* Modal Question Content */}
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-snug">
-                {practiceItem.question.questionText}
+                {!isBilingualEnabled
+                  ? practiceItem.question.questionBengaliText || practiceItem.question.questionText
+                  : practiceItem.question.questionText}
               </h3>
 
               {practiceItem.question.imageUrl && (
@@ -948,18 +959,19 @@ export const SavedQuestions: React.FC = () => {
                 })}
               </div>
 
-              {/* Explanation Box */}
-              {practiceAnswerChecked && practiceItem.question.explanation && (
-                <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-xs space-y-1">
-                  <p className="font-bold text-[#1e60f2] flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Explanation</span>
-                  </p>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {practiceItem.question.explanation}
-                  </p>
-                </div>
-              )}
+              {/* Explanation / Short Notes Box */}
+              {practiceAnswerChecked &&
+                (practiceItem.question.explanationBengali || practiceItem.question.explanation) && (
+                  <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-xs space-y-1">
+                    <p className="font-bold text-[#1e60f2] flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{!isBilingualEnabled ? 'শর্ট নোটস' : 'Explanation / শর্ট নোটস'}</span>
+                    </p>
+                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                      {practiceItem.question.explanationBengali || practiceItem.question.explanation}
+                    </p>
+                  </div>
+                )}
             </div>
 
             {/* Modal Footer Actions */}
