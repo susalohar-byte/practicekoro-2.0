@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
 
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
@@ -46,7 +47,11 @@ export const Home: React.FC = () => {
     retry: 1,
   });
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [liveClock, setLiveClock] = useState(Date.now());
   const [isHovered, setIsHovered] = useState(false);
+  const { data: liveTest } = useQuery({ queryKey: ['home-live-test'], queryFn: () => api.getFeaturedLiveTest(), refetchInterval: 30000 });
+  const { data: featuredSeries = [] } = useQuery({ queryKey: ['home-featured-series'], queryFn: () => api.getFeaturedTestSeries(), refetchInterval: 60000 });
+  useEffect(() => { const id = window.setInterval(() => setLiveClock(Date.now()), 1000); return () => window.clearInterval(id); }, []);
 
   // Keep slide index within valid bounds whenever active banners change
   useEffect(() => {
@@ -130,58 +135,6 @@ export const Home: React.FC = () => {
   };
 
   const displayName = user?.fullName?.split(' ')[0]?.toUpperCase() || 'CANDIDATE';
-
-  // Popular exams data with emblems
-  const popularExams = [
-    {
-      id: 'wbssc-group-d',
-      title: 'WBSSC Group D',
-      testsCount: '25+ Tests',
-      emblem: '/images/exams/emblem_wbssc.svg',
-      bgColor: 'bg-[#FFE8EC]',
-      active: false,
-    },
-    {
-      id: 'wbp-constable',
-      title: 'WBP Constable',
-      testsCount: '18+ Tests',
-      emblem: '/images/exams/emblem_wbp.svg',
-      bgColor: 'bg-[#FFE8EC]',
-      active: false,
-    },
-    {
-      id: 'wbpsc-clerkship',
-      title: 'WBPSC Clerkship',
-      testsCount: '20+ Tests',
-      emblem: '/images/exams/emblem_wbpsc.svg',
-      bgColor: 'bg-[#FFF6E5]',
-      active: true,
-    },
-    {
-      id: 'primary-tet',
-      title: 'Primary TET',
-      testsCount: '12+ Tests',
-      emblem: '/images/exams/emblem_tet.svg',
-      bgColor: 'bg-[#FFE8EC]',
-      active: false,
-    },
-    {
-      id: 'ssc-gd',
-      title: 'SSC GD',
-      testsCount: '25+ Tests',
-      emblem: '/images/exams/emblem_ssc.svg',
-      bgColor: 'bg-[#F1F5F9]',
-      active: false,
-    },
-    {
-      id: 'railway-ntpc',
-      title: 'Railway (NTPC)',
-      testsCount: '18+ Tests',
-      emblem: '/images/exams/emblem_railway.svg',
-      bgColor: 'bg-[#111827]',
-      active: false,
-    },
-  ];
 
   // Subject list matching screenshot
   const subjects = [
@@ -718,58 +671,64 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. POPULAR EXAMS */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Popular Exams</h3>
-          <Link
-            to="/test-series"
-            className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-          >
-            See All <ChevronRight className="w-4 h-4" />
+      {/* LIVE TEST */}
+      {liveTest && (() => {
+        const start = new Date(liveTest.scheduledStartAt).getTime();
+        const end = new Date(liveTest.scheduledEndAt).getTime();
+        const isLive = liveClock >= start && liveClock <= end;
+        const diff = Math.max(0, start - liveClock);
+        const days = Math.floor(diff / 86400000);
+        const hours = Math.floor((diff % 86400000) / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        return (
+          <Link to="/live-test" className="block rounded-3xl bg-gradient-to-br from-[#063585] to-[#0158FC] p-5 text-white shadow-lg shadow-blue-500/10 hover:shadow-xl transition">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <span className="inline-flex rounded-full bg-red-500 px-3 py-1 text-[10px] font-black uppercase">{isLive ? 'Live Now' : 'Live Test'}</span>
+                <h3 className="mt-3 text-lg font-black">{liveTest.title}</h3>
+                <p className="mt-1 text-xs text-blue-100">{new Date(liveTest.scheduledStartAt).toLocaleString()} · {liveTest.test?.totalQuestions || 0} Questions · {liveTest.durationMinutes} Minutes</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isLive && <><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(days).padStart(2,'0')}</b><small className="text-[9px]">DAYS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(hours).padStart(2,'0')}</b><small className="text-[9px]">HRS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(mins).padStart(2,'0')}</b><small className="text-[9px]">MIN</small></span></>}
+                <span className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-black text-[#0158FC]">{isLive ? 'Join Now' : 'Register'} <ArrowRight className="h-4 w-4"/></span>
+              </div>
+            </div>
           </Link>
-        </div>
+        );
+      })()}
 
-        <div className="relative">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {popularExams.map((exam) => (
-              <Link
-                key={exam.id}
-                to={`/exams/${exam.id}`}
-                className={cn(
-                  'group flex flex-col items-center justify-center p-4 rounded-2xl bg-white dark:bg-slate-900 border transition-all text-center active:scale-95',
-                  exam.active
-                    ? 'border-[#0158FC] ring-1 ring-[#0158FC]/20 shadow-xs'
-                    : 'border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-md'
-                )}
-              >
-                {/* Official seal emblem */}
-                <div
-                  className={cn(
-                    'w-12 h-12 rounded-xl mb-3 flex items-center justify-center p-2 group-hover:scale-105 transition-transform shadow-2xs',
-                    exam.bgColor
-                  )}
-                >
-                  <img
-                    src={exam.emblem}
-                    alt={exam.title}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <h4
-                  className={cn(
-                    'text-xs font-bold leading-tight mb-1 transition-colors',
-                    exam.active ? 'text-[#0158FC] dark:text-blue-400' : 'text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400'
-                  )}
-                >
-                  {exam.title}
-                </h4>
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  {exam.testsCount}
-                </p>
-              </Link>
-            ))}
-          </div>
+      {/* QUICK STUDY TOOLS */}
+      <div>
+        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Quick Study Tools</h3></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            ['Weak Topics','Focus & improve','/practice',Target,'bg-blue-50 text-[#0158FC]'],
+            ['Flashcards','Quick revision','/quick-revision',Sparkles,'bg-rose-50 text-rose-600'],
+            ['Study Notes','Short & exam ready','/practice',BookOpen,'bg-violet-50 text-violet-600'],
+          ].map(([title,desc,to,Icon,cls]) => {
+            const ToolIcon = Icon as React.ComponentType<{className?:string}>;
+            return <Link key={String(title)} to={String(to)} className="rounded-2xl border border-slate-200/80 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition flex items-center gap-3">
+              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${String(cls)}`}><ToolIcon className="h-5 w-5"/></div>
+              <div><h4 className="text-sm font-black text-slate-900">{String(title)}</h4><p className="text-[11px] text-slate-500">{String(desc)}</p></div><ChevronRight className="ml-auto h-4 w-4 text-slate-400"/>
+            </Link>
+          })}
+        </div>
+      </div>
+
+      {/* 4. POPULAR TEST SERIES */}
+      <div>
+        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Popular Test Series</h3><Link to="/test-series" className="text-xs font-bold text-[#0158FC] flex items-center gap-1">See All <ChevronRight className="h-4 w-4"/></Link></div>
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+          {(featuredSeries.length ? featuredSeries : []).map((series) => (
+            <Link key={series.id} to={`/test-series/${series.slug || series.id}`} className="group min-w-[190px] rounded-2xl border border-slate-200/80 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-[#EFF5FB] p-2"><img src={series.iconUrl || '/logo-icon.png'} alt="" className="h-full w-full object-contain"/></div>
+                <div className="min-w-0"><h4 className="text-xs font-black leading-tight text-slate-900 group-hover:text-[#0158FC]">{series.title}</h4><p className="mt-1 text-[10px] font-semibold text-slate-500">{series.examTitle || 'Test Series'}</p></div>
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-400"/>
+              </div>
+            </Link>
+          ))}
+          {!featuredSeries.length && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500">Featured test series will appear here after Admin publishes them.</div>}
         </div>
       </div>
 
