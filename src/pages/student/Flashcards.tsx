@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, Check, Layers3, RotateCcw, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Layers3, RotateCcw, Sparkles, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { api, type Flashcard, type FlashcardDeck } from '@/services/api';
 
@@ -32,7 +32,7 @@ export const Flashcards: React.FC = () => {
 
   const openDue = async (mode: 5|10|20) => {
     if (!user?.id) return;
-    setLoading(true); setSelected(null); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode);
+    setLoading(true); setSelected({id:'due',title:"Today's Revision",status:'published',orderIndex:0} as FlashcardDeck); setIndex(0); setFlipped(false); setReviewed(0); setSessionMode(mode);
     try { setCards((await api.getDueCards(user.id, mode)).slice(0, mode)); } finally { setLoading(false); }
   };
 
@@ -84,7 +84,7 @@ export const Flashcards: React.FC = () => {
         <div><p className="text-xs font-semibold text-slate-400">Practice / Quick Revision</p><h1 className="mt-1 text-2xl font-black text-[#0B1F44]">Quick Revision</h1><p className="mt-1 text-sm text-slate-500">Revise smart. Remember more.</p></div>
         <div className="grid max-w-2xl gap-3 sm:grid-cols-4">
           <button disabled={!dueCount} onClick={()=>openDue(10)} className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{dueCount}</div><div className="text-xs font-bold text-[#0B1F44]">Today's Revision</div><div className="text-[10px] text-slate-400">cards due</div></button>
-          {[5,10,20].map(n=><button key={n} disabled={!decks.length} onClick={()=>openDeck(decks[0], n as 5|10|20) className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{n}</div><div className="text-xs font-bold text-[#0B1F44]">Quick {n}</div><div className="text-[10px] text-slate-400">cards</div></button>)}
+          {[5,10,20].map(n=><button key={n} disabled={!decks.length} onClick={()=>openDeck(decks[0], n as 5|10|20)} className="pk-panel p-4 text-left hover:border-[#0158FC] disabled:opacity-50"><div className="text-xl font-black text-[#0158FC]">{n}</div><div className="text-xs font-bold text-[#0B1F44]">Quick {n}</div><div className="text-[10px] text-slate-400">cards</div></button>)}
         </div>
         {loading ? <div className="pk-panel p-8">Loading decks...</div> : decks.length === 0 ? <div className="pk-panel p-8 text-center"><Layers3 className="mx-auto h-9 w-9 text-slate-300"/><h2 className="mt-2 font-black text-[#0B1F44]">No revision decks yet</h2><p className="text-sm text-slate-500">Published flashcard decks from Admin will appear here.</p></div> :
           <div><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black text-[#0B1F44]">Your Decks</h2></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
