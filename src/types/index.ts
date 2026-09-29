@@ -166,40 +166,82 @@ export interface TestSeries {
   pyqTestCount?: number;
 }
 
+export type LiveTestStatus =
+  | 'upcoming'
+  | 'live'
+  | 'ended'
+  | 'cancelled'
+  | 'draft'
+  | 'scheduled'
+  | 'completed'
+  | 'archived';
+
 export interface LiveTest {
   id: string;
-  title: string;
-  examId: string;
-  testSeriesId?: string;
   testId: string;
-  scheduledStartTime: string;
-  scheduledEndTime: string;
-  durationMinutes: number;
-  totalQuestions: number;
-  totalMarks: number;
-  negativeMarking: number;
-  instructions?: string;
-  status: 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled';
-  isPublished: boolean;
-  enrolledCount: number;
+  startAt: string;
+  registrationDeadline?: string | null;
+  status: LiveTestStatus;
+  rankingEnabled: boolean;
+  subscriptionRequired: boolean;
   createdAt?: string;
   updatedAt?: string;
+
+  // Inherited from source MockTest or joined relations
+  test?: MockTest | null;
+  title?: string;
+  examId?: string;
+  testSeriesId?: string;
+  durationMinutes?: number;
+  totalQuestions?: number;
+  totalMarks?: number;
+  negativeMarking?: number;
+  instructions?: string;
+  enrolledCount?: number;
+  participantsCount?: number;
+  isPublished?: boolean;
+  scheduledStartTime?: string;
+  scheduledEndTime?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
   examTitle?: string;
   testTitle?: string;
   testSeriesTitle?: string;
+  userParticipant?: LiveTestParticipant | null;
 }
 
-export interface LiveTestParticipation {
+export type LiveParticipantStatus =
+  | 'registered'
+  | 'started'
+  | 'completed'
+  | 'abandoned'
+  | 'joined'
+  | 'submitted'
+  | 'cancelled';
+
+export interface LiveTestParticipant {
   id: string;
   liveTestId: string;
   userId: string;
-  attemptId?: string;
-  joinedAt: string;
-  status: 'joined' | 'started' | 'submitted' | 'abandoned';
-  score?: number;
-  accuracy?: number;
-  rank?: number;
+  registeredAt: string;
+  joinedAt?: string | null;
+  completedAt?: string | null;
+  status: LiveParticipantStatus;
+  attemptId?: string | null;
+  score?: number | null;
+  accuracy?: number | null;
+  timeTaken?: number | null;
+  rank?: number | null;
+  fullName?: string;
+  avatarUrl?: string;
+  district?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+// Backward-compatible alias for earlier code
+export type LiveTestParticipation = LiveTestParticipant;
+
 
 export interface MockTest {
   id: string;

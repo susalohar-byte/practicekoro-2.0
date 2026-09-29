@@ -21,6 +21,7 @@ import {
   Sparkles,
   Smartphone,
   Headphones,
+  Trophy,
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { api } from '@/services/api';
@@ -102,11 +103,20 @@ export const Home: React.FC = () => {
     staleTime: 30000,
   });
 
-  const startTime = activeLiveTest ? new Date(activeLiveTest.scheduledStartTime).getTime() : Date.now() + 300000000;
+  const liveStartAt = activeLiveTest?.startAt || activeLiveTest?.scheduledStartTime;
+  const startTime = liveStartAt ? new Date(liveStartAt).getTime() : Date.now() + 300000000;
+  const durationMs = (activeLiveTest?.durationMinutes || 90) * 60 * 1000;
+  const endTime = startTime + durationMs;
+
+  const isLiveNow = activeLiveTest?.status === 'live' || (currentTime >= startTime && currentTime <= endTime);
+  const isEnded = activeLiveTest?.status === 'ended' || (currentTime > endTime && activeLiveTest?.status !== 'upcoming');
+  const isUpcoming = !isLiveNow && !isEnded;
+
   const timeDiff = Math.max(0, startTime - currentTime);
   const countdownDays = String(Math.floor(timeDiff / (1000 * 60 * 60 * 24))).padStart(2, '0');
   const countdownHours = String(Math.floor((timeDiff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
   const countdownMinutes = String(Math.floor((timeDiff / (1000 * 60)) % 60)).padStart(2, '0');
+  const countdownSeconds = String(Math.floor((timeDiff / 1000) % 60)).padStart(2, '0');
 
   // Keep slide index within valid bounds whenever active banners change
   useEffect(() => {
@@ -673,26 +683,50 @@ export const Home: React.FC = () => {
       {activeLiveTest && (
         <div className="rounded-3xl bg-[#0F172A] text-white p-5 sm:p-6 shadow-xl border border-slate-800 relative overflow-hidden">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-            {/* Red LIVE TEST badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black tracking-wider uppercase">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              LIVE TEST
-            </div>
+            {/* Status badge */}
+            {isLiveNow ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                LIVE NOW
+              </div>
+            ) : isEnded ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700 text-slate-300 text-xs font-black tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                LIVE TEST ENDED
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-black tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
+                UPCOMING LIVE TEST
+              </div>
+            )}
 
-            {/* Countdown timer boxes: 03 Days : 14 Hours : 22 Mins */}
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                <span className="font-extrabold text-sm">{countdownDays}</span> <span className="text-[10px] text-slate-400">Days</span>
+            {/* Countdown timer boxes: only show if isUpcoming */}
+            {isUpcoming && (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                  <span className="font-extrabold text-sm">{countdownDays}</span> <span className="text-[10px] text-slate-400">Days</span>
+                </div>
+                <span className="text-slate-500 font-bold">:</span>
+                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                  <span className="font-extrabold text-sm">{countdownHours}</span> <span className="text-[10px] text-slate-400">Hours</span>
+                </div>
+                <span className="text-slate-500 font-bold">:</span>
+                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                  <span className="font-extrabold text-sm">{countdownMinutes}</span> <span className="text-[10px] text-slate-400">Mins</span>
+                </div>
+                <span className="text-slate-500 font-bold">:</span>
+                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
+                  <span className="font-extrabold text-sm">{countdownSeconds}</span> <span className="text-[10px] text-slate-400">Secs</span>
+                </div>
               </div>
-              <span className="text-slate-500 font-bold">:</span>
-              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                <span className="font-extrabold text-sm">{countdownHours}</span> <span className="text-[10px] text-slate-400">Hours</span>
+            )}
+            {isLiveNow && (
+              <div className="flex items-center gap-2 text-xs font-bold text-rose-400 animate-pulse">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span>Active Examination in Progress</span>
               </div>
-              <span className="text-slate-500 font-bold">:</span>
-              <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                <span className="font-extrabold text-sm">{countdownMinutes}</span> <span className="text-[10px] text-slate-400">Mins</span>
-              </div>
-            </div>
+            )}
           </div>
 
           <h4 className="text-lg sm:text-xl font-black text-white mb-2 tracking-tight">
@@ -703,19 +737,40 @@ export const Home: React.FC = () => {
             <span className="flex items-center gap-1.5">⏱️ {activeLiveTest.durationMinutes} Mins</span>
             <span className="flex items-center gap-1.5">📝 {activeLiveTest.totalQuestions} Questions</span>
             <span className="flex items-center gap-1.5">🏆 {activeLiveTest.totalMarks} Marks</span>
+            {activeLiveTest.rankingEnabled && (
+              <span className="flex items-center gap-1.5 text-amber-300 font-bold">🎖️ Statewide Ranking</span>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-slate-800">
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              👥 <span>{activeLiveTest.enrolledCount > 0 ? activeLiveTest.enrolledCount.toLocaleString() : '1,420'} Students Registered</span>
+              👥 <span>{(activeLiveTest.enrolledCount ?? 0) > 0 ? (activeLiveTest.enrolledCount ?? 0).toLocaleString() : '1,420'} Students {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}</span>
             </div>
-            <Link
-              to={`/test/${activeLiveTest.testId}/start`}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs font-black transition-all shadow-md shadow-blue-500/25 active:scale-95"
-            >
-              <span>Join Now</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {isLiveNow ? (
+              <Link
+                to={`/live-test`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-700 hover:to-red-600 text-white text-xs font-black transition-all shadow-md shadow-rose-500/25 active:scale-95 animate-pulse"
+              >
+                <span>Join Live Test</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : isEnded ? (
+              <Link
+                to={`/live-test`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all border border-slate-700 active:scale-95"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>View Result & Ranking</span>
+              </Link>
+            ) : (
+              <Link
+                to={`/live-test`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs font-black transition-all shadow-md shadow-blue-500/25 active:scale-95"
+              >
+                <span>Register Now</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -779,8 +834,10 @@ export const Home: React.FC = () => {
 
       {/* LIVE TEST */}
       {liveTest && (() => {
-        const start = new Date(liveTest.scheduledStartAt).getTime();
-        const end = new Date(liveTest.scheduledEndAt).getTime();
+        const liveStart = liveTest.startAt || liveTest.scheduledStartAt || '';
+        const liveEnd = liveTest.scheduledEndTime || liveTest.scheduledEndAt || '';
+        const start = liveStart ? new Date(liveStart).getTime() : 0;
+        const end = liveEnd ? new Date(liveEnd).getTime() : start + (liveTest.durationMinutes || 90) * 60000;
         const isLive = liveClock >= start && liveClock <= end;
         const diff = Math.max(0, start - liveClock);
         const days = Math.floor(diff / 86400000);
@@ -792,7 +849,7 @@ export const Home: React.FC = () => {
               <div>
                 <span className="inline-flex rounded-full bg-red-500 px-3 py-1 text-[10px] font-black uppercase">{isLive ? 'Live Now' : 'Live Test'}</span>
                 <h3 className="mt-3 text-lg font-black">{liveTest.title}</h3>
-                <p className="mt-1 text-xs text-blue-100">{new Date(liveTest.scheduledStartAt).toLocaleString()} · {liveTest.test?.totalQuestions || 0} Questions · {liveTest.durationMinutes} Minutes</p>
+                <p className="mt-1 text-xs text-blue-100">{liveStart ? new Date(liveStart).toLocaleString() : ''} · {liveTest.totalQuestions || 0} Questions · {liveTest.durationMinutes} Minutes</p>
               </div>
               <div className="flex items-center gap-2">
                 {!isLive && <><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(days).padStart(2,'0')}</b><small className="text-[9px]">DAYS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(hours).padStart(2,'0')}</b><small className="text-[9px]">HRS</small></span><span className="rounded-xl bg-white/10 px-3 py-2 text-center"><b className="block text-lg">{String(mins).padStart(2,'0')}</b><small className="text-[9px]">MIN</small></span></>}

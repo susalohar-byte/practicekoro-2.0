@@ -30,6 +30,7 @@ import {
   Sparkles,
   Check,
   Image as ImageIcon,
+  Radio,
 } from 'lucide-react';
 import type { MockTest, Question, TestQuestionAssignment, Subject, Chapter, Exam } from '@/types';
 import { parseQuestionsTxt, SAMPLE_TXT_CONTENT } from '@/utils/txtQuestionParser';
@@ -132,6 +133,8 @@ export const AdminTestQuestions: React.FC = () => {
     fetchTests();
   }, [routeTestId]);
 
+  const [isTestLocked, setIsTestLocked] = useState(false);
+
   // Load test details, assigned questions, question bank, and taxonomy
   const loadData = useCallback(async () => {
     if (!currentTestId) {
@@ -140,13 +143,14 @@ export const AdminTestQuestions: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      const [testData, assigned, bank, allSubjects, allChapters, allExams] = await Promise.all([
+      const [testData, assigned, bank, allSubjects, allChapters, allExams, locked] = await Promise.all([
         api.getTestById(currentTestId),
         api.getTestAssignedQuestions(currentTestId),
         api.getAllAdminQuestions(),
         api.getAllAdminSubjects(),
         api.getAllAdminChapters(),
         api.getAllAdminExams(),
+        api.isTestLockedForEditing(currentTestId).catch(() => false),
       ]);
 
       setTest(testData);
@@ -155,6 +159,7 @@ export const AdminTestQuestions: React.FC = () => {
       setSubjects(allSubjects);
       setChapters(allChapters);
       setExams(allExams);
+      setIsTestLocked(Boolean(locked));
 
       // If the test has 0 questions (freshly created), default directly to question selection
       if (assigned.length === 0) {
@@ -967,11 +972,15 @@ export const AdminTestQuestions: React.FC = () => {
             <Button
               size="sm"
               variant="outline"
-              className="border-slate-700 text-xs font-bold hover:scale-[1.02] transition-transform"
+              disabled={isTestLocked}
+              className="border-slate-700 text-xs font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#091124', color: '#ffffff', borderColor: '#1d3163' }}
               leftIcon={<Upload className="w-3.5 h-3.5 text-sky-400" />}
-              onClick={() => setIsBulkModalOpen(true)}
-              title="Bulk import questions from TXT file directly into this test"
+              onClick={() => {
+                if (isTestLocked) return;
+                setIsBulkModalOpen(true);
+              }}
+              title={isTestLocked ? "Questions locked for active Live Test" : "Bulk import questions from TXT file directly into this test"}
             >
               + Bulk Add (TXT)
             </Button>
@@ -979,10 +988,12 @@ export const AdminTestQuestions: React.FC = () => {
             <Button
               size="sm"
               variant="outline"
-              className="border-slate-700 text-xs font-bold hover:scale-[1.02] transition-transform"
+              disabled={isTestLocked}
+              className="border-slate-700 text-xs font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#091124', color: '#ffffff', borderColor: '#1d3163' }}
               leftIcon={<Plus className="w-3.5 h-3.5 text-emerald-400" />}
               onClick={() => {
+                if (isTestLocked) return;
                 setNewQuestionText('');
                 setNewOptionA('');
                 setNewOptionB('');
@@ -993,6 +1004,7 @@ export const AdminTestQuestions: React.FC = () => {
                 setCreateError('');
                 setIsCreateModalOpen(true);
               }}
+              title={isTestLocked ? "Questions locked for active Live Test" : "Create new question for this test"}
             >
               + Create Question
             </Button>
@@ -1112,6 +1124,29 @@ export const AdminTestQuestions: React.FC = () => {
         <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 font-bold flex items-center gap-2.5 shadow-sm animate-fade-in">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{saveError}</span>
+        </div>
+      )}
+
+      {/* Live Test Active Lock Banner */}
+      {isTestLocked && (
+        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/40 text-rose-900 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="font-black text-sm">🔒 Locked: Active Live Test Event</div>
+              <div className="text-xs text-rose-700 dark:text-rose-300">
+                This test is currently scheduled as an active or upcoming Live Test event. Adding, deleting, or reordering questions is locked to preserve exam integrity for live participants.
+              </div>
+            </div>
+          </div>
+          <Link
+            to="/admin/live-tests"
+            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 transition-colors w-fit"
+          >
+            View in Live Tests
+          </Link>
         </div>
       )}
 

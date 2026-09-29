@@ -155,15 +155,30 @@ export const TestRunner: React.FC = () => {
 
     try {
       const answersArray = Object.values(answers);
-      await api.submitTestAttempt(attemptId, answersArray, timeSpent, testId);
+      const submitRes = await api.submitTestAttempt(attemptId, answersArray, timeSpent, testId);
 
-      navigate(`/exams/${testId}/results/${attemptId}`, { replace: true });
+      const liveTestId = searchParams.get('liveTestId');
+      if (liveTestId && user?.id) {
+        try {
+          await api.recordLiveTestSubmission(liveTestId, user.id, {
+            attemptId,
+            score: submitRes?.score ?? 0,
+            accuracy: submitRes?.accuracy ?? 0,
+            timeTaken: timeSpent,
+          });
+        } catch (liveErr) {
+          console.warn('Failed to record live test submission:', liveErr);
+        }
+      }
+
+      const resultsUrl = `/exams/${testId}/results/${attemptId}${liveTestId ? `?liveTestId=${encodeURIComponent(liveTestId)}` : ''}`;
+      navigate(resultsUrl, { replace: true });
     } catch (err) {
       console.error('Submission failed:', err);
       alert('Error submitting test. Please try again.');
       setSubmitting(false);
     }
-  }, [submitting, user, testId, answers, attemptId, timeSpent, navigate]);
+  }, [submitting, user, testId, answers, attemptId, timeSpent, navigate, searchParams]);
 
   submitTestRef.current = handleSubmitTest;
 
@@ -366,6 +381,12 @@ export const TestRunner: React.FC = () => {
           <h1 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-md">
             {test?.title || 'WBSSC Group D'}
           </h1>
+          {searchParams.get('liveTestId') && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 uppercase tracking-wider shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              Live Test
+            </span>
+          )}
         </div>
 
         {/* Right Tools: Language Toggle & Submit */}

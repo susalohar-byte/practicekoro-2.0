@@ -21,12 +21,12 @@ import type { TestSeries } from '@/types';
 
 // Category filter tabs
 const CATEGORY_TABS = [
-  { id: 'all', label: 'All Series', icon: Layers },
-  { id: 'police', label: 'WB Police (WBP / KP)', icon: Shield },
-  { id: 'wbpsc', label: 'WBPSC (Clerkship / WBCS)', icon: Award },
-  { id: 'teaching', label: 'Teaching (TET / SLST)', icon: BookOpen },
-  { id: 'ssc', label: 'SSC & Central Govt.', icon: Zap },
-  { id: 'railways', label: 'Railways (RRB)', icon: TrendingUp },
+  { id: 'all', label: 'All', icon: Layers },
+  { id: 'police', label: 'WBP', icon: Shield },
+  { id: 'kp', label: 'KP', icon: Award },
+  { id: 'ssc', label: 'SSC', icon: Zap },
+  { id: 'railways', label: 'Railway', icon: TrendingUp },
+  { id: 'other', label: 'Other', icon: BookOpen },
 ];
 
 type AccessFilter = 'all' | 'free' | 'pro';

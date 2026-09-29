@@ -4,6 +4,13 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { TestResult } from './TestResult';
 import type { GradedResult, QuestionSolution } from '@/types';
 
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: vi.fn().mockReturnValue({
+    user: { id: 'test-user-id', name: 'Test User' },
+    isPro: true,
+  }),
+}));
+
 vi.mock('@/services/api', () => ({
   api: {
     getAttemptResult: vi.fn().mockResolvedValue({

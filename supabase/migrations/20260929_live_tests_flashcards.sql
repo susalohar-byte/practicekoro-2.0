@@ -5,12 +5,12 @@ alter table if exists public.test_series
   add column if not exists is_featured boolean not null default false;
 
 create table if not exists public.live_tests (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key default gen_random_uuid()::text,
   title text not null,
   description text,
-  exam_id uuid references public.exams(id) on delete set null,
-  test_series_id uuid references public.test_series(id) on delete set null,
-  test_id uuid not null references public.tests(id) on delete restrict,
+  exam_id text references public.exams(id) on delete set null,
+  test_series_id text references public.test_series(id) on delete set null,
+  test_id text not null references public.tests(id) on delete restrict,
   scheduled_start_at timestamptz not null,
   scheduled_end_at timestamptz not null,
   duration_minutes integer not null check (duration_minutes > 0),
@@ -32,7 +32,7 @@ create index if not exists live_tests_test_idx on public.live_tests(test_id);
 
 create table if not exists public.live_test_participants (
   id uuid primary key default gen_random_uuid(),
-  live_test_id uuid not null references public.live_tests(id) on delete cascade,
+  live_test_id text not null references public.live_tests(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   status text not null default 'registered' check (status in ('registered','started','completed','cancelled')),
   joined_at timestamptz not null default now(),

@@ -1,17 +1,13 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
-import type { MockTest, TestSeries } from '@/types';
-import { getActiveLiveTest, getLiveTests } from './admin.liveTests';
+import type { LiveTest, TestSeries } from '@/types';
+import {
+  getActiveLiveTest,
+  getLiveTests,
+  registerForLiveTest,
+  isLiveTestRegistered,
+} from './admin.liveTests';
 
-export type LiveTestStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'archived';
-
-export interface LiveTest {
-  id: string; title: string; description?: string | null; testId: string;
-  examId?: string | null; testSeriesId?: string | null;
-  scheduledStartAt: string; scheduledEndAt: string; durationMinutes: number;
-  instructions?: string | null; subscriptionRequired: boolean;
-  rankingEnabled: boolean; status: LiveTestStatus; resultVisibility: string;
-  test?: MockTest | null; participantsCount?: number;
-}
+export type { LiveTest, LiveTestStatus } from '@/types';
 
 export interface FlashcardDeck {
   id: string; examId?: string | null; subjectId?: string | null; chapterId?: string | null;
@@ -29,23 +25,6 @@ export interface FlashcardProgress {
   difficulty: 'easy' | 'medium' | 'hard';
 }
 
-const mapLive = (r: any): LiveTest => ({
-  id: String(r.id), title: String(r.title), description: r.description ?? null,
-  testId: String(r.test_id), examId: r.exam_id ?? null, testSeriesId: r.test_series_id ?? null,
-  scheduledStartAt: String(r.scheduled_start_at), scheduledEndAt: String(r.scheduled_end_at),
-  durationMinutes: Number(r.duration_minutes || 0), instructions: r.instructions ?? null,
-  subscriptionRequired: Boolean(r.subscription_required), rankingEnabled: Boolean(r.ranking_enabled),
-  resultVisibility: r.result_visibility || 'immediate', status: r.status,
-  participantsCount: r.participants_count == null ? undefined : Number(r.participants_count),
-  test: r.tests ? ({
-    id: r.tests.id, title: r.tests.title, durationMinutes: Number(r.tests.duration_minutes || 0),
-    totalQuestions: Number(r.tests.total_questions || 0), totalMarks: Number(r.tests.total_marks || 0),
-    passingMarks: Number(r.tests.passing_marks || 0), negativeMarking: Number(r.tests.negative_marking || 0),
-    testType: r.tests.test_type, isPremium: Boolean(r.tests.is_premium), isActive: Boolean(r.tests.is_active),
-    examId: r.tests.exam_id ?? undefined, testSeriesId: r.tests.test_series_id ?? undefined,
-  } as MockTest) : null,
-});
-
 const mapDeck = (r: any): FlashcardDeck => ({
   id: String(r.id), examId: r.exam_id ?? null, subjectId: r.subject_id ?? null, chapterId: r.chapter_id ?? null,
   title: String(r.title), description: r.description ?? null, coverIcon: r.cover_icon ?? null,
@@ -61,84 +40,16 @@ const mapCard = (r: any): Flashcard => ({
 
 export const liveRevisionApi = {
   async getFeaturedLiveTest(): Promise<LiveTest | null> {
-    if (isSupabaseConfigured) {
-      try {
-        const now = new Date().toISOString();
-        const select = '*, tests(id,title,duration_minutes,total_questions,total_marks,passing_marks,negative_marking,test_type,is_premium,is_active,exam_id,test_series_id)';
-        const { data: live } = await supabase.from('live_tests').select(select).eq('status','live').eq('visibility','public').lte('scheduled_start_at',now).gt('scheduled_end_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
-        if (live) return mapLive(live);
-        const { data: next, error } = await supabase.from('live_tests').select(select).eq('status','scheduled').eq('visibility','public').gt('scheduled_start_at',now).order('scheduled_start_at',{ascending:true}).limit(1).maybeSingle();
-        if (!error && next) return mapLive(next);
-      } catch {
-        // Fallback to active live test from local store
-      }
-    }
-    const fallback = await getActiveLiveTest();
-    if (!fallback) return null;
-    return {
-      id: fallback.id,
-      title: fallback.title,
-      description: fallback.instructions || null,
-      testId: fallback.testId,
-      examId: fallback.examId,
-      testSeriesId: fallback.testSeriesId,
-      scheduledStartAt: fallback.scheduledStartTime,
-      scheduledEndAt: fallback.scheduledEndTime,
-      durationMinutes: fallback.durationMinutes,
-      instructions: fallback.instructions || null,
-      subscriptionRequired: false,
-      rankingEnabled: true,
-      status: (fallback.status as any) || 'scheduled',
-      resultVisibility: 'immediate',
-      test: {
-        id: fallback.testId,
-        title: fallback.testTitle || fallback.title,
-        durationMinutes: fallback.durationMinutes,
-        totalQuestions: fallback.totalQuestions,
-        totalMarks: fallback.totalMarks,
-        passingMarks: Math.floor(fallback.totalMarks * 0.4),
-        negativeMarking: fallback.negativeMarking,
-        testType: 'full',
-        isPremium: false,
-        isActive: true,
-      } as any,
-    };
+    return getActiveLiveTest();
   },
   async getLiveTestsForAdmin(): Promise<LiveTest[]> {
-    const list = await getLiveTests();
-    return list.map((lt) => ({
-      id: lt.id,
-      title: lt.title,
-      description: lt.instructions || null,
-      testId: lt.testId,
-      examId: lt.examId,
-      testSeriesId: lt.testSeriesId,
-      scheduledStartAt: lt.scheduledStartTime,
-      scheduledEndAt: lt.scheduledEndTime,
-      durationMinutes: lt.durationMinutes,
-      instructions: lt.instructions || null,
-      subscriptionRequired: false,
-      rankingEnabled: true,
-      status: (lt.status as any) || 'scheduled',
-      resultVisibility: 'immediate',
-    }));
+    return getLiveTests();
   },
   async joinLiveTest(liveTestId: string, userId: string) {
-    if (!isSupabaseConfigured) return;
-    try {
-      await supabase.from('live_test_participants').upsert({live_test_id:liveTestId,user_id:userId,status:'registered'},{onConflict:'live_test_id,user_id'});
-    } catch {
-      // safe fallback
-    }
+    return registerForLiveTest(liveTestId, userId);
   },
   async isRegistered(liveTestId: string, userId: string) {
-    if (!isSupabaseConfigured) return false;
-    try {
-      const { data } = await supabase.from('live_test_participants').select('id').eq('live_test_id',liveTestId).eq('user_id',userId).maybeSingle();
-      return Boolean(data);
-    } catch {
-      return false;
-    }
+    return isLiveTestRegistered(liveTestId, userId);
   },
   async getFeaturedTestSeries(): Promise<TestSeries[]> {
     if (!isSupabaseConfigured) return [];

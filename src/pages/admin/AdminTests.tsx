@@ -32,6 +32,7 @@ import {
   ListOrdered,
   Download,
   FileSpreadsheet,
+  Radio,
 } from 'lucide-react';
 import type { MockTest, Exam, Subject, Chapter, PublishValidationResult, TestSeries } from '@/types';
 import { getErrorMessage } from '@/lib/errors';
@@ -167,22 +168,85 @@ export const AdminTests: React.FC = () => {
   const [viewingAttemptsTest, setViewingAttemptsTest] = useState<MockTest | null>(null);
   const [attemptsList, setAttemptsList] = useState<any[]>([]);
   const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
+  // Make Live Modal State
+  const [makeLiveTest, setMakeLiveTest] = useState<MockTest | null>(null);
+  const [liveStartDate, setLiveStartDate] = useState('');
+  const [liveStartTime, setLiveStartTime] = useState('20:00');
+  const [liveRegDeadlineTime, setLiveRegDeadlineTime] = useState('19:55');
+  const [liveRankingEnabled, setLiveRankingEnabled] = useState(true);
+  const [liveSubscriptionRequired, setLiveSubscriptionRequired] = useState(false);
+  const [isSchedulingLive, setIsSchedulingLive] = useState(false);
+  const [makeLiveError, setMakeLiveError] = useState('');
+  const [makeLiveSuccess, setMakeLiveSuccess] = useState(false);
+  const [lockedTestIds, setLockedTestIds] = useState<Set<string>>(new Set());
+
+  const handleOpenMakeLiveModal = (test: MockTest) => {
+    setMakeLiveTest(test);
+    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+    setLiveStartDate(tomorrow.toISOString().split('T')[0]);
+    setLiveStartTime('20:00');
+    setLiveRegDeadlineTime('19:55');
+    setLiveRankingEnabled(true);
+    setLiveSubscriptionRequired(Boolean(test.isPremium));
+    setMakeLiveError('');
+    setMakeLiveSuccess(false);
+  };
+
+  const handleScheduleLiveTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!makeLiveTest) return;
+    setIsSchedulingLive(true);
+    setMakeLiveError('');
+    try {
+      const startAt = new Date(`${liveStartDate}T${liveStartTime}:00`).toISOString();
+      const regDeadline = liveRegDeadlineTime
+        ? new Date(`${liveStartDate}T${liveRegDeadlineTime}:00`).toISOString()
+        : startAt;
+
+      await api.scheduleLiveTest({
+        testId: makeLiveTest.id,
+        startAt,
+        registrationDeadline: regDeadline,
+        rankingEnabled: liveRankingEnabled,
+        subscriptionRequired: liveSubscriptionRequired,
+      });
+
+      setMakeLiveSuccess(true);
+      await loadData();
+      setTimeout(() => {
+        setMakeLiveTest(null);
+        setMakeLiveSuccess(false);
+      }, 1200);
+    } catch (err: any) {
+      setMakeLiveError(err?.message || 'Failed to schedule Live Test.');
+    } finally {
+      setIsSchedulingLive(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [allExams, allSubjects, allChapters, allTests, allSeries] = await Promise.all([
+      const [allExams, allSubjects, allChapters, allTests, allSeries, allLive] = await Promise.all([
         api.getAllAdminExams(),
         api.getAllAdminSubjects(),
         api.getAllAdminChapters(),
         api.getAllAdminTests(),
         api.getTestSeries(),
+        api.getLiveTests().catch(() => []),
       ]);
       setExams(allExams);
       setSubjects(allSubjects);
       setChapters(allChapters);
       setTests(allTests);
       setTestSeriesList(allSeries);
+
+      const locked = new Set<string>(
+        (allLive || [])
+          .filter((lt) => lt.status === 'upcoming' || lt.status === 'live')
+          .map((lt) => lt.testId)
+      );
+      setLockedTestIds(locked);
 
       // Fetch global settings defaults for tests
       try {
@@ -935,6 +999,8 @@ export const AdminTests: React.FC = () => {
             onAttempts={handleOpenAttempts}
             onExportResults={handleExportResults}
             onExportQuestions={handleExportQuestions}
+            onMakeLive={handleOpenMakeLiveModal}
+            lockedTestIds={lockedTestIds}
             isExportingQuestions={exportingQuestionsTestId}
             isDuplicating={isDuplicating}
           />
@@ -1011,6 +1077,8 @@ export const AdminTests: React.FC = () => {
             onAttempts={handleOpenAttempts}
             onExportResults={handleExportResults}
             onExportQuestions={handleExportQuestions}
+            onMakeLive={handleOpenMakeLiveModal}
+            lockedTestIds={lockedTestIds}
             isExportingQuestions={exportingQuestionsTestId}
             isDuplicating={isDuplicating}
           />
@@ -1096,6 +1164,8 @@ export const AdminTests: React.FC = () => {
             onAttempts={handleOpenAttempts}
             onExportResults={handleExportResults}
             onExportQuestions={handleExportQuestions}
+            onMakeLive={handleOpenMakeLiveModal}
+            lockedTestIds={lockedTestIds}
             isExportingQuestions={exportingQuestionsTestId}
             isDuplicating={isDuplicating}
           />
@@ -1263,6 +1333,15 @@ export const AdminTests: React.FC = () => {
               <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
+              </div>
+            )}
+
+            {editingTest && lockedTestIds.has(editingTest.id) && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Live Test Active:</span> This test is currently scheduled for an active or upcoming Live Test event. Critical parameters (duration, marks, negative marking) are locked until the Live Test event concludes.
+                </div>
               </div>
             )}
 
@@ -1482,7 +1561,8 @@ export const AdminTests: React.FC = () => {
                     value={formDuration}
                     onChange={(e) => setFormDuration(Number(e.target.value))}
                     min={1}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white"
+                    disabled={Boolean(editingTest && lockedTestIds.has(editingTest.id))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1493,7 +1573,8 @@ export const AdminTests: React.FC = () => {
                     type="number"
                     value={formTotalMarks}
                     onChange={(e) => setFormTotalMarks(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white"
+                    disabled={Boolean(editingTest && lockedTestIds.has(editingTest.id))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1517,9 +1598,9 @@ export const AdminTests: React.FC = () => {
                       step="0.05"
                       min={0}
                       value={formNegativeMarking}
-                      disabled={!formNegativeEnabled}
+                      disabled={!formNegativeEnabled || Boolean(editingTest && lockedTestIds.has(editingTest.id))}
                       onChange={(e) => setFormNegativeMarking(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-40"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                     />
                   </div>
                 )}
@@ -1985,6 +2066,164 @@ export const AdminTests: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MAKE LIVE MODAL (Thin Event Layer on existing Test) */}
+      {makeLiveTest && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <Radio className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Make Live Test</h3>
+                  <p className="text-[11px] text-slate-500">Schedule this test as a live exam event</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMakeLiveTest(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Test Summary Card (Read-only, inherited) */}
+            <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-800/80">
+              <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Selected Mock Test</div>
+              <div className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">{makeLiveTest.title}</div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2">
+                <span>⏱️ {makeLiveTest.durationMinutes} mins</span>
+                <span>📝 {makeLiveTest.totalQuestions} questions</span>
+                <span>🏆 {makeLiveTest.totalMarks} marks</span>
+              </div>
+            </div>
+
+            {makeLiveError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{makeLiveError}</span>
+              </div>
+            )}
+
+            {makeLiveSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Live Test scheduled successfully! Redirecting...</span>
+              </div>
+            )}
+
+            <form onSubmit={handleScheduleLiveTest} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={liveStartDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setLiveStartDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={liveStartTime}
+                    onChange={(e) => setLiveStartTime(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Registration Deadline
+                </label>
+                <input
+                  type="time"
+                  value={liveRegDeadlineTime}
+                  onChange={(e) => setLiveRegDeadlineTime(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Students can register until this time on the start date.</p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">Statewide Ranking</div>
+                    <div className="text-[10px] text-slate-500">Enable leaderboard rank for participants</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLiveRankingEnabled(!liveRankingEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      liveRankingEnabled ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        liveRankingEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">Pro / Subscription Required</div>
+                    <div className="text-[10px] text-slate-500">Require active membership to participate</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLiveSubscriptionRequired(!liveSubscriptionRequired)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      liveSubscriptionRequired ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        liveSubscriptionRequired ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMakeLiveTest(null)}
+                  disabled={isSchedulingLive}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSchedulingLive || makeLiveSuccess}
+                  className="text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5"
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>{isSchedulingLive ? 'Scheduling...' : 'Make Live'}</span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2003,6 +2242,8 @@ interface TestTableProps {
   onAttempts?: (test: MockTest) => void;
   onExportResults?: (test: MockTest) => void;
   onExportQuestions?: (test: MockTest) => void;
+  onMakeLive?: (test: MockTest) => void;
+  lockedTestIds?: Set<string>;
   isDuplicating?: string | null;
   isExportingQuestions?: string | null;
 }
@@ -2020,6 +2261,8 @@ const TestTable: React.FC<TestTableProps> = ({
   onAttempts,
   onExportResults,
   onExportQuestions,
+  onMakeLive,
+  lockedTestIds,
   isDuplicating,
   isExportingQuestions,
 }) => {
@@ -2212,12 +2455,43 @@ const TestTable: React.FC<TestTableProps> = ({
                         />
                         {isActive ? 'Active' : 'Disabled'}
                       </span>
+                      {lockedTestIds?.has(test.id) && (
+                        <span
+                          title="Active or Upcoming Live Test Event Scheduled"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60"
+                        >
+                          <Radio className="w-2.5 h-2.5 text-rose-500 animate-pulse" />
+                          Live Event
+                        </span>
+                      )}
                     </div>
                   </td>
 
                   {/* Column 6: Actions - Clear Hierarchy & Self-Explanatory Buttons */}
                   <td className="px-5 py-4 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-2">
+                      {/* Make Live Action (Thin Event Layer) */}
+                      {onMakeLive && (
+                        <button
+                          type="button"
+                          onClick={() => onMakeLive(test)}
+                          disabled={lockedTestIds?.has(test.id)}
+                          title={
+                            lockedTestIds?.has(test.id)
+                              ? 'This test is currently scheduled as an active Live Test'
+                              : 'Schedule this test as a Live Test event'
+                          }
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all shadow-xs shrink-0 ${
+                            lockedTestIds?.has(test.id)
+                              ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-800 cursor-not-allowed'
+                              : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 active:scale-95'
+                          }`}
+                        >
+                          <Radio className={`w-3.5 h-3.5 ${lockedTestIds?.has(test.id) ? 'text-slate-400' : 'text-rose-600 dark:text-rose-400 animate-pulse'}`} />
+                          <span>{lockedTestIds?.has(test.id) ? 'Live Scheduled' : 'Make Live'}</span>
+                        </button>
+                      )}
+
                       {/* Primary Question Management Action: Add / Manage Questions */}
                       <Link
                         to={`/admin/tests/${test.id}/questions`}

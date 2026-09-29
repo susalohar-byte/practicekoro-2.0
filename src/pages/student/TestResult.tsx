@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -15,16 +16,22 @@ import {
   Layers,
   Target,
   Zap,
+  Trophy,
 } from 'lucide-react';
 import { formatSeconds } from '@/lib/utils';
-import type { GradedResult, QuestionSolution } from '@/types';
+import type { GradedResult, QuestionSolution, LiveTest, LiveTestParticipant } from '@/types';
 
 export const TestResult: React.FC = () => {
   const { testId, attemptId } = useParams<{ testId: string; attemptId: string }>();
+  const [searchParams] = useSearchParams();
+  const liveTestId = searchParams.get('liveTestId');
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [result, setResult] = useState<GradedResult | null>(null);
   const [solutions, setSolutions] = useState<QuestionSolution[]>([]);
+  const [liveTest, setLiveTest] = useState<LiveTest | null>(null);
+  const [liveLeaderboard, setLiveLeaderboard] = useState<LiveTestParticipant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,12 +39,16 @@ export const TestResult: React.FC = () => {
       if (!attemptId) return;
       setLoading(true);
       try {
-        const [data, sols] = await Promise.all([
+        const [data, sols, lt, lb] = await Promise.all([
           api.getAttemptResult(attemptId),
           testId ? api.getAttemptSolutions(attemptId, testId).catch(() => []) : Promise.resolve([]),
+          liveTestId ? api.getLiveTestById(liveTestId).catch(() => null) : Promise.resolve(null),
+          liveTestId ? api.getLiveTestLeaderboard(liveTestId).catch(() => []) : Promise.resolve([]),
         ]);
         setResult(data);
         setSolutions(sols || []);
+        setLiveTest(lt);
+        setLiveLeaderboard(lb || []);
       } catch (err) {
         console.error('Failed to load attempt result:', err);
       } finally {
@@ -45,7 +56,12 @@ export const TestResult: React.FC = () => {
       }
     }
     loadResult();
-  }, [attemptId, testId]);
+  }, [attemptId, testId, liveTestId]);
+
+  const studentLiveEntry = useMemo(() => {
+    if (!liveTestId || !liveLeaderboard.length) return null;
+    return liveLeaderboard.find((p) => p.attemptId === attemptId || (user?.id && p.userId === user.id));
+  }, [liveTestId, liveLeaderboard, attemptId, user?.id]);
 
   // Compute section-wise breakdown
   const sectionBreakdown = useMemo(() => {
@@ -134,6 +150,40 @@ export const TestResult: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Live Test Event Banner */}
+      {liveTest && (
+        <div className="rounded-3xl p-5 bg-gradient-to-r from-rose-950/70 via-slate-900 to-indigo-950 border border-rose-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30 shadow-inner">
+              <Trophy className="w-6 h-6 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-600 text-white">
+                  Live Test Event
+                </span>
+                {liveTest.rankingEnabled && studentLiveEntry?.rank && (
+                  <span className="text-xs font-black text-amber-300">
+                    Statewide Rank #{studentLiveEntry.rank}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-base font-bold text-white mt-1">
+                {liveTest.title}
+              </h2>
+            </div>
+          </div>
+
+          <Link
+            to="/live-test"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition-all shadow-md active:scale-95 shrink-0"
+          >
+            <span>Statewide Leaderboard</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       {/* Top Banner Card */}
       <Card className="p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white border-0 shadow-lg relative overflow-hidden rounded-3xl">
         <div className="relative z-10 space-y-3">
@@ -177,15 +227,37 @@ export const TestResult: React.FC = () => {
             </div>
 
             <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-300">State Rank</p>
+              <p className="text-[10px] uppercase font-bold text-slate-300">
+                {liveTest ? (liveTest.rankingEnabled ? 'Live State Rank' : 'Live Mode') : 'State Rank'}
+              </p>
               <p className="text-2xl font-black text-blue-400 mt-0.5">
-                {result.rank !== null ? `#${result.rank}` : '—'}{' '}
+                {liveTest
+                  ? liveTest.rankingEnabled
+                    ? studentLiveEntry?.rank
+                      ? `#${studentLiveEntry.rank}`
+                      : '—'
+                    : 'Practice'
+                  : result.rank !== null
+                    ? `#${result.rank}`
+                    : '—'}{' '}
                 <span className="text-xs text-slate-400 font-normal">
-                  {result.rank !== null ? `/ ${result.totalCandidates}` : ''}
+                  {liveTest && liveTest.rankingEnabled && studentLiveEntry?.rank
+                    ? `/ ${liveLeaderboard.length || result.totalCandidates}`
+                    : result.rank !== null
+                      ? `/ ${result.totalCandidates}`
+                      : ''}
                 </span>
               </p>
               <p className="text-[10px] text-blue-300/80 font-semibold mt-0.5">
-                {result.percentile !== null ? `${result.percentile}th %ile` : 'Rank Pending'}
+                {liveTest
+                  ? liveTest.rankingEnabled
+                    ? studentLiveEntry?.rank
+                      ? 'Verified Live Rank'
+                      : 'Calculating Rank'
+                    : 'Ranking Disabled'
+                  : result.percentile !== null
+                    ? `${result.percentile}th %ile`
+                    : 'Rank Pending'}
               </p>
             </div>
 
