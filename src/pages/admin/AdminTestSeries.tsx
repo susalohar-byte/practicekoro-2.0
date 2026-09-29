@@ -59,6 +59,7 @@ export const AdminTestSeries: React.FC = () => {
   const [isPremium, setIsPremium] = useState(false);
   const [orderIndex, setOrderIndex] = useState(1);
   const [isActive, setIsActive] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [formError, setFormError] = useState('');
 
   // Manage Tests State
@@ -104,6 +105,7 @@ export const AdminTestSeries: React.FC = () => {
     setIsPremium(false);
     setOrderIndex(seriesList.length + 1);
     setIsActive(true);
+    setIsFeatured(false);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -118,6 +120,7 @@ export const AdminTestSeries: React.FC = () => {
     setIsPremium(series.isPremium);
     setOrderIndex(series.orderIndex);
     setIsActive(series.isActive);
+    setIsFeatured(Boolean(series.isFeatured));
     setFormError('');
     setIsModalOpen(true);
   };
@@ -154,6 +157,7 @@ export const AdminTestSeries: React.FC = () => {
           isPremium,
           orderIndex: Number(orderIndex),
           isActive,
+          isFeatured,
         });
       } else {
         await api.createTestSeries({
@@ -171,6 +175,7 @@ export const AdminTestSeries: React.FC = () => {
           isPremium,
           orderIndex: Number(orderIndex),
           isActive,
+          isFeatured,
         });
       }
       setIsModalOpen(false);
@@ -1527,6 +1532,15 @@ export const AdminTestSeries: React.FC = () => {
                       className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Active</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isFeatured}
+                      onChange={(e) => setIsFeatured(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-xs font-bold text-[#0158FC]">Show on Home → Popular Test Series</span>
                   </label>
                 </div>
               </div>
