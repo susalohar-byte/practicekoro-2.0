@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -13,17 +12,35 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _progressController;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _progressController = AnimationController(
+    _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2400),
-    )..forward();
+    );
 
-    Timer(const Duration(milliseconds: 2600), () {
+    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.1, 0.7, curve: Curves.easeIn),
+      ),
+    );
+
+    _animationController.forward();
+
+    Timer(const Duration(milliseconds: 2800), () {
       if (mounted) {
         if (LocalStorageService.isOnboardingCompleted()) {
           context.go('/home');
@@ -36,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _progressController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -47,130 +64,249 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: AppColors.splashGradient,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF091428), // Deep midnight navy
+              Color(0xFF0C2556),
+              Color(0xFF0158FC), // PracticeKoro brand blue
+              Color(0xFF1D4ED8),
+            ],
+            stops: [0.0, 0.35, 0.80, 1.0],
+          ),
         ),
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              const Spacer(flex: 3),
-
-              // Logo Box
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(40),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+              // Ambient Decorative Light Glows in Background
+              Positioned(
+                top: -60,
+                right: -60,
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                  ),
                 ),
-                child: Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 76,
-                      height: 76,
-                      fit: BoxFit.contain,
-                    ),
+              ),
+              Positioned(
+                bottom: 80,
+                left: -50,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF60A5FA).withValues(alpha: 0.08),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 24),
-
-              // Title
-              const Text(
-                'PracticeKoro',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Tagline
-              Text(
-                'Practice Today\nProgress Tomorrow',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withAlpha(210),
-                  height: 1.3,
-                ),
-              ),
-
-              const Spacer(flex: 2),
-
-              // Cursive "Small Steps Big Results"
-              Transform.rotate(
-                angle: -0.06,
-                child: Text(
-                  'Small Steps\nBig Results',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.caveat(
-                    fontSize: 30,
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryBright,
-                    height: 1.15,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withAlpha(60),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Spacer(flex: 3),
-
-              // Loading Bar
+              // Main Centered Content
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 80),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   children: [
+                    const Spacer(flex: 3),
+
+                    // Animated Logo & Glow Card
                     AnimatedBuilder(
-                      animation: _progressController,
+                      animation: _animationController,
                       builder: (context, child) {
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: _progressController.value,
-                            backgroundColor: Colors.white.withAlpha(40),
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryBright),
-                            minHeight: 5,
+                        return Transform.scale(
+                          scale: _scaleAnimation.value,
+                          child: Opacity(
+                            opacity: _fadeAnimation.value,
+                            child: child,
                           ),
                         );
                       },
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Loading...',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withAlpha(160),
-                        letterSpacing: 0.5,
+                      child: Container(
+                        width: 104,
+                        height: 104,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(26),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                              blurRadius: 30,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 10),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 82,
+                              height: 82,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+
+                    const SizedBox(height: 22),
+
+                    // Primary English Brand Title
+                    const Text(
+                      'PracticeKoro',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Bengali Brand Name
+                    Text(
+                      'প্র্যাকটিস করো',
+                      style: GoogleFonts.hindSiliguri(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF93C5FD),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Bengali Tagline Pill Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6.5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 1.1,
+                        ),
+                      ),
+                      child: Text(
+                        '✨ আজকের প্রস্তুতি • আগামীর সাফল্য',
+                        style: GoogleFonts.hindSiliguri(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Subtitle in Bengali
+                    Text(
+                      'পশ্চিমবঙ্গের সরকারি চাকরির সেরা প্রস্তুতি মঞ্চ',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.hindSiliguri(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.88),
+                        height: 1.35,
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // 3 Feature Pills in Bengali
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildFeaturePill('🎯 মক টেস্ট'),
+                          const SizedBox(width: 8),
+                          _buildFeaturePill('📚 পি.ওয়াই.কিউ'),
+                          const SizedBox(width: 8),
+                          _buildFeaturePill('⚡ লাইভ টেস্ট'),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(flex: 3),
+
+                    // Loading Section with Bengali label
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 56),
+                      child: Column(
+                        children: [
+                          AnimatedBuilder(
+                            animation: _animationController,
+                            builder: (context, child) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: LinearProgressIndicator(
+                                  value: _animationController.value,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.18),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                                  minHeight: 4.5,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'অ্যাপ প্রস্তুত হচ্ছে...',
+                            style: GoogleFonts.hindSiliguri(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'স্বপ্নের চাকরির পথে এগিয়ে চলো 🚀',
+                            style: GoogleFonts.hindSiliguri(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF93C5FD).withValues(alpha: 0.75),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturePill(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.hindSiliguri(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withValues(alpha: 0.92),
         ),
       ),
     );
