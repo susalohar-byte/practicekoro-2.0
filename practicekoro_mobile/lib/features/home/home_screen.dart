@@ -563,10 +563,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       error: (_, _) => const SizedBox.shrink(),
                     ),
 
-                    // 4. Quick Study Tools (Website Section 4)
-                    _buildQuickStudyToolsSection(),
-                    const SizedBox(height: 24),
-
                     // 5. Popular Test Series (Website Section 5)
                     _buildPopularTestSeriesSection(
                       popularList,
@@ -1211,12 +1207,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(width: 10),
               InkWell(
                 onTap: () async {
-                  final userId = LocalStorageService.getUserId();
+                  final userId = ref.read(catalogRepositoryProvider).currentUserId;
                   await ref
                       .read(catalogRepositoryProvider)
                       .joinLiveTest(liveTest.id, userId);
                   if (mounted) {
-                    context.push('/live-test/${liveTest.testId}');
+                    context.push('/live-test/${liveTest.testId}?liveTestId=${Uri.encodeComponent(liveTest.id)}');
                   }
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -1333,116 +1329,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // 4. QUICK STUDY TOOLS (Matches Website Home.tsx Section 4)
-  // ===========================================================================
-  Widget _buildQuickStudyToolsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Study Tools',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-            letterSpacing: -0.3,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildQuickStudyRowCard(
-          title: 'Weak Topics',
-          subtitle: 'Focus & improve',
-          icon: Icons.track_changes_rounded,
-          iconBg: const Color(0xFFEFF6FF),
-          iconColor: const Color(0xFF0158FC),
-          onTap: () => _handleTabNavigation(2, '/practice'),
-        ),
-        const SizedBox(height: 10),
-        _buildQuickStudyRowCard(
-          title: 'Study Resources',
-          subtitle: 'Notes & exam-ready summaries',
-          icon: Icons.menu_book_rounded,
-          iconBg: const Color(0xFFF5F3FF),
-          iconColor: const Color(0xFF7C3AED),
-          onTap: () => _handleTabNavigation(2, '/practice'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickStudyRowCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF94A3B8),
-              size: 20,
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -857,23 +857,6 @@ export const Home: React.FC = () => {
         );
       })()}
 
-      {/* QUICK STUDY TOOLS */}
-      <div>
-        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Quick Study Tools</h3></div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {[
-            ['Weak Topics','Focus & improve','/practice',Target,'bg-blue-50 text-[#0158FC]'],
-            ['Study Resources','Notes & exam-ready summaries','/practice',BookOpen,'bg-violet-50 text-violet-600'],
-          ].map(([title,desc,to,Icon,cls]) => {
-            const ToolIcon = Icon as React.ComponentType<{className?:string}>;
-            return <Link key={String(title)} to={String(to)} className="rounded-2xl border border-slate-200/80 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition flex items-center gap-3">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${String(cls)}`}><ToolIcon className="h-5 w-5"/></div>
-              <div><h4 className="text-sm font-black text-slate-900">{String(title)}</h4><p className="text-[11px] text-slate-500">{String(desc)}</p></div><ChevronRight className="ml-auto h-4 w-4 text-slate-400"/>
-            </Link>
-          })}
-        </div>
-      </div>
-
       {/* 4. POPULAR TEST SERIES */}
       <div>
         <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Popular Test Series</h3><Link to="/test-series" className="text-xs font-bold text-[#0158FC] flex items-center gap-1">See All <ChevronRight className="h-4 w-4"/></Link></div>
