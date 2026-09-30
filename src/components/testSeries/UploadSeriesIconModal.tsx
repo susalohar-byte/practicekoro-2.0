@@ -18,7 +18,7 @@ export const PRESET_SERIES_ICONS: PresetIcon[] = [
   { id: 'tet', name: 'Primary TET / Teaching', category: 'Teaching', url: '/images/exams/emblem_tet.png' },
   { id: 'railway', name: 'Indian Railways (RRB)', category: 'Central', url: '/images/exams/emblem_railway.png' },
   { id: 'ssc', name: 'SSC (CGL, GD, MTS)', category: 'Central', url: '/images/exams/emblem_ssc.png' },
-  { id: 'practicekoro', name: 'PracticeKoro Official', category: 'General', url: '/logo-icon.png' },
+  { id: 'practicekoro', name: 'PracticeKoro Official', category: 'General', url: '/logo-icon-circle.png' },
 ];
 
 interface UploadSeriesIconModalProps {
@@ -191,7 +191,7 @@ export const UploadSeriesIconModal: React.FC<UploadSeriesIconModalProps> = ({
               alt="Icon Preview"
               className="w-full h-full object-contain"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/logo-icon.png';
+                (e.target as HTMLImageElement).src = '/logo-icon-circle.png';
               }}
             />
           </div>

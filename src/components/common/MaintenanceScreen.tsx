@@ -63,7 +63,7 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
       {/* Top Brand Bar */}
       <header className="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/logo-icon-transparent.png" alt={appName} className="w-8 h-8 object-contain" />
+          <img src="/logo-icon-circle.png" alt={appName} className="w-8 h-8 rounded-xl object-contain" />
           <span className="text-base font-black tracking-tight text-white">
             {appName || 'Practice'}
             <span className="text-amber-400">Koro</span>

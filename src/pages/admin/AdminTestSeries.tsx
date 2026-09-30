@@ -1461,13 +1461,13 @@ export const AdminTestSeries: React.FC = () => {
                   Series Icon / Emblem
                 </label>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800">
-                  <div className="w-12 h-12 rounded-xl bg-[#FFF4F0] dark:bg-slate-800 border border-[#FDE2D7] dark:border-slate-700 p-2 flex items-center justify-center shrink-0">
+                  <div className={`w-12 h-12 ${iconUrl.includes('logo-icon') ? 'rounded-xl' : 'rounded-full bg-[#FFF4F0] dark:bg-slate-800 border border-[#FDE2D7] dark:border-slate-700 p-2'} flex items-center justify-center shrink-0`}>
                     <img
                       src={iconUrl || '/images/exams/emblem_wbp.png'}
                       alt="Icon Preview"
-                      className="w-full h-full object-contain"
+                      className={`w-full h-full object-contain ${iconUrl.includes('logo-icon') ? 'rounded-xl' : 'rounded-full'}`}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo-icon.png';
+                        (e.target as HTMLImageElement).src = '/logo-icon-circle.png';
                       }}
                     />
                   </div>

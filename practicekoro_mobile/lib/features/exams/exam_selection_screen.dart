@@ -176,7 +176,7 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(9),
                     child: Image.asset(
-                      'assets/images/logo.png',
+                      'assets/images/logo-circle.png',
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,

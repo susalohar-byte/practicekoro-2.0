@@ -180,13 +180,11 @@ export const AdminLayout: React.FC = () => {
         {/* Top Header */}
         <div className="h-16 flex items-center justify-between px-3.5 sm:px-4 border-b border-[#152347] shrink-0 bg-[#070d1d]/80 backdrop-blur-md">
           <Link to="/admin" className="flex items-center gap-2.5 group min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pk-primary to-pk-primary-bright flex items-center justify-center shadow-md shadow-pk-primary/25 group-hover:scale-105 transition-transform shrink-0">
-              <img
-                src="/logo-icon-transparent.png"
-                alt="PracticeKoro"
-                className="w-6 h-6 object-contain"
-              />
-            </div>
+            <img
+              src="/logo-icon-circle.png"
+              alt="PracticeKoro"
+              className="w-9 h-9 rounded-xl object-contain shrink-0 transition-transform group-hover:scale-105"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-sm tracking-tight !text-white leading-tight truncate">

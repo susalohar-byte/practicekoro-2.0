@@ -83,7 +83,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
         lower.contains('ntpc')) {
       return 'assets/images/exams/emblem_railway.png';
     }
-    return 'assets/images/logo.png';
+    return 'assets/images/logo-circle.png';
   }
 
   @override
@@ -113,7 +113,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F9FF),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -128,26 +128,56 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            'Test Series',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.5,
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF0158FC,
+                                ).withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                'assets/images/logo-circle.png',
+                                width: 28,
+                                height: 28,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.assignment_rounded,
+                                  size: 20,
+                                  color: Color(0xFF0158FC),
+                                ),
+                              ),
                             ),
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Choose your exam. Start with a plan.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
+                          const SizedBox(width: 10),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Test Series',
+                                style: TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              SizedBox(height: 1),
+                              Text(
+                                'Choose your exam. Start with a plan.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -180,15 +210,15 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                     height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEDF2F7),
-                      borderRadius: BorderRadius.circular(24),
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.search_rounded,
-                          color: Color(0xFF64748B),
+                          color: Color(0xFF0158FC),
                           size: 19,
                         ),
                         const SizedBox(width: 8),
@@ -198,6 +228,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                             onChanged: (_) => setState(() {}),
                             style: const TextStyle(
                               fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: Color(0xFF0F172A),
                             ),
                             decoration: const InputDecoration(
@@ -206,6 +237,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                               hintStyle: TextStyle(
                                 fontSize: 12.5,
                                 color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
                               ),
                               border: InputBorder.none,
                               isDense: true,
@@ -246,16 +278,33 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              color: isSel
-                                  ? const Color(0xFF0158FC)
-                                  : const Color(0xFFF1F5F9),
+                              gradient: isSel
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF0158FC),
+                                        Color(0xFF0198FD),
+                                      ],
+                                    )
+                                  : null,
+                              color: isSel ? null : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(20),
+                              boxShadow: isSel
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFF0158FC,
+                                        ).withValues(alpha: 0.22),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             child: Text(
                               _categories[idx],
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                                 color: isSel
                                     ? Colors.white
                                     : const Color(0xFF475569),
@@ -301,7 +350,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                                 'Popular Test Series',
                                 style: TextStyle(
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
@@ -339,7 +388,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                                   : selectedCategory,
                               style: const TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w900,
                                 color: Color(0xFF0F172A),
                               ),
                             ),
@@ -355,7 +404,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                                   'Reset Filters',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
                                     color: Color(0xFF0158FC),
                                   ),
                                 ),
@@ -393,60 +442,83 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
   }
 
   // ===========================================================================
-  // 1. SUBSCRIPTION HERO BANNER (Matches Website TestSeriesCatalog.tsx)
+  // 1. SUBSCRIPTION HERO BANNER (Matches Website TestSeriesCatalog.tsx Stitch 2.0)
   // ===========================================================================
   Widget _buildSubscriptionHeroBanner() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0D2A64), Color(0xFF133882), Color(0xFF1A4AB0)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D2A64).withValues(alpha: 0.16),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF0158FC).withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFFFBBF24).withValues(alpha: 0.35),
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 13,
-                  color: Color(0xFFFCD34D),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-                SizedBox(width: 5),
-                Text(
-                  'COMPLETE PREPARATION',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFFFDE68A),
-                    letterSpacing: 0.6,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.24),
                   ),
                 ),
-              ],
-            ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 13,
+                      color: Color(0xFFFCD34D),
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'PRACTICEKORO TEST SERIES 2.0',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_exams.length} Exams',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           const Text(
             'All Test Series in One Subscription',
             style: TextStyle(
@@ -476,7 +548,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF0D2A64),
+              foregroundColor: const Color(0xFF0158FC),
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(
@@ -488,7 +560,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
               children: [
                 Text(
                   'Start Testing',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
                 ),
                 SizedBox(width: 5),
                 Icon(Icons.arrow_forward_rounded, size: 15),
@@ -510,7 +582,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
         'sub': 'Full-length exam simulations',
         'icon': Icons.layers_outlined,
         'bg': const Color(0xFFEFF6FF),
-        'fg': const Color(0xFF2563EB),
+        'fg': const Color(0xFF0158FC),
         'onTap': () {
           if (_exams.isNotEmpty) context.push('/exams/${_exams.first.id}');
         },
@@ -551,19 +623,26 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        mainAxisExtent: 74,
+        mainAxisExtent: 76,
       ),
       itemBuilder: (context, idx) {
         final item = cards[idx];
         return InkWell(
           onTap: item['onTap'] as VoidCallback,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0B1F44).withValues(alpha: 0.025),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -572,7 +651,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: item['bg'] as Color,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
@@ -604,6 +683,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF64748B),
                         ),
                       ),
@@ -629,6 +709,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     required String emblemPath,
     required VoidCallback onTap,
   }) {
+    final isBrandLogo = emblemPath == 'assets/images/logo-circle.png';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -652,25 +733,42 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF5FB),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
-                  ),
-                  child: Image.asset(
-                    emblemPath,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.school_rounded,
-                      color: Color(0xFF0158FC),
-                      size: 28,
+                if (isBrandLogo)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      emblemPath,
+                      width: 68,
+                      height: 68,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.school_rounded,
+                        color: Color(0xFF0158FC),
+                        size: 28,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF5FB),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        emblemPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.school_rounded,
+                          color: Color(0xFF0158FC),
+                          size: 28,
+                        ),
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

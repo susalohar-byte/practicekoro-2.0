@@ -286,13 +286,23 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
 
               {/* Mobile Brand Logo */}
               <Link to="/dashboard" className="flex lg:hidden items-center gap-2 group">
-                <img
-                  src="/logo-icon-transparent.png"
-                  alt="PracticeKoro"
-                  className="w-8 h-8 object-contain rounded-xl transition-transform group-hover:scale-105"
-                />
-                <span className="font-black text-base text-pk-navy dark:text-white tracking-tight flex items-center">
-                  Practice<span className="text-[#0158FC]">Koro</span>
+                <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs shadow-blue-500/20 ring-1 ring-blue-500/15 bg-gradient-to-br from-[#0198FD] to-[#0158FC] shrink-0">
+                  <img
+                    src="/logo-icon.png"
+                    alt="PracticeKoro"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.src = '/logo-icon-circle.png';
+                    }}
+                  />
+                </div>
+                <span className="font-black text-base text-slate-900 dark:text-white tracking-tight flex items-center gap-1">
+                  <span>
+                    Practice<span className="text-[#0158FC]">Koro</span>
+                  </span>
+                  <span className="px-1.5 py-0.5 text-[9px] font-black bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white rounded-md uppercase tracking-wider">
+                    2.0
+                  </span>
                 </span>
               </Link>
             </div>
@@ -301,7 +311,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
             {showSearch && (
             <div ref={searchContainerRef} className="flex-1 max-w-2xl mx-1 sm:mx-2 relative">
               <form onSubmit={handleSearchSubmit} className="relative w-full">
-                <div className="relative flex items-center w-full">
+                <div className="relative flex items-center w-full group">
                   <div className="absolute left-3.5 pointer-events-none text-slate-400 flex items-center justify-center">
                     <Search className="w-4 h-4 text-slate-400 group-focus-within:text-[#0158FC] transition-colors" />
                   </div>
@@ -316,7 +326,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                     }}
                     onFocus={() => setIsSearchOpen(true)}
                     placeholder="Search exams, tests, subjects or topics..."
-                    className="w-full pl-10 pr-16 sm:pr-20 py-2 sm:py-2.5 rounded-full bg-[#edf2f7] dark:bg-slate-800/80 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 focus:bg-white dark:focus:bg-slate-900 border border-slate-200/80 dark:border-slate-700 focus:border-[#0158FC] focus:ring-2 focus:ring-[#0158FC]/20 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-medium transition-all shadow-2xs outline-hidden"
+                    className="w-full pl-10 pr-16 sm:pr-20 py-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 focus:bg-white dark:focus:bg-slate-900 border border-slate-200/80 dark:border-slate-700 focus:border-[#0158FC] focus:ring-4 focus:ring-[#0158FC]/10 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs font-semibold transition-all shadow-2xs outline-hidden"
                   />
 
                   <div className="absolute right-3 flex items-center gap-1.5">
@@ -443,8 +453,20 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
             </div>
             )}
 
-            {/* Right: Actions (Theme, Bell) + Candidate Profile */}
+            {/* Right: Actions (Target Exam, Theme, Bell) + Candidate Profile */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Target Exam Switcher Chip */}
+              <Link
+                to="/exams"
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100/80 dark:hover:bg-blue-900/50 border border-blue-200/70 dark:border-blue-800/60 text-xs font-bold text-[#0158FC] dark:text-blue-300 transition-colors shadow-2xs"
+                title="Active Target Exam"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#0158FC] animate-pulse" />
+                <span className="truncate max-w-[160px]">
+                  {selectedExam?.title || 'WBPSC & WBP'}
+                </span>
+              </Link>
+
               {/* Theme Toggle */}
               <ThemeToggle />
 
@@ -539,7 +561,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                       alt={user?.fullName || 'Candidate'}
                       className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
                       onError={(e) => {
-                        e.currentTarget.src = '/logo-icon-transparent.png';
+                        e.currentTarget.src = '/logo-icon-circle.png';
                       }}
                     />
                     <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />

@@ -59,17 +59,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Official Brand Logo
-                Container(
-                  width: 64,
-                  height: 64,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.veryLightBlue,
-                    borderRadius: AppRadius.rXl,
-                    border: Border.all(color: AppColors.softBlue, width: 1.2),
-                  ),
+                ClipRRect(
+                  borderRadius: AppRadius.rXl,
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/logo-circle.png',
+                    width: 64,
+                    height: 64,
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Icon(
                       Icons.school_rounded,

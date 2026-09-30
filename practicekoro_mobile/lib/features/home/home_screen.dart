@@ -512,7 +512,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isPro = LocalStorageService.isProUser();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F9FF),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -623,42 +623,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required List<MockTestModel> tests,
   }) {
     return Container(
-      height: 62,
+      height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        border: const Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // Brand Logo + PracticeKoro
+          // Brand Logo + PracticeKoro 2.0
           InkWell(
             onTap: () => _handleTabNavigation(0, '/home'),
             borderRadius: BorderRadius.circular(10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    width: 30,
-                    height: 30,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0158FC),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'P',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF0158FC).withValues(alpha: 0.18),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/images/logo-circle.png',
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0158FC),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'P',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
@@ -679,9 +697,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                   style: TextStyle(
-                    fontSize: 17.5,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFFBFDBFE),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Text(
+                    '2.0',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0158FC),
+                    ),
                   ),
                 ),
               ],
@@ -699,17 +740,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               child: Container(
                 height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 11),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDF2F7),
-                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: const Row(
                   children: [
                     Icon(
                       Icons.search_rounded,
                       size: 16,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF0158FC),
                     ),
                     SizedBox(width: 6),
                     Expanded(
@@ -718,9 +760,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11.5,
                           color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -742,36 +784,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               alignment: Alignment.center,
               child: const Icon(
                 Icons.notifications_none_rounded,
-                size: 21,
+                size: 19,
                 color: Color(0xFF475569),
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
 
           // Profile Avatar
           InkWell(
             onTap: () => _handleTabNavigation(4, '/profile'),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              width: 34,
-              height: 34,
+              width: 35,
+              height: 35,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
               ),
-              child: ClipOval(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10.5),
                 child: Image.asset(
                   'assets/images/student_avatar_hd.png',
                   fit: BoxFit.cover,
@@ -890,7 +934,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ===========================================================================
-  // 2. FOUR STAT CARDS (Matches Website Home.tsx Section 2)
+  // 2. FOUR STAT CARDS (Matches Website Home.tsx Section 2 Stitch Bento KPIs)
   // ===========================================================================
   Widget _buildFourStatCards({
     required int testsTaken,
@@ -902,6 +946,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       {
         'value': '$testsTaken',
         'label': 'Tests Taken',
+        'tag': testsTaken > 0 ? '+$testsTaken DONE' : 'READY',
         'icon': Icons.task_alt_rounded,
         'bg': const Color(0xFFECFDF5),
         'fg': const Color(0xFF059669),
@@ -909,13 +954,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       {
         'value': '$questionsPracticed',
         'label': 'Questions Practiced',
+        'tag': 'SOLVED',
         'icon': Icons.description_outlined,
         'bg': const Color(0xFFEFF6FF),
-        'fg': const Color(0xFF2563EB),
+        'fg': const Color(0xFF0158FC),
       },
       {
         'value': '$accuracyPct%',
         'label': 'Accuracy',
+        'tag': accuracyPct >= 70 ? 'STRONG' : 'PRECISION',
         'icon': Icons.check_circle_outline_rounded,
         'bg': const Color(0xFFFFF1F2),
         'fg': const Color(0xFFE11D48),
@@ -923,6 +970,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       {
         'value': '$streakDays',
         'label': 'Day Streak',
+        'tag': streakDays > 0 ? '🔥 ACTIVE' : 'START TODAY',
         'icon': Icons.local_fire_department_rounded,
         'bg': const Color(0xFFFFFBEB),
         'fg': const Color(0xFFD97706),
@@ -937,21 +985,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: 76,
+        mainAxisExtent: 86,
       ),
       itemBuilder: (context, idx) {
         final item = cards[idx];
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -962,7 +1010,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: item['bg'] as Color,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -977,25 +1025,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item['value'] as String,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                        height: 1.1,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item['value'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: item['bg'] as Color,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item['tag'] as String,
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: item['fg'] as Color,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       item['label'] as String,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF64748B),
                       ),
                     ),
@@ -1101,7 +1174,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  _buildDarkTimerBox('$days', 'd'),
+                  _buildDarkTimerBox(days, 'd'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 2),
                     child: Text(
@@ -1112,7 +1185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  _buildDarkTimerBox('$hours', 'h'),
+                  _buildDarkTimerBox(hours, 'h'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 2),
                     child: Text(
@@ -1123,7 +1196,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  _buildDarkTimerBox('$mins', 'm'),
+                  _buildDarkTimerBox(mins, 'm'),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 2),
                     child: Text(
@@ -1134,7 +1207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  _buildDarkTimerBox('$secs', 's'),
+                  _buildDarkTimerBox(secs, 's'),
                 ],
               ),
             ],
@@ -1388,7 +1461,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         titleLower.contains('gd')) {
       return 'assets/images/exams/emblem_ssc.png';
     }
-    return 'assets/images/logo.png';
+    return 'assets/images/logo-circle.png';
   }
 
   Widget _buildEmblemImage(String pathOrUrl, {double size = 48}) {
@@ -1399,7 +1472,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         height: size,
         fit: BoxFit.contain,
         errorBuilder: (_, _, _) => Image.asset(
-          'assets/images/logo.png',
+          'assets/images/logo-circle.png',
           width: size,
           height: size,
           fit: BoxFit.contain,
@@ -1412,7 +1485,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       height: size,
       fit: BoxFit.contain,
       errorBuilder: (_, _, _) => Image.asset(
-        'assets/images/logo.png',
+        'assets/images/logo-circle.png',
         width: size,
         height: size,
         fit: BoxFit.contain,
@@ -1518,16 +1591,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     child: Row(
                       children: [
-                        Container(
+                        SizedBox(
                           width: 60,
                           height: 60,
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF5FB),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
-                          ),
-                          child: _buildEmblemImage(emblemPath, size: 46),
+                          child: _buildEmblemBadge(emblemPath, size: 60),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1582,6 +1649,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildEmblemBadge(String pathOrUrl, {double size = 48}) {
+    if (pathOrUrl == 'assets/images/logo-circle.png') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: _buildEmblemImage(pathOrUrl, size: size),
+      );
+    }
+
+    return ClipOval(
+      child: Container(
+        width: size,
+        height: size,
+        color: const Color(0xFFEFF5FB),
+        alignment: Alignment.center,
+        child: _buildEmblemImage(pathOrUrl, size: size),
+      ),
     );
   }
 
@@ -1882,7 +1968,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           height: 38,
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(12),
+                            shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.description_outlined,
@@ -2670,9 +2756,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ===========================================================================
-  // 10. UPGRADE TO PRACTICEKORO PRO BANNER (Matches Website Home.tsx Section 10)
-  // ===========================================================================
   Widget _buildUpgradeProBanner() {
     const features = [
       'All Exams',
@@ -2683,92 +2766,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEEF6FF), Color(0xFFE6F2FE), Color(0xFFDBEBFE)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0158FC).withValues(alpha: 0.25),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0158FC),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
                   Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 18,
+                  color: Color(0xFFFCD34D),
+                  size: 13,
                 ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Upgrade to PracticeKoro Pro',
+                SizedBox(width: 5),
+                Text(
+                  'PRACTICEKORO PRO 2.0',
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                    color: Colors.white,
+                    letterSpacing: 0.6,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          const Text(
+            'Upgrade to PracticeKoro Pro',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
           const Text(
             'Get unlimited access to all test series, topic practice & detailed analytics across every West Bengal exam.',
             style: TextStyle(
               fontSize: 12.5,
-              color: Color(0xFF475569),
+              color: Color(0xFFDBEAFE),
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: features.map((f) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    size: 14,
-                    color: Color(0xFF0158FC),
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.16),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    f,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF334155),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 13,
+                      color: Color(0xFF34D399),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Text(
+                      f,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 46,
             child: ElevatedButton(
               onPressed: () => context.push('/subscription'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0158FC),
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0158FC),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -2781,7 +2891,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     'Upgrade Now',
                     style: TextStyle(
                       fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   SizedBox(width: 6),

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { api } from '@/services/api';
 import { supabase } from '@/lib/supabase';
 import type { TestAttempt, Exam } from '@/types';
-import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
+import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
 import { Button } from '@/components/common/Button';
 import { WEST_BENGAL_DISTRICTS } from '@/data/districts';
@@ -128,6 +128,7 @@ export const Profile: React.FC = () => {
   const { exams, selectedExam, setSelectedExam } = useExam();
   const { subscriptionDetails } = useSubscription();
   const navigate = useNavigate();
+  const { onToggleMobileSidebar } = useOutletContext<{ onToggleMobileSidebar?: () => void }>() || {};
 
   // Performance data
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
@@ -463,7 +464,7 @@ export const Profile: React.FC = () => {
   };
 
   // Avatar source resolution
-  const avatarSrc = user?.avatarUrl || '/images/student_avatar.png';
+  const avatarSrc = user?.avatarUrl || '/images/profile_user_avatar.jpg';
 
   // Exams list derived from real exams catalog
   const displayExams = useMemo(() => {
@@ -498,11 +499,12 @@ export const Profile: React.FC = () => {
   }, [exams, selectedExam]);
 
   return (
-    <div className="pk-reference-page flex min-h-screen flex-col text-slate-900 dark:text-slate-100">
-
+    <div className="min-h-screen bg-[#F6F9FF] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col pb-20">
       {/* Main Container */}
-      <div className="pk-reference-shell flex-1 space-y-5 sm:space-y-6">
-        <StudentPageHeader title="Profile" subtitle="Manage Your Account" settingsLink="/settings" />
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-5 sm:space-y-6">
+        {/* Top Navbar */}
+        <StudentNavbar embedded showSearch={false} onToggleMobileSidebar={onToggleMobileSidebar} />
+
         {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-xl border border-slate-700 text-xs sm:text-sm font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200">
@@ -511,181 +513,241 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* 3. Hero Profile Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 border border-slate-100 dark:border-slate-800 shadow-xs relative">
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-5">
-            {/* Left: Avatar & Meta Details */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 w-full sm:w-auto">
-              {/* Avatar with Camera Badge */}
-              <div className="relative group shrink-0">
+        {/* 1. Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+          <Link to="/dashboard" className="hover:text-[#0158FC] dark:hover:text-blue-400 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-slate-900 dark:text-slate-200 font-bold">Profile</span>
+        </nav>
+
+        {/* 2. Hero Profile Bento Card (Stitch Navy-to-Electric-Blue Banner + Candidate Identity) */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden relative">
+          {/* Top Electric Blue / Navy Cover Strip */}
+          <div className="relative bg-gradient-to-r from-[#0B1F44] via-[#0158FC] to-[#0198FD] px-5 sm:px-7 py-5 sm:py-6 text-white overflow-hidden">
+            <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-cyan-400/25 blur-3xl" />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
                 <img
-                  src={avatarSrc}
-                  alt={user?.fullName || 'Student'}
-                  className="w-20 h-20 sm:w-22 sm:h-22 rounded-full object-cover ring-4 ring-white dark:ring-slate-800 shadow-md border border-slate-200 dark:border-slate-700"
-                  onError={(e) => {
-                    e.currentTarget.src = '/images/student_avatar.png';
-                  }}
+                  src="/logo-icon.png"
+                  alt="PracticeKoro"
+                  className="w-9 h-9 rounded-xl shadow-md border border-white/20 shrink-0"
                 />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                      My <span className="text-cyan-300">Profile</span>
+                    </h1>
+                    {isPro || subscriptionDetails?.isActive ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-200 text-[10px] font-black uppercase tracking-wider">
+                        <Crown className="w-3 h-3 fill-amber-300 text-amber-300" />
+                        Pro Pass
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-blue-100 text-[10px] font-bold uppercase tracking-wider">
+                        Free Tier
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-blue-100/90 font-medium mt-0.5">
+                    Manage your account, track your progress, and customize your learning experience.
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Edit Profile CTA */}
+              <div className="flex items-center gap-2.5 self-start sm:self-center">
                 <button
                   type="button"
                   onClick={openEditProfile}
-                  className="absolute bottom-0 right-0 p-1.5 rounded-full bg-[#1e60f2] text-white hover:bg-blue-700 shadow-md transition-transform hover:scale-110 flex items-center justify-center cursor-pointer"
-                  title="Update profile photo"
-                  aria-label="Update profile photo"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white text-[#0158FC] hover:bg-blue-50 font-extrabold text-xs shadow-md transition-all cursor-pointer"
                 >
-                  <Camera className="w-3.5 h-3.5" />
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Edit Profile</span>
                 </button>
               </div>
+            </div>
+          </div>
 
-              {/* User Bio and Meta */}
-              <div className="space-y-1.5 min-w-0">
-                {/* Name Row */}
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                    {user?.fullName || 'Student'}
-                  </h2>
+          {/* Candidate Identity Body */}
+          <div className="p-5 sm:p-7">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-5">
+              {/* Left: Avatar & Meta Details */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 w-full sm:w-auto">
+                {/* Avatar with Camera Badge */}
+                <div className="relative group shrink-0">
+                  <img
+                    src={avatarSrc}
+                    alt={user?.fullName || 'Student'}
+                    className="w-20 h-20 sm:w-22 sm:h-22 rounded-3xl object-cover ring-4 ring-blue-50 dark:ring-slate-800 shadow-md border border-slate-200 dark:border-slate-700"
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    }}
+                  />
                   <button
                     type="button"
                     onClick={openEditProfile}
-                    className="p-1 rounded-md text-slate-400 hover:text-[#1e60f2] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    title="Edit Name"
-                    aria-label="Edit Name"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-md transition-transform hover:scale-110 flex items-center justify-center cursor-pointer"
+                    title="Update profile photo"
+                    aria-label="Update profile photo"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Camera className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {/* Aspirant Headline */}
-                <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                  <span>{extras.headline || 'Aspirant | Keep Learning Keep Growing 🌱'}</span>
-                </p>
+                {/* User Bio and Meta */}
+                <div className="space-y-2 min-w-0">
+                  {/* Name Row */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                      {user?.fullName || 'Student'}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={openEditProfile}
+                      className="p-1 rounded-lg text-slate-400 hover:text-[#0158FC] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Edit Name"
+                      aria-label="Edit Name"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {selectedExam && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/80 dark:border-blue-800 text-[#0158FC] dark:text-blue-300 text-[11px] font-bold">
+                        Target: {selectedExam.title}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Metadata Row: Email, Phone, Location, Member Since */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.email || 'No email linked'}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.phone || extras.phone || 'Not added'}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{user?.district ? `${user.district}, West Bengal` : (extras.location || 'West Bengal')}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{memberSince}</span>
-                  </span>
+                  {/* Aspirant Headline */}
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                    <span>{extras.headline || 'Aspirant | Keep Learning Keep Growing 🌱'}</span>
+                  </p>
+
+                  {/* Metadata Row: Email, Phone, Location, Member Since */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                      <Mail className="w-3.5 h-3.5 text-[#0158FC] shrink-0" />
+                      <span>{user?.email || 'No email linked'}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>{user?.phone || extras.phone || 'Not added'}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span>{user?.district ? `${user.district}, West Bengal` : (extras.location || 'West Bengal')}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+                      <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{memberSince}</span>
+                    </span>
+                  </div>
                 </div>
+              </div>
+
+              {/* Right Decorative Illustration */}
+              <div className="hidden lg:flex items-center justify-end shrink-0">
+                <img
+                  src="/images/profile_hero_art.png"
+                  alt="Better Aspirants Brighter Bengal - Small Steps Big Results"
+                  className="h-20 w-auto object-contain select-none pointer-events-none drop-shadow-xs"
+                />
               </div>
             </div>
 
-            {/* Right: Edit Profile Button */}
-            <div className="self-end sm:self-start shrink-0">
-              <button
-                type="button"
-                onClick={openEditProfile}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50/70 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#1e60f2] dark:text-blue-400 border border-blue-200/80 dark:border-blue-800 font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Edit Profile</span>
-              </button>
+            {/* Motivational Quote Bar */}
+            <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+              <span className="italic text-slate-500 dark:text-slate-400 font-medium">
+                &quot;Discipline today creates success tomorrow.&quot;
+              </span>
+              <span className="font-bold text-[#0158FC] dark:text-blue-400">
+                — PracticeKoro 2.0
+              </span>
             </div>
-          </div>
-
-          {/* Motivational Quote Bar */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-            <span className="italic text-slate-500 dark:text-slate-400 font-normal">
-              &quot;Discipline today creates success tomorrow.&quot;
-            </span>
-            <span className="font-bold text-slate-800 dark:text-slate-200">
-              — PracticeKoro
-            </span>
           </div>
         </div>
 
-        {/* 4. Stat Cards Row (5 Cards) */}
+        {/* 4. Stat Bento Cards Row (5 Cards) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           {/* Card 1: Tests Attempted */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-4.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#1e60f2] border border-blue-100 dark:border-blue-900/50 flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] border border-blue-100 dark:border-blue-900/50 flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
                 {testsCount}
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-500 font-bold mt-1">
                 Tests Attempted
               </div>
             </div>
           </div>
 
           {/* Card 2: Average Accuracy */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-4.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-pink-50 dark:bg-pink-950/60 text-pink-600 border border-pink-100 dark:border-pink-900/50 flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/60 text-pink-600 border border-pink-100 dark:border-pink-900/50 flex items-center justify-center shrink-0">
               <Target className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
                 {avgAccuracy}%
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-500 font-bold mt-1">
                 Average Accuracy
               </div>
             </div>
           </div>
 
           {/* Card 3: Best Score */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-4.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 border border-purple-100 dark:border-purple-900/50 flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 border border-purple-100 dark:border-purple-900/50 flex items-center justify-center shrink-0">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
                 {bestScoreDisplay}
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-500 font-bold mt-1">
                 Best Score
               </div>
             </div>
           </div>
 
           {/* Card 4: Day Streak */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-4.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center shrink-0">
               <Flame className="w-5 h-5 fill-amber-500/20" />
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
                 {dayStreak}
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-500 font-bold mt-1">
                 Day Streak
               </div>
             </div>
           </div>
 
           {/* Card 5: Current Rank */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-4.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
-            <div className="w-11 h-11 rounded-xl bg-yellow-50 dark:bg-yellow-950/60 text-yellow-600 border border-yellow-100 dark:border-yellow-900/50 flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-3.5 col-span-2 sm:col-span-1">
+            <div className="w-11 h-11 rounded-2xl bg-yellow-50 dark:bg-yellow-950/60 text-yellow-600 border border-yellow-100 dark:border-yellow-900/50 flex items-center justify-center shrink-0">
               <Trophy className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
                 {currentRank > 0 ? `#${currentRank}` : '#-'}
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-500 font-bold mt-1">
                 Current Rank
               </div>
             </div>
           </div>
         </div>
 
-        {/* 5. Horizontal Tab Strip */}
-        <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        {/* 5. Horizontal Pill Tab Strip */}
+        <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -694,30 +756,30 @@ export const Profile: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
                   isActive
-                    ? 'text-[#1e60f2] bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800 font-bold shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-slate-800/50'
+                    ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-[#1e60f2]' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* 6. Tab Content: Overview (Default Exact Screenshot View) */}
+        {/* 6. Tab Content: Overview */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
             {/* Column 1: My Exams (4 Cols) */}
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">My Exams</h3>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">My Exams</h3>
                 <button
                   type="button"
                   onClick={() => setIsExamModalOpen(true)}
-                  className="text-xs font-bold text-[#1e60f2] hover:text-blue-700 transition-colors cursor-pointer"
+                  className="text-xs font-bold text-[#0158FC] hover:text-blue-700 transition-colors cursor-pointer"
                 >
                   Manage
                 </button>
@@ -731,7 +793,7 @@ export const Profile: React.FC = () => {
                       if (exam.originalExam) setSelectedExam(exam.originalExam);
                       setIsExamModalOpen(true);
                     }}
-                    className="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 bg-white dark:bg-slate-900/70 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all flex items-center justify-between cursor-pointer group"
+                    className="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 bg-slate-50/50 dark:bg-slate-900/70 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all flex items-center justify-between cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
@@ -747,7 +809,7 @@ export const Profile: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {exam.isPrimary ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-[#1e60f2] border border-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-[#0158FC] border border-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
                           Primary Exam
                         </span>
                       ) : (
@@ -755,7 +817,7 @@ export const Profile: React.FC = () => {
                           Added
                         </span>
                       )}
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#1e60f2] group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </div>
                 ))}
@@ -765,15 +827,15 @@ export const Profile: React.FC = () => {
             {/* Column 2: Subjects of Interest & Learning Goal (4 Cols) */}
             <div className="lg:col-span-4 space-y-5 sm:space-y-6">
               {/* Subjects of Interest */}
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-3.5">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
                     Subjects of Interest
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsSubjectsModalOpen(true)}
-                    className="text-xs font-bold text-[#1e60f2] hover:text-blue-700 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-[#0158FC] hover:text-blue-700 transition-colors cursor-pointer"
                   >
                     Edit
                   </button>
@@ -786,7 +848,7 @@ export const Profile: React.FC = () => {
                     return (
                       <span
                         key={sub}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border ${style}`}
+                        className={`px-3 py-1 rounded-full text-xs font-bold border ${style}`}
                       >
                         {sub}
                       </span>
@@ -796,9 +858,9 @@ export const Profile: React.FC = () => {
               </div>
 
               {/* Learning Goal */}
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-3.5">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
                     Learning Goal
                   </h3>
                   <button
@@ -807,7 +869,7 @@ export const Profile: React.FC = () => {
                       setGoalInput(extras.learningGoal);
                       setIsGoalModalOpen(true);
                     }}
-                    className="text-xs font-bold text-[#1e60f2] hover:text-blue-700 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-[#0158FC] hover:text-blue-700 transition-colors cursor-pointer"
                   >
                     Edit
                   </button>
@@ -824,16 +886,16 @@ export const Profile: React.FC = () => {
             </div>
 
             {/* Column 3: My Progress This Month (4 Cols) */}
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
                   My Progress This Month
                 </h3>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsTimeframeOpen((prev) => !prev)}
-                    className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 flex items-center gap-1 cursor-pointer"
                   >
                     <span>{extras.selectedTimeframe}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -850,7 +912,7 @@ export const Profile: React.FC = () => {
                           }}
                           className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 ${
                             extras.selectedTimeframe === tf
-                              ? 'text-[#1e60f2] font-bold'
+                              ? 'text-[#0158FC] font-bold'
                               : 'text-slate-600 dark:text-slate-400'
                           }`}
                         >
@@ -880,7 +942,7 @@ export const Profile: React.FC = () => {
                       cx="50"
                       cy="50"
                       r="40"
-                      stroke="#1e60f2"
+                      stroke="#0158FC"
                       strokeWidth="9"
                       strokeDasharray={2 * Math.PI * 40}
                       strokeDashoffset={2 * Math.PI * 40 * (1 - goalProgressPct / 100)}
@@ -893,7 +955,7 @@ export const Profile: React.FC = () => {
                     <span className="text-xl font-black text-slate-900 dark:text-white leading-none">
                       {goalProgressPct}%
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold mt-0.5">
                       Goal Progress
                     </span>
                   </div>
@@ -903,7 +965,7 @@ export const Profile: React.FC = () => {
                 <div className="space-y-2 text-xs flex-1">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                      <span className="w-2 h-2 rounded-full bg-[#0158FC]"></span>
                       Tests Taken
                     </span>
                     <span className="font-extrabold text-slate-900 dark:text-white">{testsCount}</span>
@@ -927,7 +989,7 @@ export const Profile: React.FC = () => {
 
               {/* Motivational Banner */}
               <div className="mt-2 p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-start gap-3">
-                <div className="p-1 rounded-md text-[#1e60f2]">
+                <div className="p-1 rounded-md text-[#0158FC]">
                   <Flag className="w-4 h-4 fill-blue-500/20" />
                 </div>
                 <div>
@@ -945,7 +1007,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 2: Exam Settings */}
         {activeTab === 'exam-settings' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Exam Preferences</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -965,7 +1027,7 @@ export const Profile: React.FC = () => {
                     }}
                     className={`p-4 rounded-2xl text-left border transition-all cursor-pointer flex items-center justify-between ${
                       isSelected
-                        ? 'border-[#1e60f2] bg-blue-50/50 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
+                        ? 'border-[#0158FC] bg-blue-50/50 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
                         : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -974,7 +1036,7 @@ export const Profile: React.FC = () => {
                       <p className="text-xs text-slate-400 capitalize mt-0.5">{exam.category}</p>
                     </div>
                     {isSelected && (
-                      <div className="w-6 h-6 rounded-full bg-[#1e60f2] text-white flex items-center justify-center shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-[#0158FC] text-white flex items-center justify-center shrink-0">
                         <Check className="w-4 h-4 stroke-[3]" />
                       </div>
                     )}
@@ -987,7 +1049,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 3: Preferences */}
         {activeTab === 'preferences' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Portal Preferences</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -998,7 +1060,7 @@ export const Profile: React.FC = () => {
               <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2">
                 <p className="font-bold text-slate-800 dark:text-slate-200">Portal Language</p>
                 <p className="text-slate-500">Official standard exam format</p>
-                <span className="inline-block px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-blue-600 font-bold border border-slate-200 dark:border-slate-700">
+                <span className="inline-block px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-[#0158FC] font-bold border border-slate-200 dark:border-slate-700">
                   Standard Format
                 </span>
               </div>
@@ -1015,7 +1077,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 4: Subscription */}
         {activeTab === 'subscription' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Pro Pass & Billing</h3>
@@ -1026,13 +1088,13 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/subscription')}
-                className="text-xs font-bold text-[#1e60f2] hover:underline"
+                className="text-xs font-bold text-[#0158FC] hover:underline"
               >
                 Plan Details
               </button>
             </div>
             {isPro || subscriptionDetails?.isActive ? (
-              <div className="p-6 rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg space-y-3">
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-[#0B1F44] via-[#0158FC] to-[#0198FD] text-white shadow-lg space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-bold">
                   <Crown className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
                   <span>Pro Pass Active</span>
@@ -1051,7 +1113,7 @@ export const Profile: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/subscription')}
-                  className="px-4 py-2.5 rounded-xl bg-[#1e60f2] hover:bg-blue-700 text-white font-bold text-xs shadow-sm"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:opacity-95 text-white font-bold text-xs shadow-sm"
                 >
                   Upgrade to Pro Pass
                 </button>
@@ -1062,7 +1124,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 5: Achievements */}
         {activeTab === 'achievements' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Earned Badges</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1096,7 +1158,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 6: Activity */}
         {activeTab === 'activity' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Test Activity</h3>
@@ -1105,7 +1167,7 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/results')}
-                className="text-xs font-bold text-[#1e60f2] hover:underline"
+                className="text-xs font-bold text-[#0158FC] hover:underline"
               >
                 View All Results
               </button>
@@ -1132,7 +1194,7 @@ export const Profile: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="font-black text-blue-600 text-sm">{att.score} pts</span>
+                      <span className="font-black text-[#0158FC] text-sm">{att.score} pts</span>
                       <p className="text-[11px] text-slate-500">Accuracy: {att.accuracy || 0}%</p>
                     </div>
                   </div>
@@ -1144,7 +1206,7 @@ export const Profile: React.FC = () => {
 
         {/* Tab 7: Security */}
         {activeTab === 'security' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Account Security</h3>
               <p className="text-xs text-slate-500 mt-0.5">Manage authentication, login sessions, and credentials.</p>
@@ -1157,7 +1219,7 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsPasswordModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-[#1e60f2] shadow-2xs hover:bg-slate-50"
+                className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-[#0158FC] shadow-2xs hover:bg-slate-50"
               >
                 Change Password
               </button>
@@ -1167,13 +1229,13 @@ export const Profile: React.FC = () => {
 
         {/* 7. Account Actions Row */}
         <div className="space-y-3 pt-2">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Account Actions</h3>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Account Actions</h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {/* 1. Edit Profile */}
             <button
               type="button"
               onClick={openEditProfile}
-              className="p-3 rounded-2xl bg-blue-50/60 dark:bg-slate-800/70 hover:bg-blue-100/70 dark:hover:bg-slate-800 text-[#1e60f2] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-blue-100 dark:border-slate-700 transition-colors cursor-pointer"
+              className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-blue-50/70 dark:hover:bg-slate-800 text-[#0158FC] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors cursor-pointer"
             >
               <User className="w-4 h-4" />
               <span>Edit Profile</span>
@@ -1183,7 +1245,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsPasswordModalOpen(true)}
-              className="p-3 rounded-2xl bg-blue-50/60 dark:bg-slate-800/70 hover:bg-blue-100/70 dark:hover:bg-slate-800 text-[#1e60f2] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-blue-100 dark:border-slate-700 transition-colors cursor-pointer"
+              className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-blue-50/70 dark:hover:bg-slate-800 text-[#0158FC] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors cursor-pointer"
             >
               <Lock className="w-4 h-4" />
               <span>Change Password</span>
@@ -1193,7 +1255,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsNotificationModalOpen(true)}
-              className="p-3 rounded-2xl bg-blue-50/60 dark:bg-slate-800/70 hover:bg-blue-100/70 dark:hover:bg-slate-800 text-[#1e60f2] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-blue-100 dark:border-slate-700 transition-colors cursor-pointer"
+              className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-blue-50/70 dark:hover:bg-slate-800 text-[#0158FC] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors cursor-pointer"
             >
               <Bell className="w-4 h-4" />
               <span>Notification Settings</span>
@@ -1203,7 +1265,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={handleDownloadData}
-              className="p-3 rounded-2xl bg-blue-50/60 dark:bg-slate-800/70 hover:bg-blue-100/70 dark:hover:bg-slate-800 text-[#1e60f2] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-blue-100 dark:border-slate-700 transition-colors cursor-pointer"
+              className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 hover:bg-blue-50/70 dark:hover:bg-slate-800 text-[#0158FC] dark:text-blue-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Download My Data</span>
@@ -1213,7 +1275,7 @@ export const Profile: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsLogoutConfirmOpen(true)}
-              className="p-3 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-rose-100 dark:border-rose-900/50 transition-colors cursor-pointer col-span-2 sm:col-span-1"
+              className="p-3.5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-rose-100 dark:border-rose-900/50 transition-colors cursor-pointer col-span-2 sm:col-span-1"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -1221,9 +1283,9 @@ export const Profile: React.FC = () => {
           </div>
 
           {/* Support & Help Desk Section */}
-          <div className="mt-4 p-4 sm:p-5 rounded-2xl border border-blue-100 dark:border-slate-800 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50 dark:from-slate-850 dark:via-slate-800 dark:to-slate-850 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="mt-4 p-4 sm:p-5 rounded-3xl border border-blue-100 dark:border-slate-800 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50 dark:from-slate-900 dark:via-slate-800/80 dark:to-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0158FC] to-[#0198FD] text-white flex items-center justify-center shrink-0 shadow-sm">
                 <LifeBuoy className="w-5 h-5" />
               </div>
               <div>
@@ -1310,7 +1372,7 @@ export const Profile: React.FC = () => {
                   alt="Candidate preview"
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-300"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/student_avatar.png';
+                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
                   }}
                 />
                 <div className="flex-1 min-w-0">

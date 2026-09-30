@@ -48,13 +48,11 @@ export const Navbar: React.FC = () => {
           className="flex items-center gap-2 sm:gap-2.5 group shrink-0"
           aria-label="PracticeKoro home"
         >
-          <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-pk-primary to-pk-primary-bright flex items-center justify-center shadow-md shadow-pk-primary/25 group-hover:scale-105 transition-transform">
-            <img
-              src="/logo-icon-transparent.png"
-              alt="PracticeKoro"
-              className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-            />
-          </span>
+          <img
+            src="/logo-icon-circle.png"
+            alt="PracticeKoro"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain transition-transform group-hover:scale-105"
+          />
           <span className="font-black text-lg sm:text-2xl text-pk-navy dark:text-white tracking-tight flex items-center">
             Practice<span className="text-pk-primary">Koro</span>
           </span>

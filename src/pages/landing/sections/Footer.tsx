@@ -50,13 +50,11 @@ export const Footer: React.FC = () => {
           {/* Brand */}
           <div className="col-span-2 md:col-span-5 space-y-4">
             <Link to="/" className="inline-flex items-center gap-2.5 group">
-              <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
-                <img
-                  src="/logo-icon-transparent.png"
-                  alt="PracticeKoro"
-                  className="w-6 h-6 object-contain"
-                />
-              </span>
+              <img
+                src="/logo-icon-circle.png"
+                alt="PracticeKoro"
+                className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105"
+              />
               <span className="font-black text-xl text-slate-900 tracking-tight">
                 Practice<span className="text-blue-600 dark:text-blue-400">Koro</span>
               </span>

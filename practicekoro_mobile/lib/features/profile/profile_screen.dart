@@ -123,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         LocalStorageService.getLeaderboardDistrict() ?? 'West Bengal';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F9FF),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -135,36 +135,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'My ',
-                              style: TextStyle(color: Color(0xFF0F172A)),
-                            ),
-                            TextSpan(
-                              text: 'Profile',
-                              style: TextStyle(color: Color(0xFF0158FC)),
-                            ),
-                          ],
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF0158FC,
+                            ).withValues(alpha: 0.18),
+                          ),
                         ),
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/images/logo-circle.png',
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.person_rounded,
+                              size: 20,
+                              color: Color(0xFF0158FC),
+                            ),
+                          ),
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Manage your account & track your progress.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      const SizedBox(width: 10),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'My ',
+                                  style: TextStyle(color: Color(0xFF0F172A)),
+                                ),
+                                TextSpan(
+                                  text: 'Profile',
+                                  style: TextStyle(color: Color(0xFF0158FC)),
+                                ),
+                              ],
+                            ),
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          SizedBox(height: 1),
+                          Text(
+                            'Manage your account & track your progress.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -186,9 +216,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
-                  // 1. White Hero Profile Card (Matches Website Profile.tsx Section 3)
+                  // 1. Stitch 2.0 Hero Profile Card with Navy-to-Electric-Blue Candidate Identity Header
                   Container(
-                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -196,50 +225,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: const Color(
-                            0xFF0F172A,
-                          ).withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
+                            0xFF0B1F44,
+                          ).withValues(alpha: 0.04),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 68,
-                              height: 68,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFFDBEAFE),
-                                  width: 2.5,
-                                ),
+                        // Top Candidate Identity Strip (#0B1F44 -> #0158FC -> #0198FD)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0xFF0B1F44),
+                                Color(0xFF0158FC),
+                                Color(0xFF0198FD),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.asset(
+                                      'assets/images/logo-circle.png',
+                                      width: 20,
+                                      height: 20,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.verified_user_rounded,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  const Text(
+                                    'CANDIDATE IDENTITY 2.0',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/student_avatar_hd.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.person_rounded,
-                                    size: 32,
-                                    color: Color(0xFF0158FC),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _isPro
+                                      ? const Color(0xFFFEF3C7)
+                                      : Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _isPro ? '👑 Pro Pass' : '⭐ Free Plan',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: _isPro
+                                        ? const Color(0xFFD97706)
+                                        : Colors.white,
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
+                                  Container(
+                                    width: 68,
+                                    height: 68,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFDBEAFE),
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(17.5),
+                                      child: Image.asset(
+                                        'assets/images/student_avatar_hd.png',
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Icon(
+                                          Icons.person_rounded,
+                                          size: 32,
+                                          color: Color(0xFF0158FC),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
                                           _userName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -249,89 +356,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             color: Color(0xFF0F172A),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _isPro
-                                              ? const Color(0xFFFEF3C7)
-                                              : const Color(0xFFEFF6FF),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _isPro ? '👑 Pro Pass' : '⭐ Free Plan',
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Aspirant | Keep Learning Keep Growing 🌱',
                                           style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800,
-                                            color: _isPro
-                                                ? const Color(0xFFD97706)
-                                                : const Color(0xFF0158FC),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF475569),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Aspirant | Keep Learning Keep Growing 🌱',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF475569),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 4,
-                                    children: [
-                                      if (_userEmail.isNotEmpty)
-                                        _buildMetaTag(
-                                          Icons.mail_outline_rounded,
-                                          _userEmail,
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 10,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (_userEmail.isNotEmpty)
+                                              _buildMetaTag(
+                                                Icons.mail_outline_rounded,
+                                                _userEmail,
+                                              ),
+                                            _buildMetaTag(
+                                              Icons.location_on_outlined,
+                                              '$district, WB',
+                                            ),
+                                          ],
                                         ),
-                                      _buildMetaTag(
-                                        Icons.location_on_outlined,
-                                        '$district, WB',
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        const SizedBox(height: 10),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '"Discipline today creates success tomorrow."',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontStyle: FontStyle.italic,
-                                  color: Color(0xFF64748B),
-                                ),
+                              const SizedBox(height: 14),
+                              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                              const SizedBox(height: 10),
+                              const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '"Discipline today creates success tomorrow."',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontStyle: FontStyle.italic,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '— PracticeKoro',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            Text(
-                              '— PracticeKoro',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),

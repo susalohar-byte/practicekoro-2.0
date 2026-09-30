@@ -97,15 +97,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <div className="relative">
                 {/* Concentric ambient radar pulse ring */}
                 <div className="absolute -inset-2 rounded-3xl border border-white/25 animate-pulse-ring pointer-events-none" />
-                <div className="w-24 h-24 rounded-3xl bg-white/15 backdrop-blur-xl border border-white/30 flex items-center justify-center shadow-2xl p-4 animate-float hover:scale-110 hover:rotate-2 transition-all duration-300 cursor-pointer relative overflow-hidden group">
-                  {/* Sliding reflective shine across the logo container */}
-                  <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/35 to-transparent animate-shine pointer-events-none" />
-                  <img
-                    src="/logo-icon-transparent.png"
-                    alt="PracticeKoro"
-                    className="w-16 h-16 object-contain filter drop-shadow-lg group-hover:scale-105 transition-transform"
-                  />
-                </div>
+                <img
+                  src="/logo-icon-circle.png"
+                  alt="PracticeKoro"
+                  className="w-24 h-24 rounded-3xl object-contain filter drop-shadow-lg animate-float hover:scale-110 hover:rotate-2 transition-all duration-300 cursor-pointer"
+                />
                 {/* Rotating Sparkle Star */}
                 <Sparkles className="w-6 h-6 text-amber-300 absolute -top-2.5 -right-2.5 animate-spin-slow drop-shadow-md" />
                 <Star className="w-4 h-4 text-sky-200 fill-sky-200 absolute -bottom-1 -left-2 animate-pulse drop-shadow" />
@@ -462,4 +458,3 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     </div>
   );
 };
-

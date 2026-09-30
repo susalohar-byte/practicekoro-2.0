@@ -62,7 +62,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
   const navSections: NavSection[] = [
     {
-      title: 'LEARNING',
+      title: 'STUDENT MENU',
       items: [
         { label: 'Home', path: '/dashboard', icon: Home },
         {
@@ -76,15 +76,24 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
           label: 'Practice',
           path: '/practice',
           icon: Zap,
-          badge: 'Drills',
+          badge: 'Smart',
           badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+        },
+        {
+          label: 'Results',
+          path: '/results',
+          icon: BarChart3,
+        },
+        {
+          label: 'Profile',
+          path: '/profile',
+          icon: User,
         },
       ],
     },
     {
-      title: 'ANALYTICS',
+      title: 'QUICK ACCESS',
       items: [
-        { label: 'Results', path: '/results', icon: BarChart3 },
         { label: 'Saved Questions', path: '/saved-questions', icon: Bookmark },
         {
           label: 'Rank',
@@ -93,11 +102,8 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
           badge: 'AIR',
           badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
         },
+        { label: 'Help & Support', path: '/support', icon: HelpCircle },
       ],
-    },
-    {
-      title: 'SUPPORT',
-      items: [{ label: 'Help & Support', path: '/support', icon: HelpCircle }],
     },
   ];
 
@@ -121,6 +127,9 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
     if (path === '/practice') {
       return location.pathname.startsWith('/practice') && !location.search.includes('tab=bookmarks');
     }
+    if (path === '/profile') {
+      return location.pathname.startsWith('/profile') || location.pathname.startsWith('/settings');
+    }
     return location.pathname.startsWith(path);
   };
 
@@ -138,7 +147,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
       {/* Sidebar Container */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out select-none shadow-sm',
+          'fixed inset-y-0 left-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out select-none shadow-[4px_0_24px_-12px_rgba(1,88,252,0.08)]',
           'lg:sticky lg:top-0 lg:h-screen lg:transform-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           isCollapsed ? 'lg:w-20' : 'lg:w-64',
@@ -161,20 +170,28 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               whileHover={{ scale: 1.05, rotate: -2 }}
               whileTap={{ scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0158FC] to-[#0047cc] flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0"
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20 ring-1 ring-blue-500/15 overflow-hidden bg-gradient-to-br from-[#0198FD] to-[#0158FC]"
             >
               <img
-                src="/logo-icon-transparent.png"
+                src="/logo-icon.png"
                 alt="PracticeKoro"
-                className="w-6 h-6 object-contain"
+                className="w-full h-full rounded-xl object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = '/logo-icon-circle.png';
+                }}
               />
             </motion.div>
             <div className={cn('flex flex-col min-w-0', isCollapsed && 'lg:hidden')}>
-              <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight leading-none">
-                Practice<span className="text-[#0158FC]">Koro</span>
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mt-1">
-                Practice Today, Progress Tomorrow.
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight leading-none">
+                  Practice<span className="text-[#0158FC]">Koro</span>
+                </span>
+                <span className="px-1.5 py-0.5 text-[9px] font-black bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white rounded-md uppercase tracking-wider shadow-2xs">
+                  2.0
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold leading-none mt-1">
+                Smart Exam Prep Portal
               </span>
             </div>
           </Link>
@@ -251,7 +268,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                           {active && (
                             <motion.div
                               layoutId="studentNavActivePill"
-                              className="absolute inset-0 bg-[#0158FC] rounded-xl shadow-md shadow-blue-500/25 z-0"
+                              className="absolute inset-0 bg-gradient-to-r from-[#0158FC] to-[#0198FD] rounded-xl shadow-md shadow-blue-500/25 z-0"
                               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                             />
                           )}

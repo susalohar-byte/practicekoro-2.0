@@ -65,11 +65,21 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   @override
   Widget build(BuildContext context) {
     final attempts = LocalStorageService.getAttempts();
+    final totalCorrect = attempts.fold<int>(0, (sum, a) => sum + a.correctCount);
     final totalWrong = attempts.fold<int>(0, (sum, a) => sum + a.wrongCount);
+    final questionsPracticed = totalCorrect + totalWrong;
+    final avgAccuracyPct = attempts.isEmpty
+        ? 0
+        : (attempts.fold<double>(0, (s, a) => s + a.accuracy) / attempts.length)
+              .round();
+    final streakDays = attempts
+        .map((a) => a.completedAt.toIso8601String().substring(0, 10))
+        .toSet()
+        .length;
     final bookmarksCount = LocalStorageService.getBookmarks().length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F9FF),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -79,26 +89,104 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
               width: double.infinity,
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Practice',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.5,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF0158FC,
+                            ).withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/images/logo-circle.png',
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.menu_book_rounded,
+                              size: 20,
+                              color: Color(0xFF0158FC),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Practice',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          SizedBox(height: 1),
+                          Text(
+                            'Topic-wise questions, PYQs & smart revision.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Strengthen your concepts with topic-wise questions & PYQs.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
+                        ),
+                        child: Text(
+                          '$totalWrong Mistakes',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE11D48),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Text(
+                          '$bookmarksCount Saved',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0158FC),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -110,7 +198,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
-                  // 1. Light Blue Hero Banner ("Practice Smarter" - Matches Website Practice.tsx)
+                  // 1. Stitch Navy-to-Electric-Blue Hero Banner ("Practice Smarter" - Matches Website Practice.tsx)
                   _buildPracticeSmarterHero(),
                   const SizedBox(height: 22),
 
@@ -119,7 +207,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                     'Choose what you want to practice',
                     style: TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                       color: Color(0xFF0F172A),
                       letterSpacing: -0.3,
                     ),
@@ -140,7 +228,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                           'Select Exam & Subject',
                           style: TextStyle(
                             fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                             color: Color(0xFF0F172A),
                             letterSpacing: -0.3,
                           ),
@@ -301,6 +389,15 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                       );
                     }),
                   ],
+
+                  const SizedBox(height: 24),
+                  // 4. Your Practice Activity 2x2 Bento Card (Synced with Database/Attempts)
+                  _buildPracticeActivityCard(
+                    questionsPracticed: questionsPracticed,
+                    accuracyPct: avgAccuracyPct,
+                    subjectsCount: _subjects.length,
+                    streakDays: streakDays,
+                  ),
                 ],
               ),
             ),
@@ -311,7 +408,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   }
 
   // ===========================================================================
-  // 1. PRACTICE SMARTER HERO BANNER (Matches Website Practice.tsx)
+  // 1. PRACTICE SMARTER HERO BANNER (Matches Website Practice.tsx Stitch 2.0)
   // ===========================================================================
   Widget _buildPracticeSmarterHero() {
     const pills = [
@@ -326,22 +423,57 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFE8F4FF), Color(0xFFEEF7FF), Color(0xFFDFF0FF)],
+          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFCCE4FB)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0158FC).withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 13,
+                  color: Color(0xFFFCD34D),
+                ),
+                SizedBox(width: 5),
+                Text(
+                  'DAILY REVISION & TOPIC MASTERY',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           const Text(
             'Practice Smarter',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
+              color: Colors.white,
               letterSpacing: -0.5,
             ),
           ),
@@ -350,7 +482,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
             'Strengthen your concepts with topic-wise questions, previous year papers, and smart revision tools.',
             style: TextStyle(
               fontSize: 12.5,
-              color: Color(0xFF475569),
+              color: Color(0xFFDBEAFE),
               height: 1.4,
             ),
           ),
@@ -365,9 +497,11 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -375,15 +509,15 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                     Icon(
                       p['icon'] as IconData,
                       size: 13.5,
-                      color: const Color(0xFF0158FC),
+                      color: const Color(0xFFFCD34D),
                     ),
                     const SizedBox(width: 5),
                     Text(
                       p['label'] as String,
                       style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -452,7 +586,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     ];
 
     return SizedBox(
-      height: 112,
+      height: 116,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: modes.length,
@@ -462,24 +596,26 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
           final isActive = m['active'] as bool;
           return InkWell(
             onTap: m['onTap'] as VoidCallback,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              width: 158,
+              width: 162,
               padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isActive
                       ? const Color(0xFF0158FC)
                       : const Color(0xFFE2E8F0),
-                  width: isActive ? 1.5 : 1,
+                  width: isActive ? 1.8 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: isActive
+                        ? const Color(0xFF0158FC).withValues(alpha: 0.12)
+                        : const Color(0xFF0F172A).withValues(alpha: 0.025),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -492,7 +628,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                     height: 38,
                     decoration: BoxDecoration(
                       color: m['bg'] as Color,
-                      borderRadius: BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
@@ -521,6 +657,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF64748B),
                         ),
                       ),
@@ -542,14 +679,19 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0158FC) : Colors.transparent,
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFF0158FC), Color(0xFF0198FD)],
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 11.5,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: isSelected ? Colors.white : const Color(0xFF64748B),
           ),
         ),
@@ -562,7 +704,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   // ===========================================================================
   Widget _buildSubjectGrid() {
     const colors = [
-      Color(0xFF2563EB),
+      Color(0xFF0158FC),
       Color(0xFFF43F5E),
       Color(0xFF10B981),
       Color(0xFF9333EA),
@@ -644,7 +786,6 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   ),
                 ),
                 const Spacer(),
-                const Spacer(),
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -668,6 +809,152 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
           ),
         );
       },
+    );
+  }
+
+  // ===========================================================================
+  // 4. YOUR PRACTICE ACTIVITY (Matches Website Practice.tsx Section 5)
+  // ===========================================================================
+  Widget _buildPracticeActivityCard({
+    required int questionsPracticed,
+    required int accuracyPct,
+    required int subjectsCount,
+    required int streakDays,
+  }) {
+    final stats = [
+      {
+        'value': '$questionsPracticed',
+        'label': 'Questions Practiced',
+        'icon': Icons.description_outlined,
+        'bg': const Color(0xFFEFF6FF),
+        'fg': const Color(0xFF0158FC),
+      },
+      {
+        'value': '$accuracyPct%',
+        'label': 'Accuracy',
+        'icon': Icons.check_circle_outline_rounded,
+        'bg': const Color(0xFFECFDF5),
+        'fg': const Color(0xFF059669),
+      },
+      {
+        'value': '$subjectsCount',
+        'label': 'Subjects Active',
+        'icon': Icons.layers_outlined,
+        'bg': const Color(0xFFF5F3FF),
+        'fg': const Color(0xFF7C3AED),
+      },
+      {
+        'value': '$streakDays',
+        'label': 'Day Streak',
+        'icon': Icons.local_fire_department_rounded,
+        'bg': const Color(0xFFFFFBEB),
+        'fg': const Color(0xFFD97706),
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.insights_rounded, size: 18, color: Color(0xFF0158FC)),
+              SizedBox(width: 8),
+              Text(
+                'Your Practice Activity',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: stats.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              mainAxisExtent: 74,
+            ),
+            itemBuilder: (context, idx) {
+              final s = stats[idx];
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: s['bg'] as Color,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        s['icon'] as IconData,
+                        color: s['fg'] as Color,
+                        size: 19,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s['value'] as String,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            s['label'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

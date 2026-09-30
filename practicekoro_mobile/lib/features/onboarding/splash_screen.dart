@@ -124,36 +124,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           ),
                         );
                       },
-                      child: Container(
-                        width: 104,
-                        height: 104,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(26),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
-                              blurRadius: 30,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 10),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              width: 82,
-                              height: 82,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'assets/images/logo-circle.png',
+                          width: 104,
+                          height: 104,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),

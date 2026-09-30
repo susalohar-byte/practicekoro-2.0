@@ -1,0 +1,546 @@
+Title: Live Content
+
+Description: Fetched live
+
+Source: https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzAwMDY1Y2ExZGQxODgwNjEwNTNiNzRiZTEyMjZkMTAwEgsSBxD_s_6x5REYAZIBIwoKcHJvamVjdF9pZBIVQhM0OTgzNTM5MTAyOTYzNDI2MzMz&filename=&opi=89354086
+
+---
+
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="mobile_tab" name="shell-type"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body {
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overscroll-behavior-y: none;
+        min-height: max(884px, 100dvh);
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 16px);
+      }
+      .pt-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+      }
+      main > :first-child {
+        margin-top: 0 !important;
+      }
+      main > :last-child {
+        margin-bottom: 0 !important;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary-fixed": "#dfe0ff",
+            "primary": "#0c22c0",
+            "tertiary-container": "#7a4c00",
+            "tertiary-fixed": "#ffddb8",
+            "on-surface-variant": "#454655",
+            "on-secondary": "#ffffff",
+            "surface": "#faf8ff",
+            "on-error-container": "#93000a",
+            "on-secondary-container": "#fffbff",
+            "on-primary-fixed-variant": "#1b2dc7",
+            "background": "#faf8ff",
+            "outline-variant": "#c5c5d7",
+            "on-tertiary-fixed-variant": "#653e00",
+            "surface-tint": "#3a4bde",
+            "tertiary": "#5b3700",
+            "tertiary-fixed-dim": "#ffb95f",
+            "on-background": "#131b2e",
+            "surface-container": "#eaedff",
+            "on-error": "#ffffff",
+            "on-surface": "#131b2e",
+            "inverse-on-surface": "#eef0ff",
+            "on-tertiary-fixed": "#2a1700",
+            "error": "#ba1a1a",
+            "inverse-surface": "#283044",
+            "on-secondary-fixed-variant": "#2f2ebe",
+            "secondary": "#4648d4",
+            "secondary-fixed": "#e1e0ff",
+            "surface-container-low": "#f2f3ff",
+            "secondary-fixed-dim": "#c0c1ff",
+            "error-container": "#ffdad6",
+            "on-tertiary-container": "#ffc174",
+            "surface-container-highest": "#dae2fd",
+            "on-secondary-fixed": "#07006c",
+            "on-primary-fixed": "#000965",
+            "on-primary": "#ffffff",
+            "primary-fixed-dim": "#bdc2ff",
+            "on-tertiary": "#ffffff",
+            "primary-container": "#3142d6",
+            "outline": "#757686",
+            "surface-container-high": "#e2e7ff",
+            "inverse-primary": "#bdc2ff",
+            "surface-variant": "#dae2fd",
+            "surface-bright": "#faf8ff",
+            "surface-dim": "#d2d9f4",
+            "on-primary-container": "#c4c9ff",
+            "secondary-container": "#6063ee",
+            "surface-container-lowest": "#ffffff"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-sm": "0.5rem",
+            "space-xl": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1.5rem",
+            "space-xs": "0.25rem",
+            "gutter-mobile": "0.75rem",
+            "space-md": "1rem",
+            "gutter": "1rem",
+            "margin-mobile": "1rem"
+          },
+          fontFamily: {
+            "headline-xl": ["Inter"],
+            "headline-sm": ["Inter"],
+            "label-md": ["Inter"],
+            "label-sm": ["Inter"],
+            "label-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          fontSize: {
+            "headline-xl": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+            "label-sm": ["10px", { "lineHeight": "12px", "fontWeight": "700" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased flex flex-col min-h-screen selection:bg-primary-fixed">
+<!-- TOP APP BAR & BRAND BAR -->
+<header class="fixed top-0 w-full z-50 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_2px_12px_rgba(20,30,80,0.04)]">
+<div class="h-16 px-margin-mobile flex items-center justify-between gap-space-sm">
+<!-- Brand Identification -->
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-primary/20 shrink-0 bg-surface-container flex items-center justify-center">
+<img alt="ExamPrep PRO Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WXjYT4G6-IBPzotKrlyhaWjXvGbwFtg1g996aKR0PvHBcSACjqcFSG25uRjKw0w8UxFGh80bNXubB4kkWBYWGnABVzkpCnI81XnUOvANCVwU9bOYM2IDoHPudSEx07s_md8DVOfL8y16LCKKD7P3AHtBT14poIMZhLb6fDrQVedkbjOvmYOiRurCFKv7CJ3melCBqHTTJjosmVOZ3pZOyHFcoQm1Mkfvcyo43YqqXhMn9U-9JZusHCdNc"/>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1">
+<span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">Exam<span class="text-primary">Prep</span></span>
+<span class="bg-primary-container text-on-primary font-label-sm text-label-sm px-1.5 py-0.5 rounded-full uppercase tracking-wider">PRO</span>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant leading-tight mt-0.5">
+            Premier Mock Portal
+          </span>
+</div>
+</div>
+<!-- Top Actions (Streak, Notification, Avatar) -->
+<div class="flex items-center gap-space-xs">
+<!-- Streak Pill -->
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-700 shadow-sm">
+<span class="text-[14px] leading-none">🔥</span>
+<span class="font-label-md text-label-md font-bold text-amber-900 leading-none">5 Days</span>
+</div>
+<!-- Notification Bell -->
+<button aria-label="Notifications" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors relative">
+<span class="material-symbols-outlined text-[22px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-surface"></span>
+</button>
+<!-- User Avatar / Profile Shortcut -->
+<a aria-label="My Profile" class="w-9 h-9 rounded-full overflow-hidden ring-2 ring-primary-fixed ml-0.5 active:scale-95 transition-transform" data-path="student-profile" href="#">
+<img alt="Student Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCW0e62sDDn8lF2_VzNtHW_4TRc5flhg_rzAi8TavLDiJOzR5-6XNxhZIC1EhcKlffCzPaFsEvXg_xPhhXYpBMoiGNlEHn5IrN87UrmjiK3mwEXRkX9M6-DrA2dyiTkRCoJeKvUSL9EXpSSIrz-SwtXpTDNzusabQMF_WiP7-LcdXmwml0Hyw_4A7yFyKIAxYXk1ZfATTkRiMayH1K0B7WiJX-lm72BsJuX4zrMMT9TwmcppFQWWf0F"/>
+</a>
+</div>
+</div>
+</header>
+<!-- MAIN SCROLLABLE CONTENT -->
+<main class="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-background">
+<div class="flex flex-col w-full pb-8">
+<script>
+    (function activateProfileTab() {
+      const bottomNavLinks = document.querySelectorAll('nav[data-active-classes] a');
+      if (bottomNavLinks.length >= 5) {
+        bottomNavLinks.forEach((link, idx) => {
+          const pill = link.querySelector('.tab-pill');
+          const icon = link.querySelector('span.material-symbols-outlined');
+          if (idx === 4) {
+            link.classList.remove('text-on-surface-variant');
+            link.classList.add('text-primary', 'font-bold');
+            if (pill) pill.classList.add('bg-primary/10');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+          } else {
+            link.classList.remove('text-primary', 'font-bold');
+            link.classList.add('text-on-surface-variant');
+            if (pill) pill.classList.remove('bg-primary/10');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+          }
+        });
+      }
+    })();
+  </script>
+<div class="px-margin-mobile flex flex-col gap-space-lg pt-4">
+<!-- USER PROFILE HEADER -->
+<section class="flex flex-col items-center text-center relative">
+<div class="relative mb-3">
+<div class="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary via-secondary to-tertiary-fixed shadow-md">
+<div class="w-full h-full rounded-full overflow-hidden bg-surface-container-lowest">
+<img alt="Ananya Mukherjee" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VQGTNu3hOkDVAyGCAt4Ak-hxWkwrk5qEG9jQy8WmUA_XKjZ-ICIC9ma4ygzaasPDZ1_-Hi2EYGBjiNXVhCBYMv4PNaHVQ85sfX6w7NfJE-O7IIX3VKWlub9F2XrtvPeKaqItr03ng3fWqBjs0zu6vAiotkpcXnGUijNnJZqHWlAq5Jaw3x1pxjA19Fexb2l-UIpfM3BG9ZB325UZ06TQjv6WRAGDKUbnxnzwGS07ZWguKJHUvhHLx5Gd8"/>
+</div>
+</div>
+<button aria-label="Edit Profile Picture" class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-on-primary shadow-md flex items-center justify-center active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+<div class="flex flex-col items-center">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Ananya Mukherjee</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">Aspirant • SSC CGL 2025 &amp; WBCS</p>
+<!-- Profile Badges -->
+<div class="flex flex-wrap items-center justify-center gap-space-xs mt-3">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-tertiary-fixed to-amber-500/30 text-tertiary shadow-sm font-label-md text-label-md">
+<span>PRO Member 🌟</span>
+</span>
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container text-primary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+<span>Level 7 Exam Strategist</span>
+</span>
+</div>
+</div>
+<!-- Quick Stat Counter Banner -->
+<div class="w-full mt-5 bg-surface-container-lowest rounded-xl p-3 shadow-sm grid grid-cols-3 gap-2">
+<div class="flex flex-col items-center justify-center py-1">
+<span class="font-headline-sm text-headline-sm text-primary">18</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-center leading-tight mt-0.5">Mocks Taken</span>
+</div>
+<div class="flex flex-col items-center justify-center py-1 bg-surface-container-low/50 rounded-lg">
+<span class="font-headline-sm text-headline-sm text-secondary">1,420</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-center leading-tight mt-0.5">Qs Solved</span>
+</div>
+<div class="flex flex-col items-center justify-center py-1">
+<div class="flex items-center gap-1">
+<span class="font-headline-sm text-headline-sm text-tertiary">14</span>
+<span class="text-[14px]">🔥</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-center leading-tight mt-0.5">Study Streak</span>
+</div>
+</div>
+</section>
+<!-- SUBSCRIPTION & MEMBERSHIP CARD -->
+<section class="w-full">
+<div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary via-primary-container to-secondary p-5 text-on-primary shadow-md">
+<!-- Background decorative ambient circles -->
+<div class="absolute -right-12 -top-12 w-36 h-36 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+<div class="absolute -left-10 -bottom-10 w-28 h-28 rounded-full bg-tertiary-fixed/20 blur-lg pointer-events-none"></div>
+<div class="relative flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px] text-on-primary" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</span>
+<span class="font-headline-sm text-headline-sm text-on-primary">ExamPrep PRO Pass</span>
+</div>
+<span class="font-label-sm text-label-sm px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed uppercase font-bold tracking-wider">
+              Active
+            </span>
+</div>
+<div class="flex items-center gap-1.5 text-on-primary/90 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>Valid till: Dec 20, 2025 (284 days left)</span>
+</div>
+<div class="flex flex-col gap-2 pt-1 pb-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed shrink-0">check_circle</span>
+<span class="font-body-md text-body-md text-on-primary">Unlimited Mocks with Instant All-India Rank</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed shrink-0">check_circle</span>
+<span class="font-body-md text-body-md text-on-primary">AI Performance Analytics &amp; Weak Topic Fixer</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed shrink-0">check_circle</span>
+<span class="font-body-md text-body-md text-on-primary">All 2018–2024 PYQs Unlocked with Video Solutions</span>
+</div>
+</div>
+<button class="w-full mt-2 h-11 rounded-lg bg-surface-container-lowest text-primary font-label-lg text-label-lg flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform" type="button">
+<span>Manage Subscription / Renew</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- STUDY PREFERENCES & TARGET GOALS -->
+<section class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between px-1">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Target Goals &amp; Study Habits</h2>
+<button class="text-primary font-label-md text-label-md flex items-center gap-0.5 hover:underline" type="button">
+<span>Edit Goals</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-space-md">
+<!-- Target Exams -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">target</span>
+            Target Exams
+          </span>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 rounded-lg bg-primary-fixed text-on-primary-fixed-variant font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">school</span>
+              SSC CGL 2025 (Tier I &amp; II)
+            </span>
+<span class="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">account_balance</span>
+              WBCS Executive 2025
+            </span>
+</div>
+</div>
+<!-- Language Preference -->
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined text-[20px]">translate</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant">Language Preference</span>
+<span class="font-body-md text-body-md text-on-surface font-medium">Bilingual (English &amp; Bengali)</span>
+</div>
+</div>
+<button class="w-8 h-8 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center active:scale-95" type="button">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+</button>
+</div>
+<!-- Daily Study Goal -->
+<div class="flex flex-col gap-2 pt-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary">pace</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Daily Study Goal</span>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold">25 / 30 Questions</span>
+</div>
+<!-- Progress bar -->
+<div class="w-full h-2.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style="width: 83.3%;"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-right">5 more questions to lock in today's streak!</span>
+</div>
+</div>
+</section>
+<!-- QUICK ACCESS MENU LIST -->
+<section class="flex flex-col gap-space-sm">
+<h2 class="font-headline-sm text-headline-sm text-on-surface px-1">Study Vault &amp; Tools</h2>
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- Bookmarked Questions -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-primary-fixed/60 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">bookmarks</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">My Bookmarked Questions &amp; Solutions</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Tricky reasoning &amp; quant formulas</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-label-sm text-label-sm">42 items</span>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">chevron_right</span>
+</div>
+</a>
+<!-- Offline Tests & PDFs -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-secondary-fixed/60 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">download_for_offline</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Download Offline Tests &amp; PDF Solutions</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Attempt without active internet</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">5 downloaded</span>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">chevron_right</span>
+</div>
+</a>
+<!-- Exam Notifications & Admit Card Tracker -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-error-container/50 text-error flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">campaign</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Exam Notifications &amp; Admit Card Tracker</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Official state &amp; central updates</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="px-2 py-0.5 rounded-full bg-error text-on-error font-label-sm text-label-sm">2 New</span>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">chevron_right</span>
+</div>
+</a>
+<!-- Study Reminders & Alarms -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed/60 text-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">alarm</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Study Reminders &amp; Mock Test Alarms</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Set daily mock schedules &amp; alerts</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[20px] shrink-0">chevron_right</span>
+</a>
+<!-- Display Settings -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">palette</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Night Mode / Display Settings</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Font scaling, paper contrast &amp; dark mode</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[20px] shrink-0">chevron_right</span>
+</a>
+<!-- Help & Mentor Support -->
+<a class="flex items-center justify-between p-3.5 hover:bg-surface-container-low transition-colors active:bg-surface-container" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">contact_support</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Help, FAQs &amp; Mentor Support</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Ask doubts to subject experts</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[20px] shrink-0">chevron_right</span>
+</a>
+<!-- Refer a Friend -->
+<a class="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:bg-amber-500/15 transition-colors" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">card_giftcard</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold truncate">Refer a Friend &amp; Earn</span>
+<span class="font-body-sm text-body-sm text-tertiary font-medium truncate">Get 1 Month Free Pass on their sign-up</span>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[20px]">chevron_right</span>
+</div>
+</a>
+</div>
+</section>
+<!-- ACCOUNT & SECURITY SECTION -->
+<section class="flex flex-col gap-space-sm mb-4">
+<h2 class="font-headline-sm text-headline-sm text-on-surface px-1">Account &amp; Security</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-3">
+<!-- Contact details -->
+<div class="flex flex-col gap-2.5">
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">phone</span>
+<span class="font-label-md text-label-md">Phone Number</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-medium">+91 98765 *****</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+<span class="font-label-md text-label-md">Email Address</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-medium">ananya.m***@gmail.com</span>
+</div>
+</div>
+<div class="w-full h-px bg-surface-container mt-1"></div>
+<!-- Logout Action Button -->
+<button class="w-full mt-1 h-11 rounded-lg bg-error-container/40 text-error font-label-lg text-label-lg flex items-center justify-center gap-2 hover:bg-error-container/60 active:scale-[0.98] transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span>Log Out</span>
+</button>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center mt-1">
+          ExamPrep PRO v4.8.2 • App ID: EXP-88942
+        </p>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- 5-TAB PERSISTENT BOTTOM NAVIGATION -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/40 pb-safe shadow-[0_-4px_20px_rgba(20,30,80,0.06)]" data-active-classes="text-primary font-bold [&amp;_span.material-symbols-outlined]:[font-variation-settings:'FILL'_1] [&amp;_.tab-pill]:bg-primary/10">
+<div class="max-w-md mx-auto flex items-center justify-around h-16 px-1">
+<!-- Tab 1: Home -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="examprep---redesigned-premium-home-&amp;-popular-test-series" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">home</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Home</span>
+</a>
+<!-- Tab 2: Test Series -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="test-series-catalog" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">layers</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Test Series</span>
+</a>
+<!-- Tab 3: Practice -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="practice-&amp;-question-bank" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">auto_stories</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Practice</span>
+</a>
+<!-- Tab 4: Performance -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="performance-&amp;-analytics" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">bar_chart</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Performance</span>
+</a>
+<!-- Tab 5: Profile -->
+<a aria-current="page" class="flex flex-col items-center justify-center flex-1 h-full py-1 group transition-colors text-primary font-bold [&amp;_span.material-symbols-outlined]:[font-variation-settings:'FILL'_1] [&amp;_.tab-pill]:bg-primary/10" data-path="student-profile" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">person</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>
+

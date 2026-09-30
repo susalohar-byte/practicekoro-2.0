@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { api } from '@/services/api';
+import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import {
   Filter,
   CheckCircle2,
@@ -28,7 +29,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { TestAttempt } from '@/types';
-import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
 
 /* ───────────────────────── types ───────────────────────── */
 type TestTypeFilter = 'all' | 'mock' | 'topic' | 'pyq' | 'custom';
@@ -111,6 +111,7 @@ export const MyTests: React.FC = () => {
   const { user } = useAuth();
   const { selectedExam } = useExam();
   const navigate = useNavigate();
+  const outletCtx = useOutletContext<{ onToggleMobileSidebar?: () => void } | undefined>() || {};
 
   /* ── state ── */
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
@@ -273,433 +274,470 @@ export const MyTests: React.FC = () => {
 
   /* ═══════════════════════ RENDER ═══════════════════════ */
   return (
-    <div className="pk-reference-page pb-20 font-sans transition-colors">
-      <div className="pk-reference-shell space-y-6">
-        {/* ── 0. PAGE HEADER ── */}
-        <StudentPageHeader title="Results" subtitle="Track Your Progress" />
+    <div className="min-h-screen bg-[#F6F9FF] dark:bg-slate-950 text-slate-800 dark:text-slate-200 pb-24 font-sans transition-colors">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6">
+        {/* Embedded Student Navbar */}
+        <StudentNavbar
+          embedded
+          showSearch={false}
+          onToggleMobileSidebar={outletCtx.onToggleMobileSidebar}
+        />
 
-            {/* ── 1. HERO BANNER ── */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/60 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 shadow-sm dark:shadow-blue-950/10">
-              {/* Decorative blurred circle */}
-              <div className="absolute -top-10 -right-10 w-48 h-48 bg-blue-400/10 dark:bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        {/* ── 0. BREADCRUMB ── */}
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <Link
+            to="/dashboard"
+            className="hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+          >
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-slate-900 dark:text-slate-100 font-bold">Results</span>
+        </div>
 
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
-                {/* Filter pills */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {FILTER_PILLS.map((pill) => (
-                    <button
-                      key={pill.key}
-                      type="button"
-                      onClick={() => {
-                        setTestTypeFilter(pill.key);
-                        setCurrentPage(1);
-                      }}
-                      className={`px-4 py-2 rounded-full text-xs sm:text-[13px] font-bold transition-all duration-200 ${
-                        testTypeFilter === pill.key
-                          ? 'bg-[#0158FC] dark:bg-blue-600 text-white shadow-md shadow-blue-500/25 dark:shadow-blue-800/30 scale-[1.02]'
-                          : 'bg-white/80 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/60 border border-blue-100/60 dark:border-slate-700/60 hover:border-blue-200 dark:hover:border-slate-600'
-                      }`}
-                    >
-                      {pill.label}
-                    </button>
-                  ))}
+        {/* ── 1. HERO BANNER (Stitch Navy-to-Electric-Blue Bento) ── */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B1F44] via-[#0158FC] to-[#0198FD] border border-blue-200/40 dark:border-blue-800/30 p-6 sm:p-7 md:p-8 shadow-xl shadow-blue-600/15 text-white">
+          {/* Ambient glow */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-cyan-400/25 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 left-1/4 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-4 max-w-2xl">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] font-bold uppercase tracking-wider mb-1">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>Performance & Analytics Hub</span>
                 </div>
-
-                {/* Illustration */}
-                <div className="shrink-0 hidden sm:flex justify-end md:pr-1">
-                  <img
-                    src="/images/results_hero_illustration.png"
-                    alt="Analyse, Improve, Succeed"
-                    className="h-24 sm:h-28 md:h-32 object-contain pointer-events-none drop-shadow select-none"
-                  />
-                </div>
+                <h1 className="text-2xl sm:text-3xl md:text-[34px] font-black text-white tracking-tight leading-tight">
+                  Your <span className="text-cyan-300">Results</span> & Analytics
+                </h1>
+                <p className="text-xs sm:text-sm text-blue-100/90 font-medium">
+                  Track your performance, identify strengths, and work on weak areas.
+                </p>
               </div>
-            </div>
 
-            {/* ── 2. METRIC CARDS ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[
-                {
-                  label: 'Tests Attempted',
-                  value: metrics.testsAttempted,
-                  Icon: FileText,
-                  iconBg: 'bg-blue-50 dark:bg-blue-900/30',
-                  iconColor: 'text-[#0158FC] dark:text-blue-400',
-                },
-                {
-                  label: 'Total Questions',
-                  value: metrics.totalQuestions,
-                  Icon: CheckCircle2,
-                  iconBg: 'bg-emerald-50 dark:bg-emerald-900/30',
-                  iconColor: 'text-emerald-600 dark:text-emerald-400',
-                },
-                {
-                  label: 'Avg. Accuracy',
-                  value: `${metrics.avgAccuracy}%`,
-                  Icon: Target,
-                  iconBg: 'bg-rose-50 dark:bg-rose-900/30',
-                  iconColor: 'text-rose-500 dark:text-rose-400',
-                },
-                {
-                  label: 'Best Score',
-                  value: metrics.bestScore,
-                  Icon: BarChart3,
-                  iconBg: 'bg-purple-50 dark:bg-purple-900/30',
-                  iconColor: 'text-purple-600 dark:text-purple-400',
-                },
-                {
-                  label: 'Day Streak',
-                  value: metrics.dayStreak,
-                  Icon: Flame,
-                  iconBg: 'bg-amber-50 dark:bg-amber-900/30',
-                  iconColor: 'text-amber-500 dark:text-amber-400',
-                  extra: 'col-span-2 sm:col-span-1',
-                },
-              ].map((card) => (
-                <div
-                  key={card.label}
-                  className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-slate-900/20 flex items-center gap-3 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-md transition-all duration-200 group ${card.extra || ''}`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl ${card.iconBg} ${card.iconColor} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}
+              {/* Filter pills */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {FILTER_PILLS.map((pill) => (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={() => {
+                      setTestTypeFilter(pill.key);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-4 py-2 rounded-2xl text-xs sm:text-[13px] font-bold transition-all duration-200 ${
+                      testTypeFilter === pill.key
+                        ? 'bg-white text-[#0158FC] shadow-lg shadow-slate-950/15 scale-[1.02]'
+                        : 'bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-md'
+                    }`}
                   >
-                    <card.Icon className="w-[18px] h-[18px]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xl font-black text-slate-900 dark:text-white leading-none">
-                      {card.value}
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-1 truncate">
-                      {card.label}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* ── 3. TEST HISTORY ── */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-slate-900/20 overflow-hidden">
-              {/* Header */}
-              <div className="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-[#0158FC] dark:text-blue-400" />
-                  </div>
-                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                    Test History
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTestTypeFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  title="Reset filters"
-                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <Filter className="w-4 h-4" />
-                </button>
+            {/* Illustration */}
+            <div className="shrink-0 hidden sm:flex justify-end md:pr-2">
+              <img
+                src="/images/results_hero_illustration.png"
+                alt="Analyse, Improve, Succeed"
+                className="h-28 sm:h-32 md:h-36 object-contain pointer-events-none drop-shadow-xl select-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── 2. METRIC BENTO CARDS ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          {[
+            {
+              label: 'Tests Attempted',
+              value: metrics.testsAttempted,
+              Icon: FileText,
+              iconBg: 'bg-blue-50 dark:bg-blue-900/30',
+              iconColor: 'text-[#0158FC] dark:text-blue-400',
+            },
+            {
+              label: 'Total Questions',
+              value: metrics.totalQuestions,
+              Icon: CheckCircle2,
+              iconBg: 'bg-emerald-50 dark:bg-emerald-900/30',
+              iconColor: 'text-emerald-600 dark:text-emerald-400',
+            },
+            {
+              label: 'Avg. Accuracy',
+              value: `${metrics.avgAccuracy}%`,
+              Icon: Target,
+              iconBg: 'bg-rose-50 dark:bg-rose-900/30',
+              iconColor: 'text-rose-500 dark:text-rose-400',
+            },
+            {
+              label: 'Best Score',
+              value: metrics.bestScore,
+              Icon: BarChart3,
+              iconBg: 'bg-purple-50 dark:bg-purple-900/30',
+              iconColor: 'text-purple-600 dark:text-purple-400',
+            },
+            {
+              label: 'Day Streak',
+              value: metrics.dayStreak,
+              Icon: Flame,
+              iconBg: 'bg-amber-50 dark:bg-amber-900/30',
+              iconColor: 'text-amber-500 dark:text-amber-400',
+              extra: 'col-span-2 sm:col-span-1',
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className={`bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5 hover:border-blue-300/60 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group ${card.extra || ''}`}
+            >
+              <div
+                className={`w-11 h-11 rounded-2xl ${card.iconBg} ${card.iconColor} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}
+              >
+                <card.Icon className="w-5 h-5" />
               </div>
-
-              {/* ── Desktop table (hidden on mobile) ── */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wide">
-                      <th className="py-3 px-5 font-semibold">Test Name</th>
-                      <th className="py-3 px-4 font-semibold">Exam</th>
-                      <th className="py-3 px-4 font-semibold">Type</th>
-                      <th className="py-3 px-4 font-semibold">Date</th>
-                      <th className="py-3 px-4 font-semibold">Score</th>
-                      <th className="py-3 px-4 font-semibold">Accuracy</th>
-                      <th className="py-3 px-4 font-semibold">Time</th>
-                      <th className="py-3 px-5 text-right font-semibold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
-                    {paginatedRows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="py-16 text-center text-slate-400 dark:text-slate-500 font-medium"
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                            <span>No tests found matching your criteria.</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedRows.map((row) => {
-                        const accGood = row.accuracy >= 70;
-                        const accClass = accGood
-                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                          : 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
-
-                        return (
-                          <tr
-                            key={row.id}
-                            className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                            onClick={() => handleRowClick(row)}
-                          >
-                            <td className="py-3.5 px-5">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-white shadow-sm ${ICON_COLOR_MAP[row.iconColor]}`}
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                </div>
-                                <span className="font-bold text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors truncate max-w-[220px]">
-                                  {row.testName}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">
-                              {row.exam}
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span
-                                className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${TYPE_BADGE[row.type]}`}
-                              >
-                                {row.type}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
-                              {row.date}
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap font-black text-slate-900 dark:text-white">
-                              {row.score}
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-md text-xs font-bold ${accClass}`}
-                              >
-                                {row.accuracy}%
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
-                              {row.time}
-                            </td>
-                            <td
-                              className="py-3.5 px-5 text-right whitespace-nowrap"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="inline-flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRowClick(row)}
-                                  className="px-3 py-1 rounded-lg text-xs font-bold text-[#0158FC] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors inline-flex items-center gap-1"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  View
-                                </button>
-                                <div className="relative">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenActionMenuId(
-                                        openActionMenuId === row.id ? null : row.id
-                                      );
-                                    }}
-                                    className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                  >
-                                    <MoreVertical className="w-3.5 h-3.5" />
-                                  </button>
-                                  {openActionMenuId === row.id && (
-                                    <div
-                                      className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700 py-1.5 z-30 text-left"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenActionMenuId(null);
-                                          if (row.isRealAttempt) {
-                                            navigate(
-                                              `/exams/${row.testId}/solutions/${row.id}`
-                                            );
-                                          } else {
-                                            navigate(`/exams/${row.testId}`);
-                                          }
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 font-medium flex items-center gap-2 transition-colors"
-                                      >
-                                        <FileText className="w-3.5 h-3.5 text-[#0158FC] dark:text-blue-400" />
-                                        View Solutions
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenActionMenuId(null);
-                                          navigate(`/exams/${row.testId}`);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 font-medium flex items-center gap-2 transition-colors"
-                                      >
-                                        <RotateCcw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                                        Re-attempt
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
+                  {card.value}
+                </p>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  {card.label}
+                </p>
               </div>
+            </div>
+          ))}
+        </div>
 
-              {/* ── Mobile card list (visible on mobile only) ── */}
-              <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+        {/* ── 3. TEST HISTORY ── */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+          {/* Header */}
+          <div className="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                <Clock className="w-4.5 h-4.5 text-[#0158FC] dark:text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                  Test History
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  Click any attempt to view detailed solutions and question-wise breakdown
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTestTypeFilter('all');
+                setCurrentPage(1);
+              }}
+              title="Reset filters"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Filter className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* ── Desktop table (hidden on mobile) ── */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-[11px] uppercase tracking-wide">
+                  <th className="py-3.5 px-5 font-bold">Test Name</th>
+                  <th className="py-3.5 px-4 font-bold">Exam</th>
+                  <th className="py-3.5 px-4 font-bold">Type</th>
+                  <th className="py-3.5 px-4 font-bold">Date</th>
+                  <th className="py-3.5 px-4 font-bold">Score</th>
+                  <th className="py-3.5 px-4 font-bold">Accuracy</th>
+                  <th className="py-3.5 px-4 font-bold">Time</th>
+                  <th className="py-3.5 px-5 text-right font-bold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60">
                 {paginatedRows.length === 0 ? (
-                  <div className="py-14 text-center text-slate-400 dark:text-slate-500 font-medium px-4">
-                    <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-                    No tests found matching your criteria.
-                  </div>
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="py-16 text-center text-slate-400 dark:text-slate-500 font-medium"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                        <span>No tests found matching your criteria.</span>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   paginatedRows.map((row) => {
                     const accGood = row.accuracy >= 70;
+                    const accClass = accGood
+                      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                      : 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
+
                     return (
-                      <div
+                      <tr
                         key={row.id}
-                        className="p-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors cursor-pointer active:bg-slate-100 dark:active:bg-slate-800/60"
+                        className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer"
                         onClick={() => handleRowClick(row)}
                       >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm mt-0.5 ${ICON_COLOR_MAP[row.iconColor]}`}
-                          >
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        <td className="py-3.5 px-5">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white shadow-xs ${ICON_COLOR_MAP[row.iconColor]}`}
+                            >
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors truncate max-w-[240px]">
                               {row.testName}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TYPE_BADGE[row.type]}`}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-semibold whitespace-nowrap">
+                          {row.exam}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${TYPE_BADGE[row.type]}`}
+                          >
+                            {row.type}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+                          {row.date}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap font-black text-slate-900 dark:text-white">
+                          {row.score}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-bold ${accClass}`}
+                          >
+                            {row.accuracy}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+                          {row.time}
+                        </td>
+                        <td
+                          className="py-3.5 px-5 text-right whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRowClick(row)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#0158FC] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors inline-flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View
+                            </button>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenActionMenuId(
+                                    openActionMenuId === row.id ? null : row.id
+                                  );
+                                }}
+                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                               >
-                                {row.type}
-                              </span>
-                              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-                                {row.exam}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-4 mt-2.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                              <span className="font-black text-slate-900 dark:text-white text-sm">
-                                {row.score}
-                              </span>
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  accGood
-                                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                    : 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
-                                }`}
-                              >
-                                {row.accuracy}%
-                              </span>
-                              <span>{row.time}</span>
-                              <span className="text-slate-400 dark:text-slate-500">{row.date}</span>
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                              {openActionMenuId === row.id && (
+                                <div
+                                  className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700 py-1.5 z-30 text-left"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      if (row.isRealAttempt) {
+                                        navigate(
+                                          `/exams/${row.testId}/solutions/${row.id}`
+                                        );
+                                      } else {
+                                        navigate(`/exams/${row.testId}`);
+                                      }
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 font-semibold flex items-center gap-2 transition-colors"
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-[#0158FC] dark:text-blue-400" />
+                                    View Solutions
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      navigate(`/exams/${row.testId}`);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 font-semibold flex items-center gap-2 transition-colors"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                                    Re-attempt
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mt-3" />
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Mobile card list (visible on mobile only) ── */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+            {paginatedRows.length === 0 ? (
+              <div className="py-14 text-center text-slate-400 dark:text-slate-500 font-medium px-4">
+                <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                No tests found matching your criteria.
+              </div>
+            ) : (
+              paginatedRows.map((row) => {
+                const accGood = row.accuracy >= 70;
+                return (
+                  <div
+                    key={row.id}
+                    className="p-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors cursor-pointer active:bg-slate-100 dark:active:bg-slate-800/60"
+                    onClick={() => handleRowClick(row)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-white shadow-xs mt-0.5 ${ICON_COLOR_MAP[row.iconColor]}`}
+                      >
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                          {row.testName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${TYPE_BADGE[row.type]}`}
+                          >
+                            {row.type}
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                            {row.exam}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span className="font-black text-slate-900 dark:text-white text-sm">
+                            {row.score}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                              accGood
+                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                            }`}
+                          >
+                            {row.accuracy}%
+                          </span>
+                          <span>{row.time}</span>
+                          <span className="text-slate-400 dark:text-slate-500">{row.date}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mt-3" />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ── Pagination ── */}
+          {filteredRows.length > 0 && (
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 font-semibold">
+              <div>
+                Showing{' '}
+                {filteredRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
+                {Math.min(currentPage * pageSize, filteredRows.length)} of{' '}
+                {filteredRows.length} tests
               </div>
 
-              {/* ── Pagination ── */}
-              {filteredRows.length > 0 && (
-                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  <div>
-                    Showing{' '}
-                    {filteredRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
-                    {Math.min(currentPage * pageSize, filteredRows.length)} of{' '}
-                    {filteredRows.length} tests
-                  </div>
+              <div className="flex items-center gap-1 self-end sm:self-auto">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
 
-                  <div className="flex items-center gap-1 self-end sm:self-auto">
-                    <button
-                      type="button"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                {pageNumbers.map((pn, idx) =>
+                  pn === 'dots' ? (
+                    <span
+                      key={`dots-${idx}`}
+                      className="px-1 text-slate-400 dark:text-slate-600 select-none"
                     >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-
-                    {pageNumbers.map((pn, idx) =>
-                      pn === 'dots' ? (
-                        <span
-                          key={`dots-${idx}`}
-                          className="px-1 text-slate-400 dark:text-slate-600 select-none"
-                        >
-                          …
-                        </span>
-                      ) : (
-                        <button
-                          key={pn}
-                          type="button"
-                          onClick={() => setCurrentPage(pn)}
-                          className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
-                            currentPage === pn
-                              ? 'bg-[#0158FC] dark:bg-blue-600 text-white shadow-sm'
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                          }`}
-                        >
-                          {pn}
-                        </button>
-                      )
-                    )}
-
+                      …
+                    </span>
+                  ) : (
                     <button
+                      key={pn}
                       type="button"
-                      disabled={currentPage >= totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                      onClick={() => setCurrentPage(pn)}
+                      className={`px-3 py-1 rounded-xl font-bold text-xs transition-colors ${
+                        currentPage === pn
+                          ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
                     >
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      {pn}
                     </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                  )
+                )}
 
-            {/* ── 4. BOTTOM CTA BANNER ── */}
-            <div className="rounded-2xl bg-gradient-to-r from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/30 dark:via-slate-900/40 dark:to-blue-950/20 border border-blue-100/80 dark:border-blue-800/30 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                  <Trophy className="w-7 h-7 text-amber-500 dark:text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-snug">
-                    Consistency Creates Champions
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
-                    {metrics.testsAttempted > 0
-                      ? `You've attempted ${metrics.testsAttempted} tests so far. Keep up the great work!`
-                      : 'Attempt your first mock test today to start tracking your progress!'}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate('/practice')}
-                className="shrink-0 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[#0158FC] dark:text-blue-400 font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl border border-blue-100 dark:border-slate-700 shadow-sm inline-flex items-center gap-1.5 transition-colors self-end sm:self-auto"
-              >
-                Go to Practice
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
+          )}
+        </div>
 
-        {/* ── 5. PERFORMANCE ANALYTICS & INSIGHTS (Moved below main content) ── */}
-        <div className="space-y-5 pt-3">
+        {/* ── 4. BOTTOM CTA BANNER ── */}
+        <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/30 dark:via-slate-900/40 dark:to-blue-950/20 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+              <Trophy className="w-7 h-7 text-amber-500 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-snug">
+                Consistency Creates Champions
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
+                {metrics.testsAttempted > 0
+                  ? `You've attempted ${metrics.testsAttempted} tests so far. Keep up the great work!`
+                  : 'Attempt your first mock test today to start tracking your progress!'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/practice')}
+            className="shrink-0 bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:opacity-95 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-2xl shadow-md shadow-blue-500/20 inline-flex items-center gap-1.5 transition-all self-end sm:self-auto"
+          >
+            Go to Practice
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* ── 5. PERFORMANCE ANALYTICS & INSIGHTS ── */}
+        <div className="space-y-5 pt-2">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -714,7 +752,7 @@ export const MyTests: React.FC = () => {
           {/* Row 1: Performance Overview & Subject Performance (2 columns on lg) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
             {/* ── PERFORMANCE OVERVIEW ── */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 sm:p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                   Performance Overview
@@ -722,7 +760,7 @@ export const MyTests: React.FC = () => {
                 <select
                   value={timeframe}
                   onChange={(e) => setTimeframe(e.target.value)}
-                  className="text-xs font-semibold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#0158FC] cursor-pointer shadow-sm"
+                  className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#0158FC] cursor-pointer"
                 >
                   <option value="This Year">This Year</option>
                   <option value="All Time">All Time</option>
@@ -752,7 +790,7 @@ export const MyTests: React.FC = () => {
                         x2="100%"
                         y2="100%"
                       >
-                        <stop offset="0%" stopColor="#00C5FF" />
+                        <stop offset="0%" stopColor="#0198FD" />
                         <stop offset="100%" stopColor="#0158FC" />
                       </linearGradient>
                     </defs>
@@ -775,7 +813,7 @@ export const MyTests: React.FC = () => {
                     <span className="text-2xl font-black text-slate-900 dark:text-white leading-none">
                       {metrics.avgAccuracy}%
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-tight">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-tight">
                       Overall
                       <br />
                       Accuracy
@@ -783,18 +821,18 @@ export const MyTests: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs sm:text-sm font-semibold w-full sm:w-auto sm:min-w-[190px]">
+                <div className="space-y-3 text-xs sm:text-sm font-semibold w-full sm:w-auto sm:min-w-[200px]">
                   {[
                     { label: 'Correct', value: metrics.totalCorrect, dot: 'bg-emerald-500' },
                     { label: 'Incorrect', value: metrics.totalWrong, dot: 'bg-rose-500' },
                     { label: 'Unattempted', value: metrics.totalSkipped, dot: 'bg-slate-400 dark:bg-slate-600' },
                   ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between gap-6">
+                    <div key={item.label} className="flex items-center justify-between gap-6 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/50">
                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                         <span className={`w-2.5 h-2.5 rounded-full ${item.dot}`} />
                         <span>{item.label}</span>
                       </div>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-black text-slate-900 dark:text-white">
                         {item.value}
                       </span>
                     </div>
@@ -804,7 +842,7 @@ export const MyTests: React.FC = () => {
             </div>
 
             {/* ── SUBJECT PERFORMANCE ── */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 sm:p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                   Subject Performance
@@ -818,15 +856,15 @@ export const MyTests: React.FC = () => {
               </div>
 
               {/* Sub-tabs */}
-              <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-800/60 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
+              <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400">
                 {(['subject', 'topic', 'exam'] as SubjectTab[]).map((tab) => (
                   <button
                     key={tab}
                     type="button"
                     onClick={() => setSubjectTab(tab)}
-                    className={`flex-1 py-1.5 text-center rounded-lg transition-all ${
+                    className={`flex-1 py-1.5 text-center rounded-xl transition-all ${
                       subjectTab === tab
-                        ? 'bg-[#0158FC] dark:bg-blue-600 text-white shadow-sm'
+                        ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                         : 'hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
@@ -844,7 +882,7 @@ export const MyTests: React.FC = () => {
                       <div className="flex items-center justify-between text-xs sm:text-sm">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`w-6 h-6 rounded-md ${subj.color} text-white flex items-center justify-center shrink-0`}
+                            className={`w-6 h-6 rounded-lg ${subj.color} text-white flex items-center justify-center shrink-0`}
                           >
                             <subj.Icon className="w-3.5 h-3.5" />
                           </div>
@@ -870,7 +908,7 @@ export const MyTests: React.FC = () => {
           {/* Row 2: Your Rank, Keep Going, and Motivational Quote (3 columns on md/lg) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
             {/* ── YOUR RANK CARD ── */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 sm:p-6 flex flex-col justify-between space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 sm:p-6 flex flex-col justify-between space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">Your Rank</h3>
@@ -888,7 +926,7 @@ export const MyTests: React.FC = () => {
 
               <div className="flex items-center justify-between gap-3 pt-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0">
                     <Trophy className="w-6 h-6" />
                   </div>
                   <div>
@@ -902,7 +940,7 @@ export const MyTests: React.FC = () => {
                 </div>
 
                 {attempts.length > 0 && (
-                  <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100/80 dark:border-emerald-700/40 rounded-xl px-3.5 py-2 text-right shrink-0">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100/80 dark:border-emerald-700/40 rounded-2xl px-3.5 py-2 text-right shrink-0">
                     <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs">
                       <ShieldCheck className="w-4 h-4 shrink-0" />
                       <span>Active</span>
@@ -916,7 +954,7 @@ export const MyTests: React.FC = () => {
             </div>
 
             {/* ── KEEP GOING CARD ── */}
-            <div className="rounded-2xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/50 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 relative overflow-hidden shadow-sm flex flex-col justify-between space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/50 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 relative overflow-hidden shadow-xs flex flex-col justify-between space-y-4">
               <div className="relative z-10 pr-20">
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <TrendingUp className="w-4 h-4 text-[#0158FC] dark:text-blue-400" />
@@ -930,7 +968,7 @@ export const MyTests: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/practice')}
-                  className="mt-3 bg-[#0158FC] dark:bg-blue-600 hover:bg-[#0047D4] dark:hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-colors"
+                  className="mt-3 bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:opacity-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all"
                 >
                   Keep Practicing
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -944,7 +982,7 @@ export const MyTests: React.FC = () => {
             </div>
 
             {/* ── MOTIVATIONAL QUOTE CARD ── */}
-            <div className="rounded-2xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/50 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 relative overflow-hidden shadow-sm flex flex-col justify-between space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/50 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 relative overflow-hidden shadow-xs flex flex-col justify-between space-y-4">
               <div className="relative z-10 pr-20">
                 <Sparkles className="w-5 h-5 text-[#0158FC] dark:text-blue-400 mb-2" />
                 <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 italic leading-relaxed">

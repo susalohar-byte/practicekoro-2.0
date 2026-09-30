@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
@@ -8,12 +8,13 @@ import {
   useRemoveBookmark,
   useResolveMistake,
 } from '@/hooks/usePracticeRevision';
+import { api } from '@/services/api';
+import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { MathText } from '@/components/common/MathText';
-import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 import { TopicTests } from '@/pages/student/TopicTests';
 import {
@@ -49,8 +50,10 @@ import {
   CheckSquare,
   Flame,
   Check,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
-import type { Question } from '@/types';
+import type { Question, TestAttempt } from '@/types';
 
 type PracticeTab = 'dashboard' | 'topics' | 'mistakes' | 'bookmarks';
 type PracticeModeTab = 'subjects' | 'topics' | 'pyq';
@@ -67,6 +70,7 @@ export const Practice: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const outletCtx = useOutletContext<{ onToggleMobileSidebar?: () => void } | undefined>() || {};
 
   // Revision data: cached mistakes + bookmarks (TanStack Query)
   const {
@@ -82,6 +86,24 @@ export const Practice: React.FC = () => {
     : null;
   const resolveMistake = useResolveMistake(user?.id);
   const removeBookmark = useRemoveBookmark(user?.id);
+
+  // User attempts for real database-synced Practice Activity stats
+  const [userAttempts, setUserAttempts] = useState<TestAttempt[]>([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    api
+      .getUserAttempts(user.id)
+      .then((res) => {
+        if (!cancelled) setUserAttempts(res || []);
+      })
+      .catch(() => {
+        // non-blocking
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<PracticeTab>('dashboard');
@@ -379,11 +401,60 @@ export const Practice: React.FC = () => {
     },
   ];
 
+  // Real database-synced Practice Activity metrics
+  const activityStats = useMemo(() => {
+    const now = Date.now();
+    const cutoff =
+      activityPeriod === 'week'
+        ? now - 7 * 86400 * 1000
+        : activityPeriod === 'month'
+          ? now - 30 * 86400 * 1000
+          : 0;
+
+    const filteredAttempts = userAttempts.filter((a) => {
+      if (!cutoff) return true;
+      const ts = new Date(a.createdAt).getTime();
+      return !Number.isNaN(ts) && ts >= cutoff;
+    });
+
+    const totalCorrect = filteredAttempts.reduce((s, a) => s + (a.correctCount || 0), 0);
+    const totalWrong = filteredAttempts.reduce((s, a) => s + (a.wrongCount || 0), 0);
+    const attemptQuestions = totalCorrect + totalWrong;
+    const resolvedMistakesCount = mistakes.filter((m) => m.isResolved).length;
+    const questionsPracticed = attemptQuestions + resolvedMistakesCount + bookmarks.length;
+    const accuracy =
+      attemptQuestions > 0
+        ? Math.round((totalCorrect / attemptQuestions) * 100)
+        : mistakes.length > 0
+          ? Math.round((resolvedMistakesCount / mistakes.length) * 100)
+          : 0;
+
+    const uniqueDays = new Set(
+      userAttempts
+        .map((a) => {
+          const d = new Date(a.createdAt);
+          return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+        })
+        .filter(Boolean)
+    );
+
+    return {
+      questionsPracticed,
+      accuracy,
+      topicsCompleted: filteredAttempts.length + resolvedMistakesCount,
+      dayStreak: uniqueDays.size,
+    };
+  }, [userAttempts, mistakes, bookmarks, activityPeriod]);
+
   return (
-    <div className="pk-reference-page pk-reference-shell space-y-6">
-      {!isPracticing && (
-        <StudentPageHeader title="Practice" subtitle="Strengthen Your Concepts" />
-      )}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6 pb-24 pk-student-page">
+      {/* Embedded Student Navbar */}
+      <StudentNavbar
+        embedded
+        showSearch={false}
+        onToggleMobileSidebar={outletCtx.onToggleMobileSidebar}
+      />
+
       {/* =========================================================================
           PRACTICE MODE: INTERACTIVE WORKSPACE
           ========================================================================= */}
@@ -796,47 +867,81 @@ export const Practice: React.FC = () => {
               ========================================================================= */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* TOP HERO BANNER */}
-              <div className="relative overflow-hidden rounded-3xl border border-blue-100/90 dark:border-blue-900/40 bg-gradient-to-r from-[#EBF5FE] via-[#E2EEFD] to-[#D5E8FD] dark:from-slate-900 dark:via-blue-950/40 dark:to-slate-900 p-6 sm:p-7 md:p-8 min-h-[175px] shadow-2xs">
-                <div className="max-w-xl z-10 relative">
-                  <h1 className="text-2xl sm:text-3xl md:text-[34px] font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-                    Practice <span className="text-[#0158FC]">Smarter</span>
+              {/* TOP HERO BANNER (Stitch Navy-to-Electric-Blue Bento) */}
+              <div className="relative overflow-hidden rounded-3xl border border-blue-200/40 dark:border-blue-900/40 bg-gradient-to-br from-[#0B1F44] via-[#0158FC] to-[#0198FD] p-6 sm:p-7 md:p-8 min-h-[185px] shadow-xl shadow-blue-600/15 text-white">
+                {/* Ambient glow */}
+                <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-cyan-400/25 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 left-1/3 w-64 h-64 rounded-full bg-indigo-500/20 blur-3xl" />
+
+                <div className="max-w-2xl z-10 relative">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] font-bold tracking-wide uppercase mb-3">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>Smart Revision & Drill Hub</span>
+                    <span className="text-white/40">•</span>
+                    <span className="text-cyan-200">
+                      {pendingMistakes.length} Mistakes • {bookmarks.length} Saved
+                    </span>
+                  </div>
+
+                  <h1 className="text-2xl sm:text-3xl md:text-[34px] font-black tracking-tight text-white leading-tight">
+                    Practice <span className="text-cyan-300">Smarter</span>, Rank Faster
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 font-normal leading-relaxed max-w-lg">
-                    Build your concepts, improve accuracy and get exam ready with focused practice.
+                  <p className="text-xs sm:text-sm text-blue-100/90 mt-2 font-medium leading-relaxed max-w-lg">
+                    Build your concepts, master weak topics, and boost exam-day accuracy with
+                    targeted subject drills and auto-tracked revision notebooks.
                   </p>
 
                   {/* 5 Feature Badges Row */}
                   <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mt-5">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs">
-                      <BookOpen className="w-3.5 h-3.5 text-[#0158FC]" />
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('topics')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-cyan-300" />
                       <span>Chapter-wise Practice</span>
-                    </div>
+                    </button>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs">
-                      <Table className="w-3.5 h-3.5 text-blue-500" />
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('topics')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                    >
+                      <Table className="w-3.5 h-3.5 text-sky-300" />
                       <span>Topic-wise Practice</span>
-                    </div>
+                    </button>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs">
-                      <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                    <button
+                      type="button"
+                      onClick={() => navigate('/test-series')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-300" />
                       <span>Previous Year Questions</span>
-                    </div>
+                    </button>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs">
-                      <Bookmark className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                      <span>Saved Questions</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('bookmarks')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                    >
+                      <Bookmark className="w-3.5 h-3.5 text-rose-300 fill-rose-300" />
+                      <span>Saved Questions ({bookmarks.length})</span>
+                    </button>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs">
-                      <Crosshair className="w-3.5 h-3.5 text-[#0158FC]" />
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('mistakes')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                    >
+                      <Crosshair className="w-3.5 h-3.5 text-amber-300" />
                       <span>Detailed Solutions</span>
-                    </div>
+                    </button>
                   </div>
                 </div>
 
                 {/* Right Character & Books Illustration */}
-                <div className="hidden md:block absolute right-0 bottom-0 h-full max-h-[185px] pointer-events-none select-none">
+                <div className="hidden md:block absolute right-2 bottom-0 h-full max-h-[195px] pointer-events-none select-none drop-shadow-xl">
                   <img
                     src="/images/practice/hero_illustration_blend.png"
                     alt="Consistent Practice Creates Big Results"
@@ -845,7 +950,7 @@ export const Practice: React.FC = () => {
                 </div>
               </div>
 
-              {/* TWO COLUMN GRID LAYOUT */}
+              {/* TWO COLUMN BENTO GRID LAYOUT */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* ========================================================= */}
                 {/* LEFT MAIN COLUMN (~68%)                                   */}
@@ -858,7 +963,7 @@ export const Practice: React.FC = () => {
                         <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                           Choose what you want to practice
                         </h2>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                           Select a mode and start practicing now.
                         </p>
                       </div>
@@ -873,7 +978,7 @@ export const Practice: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 5 Mode Cards */}
+                    {/* 5 Mode Bento Cards */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                       {/* Card 1: Subject Practice */}
                       <div
@@ -883,19 +988,19 @@ export const Practice: React.FC = () => {
                             .getElementById('exam-subject-section')
                             ?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-2xs hover:shadow-md hover:border-purple-400/50 dark:hover:border-purple-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-400/60 dark:hover:border-purple-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100/70 dark:border-purple-900/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                          <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100/70 dark:border-purple-900/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
                             <BookOpen className="w-4.5 h-4.5" />
                           </div>
                           <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
                         </div>
                         <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug">
+                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
                             Subject Practice
                           </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             Practice by subject
                           </p>
                         </div>
@@ -904,19 +1009,19 @@ export const Practice: React.FC = () => {
                       {/* Card 2: Topic Practice */}
                       <div
                         onClick={() => handleTabChange('topics')}
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-2xs hover:shadow-lg hover:border-emerald-300/50 dark:hover:border-emerald-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-400/60 dark:hover:border-emerald-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100/70 dark:border-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100/70 dark:border-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                             <ListChecks className="w-4.5 h-4.5" />
                           </div>
                           <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
                         </div>
                         <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug">
+                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
                             Topic Practice
                           </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             Practice by topic
                           </p>
                         </div>
@@ -924,20 +1029,20 @@ export const Practice: React.FC = () => {
 
                       {/* Card 3: Previous Year Questions */}
                       <div
-                        onClick={() => navigate('/exams')}
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-sm hover:shadow-md hover:border-amber-300/50 dark:hover:border-amber-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                        onClick={() => navigate('/test-series')}
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-100/70 dark:border-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                          <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-100/70 dark:border-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                             <FileText className="w-4.5 h-4.5" />
                           </div>
                           <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
                         </div>
                         <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug">
+                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
                             Previous Year Questions
                           </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             Real exam questions
                           </p>
                         </div>
@@ -946,19 +1051,26 @@ export const Practice: React.FC = () => {
                       {/* Card 4: Saved Questions */}
                       <div
                         onClick={() => handleTabChange('bookmarks')}
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-sm hover:shadow-md hover:border-rose-300/50 dark:hover:border-rose-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-rose-400/60 dark:hover:border-rose-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100/70 dark:border-rose-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
+                          <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100/70 dark:border-rose-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
                             <Bookmark className="w-4.5 h-4.5 fill-rose-500" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
+                          <div className="flex items-center gap-1">
+                            {bookmarks.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300 text-[10px] font-black">
+                                {bookmarks.length}
+                              </span>
+                            )}
+                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
+                          </div>
                         </div>
                         <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug">
+                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
                             Saved Questions
                           </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             Your bookmarked questions
                           </p>
                         </div>
@@ -967,19 +1079,26 @@ export const Practice: React.FC = () => {
                       {/* Card 5: Incorrect Questions */}
                       <div
                         onClick={() => handleTabChange('mistakes')}
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-sm hover:shadow-md hover:border-red-300/50 dark:hover:border-red-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-red-400/60 dark:hover:border-red-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                       >
                         <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-100/70 dark:border-red-900/60 flex items-center justify-center text-red-500 dark:text-red-400 shrink-0">
+                          <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-100/70 dark:border-red-900/60 flex items-center justify-center text-red-500 dark:text-red-400 shrink-0">
                             <XSquare className="w-4.5 h-4.5" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-red-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
+                          <div className="flex items-center gap-1">
+                            {pendingMistakes.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-300 text-[10px] font-black">
+                                {pendingMistakes.length}
+                              </span>
+                            )}
+                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-red-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
+                          </div>
                         </div>
                         <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug">
+                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
                             Incorrect Questions
                           </h3>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             Practice your mistakes
                           </p>
                         </div>
@@ -994,8 +1113,8 @@ export const Practice: React.FC = () => {
                         Select Exam & Subject
                       </h2>
                       <button
-                        onClick={() => navigate('/exams')}
-                        className="text-xs font-semibold text-[#0158FC] hover:underline cursor-pointer transition-colors"
+                        onClick={() => navigate('/test-series')}
+                        className="text-xs font-bold text-[#0158FC] hover:underline cursor-pointer transition-colors"
                       >
                         Change Exam
                       </button>
@@ -1008,9 +1127,9 @@ export const Practice: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsExamDropdownOpen((prev) => !prev)}
-                          className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+                          className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
                         >
-                          <div className="w-5 h-5 rounded-full bg-blue-100 text-[#0158FC] font-bold text-[9px] flex items-center justify-center shrink-0">
+                          <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-[#0158FC] to-[#0198FD] text-white font-black text-[9px] flex items-center justify-center shrink-0">
                             {selectedExam?.title
                               ? selectedExam.title.slice(0, 2).toUpperCase()
                               : 'WB'}
@@ -1054,13 +1173,13 @@ export const Practice: React.FC = () => {
                       </div>
 
                       {/* Segmented Filter Tabs: [Subjects] [Topics] [PYQ] */}
-                      <div className="inline-flex items-center p-0.5 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="inline-flex items-center p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
                         <button
                           type="button"
                           onClick={() => setActiveModeTab('subjects')}
-                          className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+                          className={`text-xs font-bold px-4 py-1.5 rounded-xl transition-all ${
                             activeModeTab === 'subjects'
-                              ? 'bg-[#0158FC] text-white shadow-2xs'
+                              ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
@@ -1069,9 +1188,9 @@ export const Practice: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleTabChange('topics')}
-                          className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+                          className={`text-xs font-bold px-4 py-1.5 rounded-xl transition-all ${
                             activeModeTab === 'topics'
-                              ? 'bg-[#0158FC] text-white shadow-2xs'
+                              ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
@@ -1079,8 +1198,8 @@ export const Practice: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigate('/exams')}
-                          className="text-xs font-semibold px-4 py-1.5 rounded-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+                          onClick={() => navigate('/test-series')}
+                          className="text-xs font-bold px-4 py-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
                         >
                           PYQ
                         </button>
@@ -1095,12 +1214,12 @@ export const Practice: React.FC = () => {
                           <div
                             key={item.id}
                             onClick={() => handleTabChange('topics')}
-                            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-sm hover:shadow-lg hover:border-blue-200/50 dark:hover:border-blue-500/50 transition-all cursor-pointer group flex flex-col justify-between"
+                            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/60 dark:hover:border-blue-500/50 transition-all cursor-pointer group flex flex-col justify-between"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-3 min-w-0">
                                 <div
-                                  className={`w-10 h-10 rounded-xl ${item.iconBg} border ${item.iconBorder} flex items-center justify-center ${item.iconColor} shrink-0`}
+                                  className={`w-10 h-10 rounded-2xl ${item.iconBg} border ${item.iconBorder} flex items-center justify-center ${item.iconColor} shrink-0`}
                                 >
                                   {item.isSigma ? (
                                     <span className="font-serif font-black text-base leading-none">
@@ -1115,15 +1234,15 @@ export const Practice: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug truncate">
+                                  <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug truncate">
                                     {item.title}
                                   </h3>
-                                  <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                  <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                                     {item.questionsCount} questions
                                   </p>
                                 </div>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+                              <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
                             </div>
 
                             {/* Progress Bar & Percentage */}
@@ -1134,7 +1253,7 @@ export const Practice: React.FC = () => {
                                   style={{ width: `${item.progress}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
                                 {item.progress}%
                               </span>
                             </div>
@@ -1151,13 +1270,13 @@ export const Practice: React.FC = () => {
                         <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                           Continue Practicing
                         </h2>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                           Pick up where you left off.
                         </p>
                       </div>
                       <button
                         onClick={() => handleTabChange('topics')}
-                        className="text-xs font-semibold text-[#0158FC] hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-bold text-[#0158FC] hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>View All</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1171,11 +1290,11 @@ export const Practice: React.FC = () => {
                         return (
                           <div
                             key={cont.id}
-                            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-sm hover:shadow-lg hover:border-blue-200/50 dark:hover:border-blue-500/50 transition-all flex flex-col justify-between"
+                            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:border-blue-300/60 dark:hover:border-blue-500/50 transition-all flex flex-col justify-between"
                           >
                             <div className="flex items-start gap-3">
                               <div
-                                className={`w-10 h-10 rounded-xl ${cont.iconBg} flex items-center justify-center ${cont.iconColor} shrink-0`}
+                                className={`w-10 h-10 rounded-2xl ${cont.iconBg} flex items-center justify-center ${cont.iconColor} shrink-0`}
                               >
                                 {cont.isSigma ? (
                                   <span className="font-serif font-black text-base leading-none">
@@ -1186,32 +1305,32 @@ export const Practice: React.FC = () => {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug truncate">
+                                <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug truncate">
                                   {cont.title}
                                 </h3>
-                                <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-medium">
                                   {cont.subjectSubtitle}
                                 </p>
                               </div>
                             </div>
 
                             {/* Progress bar + Action Button */}
-                            <div className="flex items-center justify-between gap-3 mt-4 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                            <div className="flex items-center justify-between gap-3 mt-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                   <div
-                                    className="h-full rounded-full bg-[#0158FC]"
+                                    className="h-full rounded-full bg-gradient-to-r from-[#0158FC] to-[#0198FD]"
                                     style={{ width: `${cont.progress}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
                                   {cont.progress}%
                                 </span>
                               </div>
 
                               <button
                                 onClick={() => handleTabChange('topics')}
-                                className="px-3.5 py-1.5 bg-[#0158FC] hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-2xs transition-all"
+                                className="px-3.5 py-1.5 bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
                               >
                                 {cont.buttonText}
                               </button>
@@ -1227,19 +1346,24 @@ export const Practice: React.FC = () => {
                 {/* RIGHT SIDEBAR COLUMN (~32%)                               */}
                 {/* ========================================================= */}
                 <div className="lg:col-span-4 space-y-5">
-                  {/* CARD 1: Your Practice Activity */}
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs">
+                  {/* CARD 1: Your Practice Activity (Synced with Database) */}
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
-                        Your Practice Activity
-                      </h2>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center">
+                          <Zap className="w-3.5 h-3.5" />
+                        </div>
+                        <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
+                          Your Practice Activity
+                        </h2>
+                      </div>
                       <div className="relative">
                         <select
                           value={activityPeriod}
                           onChange={(e) =>
                             setActivityPeriod(e.target.value as 'month' | 'week' | 'all')
                           }
-                          className="text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-2 py-1 rounded-lg outline-none cursor-pointer"
+                          className="text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-2.5 py-1 rounded-xl outline-none cursor-pointer"
                         >
                           <option value="month">This Month</option>
                           <option value="week">This Week</option>
@@ -1249,62 +1373,62 @@ export const Practice: React.FC = () => {
                     </div>
 
                     {/* 2x2 Stats Grid */}
-                    <div className="grid grid-cols-2 gap-2.5 mt-3.5">
+                    <div className="grid grid-cols-2 gap-2.5 mt-4">
                       {/* Stat 1: Questions Practiced */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-3 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
                           <FileText className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            342
+                            {activityStats.questionsPracticed}
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1 leading-tight">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
                             Questions Practiced
                           </div>
                         </div>
                       </div>
 
                       {/* Stat 2: Accuracy */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-3 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center shrink-0">
                           <Target className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            78%
+                            {activityStats.accuracy}%
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1 leading-tight">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
                             Accuracy
                           </div>
                         </div>
                       </div>
 
                       {/* Stat 3: Topics Completed */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-3 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
                           <CheckSquare className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            12
+                            {activityStats.topicsCompleted}
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1 leading-tight">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
                             Topics Completed
                           </div>
                         </div>
                       </div>
 
                       {/* Stat 4: Day Streak */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 p-3 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center shrink-0">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center shrink-0">
                           <Flame className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            7
+                            {activityStats.dayStreak}
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1 leading-tight">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
                             Day Streak
                           </div>
                         </div>
@@ -1313,7 +1437,7 @@ export const Practice: React.FC = () => {
                   </div>
 
                   {/* CARD 2: Quick Tools */}
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3">
                     <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
                       Quick Tools
                     </h2>
@@ -1322,91 +1446,91 @@ export const Practice: React.FC = () => {
                       {/* Tool 1: Random Practice */}
                       <div
                         onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
+                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center shrink-0">
                             <Shuffle className="w-4 h-4" />
                           </div>
                           <div>
                             <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
                               Random Practice
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
                               Get random questions
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
                       </div>
 
                       {/* Tool 2: Custom Practice */}
                       <div
                         onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
+                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
                             <SlidersHorizontal className="w-4 h-4" />
                           </div>
                           <div>
                             <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
                               Custom Practice
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
                               Create your own set
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
                       </div>
 
                       {/* Tool 3: Weak Topic Practice */}
                       <div
                         onClick={() => handleTabChange('mistakes')}
-                        className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
+                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0">
                             <BarChart2 className="w-4 h-4" />
                           </div>
                           <div>
                             <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
                               Weak Topic Practice
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
                               Focus on low accuracy topics
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
                       </div>
 
                       {/* Tool 4: Time-based Practice */}
                       <div
                         onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
+                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
                             <Clock className="w-4 h-4" />
                           </div>
                           <div>
                             <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
                               Time-based Practice
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
                               Improve speed & accuracy
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
                       </div>
                     </div>
                   </div>
 
                   {/* CARD 3: Motivational Quote Card with Succulent Plant */}
-                  <div className="bg-gradient-to-br from-[#EEF6FF] via-[#E8F2FC] to-[#E3EFFF] dark:from-slate-800/80 dark:to-slate-900/80 rounded-2xl border border-blue-100/70 dark:border-blue-900/40 p-5 shadow-2xs flex items-center justify-between gap-3">
+                  <div className="bg-gradient-to-br from-[#EEF6FF] via-[#E8F2FC] to-[#E3EFFF] dark:from-slate-800/80 dark:to-slate-900/80 rounded-3xl border border-blue-100/70 dark:border-blue-900/40 p-5 shadow-xs flex items-center justify-between gap-3">
                     <div className="space-y-1">
                       <span className="text-3xl sm:text-4xl text-[#2563EB]/40 font-serif leading-none block">
                         “

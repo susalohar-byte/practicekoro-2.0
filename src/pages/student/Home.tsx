@@ -54,7 +54,7 @@ const resolvePopularSeriesEmblem = (series: {
   if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('chsl') || combined.includes('gd')) {
     return '/images/exams/emblem_ssc.png';
   }
-  return '/logo-icon.png';
+  return '/logo-icon-circle.png';
 };
 
 export const Home: React.FC = () => {
@@ -650,327 +650,482 @@ export const Home: React.FC = () => {
         );
       })()}
 
-      {/* 2. STAT CARDS (Row of 4) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Tests Taken */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-4 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/60">
-            <FileCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{testsTakenCount}</div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tests Taken</div>
-          </div>
-        </div>
-
-        {/* Questions Practiced */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-4 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/60">
-            <FileText className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{questionsPracticedCount}</div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Questions Practiced</div>
-          </div>
-        </div>
-
-        {/* Accuracy */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-4 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/60">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{overallAccuracyPct}%</div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Accuracy</div>
-          </div>
-        </div>
-
-        {/* Day Streak */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-4 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/60">
-            <Flame className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{activeStreakDays}</div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Day Streak</div>
-          </div>
-        </div>
-      </div>
-
-      {/* LIVE TEST CARD (Synced with Mobile UI & Supabase) */}
-      {activeLiveTest && (
-        <div className="rounded-3xl bg-[#0F172A] text-white p-5 sm:p-6 shadow-xl border border-slate-800 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-            {/* Status badge */}
-            {isLiveNow ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black tracking-wider uppercase">
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                LIVE NOW
-              </div>
-            ) : isEnded ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700 text-slate-300 text-xs font-black tracking-wider uppercase">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
-                LIVE TEST ENDED
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-black tracking-wider uppercase">
-                <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
-                UPCOMING LIVE TEST
-              </div>
-            )}
-
-            {/* Countdown timer boxes: only show if isUpcoming */}
-            {isUpcoming && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                  <span className="font-extrabold text-sm">{countdownDays}</span> <span className="text-[10px] text-slate-400">Days</span>
-                </div>
-                <span className="text-slate-500 font-bold">:</span>
-                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                  <span className="font-extrabold text-sm">{countdownHours}</span> <span className="text-[10px] text-slate-400">Hours</span>
-                </div>
-                <span className="text-slate-500 font-bold">:</span>
-                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                  <span className="font-extrabold text-sm">{countdownMinutes}</span> <span className="text-[10px] text-slate-400">Mins</span>
-                </div>
-                <span className="text-slate-500 font-bold">:</span>
-                <div className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-white font-mono">
-                  <span className="font-extrabold text-sm">{countdownSeconds}</span> <span className="text-[10px] text-slate-400">Secs</span>
-                </div>
-              </div>
-            )}
-            {isLiveNow && (
-              <div className="flex items-center gap-2 text-xs font-bold text-rose-400 animate-pulse">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span>Active Examination in Progress</span>
-              </div>
-            )}
-          </div>
-
-          <h4 className="text-lg sm:text-xl font-black text-white mb-2 tracking-tight">
-            {activeLiveTest.title}
-          </h4>
-
-          <div className="flex items-center gap-4 text-xs font-medium text-slate-300 mb-5 flex-wrap">
-            <span className="flex items-center gap-1.5">⏱️ {activeLiveTest.durationMinutes} Mins</span>
-            <span className="flex items-center gap-1.5">📝 {activeLiveTest.totalQuestions} Questions</span>
-            <span className="flex items-center gap-1.5">🏆 {activeLiveTest.totalMarks} Marks</span>
-            {activeLiveTest.rankingEnabled && (
-              <span className="flex items-center gap-1.5 text-amber-300 font-bold">🎖️ Statewide Ranking</span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              👥 <span>{(activeLiveTest.enrolledCount ?? 0).toLocaleString()} Students {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}</span>
+      {/* 2. 4 VIBRANT KPI STAT CARDS (Stitch Bento Grid) */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {/* 1. Tests Taken */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(1,88,252,0.08)] hover:shadow-md hover:border-blue-300/80 dark:hover:border-slate-700 transition-all">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Tests Taken</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#0158FC]/10 text-[#0158FC] dark:text-blue-400 flex items-center justify-center shrink-0">
+              <FileCheck className="w-5 h-5" />
             </div>
-            {isLiveNow ? (
-              <Link
-                to={`/live-test`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-700 hover:to-red-600 text-white text-xs font-black transition-all shadow-md shadow-rose-500/25 active:scale-95 animate-pulse"
-              >
-                <span>Join Live Test</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            ) : isEnded ? (
-              <Link
-                to={`/live-test`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all border border-slate-700 active:scale-95"
-              >
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                <span>View Result & Ranking</span>
-              </Link>
-            ) : (
-              <Link
-                to={`/live-test`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs font-black transition-all shadow-md shadow-blue-500/25 active:scale-95"
-              >
-                <span>Register Now</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            )}
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+              {testsTakenCount}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Completed</span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-[#0158FC] dark:text-blue-400 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0158FC]" />
+            <span>Synced with My Results</span>
           </div>
         </div>
+
+        {/* 2. Questions Practiced */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(16,185,129,0.08)] hover:shadow-md hover:border-emerald-300/80 dark:hover:border-slate-700 transition-all">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Questions Practiced</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+              {questionsPracticedCount}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Solved</span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{totalCorrectCount} Correct Answers</span>
+          </div>
+        </div>
+
+        {/* 3. Overall Accuracy */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(124,58,237,0.08)] hover:shadow-md hover:border-violet-300/80 dark:hover:border-slate-700 transition-all">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Accuracy</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+              <Target className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+              {overallAccuracyPct}%
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Net</span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-violet-600 dark:text-violet-400 font-bold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{overallAccuracyPct >= 75 ? 'High Accuracy Tier' : 'Keep Practicing Daily'}</span>
+          </div>
+        </div>
+
+        {/* 4. Day Streak */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(245,158,11,0.08)] hover:shadow-md hover:border-amber-300/80 dark:hover:border-slate-700 transition-all">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Day Streak</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Flame className="w-5 h-5 fill-amber-500/20" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+              {activeStreakDays}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Days Active</span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+            <span>🔥</span>
+            <span>{activeStreakDays > 0 ? 'Momentum Active!' : 'Start Today’s Streak'}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. BENTO ROW: LIVE TEST SPOTLIGHT & CONTINUE IN-PROGRESS TEST */}
+      {(activeLiveTest || inProgressAttempt) && (
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* LIVE TEST CARD (Synced with Mobile UI & Supabase) */}
+          {activeLiveTest && (
+            <div
+              className={`${
+                inProgressAttempt ? 'lg:col-span-7' : 'lg:col-span-12'
+              } rounded-3xl bg-gradient-to-br from-[#0B1F44] via-[#0F2557] to-[#0138A8] text-white p-5 sm:p-6 shadow-xl border border-blue-400/20 relative overflow-hidden flex flex-col justify-between`}
+            >
+              <div className="absolute -right-16 -top-16 w-52 h-52 bg-[#0198FD]/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                  {/* Status badge */}
+                  {isLiveNow ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-[11px] font-black tracking-wider uppercase shadow-sm shadow-rose-500/30">
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                      LIVE NOW
+                    </div>
+                  ) : isEnded ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700/90 text-slate-200 text-[11px] font-black tracking-wider uppercase">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      LIVE TEST ENDED
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black tracking-wider uppercase shadow-sm">
+                      <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
+                      UPCOMING LIVE TEST
+                    </div>
+                  )}
+
+                  {/* Countdown timer boxes: only show if isUpcoming */}
+                  {isUpcoming && (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
+                        <span className="font-extrabold text-sm">{countdownDays}</span>{' '}
+                        <span className="text-[10px] text-blue-200">d</span>
+                      </div>
+                      <span className="text-blue-300 font-bold">:</span>
+                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
+                        <span className="font-extrabold text-sm">{countdownHours}</span>{' '}
+                        <span className="text-[10px] text-blue-200">h</span>
+                      </div>
+                      <span className="text-blue-300 font-bold">:</span>
+                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
+                        <span className="font-extrabold text-sm">{countdownMinutes}</span>{' '}
+                        <span className="text-[10px] text-blue-200">m</span>
+                      </div>
+                      <span className="text-blue-300 font-bold">:</span>
+                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-amber-300 font-mono tabular-nums">
+                        <span className="font-extrabold text-sm">{countdownSeconds}</span>{' '}
+                        <span className="text-[10px] text-amber-200">s</span>
+                      </div>
+                    </div>
+                  )}
+                  {isLiveNow && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-rose-300 animate-pulse">
+                      <span className="inline-block w-2 h-2 rounded-full bg-rose-400" />
+                      <span>Active Examination in Progress</span>
+                    </div>
+                  )}
+                </div>
+
+                <h4 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-snug">
+                  {activeLiveTest.title}
+                </h4>
+
+                <div className="flex items-center gap-2.5 text-xs font-semibold text-blue-100 mb-5 flex-wrap">
+                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
+                    ⏱️ {activeLiveTest.durationMinutes} Mins
+                  </span>
+                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
+                    📝 {activeLiveTest.totalQuestions} Questions
+                  </span>
+                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
+                    🏆 {activeLiveTest.totalMarks} Marks
+                  </span>
+                  {activeLiveTest.rankingEnabled && (
+                    <span className="px-3 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center gap-1.5 text-amber-300 font-bold">
+                      🎖️ Statewide Ranking
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/15">
+                <div className="text-xs font-bold text-blue-100 flex items-center gap-1.5">
+                  👥{' '}
+                  <span>
+                    {(activeLiveTest.enrolledCount ?? 0).toLocaleString()} Students{' '}
+                    {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}
+                  </span>
+                </div>
+                {isLiveNow ? (
+                  <Link
+                    to={`/live-test`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-black transition-all shadow-md shadow-rose-500/30 active:scale-95"
+                  >
+                    <span>Join Live Test</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : isEnded ? (
+                  <Link
+                    to={`/live-test`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all border border-white/20 active:scale-95"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                    <span>View Result & Ranking</span>
+                  </Link>
+                ) : (
+                  <Link
+                    to={`/live-test`}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#0158FC] hover:bg-blue-50 text-xs font-black transition-all shadow-md active:scale-95"
+                  >
+                    <span>Register Now</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* CONTINUE YOUR TEST (Only shown if user has a real in_progress attempt) */}
+          {inProgressAttempt && (() => {
+            const answeredCount =
+              (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0);
+            const totalQuestions = Math.max(
+              1,
+              answeredCount + (inProgressAttempt.skippedCount || 0)
+            );
+            const progressPct = Math.min(100, Math.round((answeredCount / totalQuestions) * 100));
+            return (
+              <div
+                className={`${
+                  activeLiveTest ? 'lg:col-span-5' : 'lg:col-span-12'
+                } rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(1,88,252,0.1)] flex flex-col justify-between relative overflow-hidden`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 text-[11px] font-black uppercase tracking-wider">
+                      IN PROGRESS
+                    </span>
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-[#0158FC]" />
+                      Continue Your Test
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-3.5 mb-5">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0158FC]/15 to-[#0198FD]/10 border border-blue-200/60 dark:border-blue-800/60 flex items-center justify-center shrink-0">
+                      <FileText className="w-5 h-5 text-[#0158FC]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-base font-black text-slate-900 dark:text-white leading-snug line-clamp-2">
+                        {inProgressAttempt.testTitle || 'Mock Test'}
+                      </h4>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                        Attempted {answeredCount}/{totalQuestions} questions
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-2 mb-5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-500 dark:text-slate-400">Completion Progress</span>
+                      <span className="text-[#0158FC] dark:text-blue-400 tabular-nums">{progressPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#0158FC] to-[#0198FD] rounded-full transition-all duration-500"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <Link
+                    to={`/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`}
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:from-[#0047cc] hover:to-[#0158FC] text-white text-xs font-extrabold transition-all shadow-md shadow-blue-500/25 active:scale-95"
+                  >
+                    <span>Resume Test</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/exams/${inProgressAttempt.testId}`)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </section>
       )}
 
-      {/* 3. CONTINUE YOUR TEST (Midnight Navy Banner - Only shown if user has a real in_progress attempt) */}
-      {inProgressAttempt && (() => {
-        const answeredCount = (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0);
-        const totalQuestions = Math.max(1, answeredCount + (inProgressAttempt.skippedCount || 0));
-        const progressPct = Math.min(100, Math.round((answeredCount / totalQuestions) * 100));
-        return (
-          <div className="rounded-3xl bg-[#0c1b3d] text-white p-6 sm:p-7 shadow-lg relative overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">Continue Your Test</h3>
-              <span className="px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider">
-                IN PROGRESS
-              </span>
-            </div>
-
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center shrink-0">
-                  <FileText className="w-6 h-6 text-blue-400" />
-                </div>
-                <div>
-                  <h4 className="text-base sm:text-lg font-bold text-white mb-1">
-                    {inProgressAttempt.testTitle || 'Mock Test'}
-                  </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 mb-4">
-                    Attempted {answeredCount}/{totalQuestions} questions
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <Link
-                      to={`/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/30 active:scale-95"
-                    >
-                      <span>Resume Test</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/exams/${inProgressAttempt.testId}`)}
-                      className="px-4 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-semibold transition-all active:scale-95"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress bar and motivational clock script */}
-              <div className="w-full lg:w-80 flex flex-col items-end gap-3">
-                <div className="w-full flex items-center gap-3">
-                  <div className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${progressPct}%` }} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-300">{progressPct}%</span>
-                </div>
-                <div className="flex items-center gap-2 text-right">
-                  <Clock className="w-4 h-4 text-blue-400" />
-                  <p className="text-xs text-blue-200 font-serif italic">"Finish what you started!"</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 4. POPULAR TEST SERIES */}
-      <div>
-        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-900 dark:text-white">Popular Test Series</h3><Link to="/test-series" className="text-xs font-bold text-[#0158FC] flex items-center gap-1">See All <ChevronRight className="h-4 w-4"/></Link></div>
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-          {(featuredSeries.length ? featuredSeries : []).map((series) => (
-            <Link key={series.id} to={`/test-series/${series.slug || series.id}`} className="group flex min-w-[220px] items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 transition hover:border-blue-300 hover:shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="h-14 w-14 shrink-0 rounded-2xl border border-blue-100 bg-[#EFF5FB] p-2 shadow-sm"><img src={resolvePopularSeriesEmblem(series)} alt="" className="h-full w-full object-contain" onError={(event) => { event.currentTarget.src = '/logo-icon.png'; }}/></div>
-                <div className="min-w-0 flex-1"><h4 className="line-clamp-2 text-sm font-black leading-snug text-slate-900 group-hover:text-[#0158FC]">{series.title}</h4><p className="mt-1 truncate text-[11px] font-semibold text-slate-500">{series.examTitle || 'Test Series'}</p></div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-slate-400"/>
-              </div>
-            </Link>
-          ))}
-          {!featuredSeries.length && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500">Featured test series will appear here after Admin publishes them.</div>}
-        </div>
-      </div>
-
-      {/* 🔥 POPULAR TEST SERIES (Controlled dynamically by Admin isPopular flag) */}
-      {popularTestSeries.length > 0 && (
+      {/* 4. FEATURED & POPULAR TEST SERIES */}
+      <section className="space-y-5">
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>🔥</span> Popular Test Series
-            </h3>
+          <div className="mb-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-5 rounded-full bg-gradient-to-b from-[#0158FC] to-[#0198FD]" />
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                Popular Test Series
+              </h3>
+            </div>
             <Link
               to="/test-series"
-              className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+              className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
             >
-              See All <ChevronRight className="w-4 h-4" />
+              See All <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
-
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
-            {popularTestSeries.map((series) => {
+          <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
+            {(featuredSeries.length ? featuredSeries : popularTestSeries).map((series) => {
               const emblem = resolvePopularSeriesEmblem(series);
-
+              const isBrandLogo = emblem.includes('logo-icon');
               return (
                 <Link
                   key={series.id}
-                  to={`/test-series/${series.id}`}
-                  className="group flex w-[260px] flex-shrink-0 items-center gap-4 rounded-2xl border border-slate-200/90 bg-white p-4 transition-all hover:border-blue-400 hover:shadow-md active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 sm:w-auto"
+                  to={`/test-series/${series.slug || series.id}`}
+                  className="group flex min-w-[250px] sm:min-w-0 items-center gap-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 transition-all hover:border-[#0158FC]/50 hover:shadow-md active:scale-[0.99]"
                 >
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-[#EFF5FB] p-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                  {isBrandLogo ? (
                     <img
-                      src={emblem}
+                      src="/logo-icon.png"
                       alt=""
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo-icon.png';
+                      className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-xs"
+                      onError={(event) => {
+                        event.currentTarget.src = '/logo-icon-circle.png';
                       }}
                     />
-                  </div>
-
-                  <div className="flex min-w-0 flex-1 flex-col justify-center">
-                    <h4 className="line-clamp-2 text-sm font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[#0158FC] dark:text-white dark:group-hover:text-blue-400">
+                  ) : (
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-[#EFF5FB] dark:bg-slate-800 p-1.5 shadow-2xs flex items-center justify-center">
+                      <img
+                        src={emblem}
+                        alt=""
+                        className="h-full w-full rounded-xl object-contain"
+                        onError={(event) => {
+                          event.currentTarget.src = '/logo-icon.png';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="line-clamp-2 text-xs sm:text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
                       {series.title}
                     </h4>
-                    <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{series.examTitle || 'Test Series'}</p>
+                    <p className="mt-1 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      {series.examTitle || 'Test Series'}
+                    </p>
                   </div>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-[#0158FC] transition-colors group-hover:bg-[#0158FC] group-hover:text-white dark:bg-slate-800"><ArrowRight className="h-4 w-4" /></span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-slate-800 text-[#0158FC] dark:text-blue-400 transition-colors group-hover:bg-[#0158FC] group-hover:text-white">
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
                 </Link>
               );
             })}
+            {!featuredSeries.length && !popularTestSeries.length && (
+              <div className="col-span-full rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 text-sm text-slate-500">
+                Featured test series will appear here after Admin publishes them.
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* 5. PRACTICE BY SUBJECT (8 Subject Cards) */}
-      <div>
+        {/* Secondary Popular row when both featuredSeries and popularTestSeries exist */}
+        {featuredSeries.length > 0 && popularTestSeries.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🔥</span> Trending Exam Packs
+              </h3>
+              <Link
+                to="/test-series"
+                className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                Explore Catalog <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
+              {popularTestSeries.map((series) => {
+                const emblem = resolvePopularSeriesEmblem(series);
+                const isBrandLogo = emblem.includes('logo-icon');
+
+                return (
+                  <Link
+                    key={series.id}
+                    to={`/test-series/${series.id}`}
+                    className="group flex w-[250px] flex-shrink-0 items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 transition-all hover:border-[#0158FC]/50 hover:shadow-md active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 sm:w-auto"
+                  >
+                    {isBrandLogo ? (
+                      <img
+                        src="/logo-icon.png"
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/logo-icon-circle.png';
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-[#EFF5FB] p-1 shadow-2xs dark:border-slate-700 dark:bg-slate-800">
+                        <img
+                          src={emblem}
+                          alt=""
+                          className="h-full w-full rounded-lg object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/logo-icon.png';
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex min-w-0 flex-1 flex-col justify-center">
+                      <h4 className="line-clamp-2 text-xs sm:text-sm font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[#0158FC] dark:text-white dark:group-hover:text-blue-400">
+                        {series.title}
+                      </h4>
+                      <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        {series.examTitle || 'Test Series'}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 5. PRACTICE BY SUBJECT (8 Subject Bento Cards) */}
+      <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Practice by Subject</h3>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Practice by Subject
+            </h3>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Master chapter-wise concepts & boost accuracy across key exam subjects
+            </p>
+          </div>
           <Link
             to="/practice"
-            className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1 shrink-0"
           >
             See All <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {subjects.map((subj) => (
             <Link
               key={subj.id}
               to={`/practice?subject=${subj.id}`}
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-xs transition-all group active:scale-[0.98]"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F8FAFF] dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800 hover:border-[#0158FC]/40 hover:shadow-sm transition-all group active:scale-[0.98]"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-xs ${subj.color}`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-xs shrink-0 ${subj.color}`}
                 >
                   {subj.symbol}
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors truncate">
                     {subj.title}
                   </h4>
-                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                     {subj.questions}
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-[#0158FC] dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
+              <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-[#0158FC] dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
             </Link>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* 6. RECOMMENDED FOR YOU */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recommended for You</h3>
+      <section>
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-5 rounded-full bg-gradient-to-b from-[#0158FC] to-[#0198FD]" />
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Recommended for You
+            </h3>
+          </div>
           <Link
             to="/test-series"
-            className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
           >
             See All <ChevronRight className="w-4 h-4" />
           </Link>
@@ -980,40 +1135,40 @@ export const Home: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
           <button
             onClick={() => setRecommendedTab('mock')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 ${
+            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
               recommendedTab === 'mock'
-                ? 'bg-[#0158FC] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
+                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
             Test Series
           </button>
           <button
             onClick={() => setRecommendedTab('topic')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 ${
+            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
               recommendedTab === 'topic'
-                ? 'bg-[#0158FC] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
+                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
             Topic Practice
           </button>
           <button
             onClick={() => setRecommendedTab('pyq')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 ${
+            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
               recommendedTab === 'pyq'
-                ? 'bg-[#0158FC] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
+                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
             Previous Year Questions
           </button>
           <button
             onClick={() => setRecommendedTab('progress')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 ${
+            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
               recommendedTab === 'progress'
-                ? 'bg-[#0158FC] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
+                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
             Based on Your Progress
@@ -1030,21 +1185,21 @@ export const Home: React.FC = () => {
             {recommendedTests.map((test) => (
               <div
                 key={test.id}
-                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-xs transition-all"
+                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between hover:border-[#0158FC]/40 dark:hover:border-slate-700 hover:shadow-md transition-all"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3.5">
                     <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center border ${test.iconBg}`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center border ${test.iconBg}`}
                     >
                       <FileText className="w-5 h-5" />
                     </div>
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                         test.badgeType === 'orange'
                           ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                           : test.badgeType === 'blue'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                          ? 'bg-blue-100 text-[#0158FC] dark:bg-blue-950/60 dark:text-blue-300'
                           : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
                       }`}
                     >
@@ -1052,29 +1207,29 @@ export const Home: React.FC = () => {
                     </span>
                   </div>
 
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 leading-snug">
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white mb-3 leading-snug line-clamp-2">
                     {test.title}
                   </h4>
 
-                  <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 mb-5">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      <span>{test.questions}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      <span>{test.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Globe2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      <span>{test.lang}</span>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-5">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
+                      <FileText className="w-3.5 h-3.5 text-[#0158FC]" />
+                      {test.questions}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
+                      <Clock className="w-3.5 h-3.5 text-[#0158FC]" />
+                      {test.duration}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
+                      <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
+                      {test.lang}
+                    </span>
                   </div>
                 </div>
 
                 <button
                   onClick={() => navigate(`/exams/${test.id}`)}
-                  className="w-full py-2.5 rounded-xl bg-[#0158FC] hover:bg-blue-600 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:from-[#0047cc] hover:to-[#0158FC] text-white text-xs font-extrabold shadow-sm shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
                 >
                   <span>Start Test</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1083,15 +1238,22 @@ export const Home: React.FC = () => {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* 7. YOUR PROGRESS */}
-      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-2xs transition-colors">
+      {/* 7. YOUR PROGRESS (Accuracy Donut & Subject Mastery) */}
+      <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-[0_8px_30px_-12px_rgba(1,88,252,0.06)] transition-colors">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Your Progress</h3>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Your Progress
+            </h3>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Real-time accuracy & subject-wise mastery synced with your test attempts
+            </p>
+          </div>
           <Link
             to="/results"
-            className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
           >
             View Detailed Analytics <ChevronRight className="w-4 h-4" />
           </Link>
@@ -1099,8 +1261,8 @@ export const Home: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           {/* Donut Chart Gauge */}
-          <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-center gap-6">
-            <div className="relative w-36 h-36 flex items-center justify-center">
+          <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-center gap-6 bg-[#F8FAFF] dark:bg-slate-800/40 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+            <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
               {/* Circular SVG Donut */}
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle
@@ -1108,7 +1270,7 @@ export const Home: React.FC = () => {
                   cy="50"
                   r="40"
                   stroke="currentColor"
-                  className="text-slate-200 dark:text-slate-800"
+                  className="text-slate-200 dark:text-slate-700"
                   strokeWidth="10"
                   fill="transparent"
                 />
@@ -1125,33 +1287,43 @@ export const Home: React.FC = () => {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">{overallAccuracyPct}%</span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Overall Accuracy</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
+                  {overallAccuracyPct}%
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                  Overall Accuracy
+                </span>
               </div>
             </div>
 
             {/* Legend */}
-            <div className="space-y-2 text-xs font-semibold">
+            <div className="space-y-2.5 text-xs font-semibold w-full sm:w-auto">
               <div className="flex items-center justify-between gap-6">
                 <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                   Correct
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">{totalCorrectCount}</span>
+                <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                  {totalCorrectCount}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-6">
                 <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   Incorrect
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">{totalWrongCount}</span>
+                <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                  {totalWrongCount}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-6">
                 <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                   Skipped
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">{totalSkippedCount}</span>
+                <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                  {totalSkippedCount}
+                </span>
               </div>
             </div>
           </div>
@@ -1159,97 +1331,121 @@ export const Home: React.FC = () => {
           {/* Subject Wise Performance */}
           <div className="lg:col-span-7">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Subject Wise Performance
               </h4>
-              <Link to="/results" className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline">
+              <Link
+                to="/results"
+                className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline"
+              >
                 View All &gt;
               </Link>
             </div>
 
-            <div className="space-y-3">
-              {['Mathematics', 'Reasoning', 'General Knowledge', 'English', 'Bengali'].map((subjName, idx) => {
-                const pct = completedAttempts.length > 0 ? overallAccuracyPct : 0;
-                const barColors = ['bg-blue-600', 'bg-blue-500', 'bg-blue-400', 'bg-blue-500', 'bg-blue-400'];
-                return (
-                  <div key={subjName}>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-700 dark:text-slate-300">{subjName}</span>
-                      <span className="text-slate-900 dark:text-white font-bold">{pct}%</span>
+            <div className="space-y-3.5">
+              {['Mathematics', 'Reasoning', 'General Knowledge', 'English', 'Bengali'].map(
+                (subjName, idx) => {
+                  const pct = completedAttempts.length > 0 ? overallAccuracyPct : 0;
+                  const barColors = [
+                    'from-[#0158FC] to-[#0198FD]',
+                    'from-violet-600 to-indigo-500',
+                    'from-emerald-600 to-teal-500',
+                    'from-rose-600 to-pink-500',
+                    'from-amber-500 to-orange-500',
+                  ];
+                  return (
+                    <div key={subjName}>
+                      <div className="flex justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-700 dark:text-slate-300">{subjName}</span>
+                        <span className="text-slate-900 dark:text-white font-black tabular-nums">
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${barColors[idx]} rounded-full transition-all duration-500`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div className={`h-full ${barColors[idx]} rounded-full`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* 8. TWO COLUMNS: RECENT MOCK TESTS & LEADERBOARD */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Recent Mock Tests */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-2xs transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Mock Tests</h3>
-            <Link
-              to="/results"
-              className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-            >
-              See All <ChevronRight className="w-4 h-4" />
-            </Link>
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)] transition-colors flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                Recent Mock Tests
+              </h3>
+              <Link
+                to="/results"
+                className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                See All <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {recentTests.length === 0 ? (
+              <div className="py-10 text-center text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                No mock tests attempted yet. Start your first test to track your progress!
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {recentTests.map((test) => (
+                  <div key={test.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${test.iconBg}`}
+                      >
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+                          {test.title}
+                        </h4>
+                        <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
+                          {test.date}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-black border tabular-nums ${test.color}`}
+                      >
+                        {test.score}/{test.total}
+                      </span>
+                      <Link
+                        to={`/exams/${test.testId}/results/${test.id}`}
+                        className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline"
+                      >
+                        View Result
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {recentTests.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
-              No mock tests attempted yet. Start your first test to track your progress!
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {recentTests.map((test) => (
-                <div key={test.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${test.iconBg}`}
-                    >
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                        {test.title}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{test.date}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-bold border ${test.color}`}
-                    >
-                      {test.score}/{test.total}
-                    </span>
-                    <Link
-                      to={`/exams/${test.testId}/results/${test.id}`}
-                      className="text-xs font-semibold text-[#0158FC] dark:text-blue-400 hover:underline"
-                    >
-                      View Result
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Right: Rank */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-2xs transition-colors">
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)] transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rank</h3>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Rank
+            </h3>
             <Link
               to="/rank"
-              className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
+              className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
             >
               See All <ChevronRight className="w-4 h-4" />
             </Link>
@@ -1259,9 +1455,9 @@ export const Home: React.FC = () => {
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
             <button
               onClick={() => setLeaderboardTab('all')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
                 leaderboardTab === 'all'
-                  ? 'bg-[#0158FC] text-white shadow-xs'
+                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1269,9 +1465,9 @@ export const Home: React.FC = () => {
             </button>
             <button
               onClick={() => setLeaderboardTab('wb')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
                 leaderboardTab === 'wb'
-                  ? 'bg-[#0158FC] text-white shadow-xs'
+                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1279,9 +1475,9 @@ export const Home: React.FC = () => {
             </button>
             <button
               onClick={() => setLeaderboardTab('friends')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
                 leaderboardTab === 'friends'
-                  ? 'bg-[#0158FC] text-white shadow-xs'
+                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1308,74 +1504,81 @@ export const Home: React.FC = () => {
                   className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
                 >
                   <span className="w-8 font-bold text-base">{item.icon}</span>
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-[#0158FC] dark:text-slate-300 shrink-0">
                       {item.name.charAt(0)}
                     </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.name}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                      {item.name}
+                    </span>
                   </div>
-                  <span className="font-black text-slate-900 dark:text-white">{item.score}</span>
+                  <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                    {item.score}
+                  </span>
                 </div>
               ))
             )}
 
             {/* User Row Highlight */}
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 mt-3">
-              <span className="w-8 font-black text-blue-700 dark:text-blue-400">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 mt-3">
+              <span className="w-8 font-black text-[#0158FC] dark:text-blue-400 tabular-nums">
                 {userLeaderboardRank ? `#${userLeaderboardRank}` : '#-'}
               </span>
-              <div className="flex items-center gap-2 flex-1">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <img
                   src={user?.avatarUrl || '/images/student_avatar.png'}
                   alt="You"
-                  className="w-7 h-7 rounded-full object-cover border border-blue-300 dark:border-blue-700"
+                  className="w-7 h-7 rounded-full object-cover border border-blue-300 dark:border-blue-700 shrink-0"
                   onError={(e) => {
                     e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
-                <span className="font-black text-blue-900 dark:text-blue-200">
+                <span className="font-black text-blue-900 dark:text-blue-200 truncate">
                   You ({user?.fullName?.split(' ')[0] || 'Candidate'})
                 </span>
               </div>
-              <span className="font-black text-blue-700 dark:text-blue-400">{overallAccuracyPct}%</span>
+              <span className="font-black text-[#0158FC] dark:text-blue-400 tabular-nums">
+                {overallAccuracyPct}%
+              </span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* 9. PRO UPGRADE BANNER (Bottom Banner) - Only shown to free students */}
       {!isPro && (
-        <div className="relative rounded-3xl bg-gradient-to-r from-[#eef6ff] via-[#e6f2fe] to-[#dbebfe] dark:from-slate-900 dark:via-slate-850 dark:to-indigo-950/60 border border-blue-200/80 dark:border-slate-800 p-6 sm:p-8 overflow-hidden shadow-xs">
+        <div className="relative rounded-3xl bg-gradient-to-r from-[#0B1F44] via-[#0138A8] to-[#0158FC] text-white p-6 sm:p-8 overflow-hidden shadow-lg">
+          <div className="absolute -right-12 -top-12 w-56 h-56 bg-[#0198FD]/25 rounded-full blur-3xl pointer-events-none" />
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-[#0158FC] text-white flex items-center justify-center shadow-xs">
-                  <Sparkles className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-4 h-4 fill-slate-950" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Upgrade to <span className="text-[#0158FC] dark:text-blue-400">PracticeKoro Pro</span>
+                <h3 className="text-lg sm:text-xl font-black text-white">
+                  Upgrade to <span className="text-amber-300">PracticeKoro Pro</span>
                 </h3>
               </div>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-xs sm:text-sm text-blue-100">
                 Get unlimited access to all exams, mock tests, PYQ, topic practice and detailed solutions.
               </p>
 
               {/* Checklist */}
-              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-bold text-white/90">
                 <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#0158FC] dark:text-blue-400" /> All Exams
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> All Exams
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#0158FC] dark:text-blue-400" /> Unlimited Tests
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Unlimited Tests
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#0158FC] dark:text-blue-400" /> Detailed Solutions
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Detailed Solutions
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-[#0158FC] dark:text-blue-400" /> Web + Mobile App
+                  <Smartphone className="w-4 h-4 text-sky-300" /> Web + Mobile App
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Headphones className="w-4 h-4 text-[#0158FC] dark:text-blue-400" /> Priority Support
+                  <Headphones className="w-4 h-4 text-amber-300" /> Priority Support
                 </span>
               </div>
             </div>
@@ -1383,12 +1586,12 @@ export const Home: React.FC = () => {
             <div className="flex flex-col items-center sm:items-end gap-2 shrink-0 w-full sm:w-auto">
               <Link
                 to="/subscription"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#0158FC] hover:bg-[#0047cc] text-white text-sm font-bold shadow-md shadow-blue-500/25 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-blue-50 text-[#0158FC] text-sm font-black shadow-md transition-all"
               >
                 <span>Upgrade Now</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <span className="text-[11px] text-slate-500 font-medium">
+              <span className="text-[11px] text-blue-200 font-medium">
                 Start your success journey today!
               </span>
             </div>

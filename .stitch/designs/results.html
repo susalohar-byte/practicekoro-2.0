@@ -1,0 +1,751 @@
+Title: Live Content
+
+Description: Fetched live
+
+Source: https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzAwMDY1Y2ExZTFlODIxYTcwNzc5ODEzZDYxMDI4NGM4EgsSBxD_s_6x5REYAZIBIwoKcHJvamVjdF9pZBIVQhM0OTgzNTM5MTAyOTYzNDI2MzMz&filename=&opi=89354086
+
+---
+
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="mobile_tab" name="shell-type"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body {
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overscroll-behavior-y: none;
+        min-height: max(884px, 100dvh);
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 16px);
+      }
+      .pt-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+      }
+      main > :first-child {
+        margin-top: 0 !important;
+      }
+      main > :last-child {
+        margin-bottom: 0 !important;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary-fixed": "#dfe0ff",
+            "primary": "#0c22c0",
+            "tertiary-container": "#7a4c00",
+            "tertiary-fixed": "#ffddb8",
+            "on-surface-variant": "#454655",
+            "on-secondary": "#ffffff",
+            "surface": "#faf8ff",
+            "on-error-container": "#93000a",
+            "on-secondary-container": "#fffbff",
+            "on-primary-fixed-variant": "#1b2dc7",
+            "background": "#faf8ff",
+            "outline-variant": "#c5c5d7",
+            "on-tertiary-fixed-variant": "#653e00",
+            "surface-tint": "#3a4bde",
+            "tertiary": "#5b3700",
+            "tertiary-fixed-dim": "#ffb95f",
+            "on-background": "#131b2e",
+            "surface-container": "#eaedff",
+            "on-error": "#ffffff",
+            "on-surface": "#131b2e",
+            "inverse-on-surface": "#eef0ff",
+            "on-tertiary-fixed": "#2a1700",
+            "error": "#ba1a1a",
+            "inverse-surface": "#283044",
+            "on-secondary-fixed-variant": "#2f2ebe",
+            "secondary": "#4648d4",
+            "secondary-fixed": "#e1e0ff",
+            "surface-container-low": "#f2f3ff",
+            "secondary-fixed-dim": "#c0c1ff",
+            "error-container": "#ffdad6",
+            "on-tertiary-container": "#ffc174",
+            "surface-container-highest": "#dae2fd",
+            "on-secondary-fixed": "#07006c",
+            "on-primary-fixed": "#000965",
+            "on-primary": "#ffffff",
+            "primary-fixed-dim": "#bdc2ff",
+            "on-tertiary": "#ffffff",
+            "primary-container": "#3142d6",
+            "outline": "#757686",
+            "surface-container-high": "#e2e7ff",
+            "inverse-primary": "#bdc2ff",
+            "surface-variant": "#dae2fd",
+            "surface-bright": "#faf8ff",
+            "surface-dim": "#d2d9f4",
+            "on-primary-container": "#c4c9ff",
+            "secondary-container": "#6063ee",
+            "surface-container-lowest": "#ffffff"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-sm": "0.5rem",
+            "space-xl": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1.5rem",
+            "space-xs": "0.25rem",
+            "gutter-mobile": "0.75rem",
+            "space-md": "1rem",
+            "gutter": "1rem",
+            "margin-mobile": "1rem"
+          },
+          fontFamily: {
+            "headline-xl": ["Inter"],
+            "headline-sm": ["Inter"],
+            "label-md": ["Inter"],
+            "label-sm": ["Inter"],
+            "label-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          fontSize: {
+            "headline-xl": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+            "label-sm": ["10px", { "lineHeight": "12px", "fontWeight": "700" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md antialiased flex flex-col min-h-screen selection:bg-primary-fixed">
+<!-- TOP APP BAR & BRAND BAR -->
+<header class="fixed top-0 w-full z-50 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_2px_12px_rgba(20,30,80,0.04)]">
+<div class="h-16 px-margin-mobile flex items-center justify-between gap-space-sm">
+<!-- Brand Identification -->
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-primary/20 shrink-0 bg-surface-container flex items-center justify-center">
+<img alt="ExamPrep PRO Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1WXjYT4G6-IBPzotKrlyhaWjXvGbwFtg1g996aKR0PvHBcSACjqcFSG25uRjKw0w8UxFGh80bNXubB4kkWBYWGnABVzkpCnI81XnUOvANCVwU9bOYM2IDoHPudSEx07s_md8DVOfL8y16LCKKD7P3AHtBT14poIMZhLb6fDrQVedkbjOvmYOiRurCFKv7CJ3melCBqHTTJjosmVOZ3pZOyHFcoQm1Mkfvcyo43YqqXhMn9U-9JZusHCdNc"/>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1">
+<span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">Exam<span class="text-primary">Prep</span></span>
+<span class="bg-primary-container text-on-primary font-label-sm text-label-sm px-1.5 py-0.5 rounded-full uppercase tracking-wider">PRO</span>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant leading-tight mt-0.5">
+            Premier Mock Portal
+          </span>
+</div>
+</div>
+<!-- Top Actions (Streak, Notification, Avatar) -->
+<div class="flex items-center gap-space-xs">
+<!-- Streak Pill -->
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-700 shadow-sm">
+<span class="text-[14px] leading-none">🔥</span>
+<span class="font-label-md text-label-md font-bold text-amber-900 leading-none">5 Days</span>
+</div>
+<!-- Notification Bell -->
+<button aria-label="Notifications" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors relative">
+<span class="material-symbols-outlined text-[22px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-error ring-2 ring-surface"></span>
+</button>
+<!-- User Avatar / Profile Shortcut -->
+<a aria-label="My Profile" class="w-9 h-9 rounded-full overflow-hidden ring-2 ring-primary-fixed ml-0.5 active:scale-95 transition-transform" data-path="student-profile" href="#">
+<img alt="Student Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCW0e62sDDn8lF2_VzNtHW_4TRc5flhg_rzAi8TavLDiJOzR5-6XNxhZIC1EhcKlffCzPaFsEvXg_xPhhXYpBMoiGNlEHn5IrN87UrmjiK3mwEXRkX9M6-DrA2dyiTkRCoJeKvUSL9EXpSSIrz-SwtXpTDNzusabQMF_WiP7-LcdXmwml0Hyw_4A7yFyKIAxYXk1ZfATTkRiMayH1K0B7WiJX-lm72BsJuX4zrMMT9TwmcppFQWWf0F"/>
+</a>
+</div>
+</div>
+</header>
+<!-- MAIN SCROLLABLE CONTENT -->
+<main class="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-background">
+<div class="flex flex-col w-full px-margin-mobile pb-space-xl">
+<!-- Interactive Target Exam Switcher Dropdown (Modal State Overlay) -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm hidden items-end sm:items-center justify-center p-0 sm:p-margin transition-opacity" id="exam-modal">
+<div class="w-full sm:max-w-sm bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-space-lg shadow-2xl flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Select Target Exam</h3>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" id="close-exam-modal">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-space-xs">
+<button class="exam-option flex items-center justify-between p-space-sm rounded-xl bg-primary-fixed/30 text-primary font-label-lg text-label-lg transition-all" data-exam="SSC CGL 2025 Tier-1">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span>SSC CGL 2025 Tier-1</span>
+</div>
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+</button>
+<button class="exam-option flex items-center justify-between p-space-sm rounded-xl hover:bg-surface-container text-on-surface-variant font-label-lg text-label-lg transition-all" data-exam="WBCS Prelims 2025">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">account_balance</span>
+<span>WBCS Prelims 2025</span>
+</div>
+</button>
+<button class="exam-option flex items-center justify-between p-space-sm rounded-xl hover:bg-surface-container text-on-surface-variant font-label-lg text-label-lg transition-all" data-exam="SBI PO 2025 Prelims">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">payments</span>
+<span>SBI PO 2025 Prelims</span>
+</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Header Section -->
+<section class="mt-space-md flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+<span class="font-label-sm text-label-sm tracking-wider uppercase text-secondary">Real-Time Insights</span>
+</div>
+<h1 class="font-headline-md text-headline-md text-on-surface">Performance &amp; Deep Analytics</h1>
+</div>
+<!-- Quick Exam Pill Selector -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container shadow-sm hover:bg-surface-container-high transition-colors active:scale-95 text-left" id="open-exam-modal">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold max-w-[110px] truncate" id="current-exam-label">SSC CGL 2025 Tier-1</span>
+<span class="material-symbols-outlined text-outline text-[16px]">expand_more</span>
+</button>
+</div>
+<!-- Timeframe Filter Chips -->
+<div class="flex items-center gap-space-xs p-1 bg-surface-container rounded-xl shadow-inner mt-space-xs">
+<button class="timeframe-btn flex-1 py-1.5 rounded-lg font-label-md text-label-md text-center transition-all bg-surface-container-lowest text-primary font-bold shadow-sm" data-filter="overall">
+        Overall
+      </button>
+<button class="timeframe-btn flex-1 py-1.5 rounded-lg font-label-md text-label-md text-center transition-all text-on-surface-variant hover:text-on-surface" data-filter="30days">
+        Last 30 Days
+      </button>
+<button class="timeframe-btn flex-1 py-1.5 rounded-lg font-label-md text-label-md text-center transition-all text-on-surface-variant hover:text-on-surface" data-filter="5mocks">
+        Last 5 Mocks
+      </button>
+</div>
+</section>
+<!-- Key Performance Metric Cards Grid (4 KPI Cards) -->
+<section class="mt-space-md grid grid-cols-2 gap-space-sm">
+<!-- Card 1: Percentile -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute -right-2 -bottom-2 w-16 h-16 bg-primary-fixed/20 rounded-full blur-xl pointer-events-none"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant">Overall Percentile</span>
+<div class="w-7 h-7 rounded-lg bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]">military_tech</span>
+</div>
+</div>
+<div class="mt-space-sm">
+<div class="font-headline-lg text-headline-lg text-primary tracking-tight">94.2%</div>
+<div class="flex items-center gap-1 mt-1 text-tertiary-container font-label-sm text-label-sm">
+<span class="font-bold">▲ +2.4%</span>
+<span class="text-on-surface-variant">this week</span>
+</div>
+</div>
+<div class="mt-space-xs pt-1.5 flex items-center gap-1 text-[11px] font-body-sm text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+<span>Top 5.8% Nationwide</span>
+</div>
+</div>
+<!-- Card 2: Average Score -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant">Average Score</span>
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">scoreboard</span>
+</div>
+</div>
+<div class="mt-space-sm">
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-on-surface">152</span>
+<span class="font-label-md text-label-md text-on-surface-variant">/ 200</span>
+</div>
+<div class="flex items-center gap-1 mt-1 font-label-sm text-label-sm text-secondary font-semibold">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+<span>+20 marks margin</span>
+</div>
+</div>
+<div class="mt-space-xs pt-1.5 text-[11px] font-body-sm text-on-surface-variant truncate">
+        Tier-1 Safe Cutoff: 132
+      </div>
+</div>
+<!-- Card 3: Net Accuracy -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant">Net Accuracy</span>
+<div class="w-7 h-7 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">target</span>
+</div>
+</div>
+<div class="mt-space-sm">
+<div class="font-headline-lg text-headline-lg text-on-surface">86.4%</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 86.4%;"></div>
+</div>
+</div>
+<div class="mt-space-xs pt-1 flex items-center justify-between text-[11px] font-body-sm text-on-surface-variant">
+<span class="text-primary font-semibold">742 Correct</span>
+<span class="text-error font-medium">112 Wrong</span>
+</div>
+</div>
+<!-- Card 4: Avg Speed -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant">Avg Speed</span>
+<div class="w-7 h-7 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+</div>
+</div>
+<div class="mt-space-sm">
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-on-surface">38s</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">/ Q</span>
+</div>
+<div class="flex items-center gap-1 mt-1 text-tertiary font-label-sm text-label-sm">
+<span>⚡ Pace: Optimal</span>
+</div>
+</div>
+<div class="mt-space-xs pt-1.5 text-[11px] font-body-sm text-on-surface-variant truncate">
+        TCS Topper Avg: 32s
+      </div>
+</div>
+</section>
+<!-- Score Trend Progression Graph Section -->
+<section class="mt-space-lg bg-surface-container-lowest rounded-2xl p-space-md shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Score Progression Trend</h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Mock #1 to Mock #7 Continuous Track</span>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-primary-fixed/40 text-primary font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +30 Marks
+      </span>
+</div>
+<!-- Stylized Trend Line Chart SVG -->
+<div class="mt-space-md relative w-full pt-1">
+<div class="flex items-center justify-between text-[11px] text-on-surface-variant pb-1 font-label-sm">
+<span>170 max</span>
+<span class="flex items-center gap-1 text-secondary font-medium">
+<span class="w-2 h-0.5 bg-secondary rounded"></span> Cutoff (132)
+        </span>
+<span class="flex items-center gap-1 text-primary font-bold">
+<span class="w-2 h-0.5 bg-primary rounded"></span> AIR 500 (155+)
+        </span>
+</div>
+<!-- SVG Container -->
+<div class="relative w-full h-44 bg-surface-container-low/60 rounded-xl overflow-hidden px-2 pt-4">
+<!-- Milestone Guide Lines -->
+<div class="absolute inset-x-0 top-[38%] h-px bg-primary/20 border-dashed"></div>
+<div class="absolute inset-x-0 top-[72%] h-px bg-outline-variant/50"></div>
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 340 130">
+<defs>
+<lineargradient id="scoreAreaGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#0c22c0" stop-opacity="0.28"></stop>
+<stop offset="100%" stop-color="#0c22c0" stop-opacity="0.0"></stop>
+</lineargradient>
+<lineargradient id="scoreLineGradient" x1="0" x2="1" y1="0" y2="0">
+<stop offset="0%" stop-color="#4648d4"></stop>
+<stop offset="100%" stop-color="#0c22c0"></stop>
+</lineargradient>
+</defs>
+<!-- Cutoff Dash Line (Score 132 -> Y ~ 95) -->
+<line opacity="0.6" stroke="#757686" stroke-dasharray="3,3" stroke-width="1.2" x1="10" x2="330" y1="95" y2="95"></line>
+<!-- Top 500 Range Dash Line (Score 155 -> Y ~ 38) -->
+<line opacity="0.7" stroke="#0c22c0" stroke-dasharray="2,2" stroke-width="1.2" x1="10" x2="330" y1="40" y2="40"></line>
+<!-- Area fill below path -->
+<path d="M 20 102 L 68 85 L 118 70 L 168 55 L 218 42 L 268 47 L 318 32 L 318 128 L 20 128 Z" fill="url(#scoreAreaGradient)"></path>
+<!-- Main Smooth Score Progression Line -->
+<path d="M 20 102 L 68 85 L 118 70 L 168 55 L 218 42 L 268 47 L 318 32" fill="none" stroke="url(#scoreLineGradient)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5"></path>
+<!-- Data Points with score callouts -->
+<circle cx="20" cy="102" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<circle cx="68" cy="85" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<circle cx="118" cy="70" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<circle cx="168" cy="55" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<circle cx="218" cy="42" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<circle cx="268" cy="47" fill="#faf8ff" r="4" stroke="#4648d4" stroke-width="2.5"></circle>
+<!-- Current Best Point Highlight -->
+<circle class="filter drop-shadow-sm" cx="318" cy="32" fill="#0c22c0" r="6" stroke="#ffffff" stroke-width="3"></circle>
+<text fill="#0c22c0" font-size="10" font-weight="700" text-anchor="middle" x="318" y="20">158 🔥</text>
+</svg>
+</div>
+<!-- X-Axis Labels -->
+<div class="flex items-center justify-between px-1 mt-2 text-[11px] font-label-md text-on-surface-variant">
+<span>Mock 1</span>
+<span>Mock 2</span>
+<span>Mock 3</span>
+<span>Mock 4</span>
+<span>Mock 5</span>
+<span>Mock 6</span>
+<span class="font-bold text-primary">Mock 7</span>
+</div>
+<!-- Milestone Badges Footnote -->
+<div class="mt-space-sm flex flex-wrap items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-container font-label-sm text-label-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+          Qualified Tier-1 Cutoff (Mock #2 onwards)
+        </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary-fixed/50 font-label-sm text-label-sm text-primary font-semibold">
+<span class="material-symbols-outlined text-[14px]">workspace_premium</span>
+          AIR 500 Range Unlocked
+        </span>
+</div>
+</div>
+</section>
+<!-- Subject-wise Strength & Radar Breakdown -->
+<section class="mt-space-lg flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Subject-wise Mastery</h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Sectional accuracy &amp; score distribution</span>
+</div>
+<a class="font-label-md text-label-md text-primary font-semibold hover:underline" href="#">Full Report</a>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col gap-space-md">
+<!-- Subject 1: Reasoning -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]">psychology</span>
+</div>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">General Intelligence &amp; Reasoning</span>
+<div class="flex items-center gap-1.5 text-[11px] font-body-sm text-on-surface-variant">
+<span>46/50 Marks</span>
+<span>•</span>
+<span class="text-tertiary-container font-medium">Exceptional Mastery</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-sm text-headline-sm text-primary font-bold">96%</span>
+<span class="block text-[10px] font-label-sm text-on-surface-variant">ACCURACY</span>
+</div>
+</div>
+<!-- Progress Track -->
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-500" style="width: 96%;"></div>
+</div>
+</div>
+<!-- Subject 2: Quantitative -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">calculate</span>
+</div>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Quantitative Aptitude</span>
+<div class="flex items-center gap-1.5 text-[11px] font-body-sm text-on-surface-variant">
+<span>42/50 Marks</span>
+<span>•</span>
+<span class="text-secondary font-medium">Good Pace (AIR Track)</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-sm text-headline-sm text-secondary font-bold">85%</span>
+<span class="block text-[10px] font-label-sm text-on-surface-variant">ACCURACY</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary-container h-full rounded-full transition-all duration-500" style="width: 85%;"></div>
+</div>
+</div>
+<!-- Subject 3: English Comprehension -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">translate</span>
+</div>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">English Comprehension</span>
+<div class="flex items-center gap-1.5 text-[11px] font-body-sm text-on-surface-variant">
+<span>38/50 Marks</span>
+<span>•</span>
+<span class="text-on-surface-variant font-medium">Consistent</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">82%</span>
+<span class="block text-[10px] font-label-sm text-on-surface-variant">ACCURACY</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 82%;"></div>
+</div>
+</div>
+<!-- Subject 4: General Awareness (Needs Focus) -->
+<div class="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface-container-low/70">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[16px]">history_edu</span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">General Awareness</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-sm bg-tertiary-fixed text-tertiary font-bold">Needs Focus ⚠️</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] font-body-sm text-on-surface-variant">
+<span>28/50 Marks</span>
+<span>•</span>
+<span>Static GK lagging</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-sm text-headline-sm text-tertiary font-bold">68%</span>
+<span class="block text-[10px] font-label-sm text-on-surface-variant">ACCURACY</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full rounded-full transition-all duration-500" style="width: 68%;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Diagnostic Mentor Recommendations -->
+<section class="mt-space-lg flex flex-col gap-space-sm">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-md bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">AI Diagnostic Mentor Recommendations</h2>
+</div>
+<!-- Recommendation Cards Container -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col gap-space-md relative overflow-hidden">
+<div class="absolute -top-10 -right-10 w-28 h-28 bg-primary-fixed/20 rounded-full blur-2xl pointer-events-none"></div>
+<!-- Warning Card 1: Negative Marking Trap -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-xl bg-error-container/25">
+<div class="w-8 h-8 rounded-lg bg-error-container flex items-center justify-center text-on-error-container shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Negative Marking Alert</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+<strong class="text-on-surface">Geometry &amp; Mensuration</strong> is costing you <span class="text-error font-bold">-8.5 marks</span> per test due to negative marking. Complete 3 revision drills before the next full mock.
+          </p>
+</div>
+</div>
+<!-- Warning Card 2: Time Trap -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-xl bg-tertiary-fixed/30">
+<div class="w-8 h-8 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">hourglass_bottom</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Time Trap Alert</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            You spent <strong class="text-on-surface">&gt;90 seconds</strong> on 6 arithmetic questions in Mock #7. Practice the 45-second skip strategy to save 4.5 minutes.
+          </p>
+</div>
+</div>
+<!-- AI Action CTA Button -->
+<button class="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md hover:bg-on-primary-fixed-variant active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span>Start AI Recommended Drill (20 Qs)</span>
+</button>
+</div>
+</section>
+<!-- Recent Test History Preview -->
+<section class="mt-space-lg flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Recent Mock History</h2>
+<a class="font-label-md text-label-md text-primary font-semibold hover:underline" href="#">View All 14 Mocks</a>
+</div>
+<!-- Recent Test Card -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col gap-space-sm transition-all hover:shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-md bg-primary text-on-primary font-label-sm text-label-sm uppercase font-bold tracking-wider">
+            Full Mock
+          </span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">SSC CGL Mock #07</span>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant">Yesterday, 4:30 PM</span>
+</div>
+<!-- Metrics Row -->
+<div class="grid grid-cols-3 gap-2 py-1.5 px-3 bg-surface-container-low rounded-xl">
+<div class="flex flex-col">
+<span class="text-[10px] font-label-sm text-on-surface-variant">SCORE</span>
+<div class="flex items-baseline gap-0.5">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">158</span>
+<span class="text-[11px] text-on-surface-variant">/200</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label-sm text-on-surface-variant">PERCENTILE</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">95.1%</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label-sm text-on-surface-variant">ALL INDIA RANK</span>
+<div class="flex items-center gap-1">
+<span class="font-headline-sm text-headline-sm font-bold text-secondary">#218</span>
+<span class="text-[10px] text-on-surface-variant">/ 8.4k</span>
+</div>
+</div>
+</div>
+<!-- Action Button / Link -->
+<a class="w-full py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1.5 font-label-md text-label-md text-primary font-semibold" href="#">
+<span>View Detailed Solutions &amp; Question Palette</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</section>
+</div>
+<!-- Inline Interactive Script for Tab Highlight & Dropdown Filter Handling -->
+<script>
+  (function() {
+    // 1. Highlight the 4th tab 'Performance' as active in the bottom navigation shell
+    const navLinks = document.querySelectorAll('nav a');
+    navLinks.forEach((link, idx) => {
+      const pill = link.querySelector('.tab-pill');
+      const icon = link.querySelector('.material-symbols-outlined');
+      const label = link.querySelector('span:not(.material-symbols-outlined)');
+
+      if (idx === 3) { // 4th Tab: Performance
+        link.classList.remove('text-on-surface-variant');
+        link.classList.add('text-primary', 'font-bold');
+        if (pill) pill.classList.add('bg-primary/10');
+        if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+        if (label) label.classList.add('text-primary', 'font-bold');
+      } else {
+        link.classList.remove('text-primary', 'font-bold');
+        link.classList.add('text-on-surface-variant');
+        if (pill) pill.classList.remove('bg-primary/10');
+        if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+        if (label) {
+          label.classList.remove('text-primary', 'font-bold');
+          label.classList.add('text-on-surface-variant');
+        }
+      }
+    });
+
+    // 2. Exam Switcher Modal Logic
+    const openModalBtn = document.getElementById('open-exam-modal');
+    const closeModalBtn = document.getElementById('close-exam-modal');
+    const modal = document.getElementById('exam-modal');
+    const examLabel = document.getElementById('current-exam-label');
+    const examOptions = document.querySelectorAll('.exam-option');
+
+    if (openModalBtn && modal) {
+      openModalBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      });
+
+      closeModalBtn?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      });
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      });
+
+      examOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+          const selected = opt.getAttribute('data-exam');
+          if (examLabel && selected) {
+            examLabel.textContent = selected;
+          }
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        });
+      });
+    }
+
+    // 3. Timeframe Filter Chips Toggle
+    const filterButtons = document.querySelectorAll('.timeframe-btn');
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterButtons.forEach(b => {
+          b.classList.remove('bg-surface-container-lowest', 'text-primary', 'font-bold', 'shadow-sm');
+          b.classList.add('text-on-surface-variant');
+        });
+        btn.classList.add('bg-surface-container-lowest', 'text-primary', 'font-bold', 'shadow-sm');
+        btn.classList.remove('text-on-surface-variant');
+      });
+    });
+  })();
+</script>
+</main>
+<!-- 5-TAB PERSISTENT BOTTOM NAVIGATION -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/40 pb-safe shadow-[0_-4px_20px_rgba(20,30,80,0.06)]" data-active-classes="text-primary font-bold [&amp;_span.material-symbols-outlined]:[font-variation-settings:'FILL'_1] [&amp;_.tab-pill]:bg-primary/10">
+<div class="max-w-md mx-auto flex items-center justify-around h-16 px-1">
+<!-- Tab 1: Home -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="examprep---redesigned-premium-home-&amp;-popular-test-series" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">home</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Home</span>
+</a>
+<!-- Tab 2: Test Series -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="test-series-catalog" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">layers</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Test Series</span>
+</a>
+<!-- Tab 3: Practice -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="practice-&amp;-question-bank" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">auto_stories</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Practice</span>
+</a>
+<!-- Tab 4: Performance -->
+<a aria-current="page" class="flex flex-col items-center justify-center flex-1 h-full py-1 group transition-colors text-primary font-bold [&amp;_span.material-symbols-outlined]:[font-variation-settings:'FILL'_1] [&amp;_.tab-pill]:bg-primary/10" data-path="performance-&amp;-analytics" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">bar_chart</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Performance</span>
+</a>
+<!-- Tab 5: Profile -->
+<a class="flex flex-col items-center justify-center flex-1 h-full py-1 text-on-surface-variant hover:text-on-surface group transition-colors" data-path="student-profile" href="#">
+<div class="tab-pill flex items-center justify-center w-11 h-7 rounded-full transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px]">person</span>
+</div>
+<span class="font-label-sm text-label-sm mt-0.5 tracking-tight">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>
+

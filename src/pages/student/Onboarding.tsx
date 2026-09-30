@@ -24,13 +24,11 @@ export const Onboarding: React.FC = () => {
 
       {/* Main Container when modal is closed or for background presentation */}
       <div className="max-w-md w-full text-center space-y-6 z-10 p-6 bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl animate-slide-up-fade">
-        <div className="w-20 h-20 mx-auto rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-xl animate-float">
-          <img
-            src="/logo-icon-transparent.png"
-            alt="PracticeKoro"
-            className="w-12 h-12 object-contain filter drop-shadow-md"
-          />
-        </div>
+        <img
+          src="/logo-icon-circle.png"
+          alt="PracticeKoro"
+          className="w-20 h-20 mx-auto rounded-3xl object-contain filter drop-shadow-md animate-float"
+        />
 
         <div className="space-y-2">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-bold border border-white/20">

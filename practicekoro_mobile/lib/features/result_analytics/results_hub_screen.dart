@@ -239,7 +239,7 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
     final numberFormat = NumberFormat.decimalPattern('en_IN');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F9FF),
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -247,7 +247,7 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
           children: [
             // ── 0. BREADCRUMB + TITLE ──
             _buildHeaderSection(),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // ── 1. HERO BANNER WITH FILTER PILLS & ILLUSTRATION ──
             _buildHeroFilterBanner(),
@@ -293,93 +293,154 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
 
   // ── 0. BREADCRUMB + TITLE ──
   Widget _buildHeaderSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () => _navigateToTab(0, '/home'),
-              child: const Text(
-                'Home',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94A3B8),
-                ),
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFF0158FC).withValues(alpha: 0.18),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              'assets/images/logo-circle.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Icon(
+                Icons.bar_chart_rounded,
+                size: 20,
+                color: Color(0xFF0158FC),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                '>',
-                style: TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
-              ),
-            ),
-            const Text(
-              'Results',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        RichText(
-          text: const TextSpan(
-            style: TextStyle(
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
-              letterSpacing: -0.5,
-            ),
-            children: [
-              TextSpan(text: 'Your '),
-              TextSpan(
-                text: 'Results',
-                style: TextStyle(color: Color(0xFF0158FC)),
-              ),
-            ],
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Track your performance, identify strengths, and work on weak areas.',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF64748B),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _navigateToTab(0, '/home'),
+                    child: const Text(
+                      'Home',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 5),
+                    child: Text(
+                      '>',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'Results',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0158FC),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.5,
+                  ),
+                  children: [
+                    TextSpan(text: 'Your '),
+                    TextSpan(
+                      text: 'Results',
+                      style: TextStyle(color: Color(0xFF0158FC)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Track your performance, identify strengths, and work on weak areas.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // ── 1. HERO BANNER ──
+  // ── 1. HERO BANNER (Stitch 2.0 Deep Navy-to-Electric-Blue Card) ──
   Widget _buildHeroFilterBanner() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEFF6FF), Color(0xFFF0F9FF)],
+          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF0158FC).withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 13,
+                  color: Color(0xFFFCD34D),
+                ),
+                SizedBox(width: 5),
+                Text(
+                  'PERFORMANCE & ANALYTICS 2.0',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -397,25 +458,23 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
+                    horizontal: 14,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF0158FC)
-                        : Colors.white.withValues(alpha: 0.88),
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF0158FC)
-                          : const Color(0xFFDBEAFE),
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.24),
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: const Color(
-                                0xFF0158FC,
-                              ).withValues(alpha: 0.25),
+                              color: Colors.black.withValues(alpha: 0.12),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -426,10 +485,10 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                     label,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF334155),
+                          ? const Color(0xFF0158FC)
+                          : Colors.white,
                     ),
                   ),
                 ),
@@ -521,24 +580,24 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: iconBg,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(13),
             ),
             alignment: Alignment.center,
             child: Icon(icon, color: iconColor, size: 20),
@@ -566,8 +625,8 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],
@@ -588,13 +647,13 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
