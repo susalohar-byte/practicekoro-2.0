@@ -339,7 +339,6 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="leaderboard" element={<Navigate to="/rank" replace />} />
         </Route>
 
         {/* Standalone Fullscreen Test Runner (Distraction-free, dedicated exam header) */}

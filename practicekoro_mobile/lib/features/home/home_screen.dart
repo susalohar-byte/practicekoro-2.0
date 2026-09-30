@@ -2378,7 +2378,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(width: 8),
                     InkWell(
-                      onTap: () => _handleTabNavigation(3, '/results'),
+                      onTap: () => context.push('/result/${attempt.id}'),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -2390,7 +2390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Text(
-                          'Analysis',
+                          'View Result',
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
@@ -2449,7 +2449,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               InkWell(
-                onTap: () => _handleTabNavigation(3, '/results'),
+                onTap: () => context.push('/rank'),
                 child: const Row(
                   children: [
                     Text(

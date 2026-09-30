@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/attempt_model.dart';
@@ -119,25 +120,58 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               width: double.infinity,
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Leaderboard',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.5,
+                  if (Navigator.of(context).canPop()) ...[
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      borderRadius: BorderRadius.circular(10),
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 22,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Compete, stay consistent and climb the ranks! 💙',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
+                  ] else ...[
+                    InkWell(
+                      onTap: () => context.go('/home'),
+                      borderRadius: BorderRadius.circular(10),
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 22,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Leaderboard',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Compete, stay consistent and climb the ranks! 💙',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

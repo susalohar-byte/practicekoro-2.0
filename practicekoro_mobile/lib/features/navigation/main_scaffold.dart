@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
 import '../exams/exams_catalog_screen.dart';
 import '../practice/practice_screen.dart';
-import '../leaderboard/leaderboard_screen.dart';
+import '../result_analytics/results_hub_screen.dart';
 import '../profile/profile_screen.dart';
 
 class MainScaffold extends StatefulWidget {
@@ -44,7 +44,13 @@ class _MainScaffoldState extends State<MainScaffold> {
           ),
           const ExamsCatalogScreen(),
           PracticeScreen(initialTab: widget.practiceInitialTab ?? 'subjects'),
-          const LeaderboardScreen(),
+          ResultsHubScreen(
+            onTabSelected: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ),
           const ProfileScreen(),
         ],
       ),

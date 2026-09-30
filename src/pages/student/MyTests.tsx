@@ -278,7 +278,7 @@ export const MyTests: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500">
                 <Link
-                  to="/"
+                  to="/dashboard"
                   className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                 >
                   Home

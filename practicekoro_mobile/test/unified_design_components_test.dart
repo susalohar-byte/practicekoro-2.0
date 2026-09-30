@@ -8,6 +8,7 @@ import 'package:practicekoro_mobile/core/components/pk_stat_card.dart';
 import 'package:practicekoro_mobile/core/components/pk_section_header.dart';
 import 'package:practicekoro_mobile/data/datasources/local_storage.dart';
 import 'package:practicekoro_mobile/features/leaderboard/leaderboard_screen.dart';
+import 'package:practicekoro_mobile/features/result_analytics/results_hub_screen.dart';
 import 'package:practicekoro_mobile/features/profile/settings_screen.dart';
 import 'package:practicekoro_mobile/features/profile/support_screen.dart';
 
@@ -130,6 +131,22 @@ void main() {
       expect(find.text('SSC & Central Govt.'), findsWidgets);
       expect(find.text('Railways (RRB)'), findsWidgets);
       expect(find.text('Continue'), findsOneWidget);
+    });
+
+    testWidgets('ResultsHubScreen renders Your Results page sections', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ResultsHubScreen(),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Track your performance, identify strengths, and work on weak areas.'), findsOneWidget);
+      expect(find.text('All Tests'), findsOneWidget);
+      expect(find.text('Mock Tests'), findsOneWidget);
+      expect(find.text('Tests Attempted'), findsOneWidget);
+      expect(find.text('Test History'), findsOneWidget);
     });
 
     testWidgets('LeaderboardScreen renders real scope filters and empty/error state without dummy data', (tester) async {

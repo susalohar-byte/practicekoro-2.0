@@ -16,6 +16,7 @@ import '../../features/profile/saved_questions_screen.dart';
 import '../../features/profile/settings_screen.dart';
 import '../../features/profile/support_screen.dart';
 import '../../features/subscription/subscription_screen.dart';
+import '../../features/leaderboard/leaderboard_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../data/models/attempt_model.dart';
 
@@ -160,18 +161,18 @@ final appRouter = GoRouter(
       builder: (context, state) => const SavedQuestionsScreen(),
     ),
 
-    // 22. Results / Rank / Leaderboard Screen (via MainScaffold tab 3)
+    // 22. Results Screen (via MainScaffold tab 3) & Rank / Leaderboard Screen
     GoRoute(
       path: '/results',
       builder: (context, state) => const MainScaffold(initialIndex: 3),
     ),
     GoRoute(
       path: '/leaderboard',
-      builder: (context, state) => const MainScaffold(initialIndex: 3),
+      builder: (context, state) => const LeaderboardScreen(),
     ),
     GoRoute(
       path: '/rank',
-      builder: (context, state) => const MainScaffold(initialIndex: 3),
+      builder: (context, state) => const LeaderboardScreen(),
     ),
 
     // 23. Profile Screen (via MainScaffold tab 4)
