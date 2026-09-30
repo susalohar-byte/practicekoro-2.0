@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/datasources/local_storage.dart';
+import '../../data/models/subject_model.dart';
 import '../../data/repositories/catalog_repository.dart';
 
 class PracticeScreen extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class PracticeScreen extends ConsumerStatefulWidget {
 class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   late String _activeTab;
   List<Map<String, dynamic>> _pyqPapers = [];
+  List<SubjectModel> _subjects = [];
 
   @override
   void initState() {
@@ -30,6 +32,15 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         ? widget.initialTab
         : 'subjects';
     _loadPyqPapers();
+    _loadSubjects();
+  }
+
+  Future<void> _loadSubjects() async {
+    final examId = LocalStorageService.getTargetExam();
+    final subjects = await ref
+        .read(catalogRepositoryProvider)
+        .getSubjects(examId: examId);
+    if (mounted) setState(() => _subjects = subjects);
   }
 
   Future<void> _loadPyqPapers() async {
@@ -51,113 +62,11 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     }
   }
 
-  static const List<Map<String, dynamic>> _subjects = [
-    {
-      'id': 'math',
-      'title': 'Mathematics',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFF2563EB),
-      'symbol': '∑',
-    },
-    {
-      'id': 'reasoning',
-      'title': 'Reasoning & Mental Ability',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFFF43F5E),
-      'symbol': '🎗',
-    },
-    {
-      'id': 'gk',
-      'title': 'General Knowledge',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFF10B981),
-      'symbol': '🌐',
-    },
-    {
-      'id': 'english',
-      'title': 'English Language',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFF9333EA),
-      'symbol': 'A',
-    },
-    {
-      'id': 'bengali',
-      'title': 'Bengali Language & Literature',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFFF59E0B),
-      'symbol': 'অ',
-    },
-    {
-      'id': 'computer',
-      'title': 'Computer Awareness',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFF0EA5E9),
-      'symbol': '💻',
-    },
-    {
-      'id': 'current-affairs',
-      'title': 'Current Affairs (National & WB)',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFFEC4899),
-      'symbol': '📅',
-    },
-    {
-      'id': 'environment',
-      'title': 'Environmental Studies (EVS)',
-      'questions': 'Topic-wise Practice',
-      'color': Color(0xFF14B8A6),
-      'symbol': '🌱',
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _topics = [
-    {
-      'title': 'Percentage & Profit-Loss',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'math',
-    },
-    {
-      'title': 'Time, Speed & Distance',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'math',
-    },
-    {
-      'title': 'Indian Constitution & Polity',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'gk',
-    },
-    {
-      'title': 'West Bengal Geography',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'gk',
-    },
-    {
-      'title': 'Blood Relations & Direction',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'reasoning',
-    },
-    {
-      'title': 'English Common Idioms & Phrases',
-      'questions': 'Practice Set',
-      'progress': 0.0,
-      'subject': 'english',
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
     final attempts = LocalStorageService.getAttempts();
     final totalWrong = attempts.fold<int>(0, (sum, a) => sum + a.wrongCount);
     final bookmarksCount = LocalStorageService.getBookmarks().length;
-    final avgAccuracy = attempts.isEmpty
-        ? 0
-        : (attempts.fold<double>(0, (s, a) => s + a.accuracy) / attempts.length)
-              .round();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -259,21 +168,29 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
 
                   // Active Tab Content
                   if (_activeTab == 'subjects')
-                    _buildSubjectGrid(avgAccuracy)
+                    _buildSubjectGrid()
                   else if (_activeTab == 'topics')
-                    ..._topics.map((t) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: PKTopicCard(
-                          title: t['title'] as String,
-                          questionsCount: t['questions'] as String,
-                          progress: t['progress'] as double,
-                          onPractice: () => context.push(
-                            '/practice/topics/${t['subject']}',
+                    if (_subjects.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No subjects are available for your target exam yet.',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      ..._subjects.map(
+                        (subject) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: PKTopicCard(
+                            title: subject.name,
+                            questionsCount: 'Browse available topics and tests',
+                            progress: 0,
+                            onPractice: () =>
+                                context.push('/practice/topics/${subject.id}'),
                           ),
                         ),
-                      );
-                    })
+                      )
                   else ...[
                     if (_pyqPapers.isEmpty)
                       Container(
@@ -643,7 +560,15 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   // ===========================================================================
   // 3. SUBJECT GRID (Matches Website Practice.tsx Subject Cards)
   // ===========================================================================
-  Widget _buildSubjectGrid(int avgAccuracy) {
+  Widget _buildSubjectGrid() {
+    const colors = [
+      Color(0xFF2563EB),
+      Color(0xFFF43F5E),
+      Color(0xFF10B981),
+      Color(0xFF9333EA),
+      Color(0xFFF59E0B),
+      Color(0xFF0EA5E9),
+    ];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -656,9 +581,9 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       ),
       itemBuilder: (context, index) {
         final subject = _subjects[index];
-        final color = subject['color'] as Color;
+        final color = colors[index % colors.length];
         return InkWell(
-          onTap: () => context.push('/practice/topics/${subject['id']}'),
+          onTap: () => context.push('/practice/topics/${subject.id}'),
           borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(14),
@@ -689,7 +614,9 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        subject['symbol'] as String,
+                        subject.name.isEmpty
+                            ? '?'
+                            : subject.name.substring(0, 1).toUpperCase(),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
@@ -697,19 +624,16 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                         ),
                       ),
                     ),
-                    Text(
-                      '$avgAccuracy%',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF64748B),
-                      ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF64748B),
+                      size: 18,
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  subject['title'] as String,
+                  subject.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -720,16 +644,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   ),
                 ),
                 const Spacer(),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: avgAccuracy / 100.0,
-                    minHeight: 5,
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const Spacer(),
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

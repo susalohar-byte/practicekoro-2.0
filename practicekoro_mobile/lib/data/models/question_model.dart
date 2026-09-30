@@ -15,6 +15,8 @@ class QuestionModel {
   final double negativeMarks;
   final String? subjectName;
   final String? chapterName;
+  final String? selectedOption;
+  final bool? isCorrect;
 
   const QuestionModel({
     required this.id,
@@ -30,29 +32,47 @@ class QuestionModel {
     this.explanation,
     this.explanationBengali,
     this.marks = 1.0,
-    this.negativeMarks = 0.25,
+    this.negativeMarks = 0,
     this.subjectName,
     this.chapterName,
+    this.selectedOption,
+    this.isCorrect,
   });
 
   factory QuestionModel.fromJson(Map<String, dynamic> json) {
     return QuestionModel(
       id: json['id'] as String,
       questionOrder: (json['question_order'] as num?)?.toInt() ?? 1,
-      questionText: json['question_text'] as String? ?? json['questionText'] as String? ?? '',
-      questionBengaliText: json['question_bengali_text'] as String? ?? json['questionBengaliText'] as String?,
+      questionText:
+          json['question_text'] as String? ??
+          json['questionText'] as String? ??
+          '',
+      questionBengaliText:
+          json['question_bengali_text'] as String? ??
+          json['questionBengaliText'] as String?,
       imageUrl: json['image_url'] as String? ?? json['imageUrl'] as String?,
       optionA: json['option_a'] as String? ?? json['optionA'] as String? ?? '',
       optionB: json['option_b'] as String? ?? json['optionB'] as String? ?? '',
       optionC: json['option_c'] as String? ?? json['optionC'] as String? ?? '',
       optionD: json['option_d'] as String? ?? json['optionD'] as String? ?? '',
-      correctOption: json['correct_option'] as String? ?? json['correctOption'] as String? ?? 'A',
+      correctOption:
+          json['correct_option'] as String? ??
+          json['correctOption'] as String? ??
+          'A',
       explanation: json['explanation'] as String?,
-      explanationBengali: json['explanation_bengali'] as String? ?? json['explanationBengali'] as String?,
+      explanationBengali:
+          json['explanation_bengali'] as String? ??
+          json['explanationBengali'] as String?,
       marks: (json['marks'] as num?)?.toDouble() ?? 1.0,
-      negativeMarks: (json['negative_marks'] as num?)?.toDouble() ?? 0.25,
-      subjectName: json['subject_name'] as String? ?? json['subjectName'] as String?,
-      chapterName: json['chapter_name'] as String? ?? json['chapterName'] as String?,
+      negativeMarks: (json['negative_marks'] as num?)?.toDouble() ?? 0,
+      subjectName:
+          json['subject_name'] as String? ?? json['subjectName'] as String?,
+      chapterName:
+          json['chapter_name'] as String? ?? json['chapterName'] as String?,
+      selectedOption:
+          json['selectedOption'] as String? ??
+          json['selected_option'] as String?,
+      isCorrect: json['isCorrect'] as bool? ?? json['is_correct'] as bool?,
     );
   }
 
@@ -74,12 +94,16 @@ class QuestionModel {
       'negative_marks': negativeMarks,
       'subject_name': subjectName,
       'chapter_name': chapterName,
+      'selectedOption': selectedOption,
+      'isCorrect': isCorrect,
     };
   }
 
   /// Returns question in preferred language, gracefully falling back
   String getLocalizedQuestion(bool preferBengali) {
-    if (preferBengali && questionBengaliText != null && questionBengaliText!.trim().isNotEmpty) {
+    if (preferBengali &&
+        questionBengaliText != null &&
+        questionBengaliText!.trim().isNotEmpty) {
       return questionBengaliText!;
     }
     return questionText;
@@ -87,7 +111,9 @@ class QuestionModel {
 
   /// Returns explanation in preferred language, gracefully falling back
   String? getLocalizedExplanation(bool preferBengali) {
-    if (preferBengali && explanationBengali != null && explanationBengali!.trim().isNotEmpty) {
+    if (preferBengali &&
+        explanationBengali != null &&
+        explanationBengali!.trim().isNotEmpty) {
       return explanationBengali;
     }
     return explanation;

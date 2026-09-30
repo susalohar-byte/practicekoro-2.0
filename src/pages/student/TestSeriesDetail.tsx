@@ -17,8 +17,11 @@ import {
   FileText,
   Layers,
   AlertCircle,
+  BarChart3,
+  TrendingUp,
+  Target,
 } from 'lucide-react';
-import type { MockTest, TestSeries, TestAttempt } from '@/types';
+import type { MockTest, TestSeries, TestAttempt, TestSeriesAnalytics } from '@/types';
 
 type CategoryTab = 'all' | 'full_mock' | 'topic' | 'pyq';
 type StatusFilter = 'all' | 'unattempted' | 'completed';
@@ -31,6 +34,8 @@ export const TestSeriesDetail: React.FC = () => {
   const [series, setSeries] = useState<TestSeries | null>(null);
   const [tests, setTests] = useState<MockTest[]>([]);
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
+  const [analytics, setAnalytics] = useState<TestSeriesAnalytics | null>(null);
+  const [analyticsError, setAnalyticsError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Filters & State
@@ -49,19 +54,32 @@ export const TestSeriesDetail: React.FC = () => {
       if (!seriesId) return;
       try {
         setLoading(true);
+        setAnalytics(null);
+        setAnalyticsError(false);
         // Load all test series to find the matching series by ID or slug
         const allSeries = await api.getStudentTestSeries();
         const found = allSeries.find((s) => s.id === seriesId || s.slug === seriesId);
 
         if (found) {
           if (mounted) setSeries(found);
-          const [seriesTests, myAttempts] = await Promise.all([
+          const [seriesTests, report] = await Promise.all([
             api.getSeriesTestsForStudent(found.id),
-            user?.id ? api.getUserAttempts(user.id) : Promise.resolve([]),
+            api.getTestSeriesAnalytics(found.id).catch((err) => {
+              console.error('Failed to load test series analytics:', err);
+              if (mounted) setAnalyticsError(true);
+              return null;
+            }),
           ]);
+          const myAttempts = user?.id
+            ? await api.getUserAttempts(
+                user.id,
+                seriesTests.map((test) => test.id)
+              )
+            : [];
           if (mounted) {
             setTests(seriesTests);
             setAttempts(myAttempts);
+            setAnalytics(report);
           }
         }
       } catch (err) {
@@ -94,9 +112,7 @@ export const TestSeriesDetail: React.FC = () => {
     const fullMock = tests.filter((t) => t.testType === 'full_mock').length;
     const topic = tests.filter(
       (t) =>
-        t.testType === 'topic' ||
-        t.testType === 'chapter_mock' ||
-        t.testType === 'subject_mock'
+        t.testType === 'topic' || t.testType === 'chapter_mock' || t.testType === 'subject_mock'
     ).length;
     const pyq = tests.filter((t) => t.testType === 'pyq').length;
     return { all, fullMock, topic, pyq };
@@ -149,7 +165,17 @@ export const TestSeriesDetail: React.FC = () => {
     }).length;
   }, [tests, latestAttemptMap]);
 
-  const completionPercent = tests.length > 0 ? Math.round((completedCount / tests.length) * 100) : 0;
+  const completionPercent =
+    tests.length > 0 ? Math.round((completedCount / tests.length) * 100) : 0;
+  const seriesSummary = analytics;
+  const trendPoints = seriesSummary?.trend.slice(-12) ?? [];
+  const maxTrend = Math.max(100, ...trendPoints.map((point) => point.percentage));
+  const testTypeLabels: Record<string, string> = {
+    full_mock: 'Full Mock',
+    pyq: 'Previous Year Questions',
+    topic_test: 'Subject & Topic Tests',
+    live_test: 'Live Tests',
+  };
 
   // Handle test start
   const handleStartTest = async (test: MockTest) => {
@@ -187,7 +213,10 @@ export const TestSeriesDetail: React.FC = () => {
           <div className="h-14 bg-slate-200 dark:bg-slate-800/80 rounded-2xl animate-pulse" />
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-28 bg-slate-200 dark:bg-slate-800/80 rounded-2xl animate-pulse" />
+              <div
+                key={i}
+                className="h-28 bg-slate-200 dark:bg-slate-800/80 rounded-2xl animate-pulse"
+              />
             ))}
           </div>
         </div>
@@ -200,7 +229,9 @@ export const TestSeriesDetail: React.FC = () => {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 pb-24 font-sans flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center space-y-4 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">Test Series Not Found</h2>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white">
+            Test Series Not Found
+          </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             The requested test series could not be found or has been deactivated by administration.
           </p>
@@ -223,11 +254,17 @@ export const TestSeriesDetail: React.FC = () => {
         {/* ── 0. BREADCRUMBS & BACK LINK ── */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500">
-            <Link to="/" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+            <Link
+              to="/"
+              className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            >
               Home
             </Link>
             <span className="text-slate-300 dark:text-slate-600">&gt;</span>
-            <Link to="/test-series" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+            <Link
+              to="/test-series"
+              className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+            >
               Test Series
             </Link>
             <span className="text-slate-300 dark:text-slate-600">&gt;</span>
@@ -319,6 +356,290 @@ export const TestSeriesDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* ── SERIES PERFORMANCE: computed from the student's saved attempts ── */}
+        <section aria-labelledby="series-performance-title" className="space-y-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-[#0158FC]" />
+            <h2
+              id="series-performance-title"
+              className="text-lg font-black text-slate-900 dark:text-white"
+            >
+              Series Performance
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            {[
+              {
+                label: 'Overall score',
+                value: analyticsError
+                  ? '—'
+                  : `${(seriesSummary?.overallScorePercent ?? 0).toFixed(1)}%`,
+              },
+              {
+                label: 'Average score',
+                value: analyticsError
+                  ? '—'
+                  : `${(seriesSummary?.averageScorePercent ?? 0).toFixed(1)}%`,
+              },
+              {
+                label: 'Accuracy',
+                value: analyticsError
+                  ? '—'
+                  : `${(seriesSummary?.accuracyPercent ?? 0).toFixed(1)}%`,
+              },
+              {
+                label: 'Best score',
+                value: analyticsError
+                  ? '—'
+                  : `${(seriesSummary?.bestScorePercent ?? 0).toFixed(1)}%`,
+              },
+              {
+                label: 'Tests completed',
+                value: analyticsError
+                  ? '—'
+                  : `${seriesSummary?.testsAttempted ?? completedCount} / ${seriesSummary?.totalTests ?? tests.length}`,
+              },
+              {
+                label: 'Completion',
+                value: analyticsError
+                  ? '—'
+                  : `${(seriesSummary?.completionPercent ?? completionPercent).toFixed(1)}%`,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              >
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">
+                  {item.value}
+                </p>
+              </div>
+            ))}
+          </div>
+          {analyticsError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              Series analytics could not be loaded. Your individual test history is still available
+              below.
+            </p>
+          )}
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Overall score weights each test by its marks using your latest completed attempt.
+            Accuracy is correct answers divided by attempted questions.
+          </p>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-3 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  Performance Trend
+                </h3>
+              </div>
+              {trendPoints.length === 0 ? (
+                <p className="py-5 text-sm text-slate-500 dark:text-slate-400">
+                  Complete a test to start your series performance trend.
+                </p>
+              ) : (
+                <div
+                  className="flex h-32 items-end gap-2 overflow-x-auto border-b border-slate-100 pb-2 dark:border-slate-800"
+                  role="img"
+                  aria-label="Test score trend, chronological"
+                >
+                  {trendPoints.map((point, index) => (
+                    <div
+                      key={point.attemptId}
+                      className="flex h-full min-w-8 flex-1 flex-col items-center justify-end gap-1"
+                      title={`${point.testTitle}: ${point.percentage.toFixed(1)}%`}
+                    >
+                      <span className="text-[9px] font-bold text-slate-500">
+                        {Math.round(point.percentage)}%
+                      </span>
+                      <div
+                        className="w-full max-w-8 rounded-t-md bg-gradient-to-t from-[#0158FC] to-[#0198FD]"
+                        style={{ height: `${Math.max(4, (point.percentage / maxTrend) * 82)}%` }}
+                      />
+                      <span className="text-[9px] font-semibold text-slate-400">{index + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-3 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[#0158FC]" />
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  Performance by Test Type
+                </h3>
+              </div>
+              {(seriesSummary?.testTypeBreakdown ?? []).length === 0 ? (
+                <p className="py-5 text-sm text-slate-500 dark:text-slate-400">
+                  Test type analysis will appear after your first completed test.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {seriesSummary!.testTypeBreakdown
+                    .filter((item) => item.testsAttempted > 0)
+                    .map((item) => (
+                      <div key={item.type}>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-bold text-slate-700 dark:text-slate-200">
+                            {testTypeLabels[item.type] ?? item.type}
+                          </span>
+                          <span className="text-slate-500 dark:text-slate-400">
+                            {item.testsAttempted} tests · {item.averageScorePercent.toFixed(1)}% avg
+                            · {item.bestScorePercent.toFixed(1)}% best ·{' '}
+                            {item.accuracyPercent.toFixed(1)}% accuracy
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-[#0198FD]"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, item.averageScorePercent))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {seriesSummary?.subjects.length ||
+          seriesSummary?.weakTopics.length ||
+          seriesSummary?.history.length ? (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-extrabold text-slate-900 dark:text-white">
+                  Subject Performance
+                </h3>
+                {seriesSummary?.subjects.length ? (
+                  <div className="space-y-2">
+                    {seriesSummary.subjects.map((subject) => (
+                      <div
+                        key={subject.subjectId}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="truncate font-semibold text-slate-700 dark:text-slate-200">
+                          {subject.subjectName}
+                        </span>
+                        <span className="font-black text-[#0158FC]">
+                          {subject.accuracyPercent.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Subject stats appear when answer data is available.
+                  </p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
+                <div className="mb-3 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-amber-600" />
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    Needs Improvement
+                  </h3>
+                </div>
+                {seriesSummary?.weakTopics.length ? (
+                  <div className="space-y-2">
+                    {seriesSummary.weakTopics.map((topic) => (
+                      <div key={topic.topicId} className="text-xs">
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                          {topic.subjectName} · {topic.topicName}
+                        </p>
+                        <p className="text-amber-700 dark:text-amber-300">
+                          {topic.accuracyPercent.toFixed(1)}% accuracy · {topic.questionsAttempted}{' '}
+                          attempted
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    No weak topic has enough attempt data to report yet.
+                  </p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-extrabold text-slate-900 dark:text-white">
+                  Your Improvement Report
+                </h3>
+                {seriesSummary?.weakTopics.length ? (
+                  <>
+                    <p className="mb-2 text-xs text-slate-600 dark:text-slate-300">
+                      Focus practice on these topics, then take the related topic tests and another
+                      full mock.
+                    </p>
+                    <ol className="list-inside list-decimal space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {seriesSummary.weakTopics.slice(0, 3).map((topic) => (
+                        <li key={topic.topicId}>
+                          {topic.subjectName} — {topic.topicName}
+                        </li>
+                      ))}
+                    </ol>
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Complete tests with subject and topic data to receive evidence-based practice
+                    suggestions.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!!seriesSummary?.history.length && (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  Test History
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {seriesSummary.history.map((item) => (
+                  <div
+                    key={item.attemptId}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-slate-800 dark:text-slate-100">
+                        {item.testTitle}
+                      </p>
+                      <p className="text-slate-500">
+                        {new Date(item.completedAt).toLocaleDateString()} · {item.correctCount}{' '}
+                        correct · {item.wrongCount} wrong · {item.skippedCount} skipped · −
+                        {item.negativeMarks.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-black text-[#0158FC]">
+                        {item.percentage.toFixed(1)}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/exams/${item.testId}/results/${item.attemptId}`)}
+                        className="font-bold text-[#0158FC] hover:underline"
+                      >
+                        View result
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* ── 2. CATEGORY TABS & CONTROLS ── */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
@@ -346,7 +667,9 @@ export const TestSeriesDetail: React.FC = () => {
                     <span>{tab.label}</span>
                     <span
                       className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       {tab.count}
@@ -457,7 +780,9 @@ export const TestSeriesDetail: React.FC = () => {
                           📜 Official PYQ {test.year ? `• ${test.year}` : ''}
                         </span>
                       )}
-                      {(test.testType === 'topic' || test.testType === 'chapter_mock' || test.testType === 'subject_mock') && (
+                      {(test.testType === 'topic' ||
+                        test.testType === 'chapter_mock' ||
+                        test.testType === 'subject_mock') && (
                         <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                           ⚡ Topic Drill
                         </span>
@@ -624,7 +949,8 @@ export const TestSeriesDetail: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed pt-1 border-t border-amber-200/60 dark:border-amber-800/40">
-                  One Pro Pass unlocks all Full Mocks, PYQ papers, and Topic Tests across all Bengal & Central exams.
+                  One Pro Pass unlocks all Full Mocks, PYQ papers, and Topic Tests across all Bengal
+                  & Central exams.
                 </p>
                 <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 pt-1">
                   <li className="flex items-center gap-1.5">

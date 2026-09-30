@@ -13,8 +13,9 @@ import '../../data/repositories/catalog_repository.dart';
 
 class TestRunnerScreen extends ConsumerStatefulWidget {
   final String testId;
+  final String? liveTestId;
 
-  const TestRunnerScreen({super.key, required this.testId});
+  const TestRunnerScreen({super.key, required this.testId, this.liveTestId});
 
   @override
   ConsumerState<TestRunnerScreen> createState() => _TestRunnerScreenState();
@@ -24,11 +25,15 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
   MockTestModel? _test;
   List<QuestionModel> _questions = [];
   bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _loadError;
+  String? _attemptId;
 
   int _currentIndex = 0;
   final Map<String, AttemptAnswerState> _answers = {};
 
   Timer? _timer;
+  Timer? _saveTimer;
   int _secondsRemaining = 3572;
   int _elapsedSeconds = 0;
   final ScrollController _paletteScrollController = ScrollController();
@@ -41,20 +46,82 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
 
   Future<void> _loadTestData() async {
     final catalogRepo = ref.read(catalogRepositoryProvider);
-    final test = await catalogRepo.getTestById(widget.testId);
-    final questions = await catalogRepo.getQuestionsForTest(widget.testId);
+    try {
+      final test = await catalogRepo.getTestById(widget.testId);
+      if (test == null) {
+        throw StateError('This test is no longer available.');
+      }
+      final attempt = await catalogRepo.startTestAttempt(widget.testId);
+      final attemptId = attempt['attempt_id']?.toString();
+      if (attemptId == null || attemptId.isEmpty) {
+        throw StateError('Could not initialize this test attempt.');
+      }
+      final results = await Future.wait([
+        catalogRepo.getQuestionsForTest(widget.testId),
+        catalogRepo.getSavedTestAnswers(attemptId),
+      ]);
+      final questions = results[0] as List<QuestionModel>;
+      final savedAnswers = results[1] as List<Map<String, dynamic>>;
+      if (questions.isEmpty) {
+        throw StateError('This test has no available questions.');
+      }
+      final durationSeconds = test.durationMinutes * 60;
+      final startTime = DateTime.tryParse(
+        attempt['start_time']?.toString() ?? '',
+      );
+      final elapsed = startTime == null
+          ? 0
+          : DateTime.now()
+                .difference(startTime)
+                .inSeconds
+                .clamp(0, durationSeconds);
 
-    if (mounted) {
-      setState(() {
-        _test = test;
-        _questions = questions;
-        _isLoading = false;
-
-        for (final q in questions) {
-          _answers[q.id] = AttemptAnswerState(questionId: q.id);
-        }
-      });
-      _startTimer();
+      if (widget.liveTestId != null) {
+        await catalogRepo.updateLiveTestParticipant(
+          liveTestId: widget.liveTestId!,
+          attemptId: attemptId,
+          status: 'started',
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _test = test;
+          _attemptId = attemptId;
+          _questions = questions;
+          _elapsedSeconds = elapsed;
+          _secondsRemaining = (durationSeconds - elapsed).clamp(
+            0,
+            durationSeconds,
+          );
+          _isLoading = false;
+          for (final q in questions) {
+            _answers[q.id] = AttemptAnswerState(questionId: q.id);
+          }
+          for (final saved in savedAnswers) {
+            final id = saved['question_id']?.toString();
+            if (id != null && _answers.containsKey(id)) {
+              _answers[id] = AttemptAnswerState.fromJson({
+                'question_id': id,
+                'selected_option': saved['selected_option'],
+                'is_marked_for_review': saved['is_marked_for_review'],
+                'time_spent_seconds': saved['time_spent_seconds'],
+              });
+            }
+          }
+        });
+        _startTimer();
+        _saveTimer = Timer.periodic(
+          const Duration(seconds: 15),
+          (_) => _saveAttempt(),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadError = error.toString().replaceFirst('Bad state: ', '');
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -75,6 +142,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _saveTimer?.cancel();
     _paletteScrollController.dispose();
     super.dispose();
   }
@@ -90,6 +158,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
         state.selectedOption = option;
       }
     });
+    _saveAttempt();
   }
 
   void _clearResponse() {
@@ -98,6 +167,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
     setState(() {
       _answers[currentQ.id]?.selectedOption = null;
     });
+    _saveAttempt();
   }
 
   void _toggleMark() {
@@ -107,6 +177,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
       final state = _answers[currentQ.id]!;
       state.isMarkedForReview = !state.isMarkedForReview;
     });
+    _saveAttempt();
   }
 
   void _goToQuestion(int index) {
@@ -115,7 +186,10 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
       if (_paletteScrollController.hasClients) {
         final targetOffset = (index * 46.0) - 100;
         _paletteScrollController.animateTo(
-          targetOffset.clamp(0.0, _paletteScrollController.position.maxScrollExtent),
+          targetOffset.clamp(
+            0.0,
+            _paletteScrollController.position.maxScrollExtent,
+          ),
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
         );
@@ -137,8 +211,54 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
     }
   }
 
-  void _submitTest() {
+  Future<void> _saveAttempt() async {
+    final attemptId = _attemptId;
+    if (attemptId == null || _isSubmitting || _answers.isEmpty) return;
+    final catalogRepo = ref.read(catalogRepositoryProvider);
+    try {
+      await catalogRepo.saveTestAnswers(
+        attemptId: attemptId,
+        answers: _answers.values.map((answer) => answer.toJson()).toList(),
+        timeSpentSeconds: _elapsedSeconds,
+      );
+    } catch (_) {
+      // Keep the latest selections in memory; final submit retries the save.
+    }
+  }
+
+  Future<void> _submitTest() async {
+    if (_isSubmitting || _questions.isEmpty) return;
+    setState(() => _isSubmitting = true);
     _timer?.cancel();
+    _saveTimer?.cancel();
+
+    final catalogRepo = ref.read(catalogRepositoryProvider);
+    Map<String, dynamic>? serverResult;
+    if (_attemptId != null) {
+      try {
+        serverResult = await catalogRepo.submitTestAttempt(
+          attemptId: _attemptId!,
+          answers: _answers.values.map((answer) => answer.toJson()).toList(),
+          timeSpentSeconds: _elapsedSeconds,
+        );
+      } catch (error) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Submission failed: ${error.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
+        _saveTimer = Timer.periodic(
+          const Duration(seconds: 15),
+          (_) => _saveAttempt(),
+        );
+        if (_secondsRemaining > 1) _startTimer();
+        return;
+      }
+    }
 
     int correct = 0;
     int incorrect = 0;
@@ -149,12 +269,13 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
       final ans = _answers[q.id];
       if (ans?.selectedOption == null) {
         skipped++;
-      } else if (ans?.selectedOption?.toUpperCase() == q.correctOption.toUpperCase()) {
+      } else if (ans?.selectedOption?.toUpperCase() ==
+          q.correctOption.toUpperCase()) {
         correct++;
         score += q.marks;
       } else {
         incorrect++;
-        score -= q.negativeMarks;
+        score -= _test?.negativeMarking ?? 0;
       }
     }
 
@@ -165,25 +286,45 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
         ? ((correct / (_questions.length - skipped)) * 100)
         : 0.0;
 
+    final negMarks = (_test?.negativeMarking ?? 0) * incorrect;
     final attempt = TestAttemptModel(
-      id: 'att-${DateTime.now().millisecondsSinceEpoch}',
+      id: _attemptId ?? 'att-${DateTime.now().millisecondsSinceEpoch}',
       testId: widget.testId,
       testTitle: _test?.title ?? 'Mock Test',
-      userId: 'user-susanta-01',
-      score: finalScore,
-      totalMarks: totalMarks,
-      percentage: percentage,
-      accuracy: accuracy,
-      correctCount: correct,
-      wrongCount: incorrect,
-      skippedCount: skipped,
+      userId: catalogRepo.currentUserId ?? '',
+      score: (serverResult?['score'] as num?)?.toDouble() ?? finalScore,
+      totalMarks:
+          (serverResult?['total_marks'] as num?)?.toDouble() ?? totalMarks,
+      percentage:
+          (serverResult?['percentage'] as num?)?.toDouble() ?? percentage,
+      accuracy: (serverResult?['accuracy'] as num?)?.toDouble() ?? accuracy,
+      correctCount:
+          (serverResult?['correct_count'] as num?)?.toInt() ?? correct,
+      wrongCount: (serverResult?['wrong_count'] as num?)?.toInt() ?? incorrect,
+      skippedCount:
+          (serverResult?['skipped_count'] as num?)?.toInt() ?? skipped,
       totalQuestions: _questions.length,
-      timeSpentSeconds: _elapsedSeconds,
+      timeSpentSeconds:
+          (serverResult?['time_spent_seconds'] as num?)?.toInt() ??
+          _elapsedSeconds,
+      negativeMarksDeducted: negMarks,
       completedAt: DateTime.now(),
       answers: _answers,
     );
 
-    LocalStorageService.saveAttempt(attempt);
+    if (widget.liveTestId != null &&
+        _attemptId != null &&
+        serverResult != null) {
+      try {
+        await catalogRepo.updateLiveTestParticipant(
+          liveTestId: widget.liveTestId!,
+          attemptId: _attemptId!,
+          status: 'completed',
+          result: serverResult,
+        );
+      } catch (_) {}
+    }
+    await LocalStorageService.saveAttempt(attempt);
 
     if (mounted) {
       context.go('/result/${attempt.id}');
@@ -191,8 +332,12 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
   }
 
   void _showSubmitConfirmation() {
-    final answeredCount = _answers.values.where((a) => a.selectedOption != null).length;
-    final markedCount = _answers.values.where((a) => a.isMarkedForReview).length;
+    final answeredCount = _answers.values
+        .where((a) => a.selectedOption != null)
+        .length;
+    final markedCount = _answers.values
+        .where((a) => a.isMarkedForReview)
+        .length;
     final unansweredCount = _questions.length - answeredCount;
 
     showDialog(
@@ -223,13 +368,29 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
               ),
               child: Column(
                 children: [
-                  _buildSummaryRow('Total Questions:', '${_questions.length}', AppColors.textPrimary),
+                  _buildSummaryRow(
+                    'Total Questions:',
+                    '${_questions.length}',
+                    AppColors.textPrimary,
+                  ),
                   const SizedBox(height: 6),
-                  _buildSummaryRow('Answered:', '$answeredCount', AppColors.success),
+                  _buildSummaryRow(
+                    'Answered:',
+                    '$answeredCount',
+                    AppColors.success,
+                  ),
                   const SizedBox(height: 6),
-                  _buildSummaryRow('Unanswered:', '$unansweredCount', AppColors.error),
+                  _buildSummaryRow(
+                    'Unanswered:',
+                    '$unansweredCount',
+                    AppColors.error,
+                  ),
                   const SizedBox(height: 6),
-                  _buildSummaryRow('Marked for Review:', '$markedCount', AppColors.warning),
+                  _buildSummaryRow(
+                    'Marked for Review:',
+                    '$markedCount',
+                    AppColors.warning,
+                  ),
                 ],
               ),
             ),
@@ -254,7 +415,10 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
               shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
-            child: const Text('Submit Now', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Submit Now',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -377,8 +541,18 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.bodySmall(color: AppColors.secondaryText)),
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: valueColor)),
+        Text(
+          label,
+          style: AppTypography.bodySmall(color: AppColors.secondaryText),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
+        ),
       ],
     );
   }
@@ -394,7 +568,46 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    if (_loadError != null || _questions.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 44,
+                  color: AppColors.error,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _loadError ?? 'Unable to load this test.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -410,7 +623,11 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppColors.navy,
+          ),
           onPressed: _showSubmitConfirmation,
         ),
         titleSpacing: 0,
@@ -421,7 +638,11 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
         actions: [
           // Palette Button
           IconButton(
-            icon: const Icon(Icons.grid_view_rounded, size: 20, color: AppColors.navy),
+            icon: const Icon(
+              Icons.grid_view_rounded,
+              size: 20,
+              color: AppColors.navy,
+            ),
             onPressed: _showPaletteModal,
             tooltip: 'Question Palette',
           ),
@@ -430,7 +651,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
           Container(
             margin: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
             child: ElevatedButton(
-              onPressed: _showSubmitConfirmation,
+              onPressed: _isSubmitting ? null : _showSubmitConfirmation,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 foregroundColor: Colors.white,
@@ -438,7 +659,13 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                 shape: RoundedRectangleBorder(borderRadius: AppRadius.rPill),
                 elevation: 0,
               ),
-              child: const Text('Submit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              child: Text(
+                _isSubmitting ? 'Submitting…' : 'Submit',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
         ],
@@ -455,12 +682,19 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                 children: [
                   // Timer Pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
-                      color: isCriticalTime ? AppColors.errorLight : AppColors.veryLightBlue,
+                      color: isCriticalTime
+                          ? AppColors.errorLight
+                          : AppColors.veryLightBlue,
                       borderRadius: AppRadius.rPill,
                       border: Border.all(
-                        color: isCriticalTime ? AppColors.error : AppColors.softBlue,
+                        color: isCriticalTime
+                            ? AppColors.error
+                            : AppColors.softBlue,
                       ),
                     ),
                     child: Row(
@@ -468,7 +702,9 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                       children: [
                         Icon(
                           Icons.timer_outlined,
-                          color: isCriticalTime ? AppColors.error : AppColors.primary,
+                          color: isCriticalTime
+                              ? AppColors.error
+                              : AppColors.primary,
                           size: 14,
                         ),
                         const SizedBox(width: 4),
@@ -477,7 +713,9 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: isCriticalTime ? AppColors.error : AppColors.primary,
+                            color: isCriticalTime
+                                ? AppColors.error
+                                : AppColors.primary,
                           ),
                         ),
                       ],
@@ -486,20 +724,28 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
 
                   // Question Index Pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceMuted,
                       borderRadius: AppRadius.rPill,
                     ),
                     child: Text(
                       '${_currentIndex + 1} / ${_questions.length}',
-                      style: AppTypography.labelSmall(color: AppColors.textPrimary),
+                      style: AppTypography.labelSmall(
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
 
                   // Subject Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.veryLightBlue,
                       borderRadius: AppRadius.rSm,
@@ -521,7 +767,9 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
             LinearProgressIndicator(
               value: (_currentIndex + 1) / _questions.length,
               backgroundColor: AppColors.borderSubtle,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
               minHeight: 2.5,
             ),
 
@@ -556,11 +804,16 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                             children: [
                               Text(
                                 'QUESTION ${_currentIndex + 1}',
-                                style: AppTypography.labelSmall(color: AppColors.primary),
+                                style: AppTypography.labelSmall(
+                                  color: AppColors.primary,
+                                ),
                               ),
                               if (isMarked)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.warningLight,
                                     borderRadius: AppRadius.rPill,
@@ -578,11 +831,12 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            currentQ.getLocalizedQuestion(LocalStorageService.getLanguagePreference()),
-                            style: AppTypography.titleLarge(color: AppColors.navy).copyWith(
-                              fontSize: 16,
-                              height: 1.45,
+                            currentQ.getLocalizedQuestion(
+                              LocalStorageService.getLanguagePreference(),
                             ),
+                            style: AppTypography.titleLarge(
+                              color: AppColors.navy,
+                            ).copyWith(fontSize: 16, height: 1.45),
                           ),
                         ],
                       ),
@@ -593,15 +847,33 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                     // Options Title
                     Text(
                       'Select One Option:',
-                      style: AppTypography.titleSmall(color: AppColors.secondaryText),
+                      style: AppTypography.titleSmall(
+                        color: AppColors.secondaryText,
+                      ),
                     ),
                     const SizedBox(height: 10),
 
                     // Options A, B, C, D
-                    _buildOptionItem('A', currentQ.optionA, answerState?.selectedOption == 'A'),
-                    _buildOptionItem('B', currentQ.optionB, answerState?.selectedOption == 'B'),
-                    _buildOptionItem('C', currentQ.optionC, answerState?.selectedOption == 'C'),
-                    _buildOptionItem('D', currentQ.optionD, answerState?.selectedOption == 'D'),
+                    _buildOptionItem(
+                      'A',
+                      currentQ.optionA,
+                      answerState?.selectedOption == 'A',
+                    ),
+                    _buildOptionItem(
+                      'B',
+                      currentQ.optionB,
+                      answerState?.selectedOption == 'B',
+                    ),
+                    _buildOptionItem(
+                      'C',
+                      currentQ.optionC,
+                      answerState?.selectedOption == 'C',
+                    ),
+                    _buildOptionItem(
+                      'D',
+                      currentQ.optionD,
+                      answerState?.selectedOption == 'D',
+                    ),
 
                     // Clear Answer button if selected
                     if (answerState?.selectedOption != null)
@@ -609,10 +881,16 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                         alignment: Alignment.centerRight,
                         child: TextButton.icon(
                           onPressed: _clearResponse,
-                          icon: const Icon(Icons.clear_rounded, size: 14, color: AppColors.secondaryText),
+                          icon: const Icon(
+                            Icons.clear_rounded,
+                            size: 14,
+                            color: AppColors.secondaryText,
+                          ),
                           label: Text(
                             'Clear Selection',
-                            style: AppTypography.bodySmall(color: AppColors.secondaryText),
+                            style: AppTypography.bodySmall(
+                              color: AppColors.secondaryText,
+                            ),
                           ),
                         ),
                       ),
@@ -704,9 +982,17 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                         foregroundColor: AppColors.navy,
                         side: const BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.rMd,
+                        ),
                       ),
-                      child: const Text('‹ Previous', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      child: const Text(
+                        '‹ Previous',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -715,8 +1001,12 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                   IconButton(
                     onPressed: _toggleMark,
                     icon: Icon(
-                      isMarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                      color: isMarked ? AppColors.warning : AppColors.secondaryText,
+                      isMarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      color: isMarked
+                          ? AppColors.warning
+                          : AppColors.secondaryText,
                     ),
                     tooltip: 'Mark for Review',
                   ),
@@ -730,12 +1020,19 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.rMd,
+                        ),
                         elevation: 0,
                       ),
                       child: Text(
-                        _currentIndex == _questions.length - 1 ? 'Finish Test' : 'Next ›',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        _currentIndex == _questions.length - 1
+                            ? 'Finish Test'
+                            : 'Next ›',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
@@ -789,7 +1086,9 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
                 height: 30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surfaceMuted,
                 ),
                 alignment: Alignment.center,
                 child: Text(

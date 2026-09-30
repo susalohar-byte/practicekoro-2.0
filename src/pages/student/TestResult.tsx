@@ -30,6 +30,7 @@ export const TestResult: React.FC = () => {
 
   const [result, setResult] = useState<GradedResult | null>(null);
   const [solutions, setSolutions] = useState<QuestionSolution[]>([]);
+  const [negativeMarksDeducted, setNegativeMarksDeducted] = useState<number | null>(null);
   const [liveTest, setLiveTest] = useState<LiveTest | null>(null);
   const [liveLeaderboard, setLiveLeaderboard] = useState<LiveTestParticipant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +40,20 @@ export const TestResult: React.FC = () => {
       if (!attemptId) return;
       setLoading(true);
       try {
-        const [data, sols, lt, lb] = await Promise.all([
+        const [data, sols, lt, lb, savedNegativeMarks] = await Promise.all([
           api.getAttemptResult(attemptId),
           testId ? api.getAttemptSolutions(attemptId, testId).catch(() => []) : Promise.resolve([]),
           liveTestId ? api.getLiveTestById(liveTestId).catch(() => null) : Promise.resolve(null),
           liveTestId ? api.getLiveTestLeaderboard(liveTestId).catch(() => []) : Promise.resolve([]),
+          testId ? api.getAttemptNegativeMarks(attemptId, testId).catch(() => null) : Promise.resolve(null),
         ]);
         setResult(data);
         setSolutions(sols || []);
+        const solutionNegativeMarks = (sols || []).reduce(
+          (total, solution) => total + Math.max(0, -solution.marksAwarded),
+          0
+        );
+        setNegativeMarksDeducted(savedNegativeMarks ?? (sols?.length ? solutionNegativeMarks : null));
         setLiveTest(lt);
         setLiveLeaderboard(lb || []);
       } catch (err) {
@@ -60,7 +67,9 @@ export const TestResult: React.FC = () => {
 
   const studentLiveEntry = useMemo(() => {
     if (!liveTestId || !liveLeaderboard.length) return null;
-    return liveLeaderboard.find((p) => p.attemptId === attemptId || (user?.id && p.userId === user.id));
+    return liveLeaderboard.find(
+      (p) => p.attemptId === attemptId || (user?.id && p.userId === user.id)
+    );
   }, [liveTestId, liveLeaderboard, attemptId, user?.id]);
 
   // Compute section-wise breakdown
@@ -140,7 +149,9 @@ export const TestResult: React.FC = () => {
     return (
       <div className="max-w-md mx-auto px-4 py-12 text-center">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white">Result Not Found</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Unable to locate the test attempt result.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Unable to locate the test attempt result.
+        </p>
         <Link to="/exams" className="mt-4 inline-block">
           <Button size="sm">Back to Tests</Button>
         </Link>
@@ -168,9 +179,7 @@ export const TestResult: React.FC = () => {
                   </span>
                 )}
               </div>
-              <h2 className="text-base font-bold text-white mt-1">
-                {liveTest.title}
-              </h2>
+              <h2 className="text-base font-bold text-white mt-1">{liveTest.title}</h2>
             </div>
           </div>
 
@@ -228,7 +237,11 @@ export const TestResult: React.FC = () => {
 
             <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
               <p className="text-[10px] uppercase font-bold text-slate-300">
-                {liveTest ? (liveTest.rankingEnabled ? 'Live State Rank' : 'Live Mode') : 'State Rank'}
+                {liveTest
+                  ? liveTest.rankingEnabled
+                    ? 'Live State Rank'
+                    : 'Live Mode'
+                  : 'State Rank'}
               </p>
               <p className="text-2xl font-black text-blue-400 mt-0.5">
                 {liveTest
@@ -276,14 +289,32 @@ export const TestResult: React.FC = () => {
       </Card>
 
       {/* Breakdown Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <Card className="p-5 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl flex items-center justify-between shadow-xs">
+          <div>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Total Questions
+            </span>
+            <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+              {result.correctCount + result.wrongCount + result.skippedCount}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">In this test</p>
+          </div>
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl border border-blue-100 dark:border-blue-900/60">
+            <Target className="w-6 h-6" />
+          </div>
+        </Card>
         <Card className="p-5 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl flex items-center justify-between shadow-xs">
           <div>
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Correct Answers
             </span>
-            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{result.correctCount}</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Full marks awarded</p>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+              {result.correctCount}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Full marks awarded
+            </p>
           </div>
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-100 dark:border-emerald-900/60">
             <CheckCircle2 className="w-6 h-6" />
@@ -295,8 +326,12 @@ export const TestResult: React.FC = () => {
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Incorrect Answers
             </span>
-            <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{result.wrongCount}</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Negative marks deducted</p>
+            <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+              {result.wrongCount}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Negative marks deducted
+            </p>
           </div>
           <div className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-100 dark:border-rose-900/60">
             <XCircle className="w-6 h-6" />
@@ -308,10 +343,29 @@ export const TestResult: React.FC = () => {
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Skipped / Unanswered
             </span>
-            <p className="text-2xl font-black text-slate-600 dark:text-slate-300 mt-1">{result.skippedCount}</p>
+            <p className="text-2xl font-black text-slate-600 dark:text-slate-300 mt-1">
+              {result.skippedCount}
+            </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">0 marks change</p>
           </div>
           <div className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <MinusCircle className="w-6 h-6" />
+          </div>
+        </Card>
+
+        <Card className="p-5 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl flex items-center justify-between shadow-xs">
+          <div>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Negative Marks
+            </span>
+            <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+              {negativeMarksDeducted === null ? '—' : `−${negativeMarksDeducted.toFixed(2)}`}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Deducted for wrong answers
+            </p>
+          </div>
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-100 dark:border-rose-900/60">
             <MinusCircle className="w-6 h-6" />
           </div>
         </Card>
@@ -339,8 +393,12 @@ export const TestResult: React.FC = () => {
                   <th className="px-3.5 py-2.5">Section</th>
                   <th className="px-3.5 py-2.5 text-center">Questions</th>
                   <th className="px-3.5 py-2.5 text-center">Attempted</th>
-                  <th className="px-3.5 py-2.5 text-center text-emerald-600 dark:text-emerald-400">Correct</th>
-                  <th className="px-3.5 py-2.5 text-center text-rose-600 dark:text-rose-400">Wrong</th>
+                  <th className="px-3.5 py-2.5 text-center text-emerald-600 dark:text-emerald-400">
+                    Correct
+                  </th>
+                  <th className="px-3.5 py-2.5 text-center text-rose-600 dark:text-rose-400">
+                    Wrong
+                  </th>
                   <th className="px-3.5 py-2.5 text-center">Accuracy</th>
                   <th className="px-3.5 py-2.5 text-right font-bold">Score</th>
                 </tr>
@@ -350,10 +408,19 @@ export const TestResult: React.FC = () => {
                   const secAccuracy =
                     sec.attempted > 0 ? Math.round((sec.correct / sec.attempted) * 100) : 0;
                   return (
-                    <tr key={sec.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-3.5 py-2.5 font-bold text-slate-900 dark:text-white">{sec.name}</td>
-                      <td className="px-3.5 py-2.5 text-center text-slate-600 dark:text-slate-300">{sec.totalQs}</td>
-                      <td className="px-3.5 py-2.5 text-center text-slate-600 dark:text-slate-300">{sec.attempted}</td>
+                    <tr
+                      key={sec.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-3.5 py-2.5 font-bold text-slate-900 dark:text-white">
+                        {sec.name}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-center text-slate-600 dark:text-slate-300">
+                        {sec.totalQs}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-center text-slate-600 dark:text-slate-300">
+                        {sec.attempted}
+                      </td>
                       <td className="px-3.5 py-2.5 text-center font-bold text-emerald-600 dark:text-emerald-400">
                         {sec.correct}
                       </td>

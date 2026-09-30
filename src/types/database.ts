@@ -543,6 +543,10 @@ export interface Database {
         Args: { p_attempt_id: string };
         Returns: Json;
       };
+      get_test_series_analytics: {
+        Args: { p_series_id: string };
+        Returns: Json;
+      };
       get_admin_dashboard_counts: {
         Args: Record<string, never>;
         Returns: Json;

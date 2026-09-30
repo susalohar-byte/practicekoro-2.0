@@ -5,6 +5,7 @@ import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/exams/exam_selection_screen.dart';
 import '../../features/exams/exam_tests_screen.dart';
+import '../../features/exams/test_series_detail_screen.dart';
 import '../../features/exams/test_details_screen.dart';
 import '../../features/practice/topic_screen.dart';
 import '../../features/test_runner/test_runner_screen.dart';
@@ -22,10 +23,7 @@ final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
     // 1. Splash Screen
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
 
     // 2. Onboarding Screen
     GoRoute(
@@ -34,25 +32,18 @@ final appRouter = GoRouter(
     ),
 
     // 3. Login Screen
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
 
     // 4. Exam Selection
     GoRoute(
       path: '/exam-selection',
-      builder: (context, state) => ExamSelectionScreen(
-        isProfileChange: state.extra == 'profile',
-      ),
+      builder: (context, state) =>
+          ExamSelectionScreen(isProfileChange: state.extra == 'profile'),
     ),
 
     // Legacy duplicate selector route: target exam selection happens once in
     // onboarding and can be changed later from Profile.
-    GoRoute(
-      path: '/primary-exam',
-      redirect: (context, state) => '/home',
-    ),
+    GoRoute(path: '/primary-exam', redirect: (context, state) => '/home'),
 
     // 6. Home Screen (via MainScaffold tab 0)
     GoRoute(
@@ -72,6 +63,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/test-series',
       builder: (context, state) => const MainScaffold(initialIndex: 1),
+    ),
+    GoRoute(
+      path: '/test-series/:seriesId',
+      builder: (context, state) => TestSeriesDetailScreen(
+        seriesId: state.pathParameters['seriesId'] ?? '',
+      ),
     ),
 
     // 8 & 9. Test Series Details & Test List Within Exam Series
@@ -103,7 +100,10 @@ final appRouter = GoRouter(
       path: '/live-test/:testId',
       builder: (context, state) {
         final testId = state.pathParameters['testId'] ?? 'test-wbp-001';
-        return TestRunnerScreen(testId: testId);
+        return TestRunnerScreen(
+          testId: testId,
+          liveTestId: state.uri.queryParameters['liveTestId'],
+        );
       },
     ),
 
@@ -198,9 +198,6 @@ final appRouter = GoRouter(
       builder: (context, state) => const SupportScreen(),
     ),
   ],
-  errorBuilder: (context, state) => Scaffold(
-    body: Center(
-      child: Text('Page not found: ${state.uri}'),
-    ),
-  ),
+  errorBuilder: (context, state) =>
+      Scaffold(body: Center(child: Text('Page not found: ${state.uri}'))),
 );

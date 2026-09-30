@@ -21,13 +21,14 @@ final homeMockTestsProvider = FutureProvider<List<MockTestModel>>((ref) async {
   return ref.watch(catalogRepositoryProvider).getMockTests();
 });
 
-final homeLeaderboardProvider = FutureProvider.family<List<LeaderboardEntry>, String>((ref, scope) async {
-  try {
-    return await LeaderboardRepository().getLeaderboard(scope: scope);
-  } catch (_) {
-    return const <LeaderboardEntry>[];
-  }
-});
+final homeLeaderboardProvider =
+    FutureProvider.family<List<LeaderboardEntry>, String>((ref, scope) async {
+      try {
+        return await LeaderboardRepository().getLeaderboard(scope: scope);
+      } catch (_) {
+        return const <LeaderboardEntry>[];
+      }
+    });
 
 class HomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onTabSelected;
@@ -165,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'title': s.title,
         'type': s.examTitle ?? 'Test Series',
         'category': 'series',
-        'route': '/exams/${s.examId}',
+        'route': '/test-series/${s.id}',
       });
     }
     for (final t in tests) {
@@ -626,9 +627,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
       ),
       child: Row(
         children: [
@@ -1207,12 +1206,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(width: 10),
               InkWell(
                 onTap: () async {
-                  final userId = ref.read(catalogRepositoryProvider).currentUserId;
+                  final userId = ref
+                      .read(catalogRepositoryProvider)
+                      .currentUserId;
                   await ref
                       .read(catalogRepositoryProvider)
                       .joinLiveTest(liveTest.id, userId);
                   if (mounted) {
-                    context.push('/live-test/${liveTest.testId}?liveTestId=${Uri.encodeComponent(liveTest.id)}');
+                    context.push(
+                      '/live-test/${liveTest.testId}?liveTestId=${Uri.encodeComponent(liveTest.id)}',
+                    );
                   }
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -1323,10 +1326,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SizedBox(width: 12),
           Text(
             'Loading live test schedule…',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -1483,10 +1483,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               isLoading
                   ? 'Loading popular test series…'
                   : 'No popular test series published yet. Check back soon!',
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           )
         else
@@ -1500,7 +1497,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final series = seriesList[idx];
                 final emblemPath = _resolveExamEmblem(series);
                 return InkWell(
-                  onTap: () => context.push('/exams/${series.examId}'),
+                  onTap: () => context.push('/test-series/${series.id}'),
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
                     width: 270,
@@ -1737,15 +1734,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'Based on Your Progress',
     ];
 
-    final filtered = allTests.where((t) {
-      if (_recommendedFilter == 'Previous Year Questions') {
-        return t.testType == 'pyq';
-      }
-      if (_recommendedFilter == 'Topic Practice') {
-        return t.testType == 'chapter_mock' || t.testType == 'subject_mock';
-      }
-      return true;
-    }).take(3).toList();
+    final filtered = allTests
+        .where((t) {
+          if (_recommendedFilter == 'Previous Year Questions') {
+            return t.testType == 'pyq';
+          }
+          if (_recommendedFilter == 'Topic Practice') {
+            return t.testType == 'chapter_mock' || t.testType == 'subject_mock';
+          }
+          return true;
+        })
+        .take(3)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2017,11 +2017,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : 100;
 
     final subjectPerf = [
-      {'name': 'Mathematics', 'pct': overallAccuracyPct, 'color': const Color(0xFF0158FC)},
-      {'name': 'Reasoning', 'pct': overallAccuracyPct, 'color': const Color(0xFFF43F5E)},
-      {'name': 'General Knowledge', 'pct': overallAccuracyPct, 'color': const Color(0xFF10B981)},
-      {'name': 'English', 'pct': overallAccuracyPct, 'color': const Color(0xFFF59E0B)},
-      {'name': 'Bengali', 'pct': overallAccuracyPct, 'color': const Color(0xFF9333EA)},
+      {
+        'name': 'Mathematics',
+        'pct': overallAccuracyPct,
+        'color': const Color(0xFF0158FC),
+      },
+      {
+        'name': 'Reasoning',
+        'pct': overallAccuracyPct,
+        'color': const Color(0xFFF43F5E),
+      },
+      {
+        'name': 'General Knowledge',
+        'pct': overallAccuracyPct,
+        'color': const Color(0xFF10B981),
+      },
+      {
+        'name': 'English',
+        'pct': overallAccuracyPct,
+        'color': const Color(0xFFF59E0B),
+      },
+      {
+        'name': 'Bengali',
+        'pct': overallAccuracyPct,
+        'color': const Color(0xFF9333EA),
+      },
     ];
 
     return Column(

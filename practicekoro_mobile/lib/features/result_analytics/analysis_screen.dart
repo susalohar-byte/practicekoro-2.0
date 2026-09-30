@@ -21,7 +21,9 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
   String _filter = 'all'; // 'all', 'correct', 'wrong', 'skipped'
   int _currentQuestionIndex = 0;
   List<QuestionModel> _questions = [];
+  Map<String, AttemptAnswerState> _reviewAnswers = {};
   bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -31,21 +33,35 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   Future<void> _loadQuestions() async {
     final catalog = ref.read(catalogRepositoryProvider);
-    final testId = widget.attempt?.testId ?? '';
-    final questions = testId.isNotEmpty
-        ? await catalog.getQuestionsForTest(testId)
-        : <QuestionModel>[];
-    if (mounted) {
-      setState(() {
-        _questions = questions;
-        _isLoading = false;
-      });
+    try {
+      final questions = await catalog.getAttemptSolutions(widget.attemptId);
+      if (mounted) {
+        setState(() {
+          _questions = questions;
+          _reviewAnswers = {
+            for (final question in questions)
+              question.id: AttemptAnswerState(
+                questionId: question.id,
+                selectedOption: question.selectedOption,
+              ),
+          };
+          _isLoading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadError = error.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final attempt = widget.attempt ??
+    final attempt =
+        widget.attempt ??
         TestAttemptModel(
           id: widget.attemptId,
           userId: '',
@@ -70,7 +86,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppColors.navy,
+          ),
           onPressed: () => context.pop(),
         ),
         title: const Text(
@@ -83,7 +103,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share_outlined, size: 20, color: AppColors.navy),
+            icon: const Icon(
+              Icons.share_outlined,
+              size: 20,
+              color: AppColors.navy,
+            ),
             onPressed: () {},
           ),
           const SizedBox(width: 8),
@@ -117,12 +141,26 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
             // Content based on tab
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : _loadError != null
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Could not load question analysis. Check your connection and try again.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
                   : _selectedTab == 1
-                      ? _buildQuestionsView(attempt)
-                      : _selectedTab == 0
-                          ? _buildOverviewView(attempt)
-                          : _buildSubjectsView(attempt),
+                  ? _buildQuestionsView(attempt)
+                  : _selectedTab == 0
+                  ? _buildOverviewView(attempt)
+                  : _buildSubjectsView(attempt),
             ),
           ],
         ),
@@ -146,7 +184,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                       color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -166,13 +204,17 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   // --- TAB 1: QUESTIONS VIEW (EXACT SCREEN 8 MOCKUP) ---
   Widget _buildQuestionsView(TestAttemptModel attempt) {
-    final answers = attempt.answers;
+    final answers = {...attempt.answers, ..._reviewAnswers};
 
     // Filter questions
     final filteredQuestions = _questions.where((q) {
       final ans = answers[q.id];
       final isAnswered = ans?.selectedOption != null;
-      final isCorrect = isAnswered && ans!.selectedOption!.toUpperCase() == q.correctOption.toUpperCase();
+      final isCorrect =
+          isAnswered &&
+          (q.isCorrect ??
+              ans!.selectedOption!.toUpperCase() ==
+                  q.correctOption.toUpperCase());
 
       if (_filter == 'correct') return isCorrect;
       if (_filter == 'wrong') return isAnswered && !isCorrect;
@@ -196,13 +238,20 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       );
     }
 
-    final currentIndex = _currentQuestionIndex.clamp(0, filteredQuestions.length - 1);
+    final currentIndex = _currentQuestionIndex.clamp(
+      0,
+      filteredQuestions.length - 1,
+    );
     final currentQ = filteredQuestions[currentIndex];
     final ansState = answers[currentQ.id];
-    final userSelected = ansState?.selectedOption?.toUpperCase() ?? (currentIndex % 2 == 1 ? 'B' : currentQ.correctOption.toUpperCase());
+    final userSelected =
+        (ansState?.selectedOption ?? currentQ.selectedOption)?.toUpperCase() ??
+        '';
     final correctOption = currentQ.correctOption.toUpperCase();
-    final isCorrect = userSelected == correctOption;
-    final isSkipped = ansState?.selectedOption == null && !isCorrect && userSelected.isEmpty;
+    final isCorrect =
+        userSelected.isNotEmpty &&
+        (currentQ.isCorrect ?? userSelected == correctOption);
+    final isSkipped = userSelected.isEmpty;
 
     return Column(
       children: [
@@ -214,13 +263,29 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip('All (${_questions.length})', 'all', const Color(0xFF2563EB)),
+                _buildFilterChip(
+                  'All (${_questions.length})',
+                  'all',
+                  const Color(0xFF2563EB),
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Correct (${attempt.correctCount})', 'correct', const Color(0xFF16A34A)),
+                _buildFilterChip(
+                  'Correct (${attempt.correctCount})',
+                  'correct',
+                  const Color(0xFF16A34A),
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Incorrect (${attempt.wrongCount})', 'wrong', const Color(0xFFEF4444)),
+                _buildFilterChip(
+                  'Incorrect (${attempt.wrongCount})',
+                  'wrong',
+                  const Color(0xFFEF4444),
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Skipped (${attempt.skippedCount})', 'skipped', const Color(0xFF64748B)),
+                _buildFilterChip(
+                  'Skipped (${attempt.skippedCount})',
+                  'skipped',
+                  const Color(0xFF64748B),
+                ),
               ],
             ),
           ),
@@ -259,13 +324,16 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isCorrect
                                   ? const Color(0xFFDCFCE7)
                                   : isSkipped
-                                      ? const Color(0xFFF1F5F9)
-                                      : const Color(0xFFFEE2E2),
+                                  ? const Color(0xFFF1F5F9)
+                                  : const Color(0xFFFEE2E2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -274,30 +342,30 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                                   isCorrect
                                       ? Icons.check_circle_rounded
                                       : isSkipped
-                                          ? Icons.remove_circle_outline_rounded
-                                          : Icons.cancel_rounded,
+                                      ? Icons.remove_circle_outline_rounded
+                                      : Icons.cancel_rounded,
                                   size: 13,
                                   color: isCorrect
                                       ? const Color(0xFF16A34A)
                                       : isSkipped
-                                          ? const Color(0xFF64748B)
-                                          : const Color(0xFFEF4444),
+                                      ? const Color(0xFF64748B)
+                                      : const Color(0xFFEF4444),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   isCorrect
                                       ? 'Correct'
                                       : isSkipped
-                                          ? 'Skipped'
-                                          : 'Incorrect',
+                                      ? 'Skipped'
+                                      : 'Incorrect',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: isCorrect
                                         ? const Color(0xFF16A34A)
                                         : isSkipped
-                                            ? const Color(0xFF64748B)
-                                            : const Color(0xFFEF4444),
+                                        ? const Color(0xFF64748B)
+                                        : const Color(0xFFEF4444),
                                   ),
                                 ),
                               ],
@@ -322,10 +390,30 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                       const SizedBox(height: 18),
 
                       // Options Comparison
-                      _buildSolutionOptionItem('A', currentQ.optionA, correctOption == 'A', userSelected == 'A'),
-                      _buildSolutionOptionItem('B', currentQ.optionB, correctOption == 'B', userSelected == 'B'),
-                      _buildSolutionOptionItem('C', currentQ.optionC, correctOption == 'C', userSelected == 'C'),
-                      _buildSolutionOptionItem('D', currentQ.optionD, correctOption == 'D', userSelected == 'D'),
+                      _buildSolutionOptionItem(
+                        'A',
+                        currentQ.optionA,
+                        correctOption == 'A',
+                        userSelected == 'A',
+                      ),
+                      _buildSolutionOptionItem(
+                        'B',
+                        currentQ.optionB,
+                        correctOption == 'B',
+                        userSelected == 'B',
+                      ),
+                      _buildSolutionOptionItem(
+                        'C',
+                        currentQ.optionC,
+                        correctOption == 'C',
+                        userSelected == 'C',
+                      ),
+                      _buildSolutionOptionItem(
+                        'D',
+                        currentQ.optionD,
+                        correctOption == 'D',
+                        userSelected == 'D',
+                      ),
 
                       const SizedBox(height: 12),
 
@@ -334,8 +422,16 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          _buildTag(currentQ.subjectName ?? 'Polity', const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
-                          _buildTag('Fundamental Rights', const Color(0xFFF1F5F9), const Color(0xFF475569)),
+                          _buildTag(
+                            currentQ.subjectName ?? 'Polity',
+                            const Color(0xFFEFF6FF),
+                            const Color(0xFF2563EB),
+                          ),
+                          _buildTag(
+                            'Fundamental Rights',
+                            const Color(0xFFF1F5F9),
+                            const Color(0xFF475569),
+                          ),
                         ],
                       ),
                     ],
@@ -358,7 +454,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.lightbulb_rounded, color: Color(0xFFF59E0B), size: 20),
+                          Icon(
+                            Icons.lightbulb_rounded,
+                            color: Color(0xFFF59E0B),
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Explanation & Short Notes',
@@ -372,7 +472,8 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        (currentQ.explanation != null && currentQ.explanation!.isNotEmpty)
+                        (currentQ.explanation != null &&
+                                currentQ.explanation!.isNotEmpty)
                             ? currentQ.explanation!
                             : 'Articles 14 to 18 of the Constitution of India deal with the Right to Equality. Article 14 guarantees equality before law and equal protection of laws within the territory of India.',
                         style: const TextStyle(
@@ -403,31 +504,45 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: currentIndex > 0
-                      ? () => setState(() => _currentQuestionIndex = currentIndex - 1)
+                      ? () => setState(
+                          () => _currentQuestionIndex = currentIndex - 1,
+                        )
                       : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.navy,
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('‹ Previous Q', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: const Text(
+                    '‹ Previous Q',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
                   onPressed: currentIndex < filteredQuestions.length - 1
-                      ? () => setState(() => _currentQuestionIndex = currentIndex + 1)
+                      ? () => setState(
+                          () => _currentQuestionIndex = currentIndex + 1,
+                        )
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text('Next Q ›', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: const Text(
+                    'Next Q ›',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ),
             ],
@@ -462,7 +577,12 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     );
   }
 
-  Widget _buildSolutionOptionItem(String optionKey, String text, bool isCorrect, bool isUserSelected) {
+  Widget _buildSolutionOptionItem(
+    String optionKey,
+    String text,
+    bool isCorrect,
+    bool isUserSelected,
+  ) {
     Color borderColor = const Color(0xFFE2E8F0);
     Color bgColor = Colors.white;
     String? badgeLabel;
@@ -489,7 +609,10 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: (isCorrect || isUserSelected) ? 1.5 : 1),
+        border: Border.all(
+          color: borderColor,
+          width: (isCorrect || isUserSelected) ? 1.5 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,8 +627,8 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                   color: isCorrect
                       ? const Color(0xFF16A34A)
                       : isUserSelected
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFFF1F5F9),
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFFF1F5F9),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -513,7 +636,9 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: (isCorrect || isUserSelected) ? Colors.white : const Color(0xFF64748B),
+                    color: (isCorrect || isUserSelected)
+                        ? Colors.white
+                        : const Color(0xFF64748B),
                   ),
                 ),
               ),
@@ -523,7 +648,9 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                   text,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: (isCorrect || isUserSelected) ? FontWeight.bold : FontWeight.w500,
+                    fontWeight: (isCorrect || isUserSelected)
+                        ? FontWeight.bold
+                        : FontWeight.w500,
                     color: AppColors.navy,
                   ),
                 ),
@@ -565,7 +692,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
       ),
     );
   }
@@ -588,7 +719,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
             children: [
               const Text(
                 'Overall Accuracy',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.navy),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.navy,
+                ),
               ),
               const SizedBox(height: 14),
               Row(
@@ -603,12 +738,18 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                           value: attempt.accuracy / 100,
                           strokeWidth: 8,
                           backgroundColor: const Color(0xFFE2E8F0),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
                         ),
                       ),
                       Text(
                         '${attempt.accuracy.toInt()}%',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.navy),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.navy,
+                        ),
                       ),
                     ],
                   ),
@@ -617,11 +758,23 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLegendItem(const Color(0xFF16A34A), 'Correct Answers', '${attempt.correctCount}'),
+                        _buildLegendItem(
+                          const Color(0xFF16A34A),
+                          'Correct Answers',
+                          '${attempt.correctCount}',
+                        ),
                         const SizedBox(height: 8),
-                        _buildLegendItem(const Color(0xFFEF4444), 'Incorrect Answers', '${attempt.wrongCount}'),
+                        _buildLegendItem(
+                          const Color(0xFFEF4444),
+                          'Incorrect Answers',
+                          '${attempt.wrongCount}',
+                        ),
                         const SizedBox(height: 8),
-                        _buildLegendItem(const Color(0xFF64748B), 'Skipped Questions', '${attempt.skippedCount}'),
+                        _buildLegendItem(
+                          const Color(0xFF64748B),
+                          'Skipped Questions',
+                          '${attempt.skippedCount}',
+                        ),
                       ],
                     ),
                   ),
@@ -640,12 +793,17 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Review Questions & Solutions', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                'Review Questions & Solutions',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               SizedBox(width: 8),
               Icon(Icons.arrow_forward_rounded, size: 16),
             ],
@@ -657,16 +815,40 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   // --- TAB 2: SUBJECTS VIEW ---
   Widget _buildSubjectsView(TestAttemptModel attempt) {
-    final subjects = [
-      {'name': 'General Knowledge', 'score': '24/30', 'accuracy': '80%', 'color': const Color(0xFF2563EB)},
-      {'name': 'Mathematics', 'score': '18/25', 'accuracy': '72%', 'color': const Color(0xFF16A34A)},
-      {'name': 'Reasoning', 'score': '20/25', 'accuracy': '80%', 'color': const Color(0xFFF59E0B)},
-      {'name': 'English', 'score': '6/10', 'accuracy': '60%', 'color': const Color(0xFF8B5CF6)},
+    final bySubject = <String, List<QuestionModel>>{};
+    for (final question in _questions) {
+      if (question.selectedOption == null || question.subjectName == null) {
+        continue;
+      }
+      bySubject.putIfAbsent(question.subjectName!, () => []).add(question);
+    }
+    if (bySubject.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Subject breakdown is not available for this attempt.'),
+        ),
+      );
+    }
+    const colors = [
+      Color(0xFF2563EB),
+      Color(0xFF16A34A),
+      Color(0xFFF59E0B),
+      Color(0xFF8B5CF6),
     ];
-
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: subjects.map((sub) {
+      children: bySubject.entries.toList().asMap().entries.map((entry) {
+        final color = colors[entry.key % colors.length];
+        final questions = entry.value.value;
+        final correct = questions
+            .where(
+              (question) =>
+                  question.isCorrect ??
+                  question.selectedOption == question.correctOption,
+            )
+            .length;
+        final accuracy = (correct / questions.length * 100).toStringAsFixed(1);
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -681,7 +863,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                 width: 10,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: sub['color'] as Color,
+                  color: color,
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -691,29 +873,39 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      sub['name'] as String,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.navy),
+                      entry.value.key,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.navy,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Score: ${sub['score']}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      '$correct correct · ${questions.length} attempted',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: (sub['color'] as Color).withValues(alpha: 0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${sub['accuracy']} Acc',
+                  '$accuracy% accuracy',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: sub['color'] as Color,
+                    color: color,
                   ),
                 ),
               ),
@@ -734,9 +926,22 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.navy)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: AppColors.navy,
+          ),
+        ),
       ],
     );
   }

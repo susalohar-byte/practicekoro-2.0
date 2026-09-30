@@ -1,239 +1,325 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/pk_pill_tabs.dart';
+import '../../data/datasources/local_storage.dart';
+import '../../data/models/subject_model.dart';
+import '../../data/models/test_model.dart';
+import '../../data/repositories/catalog_repository.dart';
 
-class TopicScreen extends StatefulWidget {
+class TopicScreen extends ConsumerStatefulWidget {
   final String subjectId;
 
   const TopicScreen({super.key, required this.subjectId});
 
   @override
-  State<TopicScreen> createState() => _TopicScreenState();
+  ConsumerState<TopicScreen> createState() => _TopicScreenState();
 }
 
-class _TopicScreenState extends State<TopicScreen> {
-  int _selectedFilterIndex = 0;
-  final List<String> _filters = ['All Topics', 'Weak', 'Attempted'];
+class _TopicScreenState extends ConsumerState<TopicScreen> {
+  String _subjectTitle = 'Subject Practice';
+  List<ChapterModel> _topics = [];
+  final Set<String> _expandedTopics = {};
+  final Map<String, List<MockTestModel>> _testsByTopic = {};
+  final Set<String> _loadingTopics = {};
+  bool _isLoading = true;
+  String? _error;
 
-  String get _subjectTitle {
-    switch (widget.subjectId.toLowerCase()) {
-      case 'math':
-        return 'Mathematics';
-      case 'reasoning':
-        return 'Reasoning & Mental Ability';
-      case 'gk':
-        return 'General Knowledge';
-      case 'english':
-        return 'English Language';
-      case 'bengali':
-        return 'Bengali Language';
-      case 'computer':
-        return 'Computer Awareness';
-      case 'current-affairs':
-        return 'Current Affairs';
-      case 'environment':
-        return 'Environmental Studies';
-      default:
-        return widget.subjectId.replaceAll('-', ' ').toUpperCase();
+  @override
+  void initState() {
+    super.initState();
+    _loadTopics();
+  }
+
+  Future<void> _loadTopics() async {
+    try {
+      final repository = ref.read(catalogRepositoryProvider);
+      final subjects = await repository.getSubjects(
+        examId: LocalStorageService.getTargetExam(),
+      );
+      final matchingSubjects = subjects.where(
+        (item) => item.id == widget.subjectId,
+      );
+      final subject = matchingSubjects.isEmpty ? null : matchingSubjects.first;
+      final topics = await repository.getChaptersForSubject(widget.subjectId);
+      if (!mounted) return;
+      setState(() {
+        _subjectTitle = subject?.name ?? widget.subjectId.replaceAll('-', ' ');
+        _topics = topics;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  final List<Map<String, dynamic>> _topics = [
-    {
-      'title': 'Number System',
-      'questions': 'Practice Set',
-      'icon': Icons.pin_rounded,
-      'color': AppColors.gold,
-      'bgColor': AppColors.goldLight,
-    },
-    {
-      'title': 'Simplification',
-      'questions': 'Practice Set',
-      'icon': Icons.calculate_outlined,
-      'color': AppColors.purple,
-      'bgColor': AppColors.purpleLight,
-    },
-    {
-      'title': 'Percentage',
-      'questions': 'Practice Set',
-      'icon': Icons.percent_rounded,
-      'color': AppColors.primary,
-      'bgColor': AppColors.primaryLight,
-    },
-    {
-      'title': 'Profit & Loss',
-      'questions': 'Practice Set',
-      'icon': Icons.sell_rounded,
-      'color': AppColors.error,
-      'bgColor': AppColors.errorLight,
-    },
-    {
-      'title': 'Ratio & Proportion',
-      'questions': 'Practice Set',
-      'icon': Icons.pie_chart_rounded,
-      'color': AppColors.orange,
-      'bgColor': AppColors.orangeLight,
-    },
-    {
-      'title': 'Average',
-      'questions': 'Practice Set',
-      'icon': Icons.bar_chart_rounded,
-      'color': AppColors.cyan,
-      'bgColor': AppColors.cyanLight,
-    },
-    {
-      'title': 'Time & Work',
-      'questions': 'Practice Set',
-      'icon': Icons.hourglass_bottom_rounded,
-      'color': AppColors.success,
-      'bgColor': AppColors.successLight,
-    },
-  ];
+  Future<void> _toggleTopic(ChapterModel topic) async {
+    if (_expandedTopics.remove(topic.id)) {
+      setState(() {});
+      return;
+    }
+    setState(() => _expandedTopics.add(topic.id));
+    if (_testsByTopic.containsKey(topic.id)) return;
+    setState(() => _loadingTopics.add(topic.id));
+    try {
+      final tests = await ref
+          .read(catalogRepositoryProvider)
+          .getPracticeTests(subjectId: widget.subjectId, chapterId: topic.id);
+      if (mounted) setState(() => _testsByTopic[topic.id] = tests);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingTopics.remove(topic.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(10),
+            Text(
+              _subjectTitle,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.navy,
               ),
-              child: const Icon(Icons.calculate_rounded, color: AppColors.primary, size: 20),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _subjectTitle,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.navy,
-                  ),
-                ),
-                const Text(
-                  'Chapter Practice',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                ),
-              ],
+            const Text(
+              'Choose a topic to practice',
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => context.pop(),
-            child: const Text(
-              'Change',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
+          : _error != null
+          ? _emptyState(
+              'Could not load topics. Check your connection and try again.',
+              onRetry: _loadTopics,
+            )
+          : _topics.isEmpty
+          ? _emptyState('No active topics are set up for this subject yet.')
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFEAF2FF), Colors.white],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFD9E7FD)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.menu_book_rounded,
+                        color: AppColors.primary,
+                        size: 26,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${_topics.length} active topics from your exam syllabus',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ..._topics.map(_buildTopicCard),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildTopicCard(ChapterModel topic) {
+    final expanded = _expandedTopics.contains(topic.id);
+    final tests = _testsByTopic[topic.id] ?? [];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => _toggleTopic(topic),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.topic_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          topic.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          topic.description?.trim().isNotEmpty == true
+                              ? topic.description!
+                              : 'Topic-wise practice tests',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_loadingTopics.contains(topic.id))
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    Icon(
+                      expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.chevron_right_rounded,
+                      color: AppColors.textMuted,
+                    ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          if (expanded) ...[
+            const Divider(height: 1),
+            if (_loadingTopics.contains(topic.id))
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: LinearProgressIndicator(),
+              )
+            else if (tests.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'No published practice tests for this topic yet.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...tests.map(_buildTestRow),
+          ],
         ],
       ),
-      body: SafeArea(
+    );
+  }
+
+  Widget _buildTestRow(MockTestModel test) {
+    return ListTile(
+      dense: true,
+      leading: const Icon(
+        Icons.quiz_outlined,
+        color: AppColors.primary,
+        size: 20,
+      ),
+      title: Text(
+        test.title,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.navy,
+        ),
+      ),
+      subtitle: Text(
+        '${test.totalQuestions} questions · ${test.durationMinutes} min',
+        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios_rounded,
+        size: 14,
+        color: AppColors.primary,
+      ),
+      onTap: () {
+        final title = Uri.encodeComponent(test.title);
+        context.push(
+          '/test-details/${test.id}?title=$title&isPro=${test.isPremium}',
+        );
+      },
+    );
+  }
+
+  Widget _emptyState(String message, {VoidCallback? onRetry}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 12),
-
-            // Filter Pills
-            PKPillTabs(
-              tabs: _filters,
-              selectedIndex: _selectedFilterIndex,
-              onTabSelected: (idx) => setState(() => _selectedFilterIndex = idx),
+            const Icon(
+              Icons.library_books_outlined,
+              color: AppColors.textMuted,
+              size: 44,
             ),
-
             const SizedBox(height: 12),
-
-            // Topics List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                itemCount: _topics.length,
-                itemBuilder: (context, index) {
-                  final topic = _topics[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: InkWell(
-                      onTap: () {
-                        context.push('/live-test/test-wbp-001');
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: topic['bgColor'] as Color,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                topic['icon'] as IconData,
-                                color: topic['color'] as Color,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    topic['title'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.navy,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    topic['questions'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.textMuted,
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 14),
+              OutlinedButton(
+                onPressed: onRetry,
+                child: const Text('Try again'),
               ),
-            ),
+            ],
           ],
         ),
       ),

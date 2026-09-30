@@ -42,6 +42,27 @@ describe('calculateScore', () => {
     expect(result.wrongQuestionIds).toEqual(['q1']);
   });
 
+  it('does not deduct marks when the test negative marking is disabled', () => {
+    const noNegativeMarkingQuestions = questions.map((question) => ({
+      ...question,
+      negativeMarks: 0,
+    }));
+    const result = calculateScore(
+      noNegativeMarkingQuestions,
+      [
+        { questionId: 'q1', selectedOption: 'D' },
+        { questionId: 'q2', selectedOption: 'B' },
+      ],
+      6,
+      3
+    );
+
+    expect(result.score).toBe(2);
+    expect(result.correctCount).toBe(1);
+    expect(result.wrongCount).toBe(1);
+    expect(result.skippedCount).toBe(1);
+  });
+
   it('does not allow a negative final score', () => {
     const result = calculateScore(
       questions,

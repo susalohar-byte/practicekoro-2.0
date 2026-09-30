@@ -71,7 +71,9 @@ select jsonb_build_object(
   'gateway_anon_read_blocked', not has_table_privilege('anon','public.payment_gateways','SELECT'),
   'webhook_execute_blocked',   not has_function_privilege('authenticated','public.reconcile_razorpay_webhook(text,text,numeric,text,text)','EXECUTE'),
   'webhook_anon_execute_blocked', not has_function_privilege('anon','public.reconcile_razorpay_webhook(text,text,numeric,text,text)','EXECUTE'),
-  'webhook_service_role_allowed',  has_function_privilege('service_role','public.reconcile_razorpay_webhook(text,text,numeric,text,text)','EXECUTE')
+  'webhook_service_role_allowed',  has_function_privilege('service_role','public.reconcile_razorpay_webhook(text,text,numeric,text,text)','EXECUTE'),
+  'series_analytics_authenticated_allowed', has_function_privilege('authenticated','public.get_test_series_analytics(text)','EXECUTE'),
+  'series_analytics_anon_blocked', not has_function_privilege('anon','public.get_test_series_analytics(text)','EXECUTE')
 ) as privileges;
 
 -- ------------------------------------------------------------------
@@ -93,7 +95,8 @@ select jsonb_build_object(
     where n.nspname = 'public'
       and p.prosecdef
       and p.proname in ('start_test_attempt','save_test_answers','submit_test_attempt',
-                        'get_student_exam_questions','get_attempt_solutions')
+                        'get_student_exam_questions','get_attempt_solutions',
+                        'get_test_series_analytics')
   )
 ) as definer_search_path;
 

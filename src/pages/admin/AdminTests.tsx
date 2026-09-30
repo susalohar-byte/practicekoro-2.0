@@ -34,7 +34,14 @@ import {
   FileSpreadsheet,
   Radio,
 } from 'lucide-react';
-import type { MockTest, Exam, Subject, Chapter, PublishValidationResult, TestSeries } from '@/types';
+import type {
+  MockTest,
+  Exam,
+  Subject,
+  Chapter,
+  PublishValidationResult,
+  TestSeries,
+} from '@/types';
 import { getErrorMessage } from '@/lib/errors';
 
 type MockTab = 'topic' | 'full_mock' | 'pyq' | 'structure';
@@ -371,10 +378,9 @@ export const AdminTests: React.FC = () => {
     setFormDuration(defDuration);
     setFormTotalMarks(defMarks);
     setFormPassingMarks(defPassMarks);
-    // Negative marking is optional and only for Full Mock / PYQ.
-    const negSupported = type === 'full_mock' || type === 'pyq';
-    setFormNegativeEnabled(negSupported);
-    setFormNegativeMarking(negSupported ? globalDefaults.negativeMarks : 0);
+    // Each test owns its scoring rule; start with no deduction until selected.
+    setFormNegativeEnabled(false);
+    setFormNegativeMarking(globalDefaults.negativeMarks);
     setFormIsPremium(false);
     setFormYear(new Date().getFullYear());
     setFormPaperName('Preliminary');
@@ -400,11 +406,10 @@ export const AdminTests: React.FC = () => {
     setFormDuration(test.durationMinutes);
     setFormTotalMarks(test.totalMarks);
     setFormPassingMarks(test.passingMarks);
-    // Restore the optional scheme: enabled only when supported and > 0.
-    const editNegSupported = test.testType === 'full_mock' || test.testType === 'pyq';
+    // Restore the test's saved rule regardless of test type.
     const editNegValue = test.negativeMarking ?? 0;
-    setFormNegativeEnabled(editNegSupported && editNegValue > 0);
-    setFormNegativeMarking(editNegSupported ? editNegValue || globalDefaults.negativeMarks : 0);
+    setFormNegativeEnabled(editNegValue > 0);
+    setFormNegativeMarking(editNegValue > 0 ? editNegValue : globalDefaults.negativeMarks);
     setFormIsPremium(test.isPremium);
     setFormYear(test.year || new Date().getFullYear());
     setFormPaperName(test.paperName || 'Preliminary');
@@ -442,9 +447,10 @@ export const AdminTests: React.FC = () => {
       const mappedTestType =
         modalType === 'pyq' ? 'pyq' : modalType === 'full_mock' ? 'full_mock' : 'topic';
 
-      // Negative marking is optional and applies only to Full Mock / PYQ.
-      const resolvedNegativeMarking =
-        formNegativeEnabled && modalType !== 'topic' ? Number(formNegativeMarking) || 0 : 0;
+      // Negative marking is optional and saved per test. Zero means disabled.
+      const resolvedNegativeMarking = formNegativeEnabled
+        ? Math.max(0, Number(formNegativeMarking) || 0)
+        : 0;
 
       if (editingTest) {
         await api.updateTest(editingTest.id, {
@@ -1340,7 +1346,10 @@ export const AdminTests: React.FC = () => {
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">Live Test Active:</span> This test is currently scheduled for an active or upcoming Live Test event. Critical parameters (duration, marks, negative marking) are locked until the Live Test event concludes.
+                  <span className="font-bold">Live Test Active:</span> This test is currently
+                  scheduled for an active or upcoming Live Test event. Critical parameters
+                  (duration, marks, negative marking) are locked until the Live Test event
+                  concludes.
                 </div>
               </div>
             )}
@@ -1488,7 +1497,9 @@ export const AdminTests: React.FC = () => {
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                   <span>Assign to Test Series (Optional)</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Full Mock, Topic, or PYQ</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    Full Mock, Topic, or PYQ
+                  </span>
                 </label>
                 <select
                   value={formTestSeriesId}
@@ -1500,12 +1511,14 @@ export const AdminTests: React.FC = () => {
                     .filter((s) => !formExamId || s.examId === formExamId)
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.title} ({s.examTitle || exams.find((e) => e.id === s.examId)?.title || 'Series'})
+                        {s.title} (
+                        {s.examTitle || exams.find((e) => e.id === s.examId)?.title || 'Series'})
                       </option>
                     ))}
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Attaches this test to a curated Test Series category (Full Mock, Topic Test, or PYQ).
+                  Attaches this test to a curated Test Series category (Full Mock, Topic Test, or
+                  PYQ).
                 </p>
               </div>
 
@@ -1547,9 +1560,7 @@ export const AdminTests: React.FC = () => {
               {/* Duration & Marks */}
               <div
                 className={
-                  modalType === 'topic'
-                    ? 'grid grid-cols-3 gap-2.5'
-                    : 'grid grid-cols-4 gap-2.5'
+                  modalType === 'topic' ? 'grid grid-cols-3 gap-2.5' : 'grid grid-cols-4 gap-2.5'
                 }
               >
                 <div>
@@ -1588,43 +1599,57 @@ export const AdminTests: React.FC = () => {
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
-                {modalType !== 'topic' && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      Neg. Mark
-                    </label>
-                    <input
-                      type="number"
-                      step="0.05"
-                      min={0}
-                      value={formNegativeMarking}
-                      disabled={!formNegativeEnabled || Boolean(editingTest && lockedTestIds.has(editingTest.id))}
-                      onChange={(e) => setFormNegativeMarking(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                    Negative Marks per Wrong Answer
+                  </label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min={0}
+                    value={formNegativeMarking}
+                    disabled={
+                      !formNegativeEnabled ||
+                      Boolean(editingTest && lockedTestIds.has(editingTest.id))
+                    }
+                    onChange={(e) => setFormNegativeMarking(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
 
-              {/* Negative marking is optional and applies only to Full Mock & PYQ tests */}
-              {modalType !== 'topic' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="formNegativeEnabled"
-                    checked={formNegativeEnabled}
-                    onChange={(e) => setFormNegativeEnabled(e.target.checked)}
-                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <label
-                    htmlFor="formNegativeEnabled"
-                    className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
-                  >
-                    Negative marking (optional — enable only if this exam deducts marks for wrong
-                    answers)
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
+                  Negative marking
+                </p>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="negativeMarkingMode"
+                      checked={!formNegativeEnabled}
+                      onChange={() => setFormNegativeEnabled(false)}
+                      disabled={Boolean(editingTest && lockedTestIds.has(editingTest.id))}
+                    />
+                    No Negative Marking
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="negativeMarkingMode"
+                      checked={formNegativeEnabled}
+                      onChange={() => setFormNegativeEnabled(true)}
+                      disabled={Boolean(editingTest && lockedTestIds.has(editingTest.id))}
+                    />
+                    Enable Negative Marking
                   </label>
                 </div>
-              )}
+                {formNegativeEnabled && (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    This deduction is applied by the shared result engine for this test.
+                  </p>
+                )}
+              </div>
 
               {/* Premium toggle */}
               <div className="flex items-center gap-2 pt-2">
@@ -2077,8 +2102,12 @@ export const AdminTests: React.FC = () => {
                   <Radio className="w-4 h-4 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Make Live Test</h3>
-                  <p className="text-[11px] text-slate-500">Schedule this test as a live exam event</p>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    Make Live Test
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Schedule this test as a live exam event
+                  </p>
                 </div>
               </div>
               <button
@@ -2091,8 +2120,12 @@ export const AdminTests: React.FC = () => {
 
             {/* Test Summary Card (Read-only, inherited) */}
             <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-800/80">
-              <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Selected Mock Test</div>
-              <div className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">{makeLiveTest.title}</div>
+              <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">
+                Selected Mock Test
+              </div>
+              <div className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">
+                {makeLiveTest.title}
+              </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2">
                 <span>⏱️ {makeLiveTest.durationMinutes} mins</span>
                 <span>📝 {makeLiveTest.totalQuestions} questions</span>
@@ -2153,14 +2186,20 @@ export const AdminTests: React.FC = () => {
                   onChange={(e) => setLiveRegDeadlineTime(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">Students can register until this time on the start date.</p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Students can register until this time on the start date.
+                </p>
               </div>
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">Statewide Ranking</div>
-                    <div className="text-[10px] text-slate-500">Enable leaderboard rank for participants</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      Statewide Ranking
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Enable leaderboard rank for participants
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -2179,8 +2218,12 @@ export const AdminTests: React.FC = () => {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">Pro / Subscription Required</div>
-                    <div className="text-[10px] text-slate-500">Require active membership to participate</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      Pro / Subscription Required
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Require active membership to participate
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -2487,8 +2530,12 @@ const TestTable: React.FC<TestTableProps> = ({
                               : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 active:scale-95'
                           }`}
                         >
-                          <Radio className={`w-3.5 h-3.5 ${lockedTestIds?.has(test.id) ? 'text-slate-400' : 'text-rose-600 dark:text-rose-400 animate-pulse'}`} />
-                          <span>{lockedTestIds?.has(test.id) ? 'Live Scheduled' : 'Make Live'}</span>
+                          <Radio
+                            className={`w-3.5 h-3.5 ${lockedTestIds?.has(test.id) ? 'text-slate-400' : 'text-rose-600 dark:text-rose-400 animate-pulse'}`}
+                          />
+                          <span>
+                            {lockedTestIds?.has(test.id) ? 'Live Scheduled' : 'Make Live'}
+                          </span>
                         </button>
                       )}
 

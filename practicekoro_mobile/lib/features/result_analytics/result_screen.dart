@@ -1,38 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/attempt_model.dart';
+import '../../data/repositories/catalog_repository.dart';
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends ConsumerStatefulWidget {
   final String attemptId;
 
   const ResultScreen({super.key, required this.attemptId});
 
   @override
+  ConsumerState<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends ConsumerState<ResultScreen> {
+  TestAttemptModel? _attempt;
+  String? _error;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttempt();
+  }
+
+  Future<void> _loadAttempt() async {
+    TestAttemptModel? attempt;
+    for (final candidate in LocalStorageService.getAttempts()) {
+      if (candidate.id == widget.attemptId) {
+        attempt = candidate;
+        break;
+      }
+    }
+    try {
+      attempt ??= await ref
+          .read(catalogRepositoryProvider)
+          .getCompletedAttempt(widget.attemptId);
+      if (mounted) setState(() => _attempt = attempt);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final attempts = LocalStorageService.getAttempts();
-    final attempt = attempts.firstWhere(
-      (a) => a.id == attemptId,
-      orElse: () => attempts.isNotEmpty
-          ? attempts.first
-          : TestAttemptModel(
-              id: attemptId,
-              userId: LocalStorageService.getUserId() ?? '',
-              testId: '',
-              testTitle: 'Test Result',
-              score: 0.0,
-              totalMarks: 0.0,
-              percentage: 0.0,
-              accuracy: 0.0,
-              correctCount: 0,
-              wrongCount: 0,
-              skippedCount: 0,
-              timeSpentSeconds: 0,
-              totalQuestions: 0,
-              completedAt: DateTime.now(),
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+    final attempt = _attempt;
+    if (attempt == null) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: () => context.go('/results'),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 44,
+                  color: AppColors.error,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _error == null
+                      ? 'This result is not available for your account.'
+                      : 'Could not load this result. Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton(
+                  onPressed: _loadAttempt,
+                  child: const Text('Try again'),
+                ),
+              ],
             ),
-    );
+          ),
+        ),
+      );
+    }
 
     final minutes = attempt.timeSpentSeconds ~/ 60;
     final seconds = attempt.timeSpentSeconds % 60;
@@ -45,7 +105,11 @@ class ResultScreen extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppColors.navy,
+          ),
           onPressed: () => context.go('/results'),
         ),
         title: const Text(
@@ -58,10 +122,16 @@ class ResultScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share_outlined, size: 20, color: AppColors.navy),
+            icon: const Icon(
+              Icons.share_outlined,
+              size: 20,
+              color: AppColors.navy,
+            ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Scorecard link copied to clipboard!')),
+                const SnackBar(
+                  content: Text('Scorecard link copied to clipboard!'),
+                ),
               );
             },
           ),
@@ -103,7 +173,11 @@ class ResultScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 40),
+                    child: const Icon(
+                      Icons.emoji_events_rounded,
+                      color: Colors.white,
+                      size: 40,
+                    ),
                   ),
                 ],
               ),
@@ -125,7 +199,10 @@ class ResultScreen extends StatelessWidget {
             Center(
               child: Text(
                 'Here is your performance in ${attempt.testTitle}',
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -153,26 +230,69 @@ class ResultScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Text('YOUR SCORE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1, color: AppColors.textSecondary)),
+                  const Text(
+                    'YOUR SCORE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(attempt.score.toStringAsFixed(attempt.score % 1 == 0 ? 0 : 1), style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: -1.2)),
-                      Text(' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      Text(
+                        attempt.score.toStringAsFixed(
+                          attempt.score % 1 == 0 ? 0 : 1,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                          letterSpacing: -1.2,
+                        ),
+                      ),
+                      Text(
+                        ' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD9E7FD))), child: Text('${attempt.percentage.toStringAsFixed(1)}% score', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.navy))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFD9E7FD)),
+                    ),
+                    child: Text(
+                      '${attempt.percentage.toStringAsFixed(1)}% score',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
 
-                        // Triple Metric Row: Correct, Incorrect, Skipped
+            // Triple Metric Row: Correct, Incorrect, Skipped
             Row(
               children: [
                 Expanded(
@@ -247,6 +367,15 @@ class ResultScreen extends StatelessWidget {
                     value: '${attempt.totalQuestions}',
                     subtext: 'In this test',
                   ),
+                  const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                  _buildAnalysisRow(
+                    icon: Icons.remove_circle_outline_rounded,
+                    iconColor: const Color(0xFFEF4444),
+                    label: 'Negative Marks',
+                    value:
+                        '−${attempt.negativeMarksDeducted.toStringAsFixed(2)}',
+                    subtext: 'Deducted for wrong answers',
+                  ),
                 ],
               ),
             ),
@@ -262,13 +391,18 @@ class ResultScreen extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('View Detailed Analysis', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(
+                    'View Detailed Analysis',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward_rounded, size: 18),
                 ],
@@ -285,7 +419,9 @@ class ResultScreen extends StatelessWidget {
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: Color(0xFFBFDBFE)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
 
@@ -300,14 +436,19 @@ class ResultScreen extends StatelessWidget {
                 foregroundColor: AppColors.navy,
                 side: const BorderSide(color: Color(0xFFCBD5E1)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.refresh_rounded, size: 18),
                   SizedBox(width: 8),
-                  Text('Re-attempt Test', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    'Re-attempt Test',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                 ],
               ),
             ),
@@ -384,18 +525,29 @@ class ResultScreen extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.navy),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.navy,
+                ),
               ),
               Text(
                 subtext,
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
         ),
         Text(
           value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
+          ),
         ),
       ],
     );

@@ -321,7 +321,8 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                                 emblemPath: _getEmblemPath(
                                   '${s.examId} ${s.title} ${s.examTitle ?? ''}',
                                 ),
-                                onTap: () => context.push('/exams/${s.examId}'),
+                                onTap: () =>
+                                    context.push('/test-series/${s.id}'),
                               ),
                             ),
                           ),

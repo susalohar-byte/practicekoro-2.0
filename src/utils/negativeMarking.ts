@@ -1,8 +1,7 @@
 /**
  * Test-level negative marking policy.
  *
- * - Negative marking is configured ONLY at the test level, at test creation
- *   time, and ONLY for Full Mock tests and PYQ papers.
+ * - Negative marking is configured on each test, independently of its type.
  * - It is OPTIONAL: a test may carry 0 (no negative marking), because some
  *   exams have no negative marking scheme.
  * - Questions NEVER carry negative marks: no negative-marks field exists at
@@ -11,21 +10,24 @@
  *   through `resolveTestNegativeMarking`, never from question-level data.
  */
 
-export const NEGATIVE_MARKING_TEST_TYPES = ['full_mock', 'pyq'] as const;
+export const NEGATIVE_MARKING_TEST_TYPES = [
+  'full_mock',
+  'pyq',
+  'topic',
+  'chapter_mock',
+  'subject_mock',
+] as const;
 
 export type NegativeMarkingTestType = (typeof NEGATIVE_MARKING_TEST_TYPES)[number];
 
-/** True when this test type supports an (optional) negative marking scheme. */
+/** True when the test type is a supported PracticeKoro test. */
 export function supportsNegativeMarking(testType: string | undefined | null): boolean {
-  return (
-    testType === 'full_mock' || testType === 'pyq'
-  );
+  return NEGATIVE_MARKING_TEST_TYPES.includes(testType as NegativeMarkingTestType);
 }
 
 /**
  * Resolve the effective negative marks deducted per wrong answer for a test.
- * Returns 0 when the test type does not support negative marking or when the
- * admin left it unset (optional scheme).
+ * Returns 0 when the scheme is unset, invalid, or the test type is unknown.
  */
 export function resolveTestNegativeMarking(
   testType: string | undefined | null,

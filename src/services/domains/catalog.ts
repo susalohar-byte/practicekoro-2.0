@@ -19,6 +19,7 @@ import type {
   StudentTestQuestion,
   AttemptAnswerState,
   TestAttempt,
+  TestSeriesAnalytics,
   GradedResult,
   QuestionSolution,
   MistakeItem,
@@ -26,7 +27,12 @@ import type {
 } from '@/types';
 import { calculateScore } from '@/utils/scoring';
 import { resolveTestNegativeMarking } from '@/utils/negativeMarking';
-import { localAttemptsStore, localTests, localTestSeries, localExams } from '@/services/domains/localStore';
+import {
+  localAttemptsStore,
+  localTests,
+  localTestSeries,
+  localExams,
+} from '@/services/domains/localStore';
 import type {
   AttemptRow,
   BookmarkRow,
@@ -64,9 +70,7 @@ export const catalogApi = {
           .select('id, exam_id, total_questions')
           .eq('is_active', true)
           .eq('status', 'published'),
-        supabase
-          .from('test_exams')
-          .select('test_id, exam_id'),
+        supabase.from('test_exams').select('test_id, exam_id'),
       ]);
 
       const data = examsRes.data;
@@ -511,13 +515,15 @@ export const catalogApi = {
     try {
       const { data, error } = await supabase
         .from('tests')
-        .select(`
+        .select(
+          `
           *,
           exams:exam_id (title),
           subjects:subject_id (name),
           chapters:chapter_id (name),
           test_series:test_series_id (title)
-        `)
+        `
+        )
         .eq('id', testId)
         .maybeSingle();
       if (error || !data) return null;
@@ -583,9 +589,13 @@ export const catalogApi = {
       questionBengaliText: q.questionBengaliText,
       imageUrl: q.imageUrl,
       subjectId: q.subjectId,
-      subjectName: q.subjectName || (q.subjectId ? allSubjects.find((s) => s.id === q.subjectId)?.name : undefined),
+      subjectName:
+        q.subjectName ||
+        (q.subjectId ? allSubjects.find((s) => s.id === q.subjectId)?.name : undefined),
       chapterId: q.chapterId,
-      chapterName: q.chapterName || (q.chapterId ? allChapters.find((c) => c.id === q.chapterId)?.name : undefined),
+      chapterName:
+        q.chapterName ||
+        (q.chapterId ? allChapters.find((c) => c.id === q.chapterId)?.name : undefined),
       optionA: q.optionA,
       optionB: q.optionB,
       optionC: q.optionC,
@@ -868,7 +878,7 @@ export const catalogApi = {
     const answersMap = new Map(answers.map((a) => [a.questionId, a.selectedOption]));
     const totalMarks = test ? test.totalMarks : 5;
     const passingMarks = test?.passingMarks || 2;
-    // Negative marking is test-level only (Full Mock / PYQ, optional) — never per-question.
+    // Negative marking is test-level only for every supported type — never per-question.
     const effectiveNegative = resolveTestNegativeMarking(test?.testType, test?.negativeMarking);
     const scoreSummary = calculateScore(
       questions.map((q) => ({
@@ -1073,12 +1083,17 @@ export const catalogApi = {
     const answersMap = localAttemptsStore[attemptId]?.answers || {};
     const allSubjects = Object.values(MOCK_SUBJECTS).flat();
     const allChapters = Object.values(MOCK_CHAPTERS).flat();
+    const demoTest = localTests.find((test) => test.id === testId);
+    const negativePerWrong = resolveTestNegativeMarking(
+      demoTest?.testType,
+      demoTest?.negativeMarking
+    );
 
     return questions.map((q, idx) => {
       const ans = answersMap[q.id];
       const selected = ans?.selectedOption || null; // Strictly real answer or null; never guess
       const isCorrect = selected !== null && selected === q.correctOption;
-      const marksAwarded = isCorrect ? q.defaultMarks : selected ? -q.defaultNegativeMarks : 0;
+      const marksAwarded = isCorrect ? q.defaultMarks : selected ? -negativePerWrong : 0;
 
       return {
         id: q.id,
@@ -1087,9 +1102,13 @@ export const catalogApi = {
         questionBengaliText: q.questionBengaliText,
         imageUrl: q.imageUrl,
         subjectId: q.subjectId,
-        subjectName: q.subjectName || (q.subjectId ? allSubjects.find((s) => s.id === q.subjectId)?.name : undefined),
+        subjectName:
+          q.subjectName ||
+          (q.subjectId ? allSubjects.find((s) => s.id === q.subjectId)?.name : undefined),
         chapterId: q.chapterId,
-        chapterName: q.chapterName || (q.chapterId ? allChapters.find((c) => c.id === q.chapterId)?.name : undefined),
+        chapterName:
+          q.chapterName ||
+          (q.chapterId ? allChapters.find((c) => c.id === q.chapterId)?.name : undefined),
         optionA: q.optionA,
         optionB: q.optionB,
         optionC: q.optionC,
@@ -1103,6 +1122,30 @@ export const catalogApi = {
         isBookmarked: MOCK_BOOKMARKS.some((b) => b.questionId === q.id),
       };
     });
+  },
+
+  async getAttemptNegativeMarks(attemptId: string, testId: string): Promise<number> {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('attempt_answers')
+        .select('marks_awarded')
+        .eq('attempt_id', attemptId);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch negative marks');
+      }
+
+      return (data || []).reduce(
+        (total, answer) => total + Math.max(0, -Number(answer.marks_awarded || 0)),
+        0
+      );
+    }
+
+    const solutions = await this.getAttemptSolutions(attemptId, testId);
+    return solutions.reduce(
+      (total, solution) => total + Math.max(0, -Number(solution.marksAwarded || 0)),
+      0
+    );
   },
 
   async toggleBookmark(userId: string, questionId: string, note?: string): Promise<boolean> {
@@ -1156,7 +1199,8 @@ export const catalogApi = {
     }
   },
 
-  async getUserAttempts(userId: string): Promise<TestAttempt[]> {
+  async getUserAttempts(userId: string, testIds?: string[]): Promise<TestAttempt[]> {
+    if (testIds && testIds.length === 0) return [];
     // Merge any live session attempts with mock attempts if not on Supabase
     const sessionAttempts = Object.values(localAttemptsStore)
       .filter((a) => a.attempt.userId === userId && a.attempt.status === 'completed')
@@ -1165,11 +1209,11 @@ export const catalogApi = {
     if (!isSupabaseConfigured) {
       const combined = [...sessionAttempts, ...MOCK_ATTEMPTS];
       const unique = Array.from(new Map(combined.map((item) => [item.id, item])).values());
-      return unique;
+      return testIds ? unique.filter((attempt) => testIds.includes(attempt.testId)) : unique;
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('test_attempts')
         .select(
           `
@@ -1188,8 +1232,9 @@ export const catalogApi = {
           )
         `
         )
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .eq('user_id', userId);
+      if (testIds) query = query.in('test_id', testIds);
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error || !data || data.length === 0) return [];
       return data.map((d) => {
@@ -1330,8 +1375,7 @@ export const catalogApi = {
   },
 
   async getBookmarks(userId: string): Promise<BookmarkItem[]> {
-    if (!isSupabaseConfigured)
-      return [];
+    if (!isSupabaseConfigured) return [];
     try {
       const { data, error } = await supabase
         .from('bookmarks')
@@ -1455,10 +1499,7 @@ export const catalogApi = {
         .map((s) => {
           const exam = localExams.find((e) => e.id === s.examId);
           const sTests = localTests.filter(
-            (t) =>
-              t.testSeriesId === s.id &&
-              t.isActive &&
-              (t.status === 'published' || !t.status)
+            (t) => t.testSeriesId === s.id && t.isActive && (t.status === 'published' || !t.status)
           );
           const count = sTests.length;
           const fullMockCount = sTests.filter((t) => t.testType === 'full_mock').length;
@@ -1548,10 +1589,7 @@ export const catalogApi = {
   async getSeriesTestsForStudent(seriesId: string): Promise<MockTest[]> {
     if (!isSupabaseConfigured) {
       return localTests.filter(
-        (t) =>
-          t.testSeriesId === seriesId &&
-          t.isActive &&
-          (t.status === 'published' || !t.status)
+        (t) => t.testSeriesId === seriesId && t.isActive && (t.status === 'published' || !t.status)
       );
     }
 
@@ -1610,5 +1648,41 @@ export const catalogApi = {
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Fetches one database-aggregated, caller-scoped report for a test series.
+   * The RPC returns latest-per-test metrics plus every completed attempt for
+   * the trend and history, without issuing one query per test or answer.
+   */
+  async getTestSeriesAnalytics(seriesId: string): Promise<TestSeriesAnalytics> {
+    const emptyReport = (totalTests: number): TestSeriesAnalytics => ({
+      totalTests,
+      testsAttempted: 0,
+      overallScorePercent: 0,
+      averageScorePercent: 0,
+      accuracyPercent: 0,
+      bestScorePercent: 0,
+      completionPercent: 0,
+      testTypeBreakdown: [],
+      trend: [],
+      subjects: [],
+      weakTopics: [],
+      history: [],
+    });
+
+    if (!isSupabaseConfigured) {
+      const totalTests = localTests.filter(
+        (test) => test.testSeriesId === seriesId && test.isActive && test.status === 'published'
+      ).length;
+      return emptyReport(totalTests);
+    }
+
+    const { data, error } = await supabase.rpc('get_test_series_analytics', {
+      p_series_id: seriesId,
+    });
+    if (error) throw new Error(error.message || 'Failed to load series analytics');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return emptyReport(0);
+    return data as unknown as TestSeriesAnalytics;
   },
 };

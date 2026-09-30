@@ -7,6 +7,7 @@ import '../models/test_model.dart';
 import '../models/question_model.dart';
 import '../models/test_series_model.dart';
 import '../models/live_test_model.dart';
+import '../models/attempt_model.dart';
 import '../datasources/local_storage.dart';
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
@@ -18,7 +19,9 @@ final activeLiveTestProvider = FutureProvider<LiveTestModel?>((ref) async {
   return repo.getActiveLiveTest();
 });
 
-final popularTestSeriesProvider = FutureProvider<List<TestSeriesModel>>((ref) async {
+final popularTestSeriesProvider = FutureProvider<List<TestSeriesModel>>((
+  ref,
+) async {
   final repo = ref.watch(catalogRepositoryProvider);
   return repo.getPopularTestSeries();
 });
@@ -88,7 +91,10 @@ class CatalogRepository {
     return [];
   }
 
-  Future<List<MockTestModel>> getMockTests({String? examId, String? testType}) async {
+  Future<List<MockTestModel>> getMockTests({
+    String? examId,
+    String? testType,
+  }) async {
     final client = _supabase;
     if (client != null) {
       try {
@@ -112,6 +118,26 @@ class CatalogRepository {
     return [];
   }
 
+  Future<List<MockTestModel>> getPracticeTests({
+    required String subjectId,
+    String? chapterId,
+  }) async {
+    final client = _supabase;
+    if (client == null) return [];
+    var query = client
+        .from('tests')
+        .select()
+        .eq('is_active', true)
+        .eq('status', 'published')
+        .eq('subject_id', subjectId)
+        .inFilter('test_type', ['chapter_mock', 'subject_mock', 'topic']);
+    if (chapterId != null) query = query.eq('chapter_id', chapterId);
+    final response = await query.order('order_index', ascending: true);
+    return (response as List<dynamic>)
+        .map((item) => MockTestModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<MockTestModel?> getTestById(String testId) async {
     final allTests = await getMockTests();
     try {
@@ -123,40 +149,224 @@ class CatalogRepository {
 
   Future<List<QuestionModel>> getQuestionsForTest(String testId) async {
     final client = _supabase;
-    if (client != null) {
-      try {
-        final response = await client
-            .from('test_questions')
-            .select('marks, negative_marks, question_order, questions(*)')
-            .eq('test_id', testId)
-            .order('question_order', ascending: true);
+    if (client == null) return [];
+    final response = await client.rpc(
+      'get_student_exam_questions',
+      params: {'p_test_id': testId},
+    );
+    if (response is! List) return [];
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (question) => QuestionModel(
+            id: question['id'] as String,
+            questionOrder: (question['questionOrder'] as num?)?.toInt() ?? 1,
+            questionText: question['questionText'] as String? ?? '',
+            questionBengaliText: question['questionBengaliText'] as String?,
+            imageUrl: question['imageUrl'] as String?,
+            optionA: question['optionA'] as String? ?? '',
+            optionB: question['optionB'] as String? ?? '',
+            optionC: question['optionC'] as String? ?? '',
+            optionD: question['optionD'] as String? ?? '',
+            // The in-progress RPC intentionally strips the answer key.
+            correctOption: '',
+            marks: (question['marks'] as num?)?.toDouble() ?? 1,
+            negativeMarks: 0,
+            subjectName: question['subjectName'] as String?,
+            chapterName: question['chapterName'] as String?,
+          ),
+        )
+        .toList();
+  }
 
-        if (response.isNotEmpty) {
-          return (response as List<dynamic>).map((item) {
-            final q = item['questions'] as Map<String, dynamic>;
-            return QuestionModel(
-              id: q['id'] as String,
-              questionOrder: (item['question_order'] as num?)?.toInt() ?? 1,
-              questionText: q['question_text'] as String,
-              questionBengaliText: q['question_bengali_text'] as String?,
-              imageUrl: q['image_url'] as String?,
-              optionA: q['option_a'] as String,
-              optionB: q['option_b'] as String,
-              optionC: q['option_c'] as String,
-              optionD: q['option_d'] as String,
-              correctOption: q['correct_option'] as String,
-              explanation: q['explanation'] as String?,
-              explanationBengali: q['explanation_bengali'] as String?,
-              marks: (item['marks'] as num?)?.toDouble() ?? 1.0,
-              negativeMarks: (item['negative_marks'] as num?)?.toDouble() ?? 0.25,
-            );
-          }).toList();
-        }
-      } catch (_) {
-        // Fallback
-      }
+  String? get currentUserId => _supabase?.auth.currentUser?.id;
+
+  Future<Map<String, dynamic>> startTestAttempt(String testId) async {
+    final client = _supabase;
+    if (client == null || client.auth.currentUser == null) {
+      throw StateError('Sign in to start this test.');
     }
-    return [];
+    final data = await client.rpc(
+      'start_test_attempt',
+      params: {'p_test_id': testId},
+    );
+    if (data is! Map) {
+      throw StateError('The server did not create a test attempt.');
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<void> saveTestAnswers({
+    required String attemptId,
+    required List<Map<String, dynamic>> answers,
+    required int timeSpentSeconds,
+  }) async {
+    final client = _supabase;
+    if (client == null) return;
+    final saved = await client.rpc(
+      'save_test_answers',
+      params: {
+        'p_attempt_id': attemptId,
+        'p_answers': answers,
+        'p_time_spent_seconds': timeSpentSeconds,
+      },
+    );
+    if (saved != true) {
+      throw StateError(
+        'Answers could not be saved. Check your connection and try again.',
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSavedTestAnswers(
+    String attemptId,
+  ) async {
+    final client = _supabase;
+    if (client == null) return [];
+    final rows = await client
+        .from('attempt_answers')
+        .select(
+          'question_id, selected_option, is_marked_for_review, time_spent_seconds',
+        )
+        .eq('attempt_id', attemptId);
+    return (rows as List<dynamic>)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> submitTestAttempt({
+    required String attemptId,
+    required List<Map<String, dynamic>> answers,
+    required int timeSpentSeconds,
+  }) async {
+    final client = _supabase;
+    if (client == null) {
+      throw StateError('Online connection is required to submit this test.');
+    }
+    final data = await client.rpc(
+      'submit_test_attempt',
+      params: {
+        'p_attempt_id': attemptId,
+        'p_answers': answers,
+        'p_time_spent_seconds': timeSpentSeconds,
+      },
+    );
+    if (data is! Map) {
+      throw StateError('The server did not return a test result.');
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<List<QuestionModel>> getAttemptSolutions(String attemptId) async {
+    final client = _supabase;
+    if (client == null) return [];
+    final response = await client.rpc(
+      'get_attempt_solutions',
+      params: {'p_attempt_id': attemptId},
+    );
+    if (response is! List) return [];
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (question) => QuestionModel(
+            id: question['id'] as String,
+            questionOrder: (question['questionOrder'] as num?)?.toInt() ?? 1,
+            questionText: question['questionText'] as String? ?? '',
+            questionBengaliText: question['questionBengaliText'] as String?,
+            imageUrl: question['imageUrl'] as String?,
+            optionA: question['optionA'] as String? ?? '',
+            optionB: question['optionB'] as String? ?? '',
+            optionC: question['optionC'] as String? ?? '',
+            optionD: question['optionD'] as String? ?? '',
+            correctOption: question['correctOption'] as String? ?? '',
+            selectedOption: question['selectedOption'] as String?,
+            isCorrect: question['isCorrect'] as bool? ?? false,
+            explanation: question['explanation'] as String?,
+            explanationBengali: question['explanationBengali'] as String?,
+            subjectName: question['subjectName'] as String?,
+            chapterName: question['chapterName'] as String?,
+          ),
+        )
+        .toList();
+  }
+
+  Future<TestAttemptModel?> getCompletedAttempt(String attemptId) async {
+    final client = _supabase;
+    if (client == null) return null;
+    final row = await client
+        .from('test_attempts')
+        .select('*, tests(title, total_questions)')
+        .eq('id', attemptId)
+        .maybeSingle();
+    if (row == null || row['status'] != 'completed') return null;
+
+    final answerRows = await client
+        .from('attempt_answers')
+        .select(
+          'question_id, selected_option, is_marked_for_review, time_spent_seconds, marks_awarded',
+        )
+        .eq('attempt_id', attemptId);
+    final answers = <String, dynamic>{};
+    var negativeMarksDeducted = 0.0;
+    for (final answer in answerRows as List<dynamic>) {
+      final item = Map<String, dynamic>.from(answer as Map);
+      final questionId = item['question_id'].toString();
+      answers[questionId] = {
+        'question_id': questionId,
+        'selected_option': item['selected_option'],
+        'is_marked_for_review': item['is_marked_for_review'],
+        'time_spent_seconds': item['time_spent_seconds'],
+      };
+      final marksAwarded = (item['marks_awarded'] as num?)?.toDouble() ?? 0;
+      if (marksAwarded < 0) negativeMarksDeducted += -marksAwarded;
+    }
+
+    final result = await client
+        .from('test_results')
+        .select('percentage, rank, percentile')
+        .eq('attempt_id', attemptId)
+        .maybeSingle();
+    final test = row['tests'] as Map<String, dynamic>?;
+    final totalMarks = (row['total_marks'] as num?)?.toDouble() ?? 0;
+    final score = (row['score'] as num?)?.toDouble() ?? 0;
+    return TestAttemptModel.fromJson({
+      'id': row['id'],
+      'user_id': row['user_id'],
+      'test_id': row['test_id'],
+      'test_title': test?['title'] ?? 'Test Result',
+      'score': score,
+      'total_marks': totalMarks,
+      'percentage':
+          result?['percentage'] ??
+          (totalMarks > 0 ? score / totalMarks * 100 : 0),
+      'accuracy': row['accuracy'],
+      'correct_count': row['correct_count'],
+      'wrong_count': row['wrong_count'],
+      'skipped_count': row['skipped_count'],
+      'time_spent_seconds': row['time_spent_seconds'],
+      'total_questions':
+          test?['total_questions'] ??
+          ((row['correct_count'] as num? ?? 0) +
+              (row['wrong_count'] as num? ?? 0) +
+              (row['skipped_count'] as num? ?? 0)),
+      'completed_at': row['end_time'] ?? row['created_at'],
+      'negative_marks_deducted': negativeMarksDeducted,
+      'answers': answers,
+    });
+  }
+
+  Future<List<ChapterModel>> getChaptersForSubject(String subjectId) async {
+    final client = _supabase;
+    if (client == null) return [];
+    final response = await client
+        .from('chapters')
+        .select()
+        .eq('subject_id', subjectId)
+        .eq('is_active', true)
+        .order('order_index', ascending: true);
+    return (response as List<dynamic>)
+        .map((item) => ChapterModel.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<LiveTestModel?> getActiveLiveTest() async {
@@ -172,7 +382,8 @@ class CatalogRepository {
             .order('scheduled_start_time', ascending: true)
             .limit(1);
         if (response.isNotEmpty) {
-          final item = (response as List<dynamic>).first as Map<String, dynamic>;
+          final item =
+              (response as List<dynamic>).first as Map<String, dynamic>;
           final examData = item['exams'] as Map<String, dynamic>?;
           return LiveTestModel(
             id: item['id'] as String,
@@ -181,16 +392,18 @@ class CatalogRepository {
             testSeriesId: item['test_series_id'] as String?,
             testId: (item['test_id'] as String?) ?? '',
             scheduledStartTime: item['scheduled_start_time'] != null
-                ? DateTime.tryParse(item['scheduled_start_time'] as String) ?? DateTime.now()
+                ? DateTime.tryParse(item['scheduled_start_time'] as String) ??
+                      DateTime.now()
                 : DateTime.now(),
             scheduledEndTime: item['scheduled_end_time'] != null
                 ? DateTime.tryParse(item['scheduled_end_time'] as String) ??
-                    DateTime.now().add(const Duration(hours: 2))
+                      DateTime.now().add(const Duration(hours: 2))
                 : DateTime.now().add(const Duration(hours: 2)),
             durationMinutes: (item['duration_minutes'] as num?)?.toInt() ?? 90,
             totalQuestions: (item['total_questions'] as num?)?.toInt() ?? 100,
             totalMarks: (item['total_marks'] as num?)?.toDouble() ?? 100.0,
-            negativeMarking: (item['negative_marking'] as num?)?.toDouble() ?? 0.25,
+            negativeMarking:
+                (item['negative_marking'] as num?)?.toDouble() ?? 0,
             status: (item['status'] as String?) ?? 'scheduled',
             isPublished: (item['is_published'] as bool?) ?? true,
             enrolledCount: (item['enrolled_count'] as num?)?.toInt() ?? 0,
@@ -221,7 +434,9 @@ class CatalogRepository {
               if (entry is Map<String, dynamic>) {
                 final st = (entry['status'] as String?) ?? 'upcoming';
                 if (st == 'cancelled') continue;
-                final startStr = (entry['startAt'] ?? entry['scheduledStartTime'] ?? '') as String;
+                final startStr =
+                    (entry['startAt'] ?? entry['scheduledStartTime'] ?? '')
+                        as String;
                 final startDt = DateTime.tryParse(startStr) ?? now;
                 final dur = (entry['durationMinutes'] as num?)?.toInt() ?? 90;
                 final endDt = startDt.add(Duration(minutes: dur));
@@ -233,7 +448,9 @@ class CatalogRepository {
               }
             }
             if (chosen != null) {
-              final startStr = (chosen['startAt'] ?? chosen['scheduledStartTime'] ?? '') as String;
+              final startStr =
+                  (chosen['startAt'] ?? chosen['scheduledStartTime'] ?? '')
+                      as String;
               final startDt = DateTime.tryParse(startStr) ?? DateTime.now();
               final dur = (chosen['durationMinutes'] as num?)?.toInt() ?? 90;
               final endDt = startDt.add(Duration(minutes: dur));
@@ -251,9 +468,11 @@ class CatalogRepository {
                 scheduledStartTime: startDt,
                 scheduledEndTime: endDt,
                 durationMinutes: dur,
-                totalQuestions: (chosen['totalQuestions'] as num?)?.toInt() ?? 100,
+                totalQuestions:
+                    (chosen['totalQuestions'] as num?)?.toInt() ?? 100,
                 totalMarks: (chosen['totalMarks'] as num?)?.toDouble() ?? 100.0,
-                negativeMarking: (chosen['negativeMarking'] as num?)?.toDouble() ?? 0.25,
+                negativeMarking:
+                    (chosen['negativeMarking'] as num?)?.toDouble() ?? 0.25,
                 status: derivedStatus,
                 isPublished: (chosen['isPublished'] as bool?) ?? true,
                 enrolledCount: (chosen['enrolledCount'] as num?)?.toInt() ?? 0,
@@ -307,22 +526,111 @@ class CatalogRepository {
     return [];
   }
 
+  Future<TestSeriesModel?> getTestSeriesById(String seriesId) async {
+    final client = _supabase;
+    if (client == null) return null;
+    final row = await client
+        .from('test_series')
+        .select('*, exams(title, icon_name)')
+        .eq('id', seriesId)
+        .eq('is_active', true)
+        .maybeSingle();
+    if (row == null) return null;
+    final exam = row['exams'] as Map<String, dynamic>?;
+    final tests = await client
+        .from('tests')
+        .select('id')
+        .eq('test_series_id', seriesId)
+        .eq('is_active', true)
+        .eq('status', 'published');
+    return TestSeriesModel(
+      id: row['id'] as String,
+      examId: row['exam_id'] as String? ?? '',
+      title: row['title'] as String? ?? 'Test Series',
+      slug: row['slug'] as String? ?? '',
+      description: row['description'] as String?,
+      iconUrl: row['icon_url'] as String?,
+      isPremium: row['is_premium'] as bool? ?? false,
+      isPopular: row['is_popular'] as bool? ?? false,
+      orderIndex: (row['order_index'] as num?)?.toInt() ?? 0,
+      isActive: row['is_active'] as bool? ?? true,
+      examTitle: exam?['title'] as String?,
+      examLogo: exam?['icon_name'] as String?,
+      testCount: (tests as List<dynamic>).length,
+    );
+  }
+
+  Future<List<MockTestModel>> getTestsForSeries(String seriesId) async {
+    final client = _supabase;
+    if (client == null) return [];
+    final rows = await client
+        .from('tests')
+        .select()
+        .eq('test_series_id', seriesId)
+        .eq('is_active', true)
+        .eq('status', 'published')
+        .order('order_index', ascending: true);
+    return (rows as List<dynamic>)
+        .map(
+          (row) =>
+              MockTestModel.fromJson(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> getSeriesAnalytics(String seriesId) async {
+    final client = _supabase;
+    if (client == null || client.auth.currentUser == null) {
+      throw StateError('Sign in to view your test series analytics.');
+    }
+    final report = await client.rpc(
+      'get_test_series_analytics',
+      params: {'p_series_id': seriesId},
+    );
+    if (report is! Map) throw StateError('Series analytics are unavailable.');
+    return Map<String, dynamic>.from(report);
+  }
+
   Future<bool> joinLiveTest(String liveTestId, String? userId) async {
     final client = _supabase;
-    if (client != null && userId != null) {
+    if (client != null &&
+        userId != null &&
+        client.auth.currentUser?.id == userId) {
       try {
-        await client.from('live_test_participations').upsert({
+        await client.from('live_test_participants').upsert({
           'live_test_id': liveTestId,
           'user_id': userId,
-          'joined_at': DateTime.now().toIso8601String(),
           'status': 'registered',
-        });
+        }, onConflict: 'live_test_id,user_id');
         return true;
       } catch (_) {
         return false;
       }
     }
     return true;
+  }
+
+  Future<void> updateLiveTestParticipant({
+    required String liveTestId,
+    required String attemptId,
+    required String status,
+    Map<String, dynamic>? result,
+  }) async {
+    final client = _supabase;
+    final userId = client?.auth.currentUser?.id;
+    if (client == null || userId == null) return;
+    await client.from('live_test_participants').upsert({
+      'live_test_id': liveTestId,
+      'user_id': userId,
+      'attempt_id': attemptId,
+      'status': status,
+      if (status == 'started') 'joined_at': DateTime.now().toIso8601String(),
+      if (status == 'completed')
+        'completed_at': DateTime.now().toIso8601String(),
+      if (result != null) 'score': result['score'],
+      if (result != null) 'accuracy': result['accuracy'],
+      if (result != null) 'time_taken': result['time_spent_seconds'],
+    }, onConflict: 'live_test_id,user_id');
   }
 
   Future<String> fetchContentLanguageMode() async {
@@ -335,7 +643,11 @@ class CatalogRepository {
             .eq('key', 'content_language_mode')
             .maybeSingle();
         if (response != null && response['value'] != null) {
-          final val = response['value'].toString().replaceAll('"', '').trim().toLowerCase();
+          final val = response['value']
+              .toString()
+              .replaceAll('"', '')
+              .trim()
+              .toLowerCase();
           final mode = val == 'bilingual' ? 'bilingual' : 'bengali_only';
           await LocalStorageService.setContentLanguageMode(mode);
           return mode;

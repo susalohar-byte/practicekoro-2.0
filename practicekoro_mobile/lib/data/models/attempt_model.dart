@@ -44,6 +44,7 @@ class TestAttemptModel {
   final int skippedCount;
   final int timeSpentSeconds;
   final int totalQuestions;
+  final double negativeMarksDeducted;
   final DateTime completedAt;
   final Map<String, AttemptAnswerState> answers;
 
@@ -61,6 +62,7 @@ class TestAttemptModel {
     required this.skippedCount,
     required this.timeSpentSeconds,
     required this.totalQuestions,
+    this.negativeMarksDeducted = 0,
     required this.completedAt,
     this.answers = const {},
   });
@@ -68,7 +70,8 @@ class TestAttemptModel {
   factory TestAttemptModel.fromJson(Map<String, dynamic> json) {
     final rawAnswers = json['answers'] as Map<String, dynamic>? ?? {};
     final parsedAnswers = rawAnswers.map(
-      (k, v) => MapEntry(k, AttemptAnswerState.fromJson(v as Map<String, dynamic>)),
+      (k, v) =>
+          MapEntry(k, AttemptAnswerState.fromJson(v as Map<String, dynamic>)),
     );
 
     return TestAttemptModel(
@@ -85,6 +88,8 @@ class TestAttemptModel {
       skippedCount: (json['skipped_count'] as num?)?.toInt() ?? 0,
       timeSpentSeconds: (json['time_spent_seconds'] as num?)?.toInt() ?? 0,
       totalQuestions: (json['total_questions'] as num?)?.toInt() ?? 0,
+      negativeMarksDeducted:
+          (json['negative_marks_deducted'] as num?)?.toDouble() ?? 0,
       completedAt: json['completed_at'] != null
           ? DateTime.parse(json['completed_at'] as String)
           : DateTime.now(),
@@ -107,6 +112,7 @@ class TestAttemptModel {
       'skipped_count': skippedCount,
       'time_spent_seconds': timeSpentSeconds,
       'total_questions': totalQuestions,
+      'negative_marks_deducted': negativeMarksDeducted,
       'completed_at': completedAt.toIso8601String(),
       'answers': answers.map((k, v) => MapEntry(k, v.toJson())),
     };

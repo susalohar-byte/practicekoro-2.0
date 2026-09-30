@@ -79,6 +79,7 @@ vi.mock('@/services/api', () => ({
         subjectName: 'Math',
       } as const)),
     ] satisfies QuestionSolution[]),
+    getAttemptNegativeMarks: vi.fn().mockResolvedValue(0.75),
   },
 }));
 

@@ -166,15 +166,65 @@ export interface TestSeries {
   pyqTestCount?: number;
 }
 
+export type SeriesTestCategory = 'full_mock' | 'pyq' | 'topic_test' | 'live_test';
+
+export interface TestSeriesAttemptHistory {
+  attemptId: string;
+  testId: string;
+  testTitle: string;
+  testType: SeriesTestCategory;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  accuracy: number;
+  correctCount: number;
+  wrongCount: number;
+  skippedCount: number;
+  negativeMarks: number;
+  timeSpentSeconds: number;
+  completedAt: string;
+}
+
+export interface TestSeriesAnalytics {
+  totalTests: number;
+  testsAttempted: number;
+  overallScorePercent: number;
+  averageScorePercent: number;
+  accuracyPercent: number;
+  bestScorePercent: number;
+  completionPercent: number;
+  testTypeBreakdown: Array<{
+    type: SeriesTestCategory;
+    testsAttempted: number;
+    averageScorePercent: number;
+    bestScorePercent: number;
+    accuracyPercent: number;
+  }>;
+  trend: Array<{
+    attemptId: string;
+    testTitle: string;
+    percentage: number;
+    completedAt: string;
+  }>;
+  subjects: Array<{
+    subjectId: string;
+    subjectName: string;
+    questionsAttempted: number;
+    correctCount: number;
+    accuracyPercent: number;
+  }>;
+  weakTopics: Array<{
+    topicId: string;
+    topicName: string;
+    subjectName: string;
+    questionsAttempted: number;
+    accuracyPercent: number;
+  }>;
+  history: TestSeriesAttemptHistory[];
+}
+
 export type LiveTestStatus =
-  | 'upcoming'
-  | 'live'
-  | 'ended'
-  | 'cancelled'
-  | 'draft'
-  | 'scheduled'
-  | 'completed'
-  | 'archived';
+  'upcoming' | 'live' | 'ended' | 'cancelled' | 'draft' | 'scheduled' | 'completed' | 'archived';
 
 export interface LiveTest {
   id: string;
@@ -211,13 +261,7 @@ export interface LiveTest {
 }
 
 export type LiveParticipantStatus =
-  | 'registered'
-  | 'started'
-  | 'completed'
-  | 'abandoned'
-  | 'joined'
-  | 'submitted'
-  | 'cancelled';
+  'registered' | 'started' | 'completed' | 'abandoned' | 'joined' | 'submitted' | 'cancelled';
 
 export interface LiveTestParticipant {
   id: string;
@@ -242,7 +286,6 @@ export interface LiveTestParticipant {
 // Backward-compatible alias for earlier code
 export type LiveTestParticipation = LiveTestParticipant;
 
-
 export interface MockTest {
   id: string;
   examId?: string;
@@ -260,8 +303,7 @@ export interface MockTest {
   passingMarks: number;
   /**
    * Test-level negative marking (marks deducted per wrong answer).
-   * Applies ONLY to Full Mock ('full_mock') and PYQ ('pyq') tests, and is
-   * OPTIONAL — 0 means the exam has no negative marking scheme.
+   * Applies to this test only; 0 means no negative marking.
    * Configured once at test creation time; questions never carry negatives.
    */
   negativeMarking: number;
@@ -1018,4 +1060,3 @@ export interface HeroBanner {
   createdAt: string;
   updatedAt?: string;
 }
-

@@ -28,7 +28,7 @@ class LiveTestModel {
     this.durationMinutes = 90,
     this.totalQuestions = 100,
     this.totalMarks = 100.0,
-    this.negativeMarking = 0.25,
+    this.negativeMarking = 0,
     this.status = 'scheduled',
     this.isPublished = true,
     this.enrolledCount = 0,
@@ -68,16 +68,16 @@ class LiveTestModel {
       testId: (json['test_id'] as String?) ?? '',
       scheduledStartTime: json['scheduled_start_time'] != null
           ? DateTime.tryParse(json['scheduled_start_time'] as String) ??
-              DateTime.now().add(const Duration(days: 1))
+                DateTime.now().add(const Duration(days: 1))
           : DateTime.now().add(const Duration(days: 1)),
       scheduledEndTime: json['scheduled_end_time'] != null
           ? DateTime.tryParse(json['scheduled_end_time'] as String) ??
-              DateTime.now().add(const Duration(days: 1, hours: 2))
+                DateTime.now().add(const Duration(days: 1, hours: 2))
           : DateTime.now().add(const Duration(days: 1, hours: 2)),
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 90,
       totalQuestions: (json['total_questions'] as num?)?.toInt() ?? 100,
       totalMarks: (json['total_marks'] as num?)?.toDouble() ?? 100.0,
-      negativeMarking: (json['negative_marking'] as num?)?.toDouble() ?? 0.25,
+      negativeMarking: (json['negative_marking'] as num?)?.toDouble() ?? 0,
       status: (json['status'] as String?) ?? 'scheduled',
       isPublished: (json['is_published'] as bool?) ?? true,
       enrolledCount: (json['enrolled_count'] as num?)?.toInt() ?? 0,
