@@ -31,7 +31,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F9FF),
+      backgroundColor: const Color(0xFFF4F6FB),
       body: IndexedStack(
         index: _currentIndex,
         children: [
@@ -56,48 +56,58 @@ class _MainScaffoldState extends State<MainScaffold> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.96),
-          border: const Border(
-            top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-          ),
+          color: const Color(0xFFF4F6FB),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0B1F44).withValues(alpha: 0.06),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
+              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
         child: SafeArea(
           top: false,
-          child: SizedBox(
-            height: 68,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+            child: Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF3142D6).withValues(alpha: 0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
                   _buildNavItem(
                     0,
-                    Icons.home_rounded,
-                    Icons.home_outlined,
+                    Icons.grid_view_rounded,
+                    Icons.grid_view_outlined,
                     'Home',
                   ),
                   _buildNavItem(
                     1,
-                    Icons.assignment_rounded,
-                    Icons.assignment_outlined,
-                    'Test Series',
+                    Icons.layers_rounded,
+                    Icons.layers_outlined,
+                    'Tests',
                   ),
                   _buildNavItem(
                     2,
-                    Icons.menu_book_rounded,
-                    Icons.menu_book_outlined,
+                    Icons.bolt_rounded,
+                    Icons.bolt_outlined,
                     'Practice',
                   ),
                   _buildNavItem(
                     3,
-                    Icons.bar_chart_rounded,
-                    Icons.bar_chart_outlined,
+                    Icons.donut_large_rounded,
+                    Icons.donut_large_outlined,
                     'Results',
                   ),
                   _buildNavItem(
@@ -123,56 +133,43 @@ class _MainScaffoldState extends State<MainScaffold> {
   ) {
     final bool isSelected = _currentIndex == index;
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _currentIndex = index),
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? const LinearGradient(
-                        colors: [Color(0xFF0158FC), Color(0xFF0198FD)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: isSelected ? null : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF0158FC).withValues(alpha: 0.28),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEEF2FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
                 isSelected ? activeIcon : inactiveIcon,
-                size: 20,
-                color: isSelected ? Colors.white : const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                size: 22,
                 color: isSelected
-                    ? const Color(0xFF0158FC)
+                    ? const Color(0xFF3142D6)
                     : const Color(0xFF64748B),
-                letterSpacing: -0.1,
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected
+                      ? const Color(0xFF3142D6)
+                      : const Color(0xFF64748B),
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/exam_model.dart';
 import '../../data/models/test_series_model.dart';
@@ -20,6 +19,15 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
   bool _isLoading = true;
   List<ExamModel> _exams = [];
   List<TestSeriesModel> _popularSeries = [];
+
+  static const List<Map<String, String>> _categories = [
+    {'label': 'All Exams', 'match': 'all'},
+    {'label': 'WB Police', 'match': 'WB Police (WBP / KP)'},
+    {'label': 'WBPSC', 'match': 'WBPSC (Clerkship / WBCS)'},
+    {'label': 'Teaching', 'match': 'Teaching (TET / SLST)'},
+    {'label': 'SSC & Central', 'match': 'SSC & Central Govt.'},
+    {'label': 'Railways', 'match': 'Railways (RRB)'},
+  ];
 
   @override
   void initState() {
@@ -42,15 +50,6 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     }
   }
 
-  static const List<String> _categories = [
-    'All Examinations',
-    'WB Police (WBP / KP)',
-    'WBPSC (Clerkship / WBCS)',
-    'Teaching (TET / SLST)',
-    'SSC & Central Govt.',
-    'Railways (RRB)',
-  ];
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -63,21 +62,21 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
         lower.contains('kp') ||
         lower.contains('police') ||
         lower.contains('constable')) {
-      return 'assets/images/exams/emblem_wbp.png';
+      return 'assets/images/exams/emblem_wbp_shield.png';
     } else if (lower.contains('wbpsc') ||
         lower.contains('wbcs') ||
         lower.contains('clerkship')) {
-      return 'assets/images/exams/emblem_wbpsc.png';
+      return 'assets/images/exams/emblem_wbpsc_coin.png';
     } else if (lower.contains('tet') ||
         lower.contains('primary') ||
         lower.contains('teach')) {
-      return 'assets/images/exams/emblem_tet.png';
+      return 'assets/images/exams/emblem_wbtet_seal.png';
     } else if (lower.contains('wbssc') || lower.contains('slst')) {
       return 'assets/images/exams/emblem_wbssc.png';
     } else if (lower.contains('ssc') ||
         lower.contains('cgl') ||
         lower.contains('gd')) {
-      return 'assets/images/exams/emblem_ssc.png';
+      return 'assets/images/exams/emblem_ssc_crest.png';
     } else if (lower.contains('railway') ||
         lower.contains('rrb') ||
         lower.contains('ntpc')) {
@@ -89,7 +88,8 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final query = _searchController.text.trim().toLowerCase();
-    final selectedCategory = _categories[_selectedFilterIndex];
+    final selectedMatch = _categories[_selectedFilterIndex]['match']!;
+    final isPro = LocalStorageService.isProUser();
 
     final filteredExams = _exams.where((exam) {
       final matchesSearch =
@@ -100,7 +100,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
 
       final matchesCategory =
           _selectedFilterIndex == 0 ||
-          exam.category.toLowerCase() == selectedCategory.toLowerCase();
+          exam.category.toLowerCase() == selectedMatch.toLowerCase();
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -113,104 +113,73 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F9FF),
+      backgroundColor: const Color(0xFFF4F6FB),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // Sticky Header + Search + Category Tabs (Matches Website TestSeriesCatalog.tsx)
+            // ── NATIVE MOBILE TOP HEADER & SEARCH ──
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFF0158FC,
-                                ).withValues(alpha: 0.18),
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.asset(
-                                'assets/images/logo-circle.png',
-                                width: 28,
-                                height: 28,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) => const Icon(
-                                  Icons.assignment_rounded,
-                                  size: 20,
-                                  color: Color(0xFF0158FC),
-                                ),
-                              ),
+                          Text(
+                            'Mock Test Series',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Test Series',
-                                style: TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              SizedBox(height: 1),
-                              Text(
-                                'Choose your exam. Start with a plan.',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          SizedBox(height: 2),
+                          Text(
+                            'Full-length mocks, chapter tests & PYQ packs',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                      if (LocalStorageService.isBilingualEnabled())
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                          ),
-                          child: const Text(
-                            'বাংলা + Eng',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0158FC),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFC7D2FE)),
+                        ),
+                        child: const Text(
+                          'বাংলা + Eng',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF3142D6),
                           ),
                         ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
-                  // Search Bar
+                  // Search Field
                   Container(
                     height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFFF4F6FB),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
@@ -218,7 +187,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                       children: [
                         const Icon(
                           Icons.search_rounded,
-                          color: Color(0xFF0158FC),
+                          color: Color(0xFF3142D6),
                           size: 19,
                         ),
                         const SizedBox(width: 8),
@@ -232,8 +201,7 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                               color: Color(0xFF0F172A),
                             ),
                             decoration: const InputDecoration(
-                              hintText:
-                                  'Search test series, exams, subjects...',
+                              hintText: 'Search WBP, WBPSC, TET, SSC, RRB...',
                               hintStyle: TextStyle(
                                 fontSize: 12.5,
                                 color: Color(0xFF64748B),
@@ -252,9 +220,9 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                               setState(() {});
                             },
                             child: const Icon(
-                              Icons.clear_rounded,
-                              size: 18,
+                              Icons.close_rounded,
                               color: Color(0xFF64748B),
+                              size: 18,
                             ),
                           ),
                       ],
@@ -262,57 +230,48 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Category Filter Pills
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(_categories.length, (idx) {
-                        final isSel = _selectedFilterIndex == idx;
+                  // Category Pill Tabs
+                  SizedBox(
+                    height: 34,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, idx) {
+                        final isSelected = _selectedFilterIndex == idx;
                         return GestureDetector(
                           onTap: () =>
                               setState(() => _selectedFilterIndex = idx),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              gradient: isSel
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF0158FC),
-                                        Color(0xFF0198FD),
-                                      ],
-                                    )
-                                  : null,
-                              color: isSel ? null : const Color(0xFFF1F5F9),
+                              color: isSelected
+                                  ? const Color(0xFF3142D6)
+                                  : const Color(0xFFF4F6FB),
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: isSel
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFF0158FC,
-                                        ).withValues(alpha: 0.22),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF3142D6)
+                                    : const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: Text(
-                              _categories[idx],
+                              _categories[idx]['label']!,
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: isSel
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
                                     ? Colors.white
                                     : const Color(0xFF475569),
                               ),
                             ),
                           ),
                         );
-                      }),
+                      },
                     ),
                   ),
                 ],
@@ -320,119 +279,133 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
             ),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-            // Body Content
+            // ── SCROLLABLE CATALOG BODY ──
             Expanded(
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF0158FC),
+                        color: Color(0xFF3142D6),
                       ),
                     )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                      children: [
-                        // 1. Dark Blue Subscription Hero Banner (Matches Website TestSeriesCatalog.tsx)
-                        _buildSubscriptionHeroBanner(),
-                        const SizedBox(height: 16),
+                  : RefreshIndicator(
+                      color: const Color(0xFF3142D6),
+                      onRefresh: _loadCatalog,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                        children: [
+                          // 1. Pro Pass Spotlight Banner
+                          if (!isPro) ...[
+                            _buildProPassSpotlight(context),
+                            const SizedBox(height: 20),
+                          ],
 
-                        // 2. 4 Test Type Cards (2x2 Grid)
-                        _buildFourTestTypeCards(),
-                        const SizedBox(height: 24),
+                          // 2. Popular Test Series Horizontal Carousel
+                          if (filteredSeries.isNotEmpty) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Trending Test Series',
+                                  style: TextStyle(
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'Free Demo Included',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 186,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: filteredSeries.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 12),
+                                itemBuilder: (context, idx) {
+                                  return _buildSeriesCard(filteredSeries[idx]);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                          ],
 
-                        // 3. Popular Test Series Section (if available)
-                        if (filteredSeries.isNotEmpty &&
-                            _selectedFilterIndex == 0) ...[
-                          const Row(
+                          // 3. Exam Categories Bento / Mobile Cards
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('🔥', style: TextStyle(fontSize: 18)),
-                              SizedBox(width: 6),
-                              Text(
-                                'Popular Test Series',
+                              const Text(
+                                'Browse by Examination',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 16.5,
                                   fontWeight: FontWeight.w900,
                                   color: Color(0xFF0F172A),
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              Text(
+                                '${filteredExams.length} Available',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          ...filteredSeries.map(
-                            (s) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildWebsiteSeriesCard(
-                                title: s.title,
-                                examBadge: s.examTitle ?? 'West Bengal Exam',
-                                testsCount: s.testCount,
-                                description:
-                                    s.description ??
-                                    'Complete test series with full-length mocks, topic tests, and detailed solutions.',
-                                emblemPath: _getEmblemPath(
-                                  '${s.examId} ${s.title} ${s.examTitle ?? ''}',
+                          if (filteredExams.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
                                 ),
-                                onTap: () =>
-                                    context.push('/test-series/${s.id}'),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-
-                        // 4. All Examinations / Filtered Exams List
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _selectedFilterIndex == 0
-                                  ? 'All Exam Test Series'
-                                  : selectedCategory,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                            if (_selectedFilterIndex != 0 || query.isNotEmpty)
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedFilterIndex = 0;
-                                    _searchController.clear();
-                                  });
-                                },
-                                child: const Text(
-                                  'Reset Filters',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0158FC),
+                              child: const Column(
+                                children: [
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 36,
+                                    color: Color(0xFF94A3B8),
                                   ),
-                                ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'No matching exams found',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (filteredExams.isEmpty)
-                          _buildEmptyState()
-                        else
-                          ...filteredExams.map(
-                            (exam) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildWebsiteSeriesCard(
-                                title: exam.title,
-                                examBadge: exam.category,
-                                testsCount: exam.totalTests ?? 25,
-                                description:
-                                    exam.description ??
-                                    'Full-length mock tests, subject-wise practice & previous year papers.',
-                                emblemPath: _getEmblemPath(
-                                  '${exam.id} ${exam.title}',
-                                ),
-                                onTap: () => context.push('/exams/${exam.id}'),
-                              ),
-                            ),
-                          ),
-                      ],
+                            )
+                          else
+                            ...filteredExams.map(_buildMobileExamCard),
+                        ],
+                      ),
                     ),
             ),
           ],
@@ -441,280 +414,98 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     );
   }
 
-  // ===========================================================================
-  // 1. SUBSCRIPTION HERO BANNER (Matches Website TestSeriesCatalog.tsx Stitch 2.0)
-  // ===========================================================================
-  Widget _buildSubscriptionHeroBanner() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0158FC).withValues(alpha: 0.22),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 13,
-                      color: Color(0xFFFCD34D),
-                    ),
-                    SizedBox(width: 5),
-                    Text(
-                      'PRACTICEKORO TEST SERIES 2.0',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${_exams.length} Exams',
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'All Test Series in One Subscription',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Unlock full mock tests, chapter-wise practice, previous year question papers, and detailed performance analytics across all West Bengal & Central Govt exams.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFFDBEAFE),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton(
-            onPressed: () {
-              if (_exams.isNotEmpty) {
-                context.push('/exams/${_exams.first.id}');
-              } else {
-                context.push('/subscription');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF0158FC),
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Start Testing',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
-                ),
-                SizedBox(width: 5),
-                Icon(Icons.arrow_forward_rounded, size: 15),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // 2. FOUR TEST TYPE SHORTCUT CARDS (Matches Website TestSeriesCatalog.tsx)
-  // ===========================================================================
-  Widget _buildFourTestTypeCards() {
-    final cards = [
-      {
-        'title': 'Full Mock Tests',
-        'sub': 'Full-length exam simulations',
-        'icon': Icons.layers_outlined,
-        'bg': const Color(0xFFEFF6FF),
-        'fg': const Color(0xFF0158FC),
-        'onTap': () {
-          if (_exams.isNotEmpty) context.push('/exams/${_exams.first.id}');
-        },
-      },
-      {
-        'title': 'Chapter-wise Tests',
-        'sub': 'Practice topic by topic',
-        'icon': Icons.menu_book_outlined,
-        'bg': const Color(0xFFECFDF5),
-        'fg': const Color(0xFF059669),
-        'onTap': () => context.go('/practice?tab=topics'),
-      },
-      {
-        'title': 'Previous Year Questions',
-        'sub': 'Solve past exam papers',
-        'icon': Icons.description_outlined,
-        'bg': const Color(0xFFFFFBEB),
-        'fg': const Color(0xFFD97706),
-        'onTap': () => context.go('/practice?tab=pyqs'),
-      },
-      {
-        'title': 'Live Tests',
-        'sub': 'Real-time all-WB rank',
-        'icon': Icons.emoji_events_outlined,
-        'bg': const Color(0xFFFFF1F2),
-        'fg': const Color(0xFFE11D48),
-        'onTap': () {
-          if (_exams.isNotEmpty) context.push('/exams/${_exams.first.id}');
-        },
-      },
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cards.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        mainAxisExtent: 76,
-      ),
-      itemBuilder: (context, idx) {
-        final item = cards[idx];
-        return InkWell(
-          onTap: item['onTap'] as VoidCallback,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0B1F44).withValues(alpha: 0.025),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: item['bg'] as Color,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    item['icon'] as IconData,
-                    color: item['fg'] as Color,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['title'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item['sub'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ===========================================================================
-  // 3. WEBSITE TEST SERIES / EXAM CARD (Matches Website TestSeriesCatalog.tsx)
-  // ===========================================================================
-  Widget _buildWebsiteSeriesCard({
-    required String title,
-    required String examBadge,
-    required int testsCount,
-    required String description,
-    required String emblemPath,
-    required VoidCallback onTap,
-  }) {
-    final isBrandLogo = emblemPath == 'assets/images/logo-circle.png';
+  Widget _buildProPassSpotlight(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => context.push('/pricing'),
       child: Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF3142D6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3142D6).withValues(alpha: 0.2),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Color(0xFFFBBF24),
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PRACTICEKORO PRO PASS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFDE047),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Unlock All WBP, WBPSC, TET & SSC Mock Series',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Unlock',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF3142D6),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeriesCard(TestSeriesModel series) {
+    final totalTests = series.testCount > 0 ? series.testCount : 15;
+    final freeTests = series.isPremium ? 2 : totalTests;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => context.push('/test-series/${series.id}'),
+      child: Container(
+        width: 264,
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -722,8 +513,8 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -731,147 +522,102 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isBrandLogo)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      emblemPath,
-                      width: 68,
-                      height: 68,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.school_rounded,
-                        color: Color(0xFF0158FC),
-                        size: 28,
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF5FB),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFF1F5F9)),
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        emblemPath,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.school_rounded,
-                          color: Color(0xFF0158FC),
-                          size: 28,
-                        ),
-                      ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Image.asset(
+                    _getEmblemPath(series.examTitle ?? series.title),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.layers_rounded,
+                      size: 18,
+                      color: Color(0xFF3142D6),
                     ),
                   ),
-                const SizedBox(width: 12),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (testsCount > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '$testsCount Tests',
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1D4ED8),
-                                ),
-                              ),
-                            ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              examBadge,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF475569),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: Text(
+                    series.examTitle ?? 'Official Pattern',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF3142D6),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$freeTests Free',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF059669),
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              description,
+              series.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-                height: 1.4,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+                height: 1.25,
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 40,
-              child: ElevatedButton(
-                onPressed: onTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0158FC),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$totalTests Total Tests • বাংলা/EN',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
                   ),
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                const Row(
                   children: [
                     Text(
-                      'View Series',
+                      'View',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
+                        color: Color(0xFF3142D6),
                       ),
                     ),
-                    SizedBox(width: 5),
-                    Icon(Icons.arrow_forward_rounded, size: 15),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 14,
+                      color: Color(0xFF3142D6),
+                    ),
                   ],
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -879,46 +625,180 @@ class _ExamsCatalogScreenState extends ConsumerState<ExamsCatalogScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
+  Widget _buildMobileExamCard(ExamModel exam) {
+    final seriesCount = _popularSeries
+        .where((s) => s.examId == exam.id)
+        .length
+        .clamp(3, 12);
+    final totalTests = exam.totalTests ?? 30;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => context.push('/exams/${exam.id}'),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-              child: const Icon(
-                Icons.search_off_rounded,
-                size: 32,
-                color: AppColors.primary,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Image.asset(
+                      _getEmblemPath(exam.title),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.school_rounded,
+                        size: 24,
+                        color: Color(0xFF3142D6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            exam.category,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF3142D6),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          exam.title,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3142D6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Open',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No Examinations Found',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-                color: AppColors.navy,
+              if (exam.description != null &&
+                  exam.description!.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  exam.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.layers_outlined,
+                          size: 14,
+                          color: Color(0xFF3142D6),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '$seriesCount Series (${totalTests > 0 ? totalTests : 30}+ Mocks)',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 13,
+                          color: Color(0xFF10B981),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Free Demo Active',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF059669),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'We couldn\'t find any exams matching your search query or selected category filter.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

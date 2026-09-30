@@ -142,11 +142,19 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Track your performance, identify strengths, and work on weak areas.'), findsOneWidget);
-      expect(find.text('All Tests'), findsOneWidget);
-      expect(find.text('Mock Tests'), findsOneWidget);
+      expect(find.text('Results & Analytics'), findsOneWidget);
+      expect(find.text('Score breakdown, accuracy & solution review'), findsOneWidget);
       expect(find.text('Tests Attempted'), findsOneWidget);
-      expect(find.text('Test History'), findsOneWidget);
+      expect(find.text('Best Score'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('Recent Test Attempts'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recent Test Attempts'), findsOneWidget);
     });
 
     testWidgets('LeaderboardScreen renders real scope filters and empty/error state without dummy data', (tester) async {

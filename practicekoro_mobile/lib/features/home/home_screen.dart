@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/attempt_model.dart';
 import '../../data/models/exam_model.dart';
-import '../../data/models/live_test_model.dart';
 import '../../data/models/test_model.dart';
-import '../../data/models/test_series_model.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../data/repositories/leaderboard_repository.dart';
 
@@ -43,82 +40,46 @@ typedef PracticeKoroHomeScreen = HomeScreen;
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _recommendedFilter = 'Test Series';
-  String _rankTab = 'All India';
-  Timer? _countdownTimer;
+  int _selectedQuickFilter = 0;
 
-  static const List<Map<String, dynamic>> _subjectCards = [
+  static const List<String> _quickFilters = [
+    'All Mocks',
+    'Full Length',
+    'PYQ Papers',
+    'Free Tests',
+    'Topic Tests',
+  ];
+
+  static const List<Map<String, String>> _examGoals = [
     {
-      'id': 'math',
-      'title': 'Mathematics',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFF2563EB),
-      'symbol': '∑',
+      'title': 'WBP Constable',
+      'subtitle': 'West Bengal Police Recruitment Board',
+      'badge': 'Police',
     },
     {
-      'id': 'reasoning',
-      'title': 'Reasoning',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFFF43F5E),
-      'symbol': '🎗',
+      'title': 'WBPSC Clerkship',
+      'subtitle': 'WB Public Service Commission',
+      'badge': 'WBPSC',
     },
     {
-      'id': 'gk',
-      'title': 'General Knowledge',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFF10B981),
-      'symbol': '🌐',
+      'title': 'Primary TET',
+      'subtitle': 'WB Board of Primary Education',
+      'badge': 'Teaching',
     },
     {
-      'id': 'english',
-      'title': 'English',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFF9333EA),
-      'symbol': 'A',
+      'title': 'SSC GD & CGL',
+      'subtitle': 'Staff Selection Commission',
+      'badge': 'Central',
     },
     {
-      'id': 'bengali',
-      'title': 'Bengali',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFFF59E0B),
-      'symbol': 'অ',
-    },
-    {
-      'id': 'computer',
-      'title': 'Computer Awareness',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFF0EA5E9),
-      'symbol': '💻',
-    },
-    {
-      'id': 'current-affairs',
-      'title': 'Current Affairs',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFFEC4899),
-      'symbol': '📅',
-    },
-    {
-      'id': 'environment',
-      'title': 'Environment',
-      'subtitle': 'Topic Practice',
-      'color': Color(0xFF14B8A6),
-      'symbol': '🌱',
+      'title': 'Railway NTPC',
+      'subtitle': 'Railway Recruitment Board (RRB)',
+      'badge': 'Railway',
     },
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  @override
   void dispose() {
-    _countdownTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -131,25 +92,246 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  String _currentUserName() {
+  String _resolveUserName() {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final metaName = user.userMetadata?['full_name'] as String?;
-        if (metaName != null && metaName.trim().isNotEmpty) {
-          return metaName.trim();
+        final fullName = user.userMetadata?['full_name'] as String?;
+        if (fullName != null && fullName.trim().isNotEmpty) {
+          return fullName.trim().split(' ').first;
         }
-        if (user.email != null && user.email!.isNotEmpty) {
-          return user.email!.split('@').first;
+        final email = user.email ?? '';
+        if (email.isNotEmpty) {
+          return email.split('@').first;
         }
       }
     } catch (_) {}
-    return 'Candidate';
+    return 'Aspirant';
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _getEmblemPath(String examKey) {
+    final lower = examKey.toLowerCase();
+    if (lower.contains('wbp') ||
+        lower.contains('kp') ||
+        lower.contains('police') ||
+        lower.contains('constable')) {
+      return 'assets/images/exams/emblem_wbp_shield.png';
+    } else if (lower.contains('wbpsc') ||
+        lower.contains('wbcs') ||
+        lower.contains('clerkship')) {
+      return 'assets/images/exams/emblem_wbpsc_coin.png';
+    } else if (lower.contains('tet') ||
+        lower.contains('primary') ||
+        lower.contains('teach')) {
+      return 'assets/images/exams/emblem_wbtet_seal.png';
+    } else if (lower.contains('wbssc') || lower.contains('slst')) {
+      return 'assets/images/exams/emblem_wbssc.png';
+    } else if (lower.contains('ssc') ||
+        lower.contains('cgl') ||
+        lower.contains('gd')) {
+      return 'assets/images/exams/emblem_ssc_crest.png';
+    } else if (lower.contains('railway') ||
+        lower.contains('rrb') ||
+        lower.contains('ntpc')) {
+      return 'assets/images/exams/emblem_railway.png';
+    }
+    return 'assets/images/logo-circle.png';
+  }
+
+  void _openTargetExamSheet() {
+    final currentGoal =
+        LocalStorageService.getSelectedExam() ?? 'WBP Constable';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Target Exam',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Personalizes your daily mocks & subject drills',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ..._examGoals.map((goal) {
+                final title = goal['title']!;
+                final isSelected =
+                    currentGoal.toLowerCase() == title.toLowerCase();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      await LocalStorageService.setSelectedExam(title);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (mounted) setState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFFEEF2FF)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF3142D6)
+                              : const Color(0xFFE2E8F0),
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Image.asset(
+                              _getEmblemPath(title),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.workspace_premium_rounded,
+                                size: 20,
+                                color: Color(0xFF3142D6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: isSelected
+                                        ? const Color(0xFF3142D6)
+                                        : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  goal['subtitle']!,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF3142D6)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF3142D6)
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Text(
+                              isSelected ? 'Active' : goal['badge']!,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   List<Map<String, dynamic>> _buildSearchableItems({
     required List<ExamModel> exams,
-    required List<TestSeriesModel> series,
     required List<MockTestModel> tests,
   }) {
     final items = <Map<String, dynamic>>[];
@@ -159,14 +341,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'type': e.category,
         'category': 'exam',
         'route': '/exams/${e.id}',
-      });
-    }
-    for (final s in series) {
-      items.add({
-        'title': s.title,
-        'type': s.examTitle ?? 'Test Series',
-        'category': 'series',
-        'route': '/test-series/${s.id}',
       });
     }
     for (final t in tests) {
@@ -183,12 +357,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openLiveSearchModal({
     required List<ExamModel> exams,
-    required List<TestSeriesModel> series,
     required List<MockTestModel> tests,
   }) {
     final searchableItems = _buildSearchableItems(
       exams: exams,
-      series: series,
       tests: tests,
     );
     showModalBottomSheet(
@@ -215,10 +387,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }).toList();
 
         return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          height: MediaQuery.of(context).size.height * 0.84,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
           child: Column(
@@ -226,8 +398,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 44,
-                  height: 5,
+                  width: 42,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: const Color(0xFFCBD5E1),
                     borderRadius: BorderRadius.circular(10),
@@ -240,23 +412,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEDF2F7),
-                        borderRadius: BorderRadius.circular(24),
+                        color: const Color(0xFFF4F6FB),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: TextField(
                         controller: _searchController,
                         autofocus: true,
                         decoration: InputDecoration(
-                          hintText:
-                              'Search exams, tests, subjects or topics...',
+                          hintText: 'Search mock tests, PYQs, exam series...',
                           hintStyle: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),
                           ),
                           prefixIcon: const Icon(
                             Icons.search_rounded,
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF3142D6),
                             size: 20,
                           ),
                           suffixIcon: _searchController.text.isNotEmpty
@@ -286,38 +457,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text(
-                      'Cancel',
+                      'Close',
                       style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildSearchFilterChip('WBP Constable', setModalState),
-                    const SizedBox(width: 8),
-                    _buildSearchFilterChip('Mock Test', setModalState),
-                    const SizedBox(width: 8),
-                    _buildSearchFilterChip('General Knowledge', setModalState),
-                    const SizedBox(width: 8),
-                    _buildSearchFilterChip('Mathematics', setModalState),
-                    const SizedBox(width: 8),
-                    _buildSearchFilterChip('PYQ', setModalState),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
               Text(
-                '${results.length} Results Found',
+                '${results.length} Available Items',
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
                   color: Color(0xFF64748B),
                 ),
               ),
@@ -325,25 +479,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Expanded(
                 child: results.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.search_off_rounded,
-                              size: 48,
-                              color: Color(0xFFCBD5E1),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              query.isEmpty
-                                  ? 'Start typing to search exams or mock tests'
-                                  : 'No tests or topics found for "$query"',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          query.isEmpty
+                              ? 'Type to search exams or mock tests'
+                              : 'No results matching "$query"',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       )
                     : ListView.separated(
@@ -353,69 +496,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         itemBuilder: (context, idx) {
                           final item = results[idx];
                           final isTest = item['category'] == 'test';
-                          final isSeries = item['category'] == 'series';
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
+                              horizontal: 6,
                               vertical: 4,
                             ),
                             leading: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: isTest
-                                    ? const Color(0xFFEFF6FF)
-                                    : isSeries
-                                    ? const Color(0xFFFEF3C7)
+                                    ? const Color(0xFFEEF2FF)
                                     : const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 isTest
-                                    ? Icons.assignment_outlined
-                                    : isSeries
-                                    ? Icons.layers_outlined
+                                    ? Icons.timer_outlined
                                     : Icons.school_outlined,
-                                color: isTest
-                                    ? const Color(0xFF0158FC)
-                                    : isSeries
-                                    ? const Color(0xFFD97706)
-                                    : const Color(0xFF10B981),
                                 size: 20,
+                                color: isTest
+                                    ? const Color(0xFF3142D6)
+                                    : const Color(0xFF059669),
                               ),
                             ),
                             title: Text(
                               item['title'] as String,
                               style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
                                 color: Color(0xFF0F172A),
                               ),
                             ),
                             subtitle: Text(
                               item['type'] as String,
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 color: Color(0xFF64748B),
                               ),
                             ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0158FC),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'Open',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: Color(0xFF94A3B8),
                             ),
                             onTap: () {
                               Navigator.pop(context);
@@ -432,178 +555,147 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSearchFilterChip(
-    String label,
-    void Function(void Function()) setModalState,
-  ) {
-    final isSelected =
-        _searchController.text.trim().toLowerCase() == label.toLowerCase();
-    return InkWell(
-      onTap: () {
-        setModalState(() {
-          if (isSelected) {
-            _searchController.clear();
-          } else {
-            _searchController.text = label;
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0158FC) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0158FC)
-                : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF475569),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final liveTestAsync = ref.watch(activeLiveTestProvider);
-    final popularSeriesAsync = ref.watch(popularTestSeriesProvider);
     final examsAsync = ref.watch(homeExamsProvider);
-    final mockTestsAsync = ref.watch(homeMockTestsProvider);
-    final scopeKey = _rankTab == 'West Bengal' ? 'west_bengal' : 'all_india';
-    final leaderboardAsync = ref.watch(homeLeaderboardProvider(scopeKey));
+    final testsAsync = ref.watch(homeMockTestsProvider);
 
-    final popularList = popularSeriesAsync.value ?? <TestSeriesModel>[];
-    final examsList = examsAsync.value ?? <ExamModel>[];
-    final mockTestsList = mockTestsAsync.value ?? <MockTestModel>[];
-    final leaderboardList = leaderboardAsync.value ?? <LeaderboardEntry>[];
+    final exams = examsAsync.asData?.value ?? const <ExamModel>[];
+    final allTests = testsAsync.asData?.value ?? const <MockTestModel>[];
 
-    final completedAttempts = LocalStorageService.getAttempts();
-    final totalCorrect = completedAttempts.fold<int>(
-      0,
-      (sum, a) => sum + a.correctCount,
-    );
-    final totalWrong = completedAttempts.fold<int>(
-      0,
-      (sum, a) => sum + a.wrongCount,
-    );
-    final totalSkipped = completedAttempts.fold<int>(
-      0,
-      (sum, a) => sum + a.skippedCount,
-    );
-    final totalQ = totalCorrect + totalWrong + totalSkipped;
-    final overallAccuracyPct = completedAttempts.isEmpty
+    final attempts = LocalStorageService.getAttempts();
+    final targetExam =
+        LocalStorageService.getSelectedExam() ?? 'WBP Constable';
+    final isPro = LocalStorageService.isProUser();
+    final bookmarksCount = LocalStorageService.getBookmarks().length;
+
+    final testsTaken = attempts.length;
+    final avgAccuracy = attempts.isEmpty
         ? 0
-        : (completedAttempts.fold<double>(0, (s, a) => s + a.accuracy) /
-                  completedAttempts.length)
+        : (attempts.fold<double>(0, (s, a) => s + a.accuracy) / attempts.length)
               .round();
-    final activeStreakDays = completedAttempts
+    final totalCorrect = attempts.fold<int>(0, (s, a) => s + a.correctCount);
+    final totalWrong = attempts.fold<int>(0, (s, a) => s + a.wrongCount);
+    final totalSolved = totalCorrect + totalWrong;
+    final streakDays = attempts
         .map((a) => a.completedAt.toIso8601String().substring(0, 10))
         .toSet()
         .length;
-    final isPro = LocalStorageService.isProUser();
+
+    String bestScoreStr = '0/100';
+    if (attempts.isNotEmpty) {
+      double best = 0;
+      double total = 100;
+      for (final a in attempts) {
+        if (a.score >= best) {
+          best = a.score;
+          total = a.totalMarks > 0 ? a.totalMarks : 100;
+        }
+      }
+      bestScoreStr = '${best.round()}/${total.round()}';
+    }
+
+    // Filter mock tests for horizontal carousel
+    final filteredTests = allTests.where((t) {
+      if (_selectedQuickFilter == 1) return t.testType == 'full_mock';
+      if (_selectedQuickFilter == 2) return t.testType == 'pyq';
+      if (_selectedQuickFilter == 3) return !t.isPremium;
+      if (_selectedQuickFilter == 4) {
+        return t.testType == 'chapter_mock' || t.testType == 'subject_mock';
+      }
+      return true;
+    }).toList();
+    final displayTests =
+        (filteredTests.isNotEmpty ? filteredTests : allTests).take(8).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F9FF),
+      backgroundColor: const Color(0xFFF4F6FB),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildStudentNavbar(
-              exams: examsList,
-              series: popularList,
-              tests: mockTestsList,
+            // ── 1. NATIVE MOBILE TOP BAR ──
+            _buildMobileAppBar(
+              targetExam: targetExam,
+              streakDays: streakDays,
+              isPro: isPro,
             ),
+
+            // ── SCROLLABLE NATIVE MOBILE BODY ──
             Expanded(
               child: RefreshIndicator(
+                color: const Color(0xFF3142D6),
                 onRefresh: () async {
-                  ref.invalidate(activeLiveTestProvider);
-                  ref.invalidate(popularTestSeriesProvider);
                   ref.invalidate(homeExamsProvider);
                   ref.invalidate(homeMockTestsProvider);
-                  ref.invalidate(homeLeaderboardProvider(scopeKey));
-                  await Future.delayed(const Duration(milliseconds: 300));
                 },
-                color: const Color(0xFF0158FC),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                   children: [
-                    // 1. Dynamic Hero Banner (Website Section 1)
-                    _buildHeroBanner(),
-                    const SizedBox(height: 16),
-
-                    // 2. 4 Stat Cards (Website Section 2)
-                    _buildFourStatCards(
-                      testsTaken: completedAttempts.length,
-                      questionsPracticed: totalCorrect + totalWrong,
-                      accuracyPct: overallAccuracyPct,
-                      streakDays: activeStreakDays,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 3. Live Test Card (Website Section 3 - Dark #0F172A Card)
-                    liveTestAsync.when(
-                      data: (liveTest) => liveTest == null
-                          ? const SizedBox.shrink()
-                          : Padding(
-                              padding: const EdgeInsets.only(bottom: 20),
-                              child: _buildWebsiteLiveTestCard(liveTest),
-                            ),
-                      loading: () => Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: _buildLiveTestLoadingState(),
+                    // ── 2. SEARCH BAR + QUICK FILTER PILLS ──
+                    _buildSearchAndQuickChips(
+                      onSearchTap: () => _openLiveSearchModal(
+                        exams: exams,
+                        tests: allTests,
                       ),
-                      error: (_, _) => const SizedBox.shrink(),
                     ),
+                    const SizedBox(height: 16),
 
-                    // 5. Popular Test Series (Website Section 5)
-                    _buildPopularTestSeriesSection(
-                      popularList,
-                      isLoading: popularSeriesAsync.isLoading,
-                      hasError: popularSeriesAsync.hasError,
+                    // ── 3. INDIGO-VIOLET DAILY READINESS HERO CARD ──
+                    _buildReadinessHeroCard(
+                      userName: _resolveUserName(),
+                      targetExam: targetExam,
+                      testsTaken: testsTaken,
+                      avgAccuracy: avgAccuracy,
+                      bestScoreStr: bestScoreStr,
+                      totalSolved: totalSolved,
+                      firstTest: displayTests.isNotEmpty
+                          ? displayTests.first
+                          : null,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
 
-                    // 6. Practice by Subject (Website Section 6)
-                    _buildPracticeBySubjectSection(),
-                    const SizedBox(height: 24),
-
-                    // 7. Recommended for You (Website Section 7)
-                    _buildRecommendedForYouSection(mockTestsList),
-                    const SizedBox(height: 24),
-
-                    // 8. Your Progress (Website Section 8)
-                    _buildYourProgressSection(
-                      overallAccuracyPct: overallAccuracyPct,
-                      totalCorrect: totalCorrect,
-                      totalWrong: totalWrong,
-                      totalSkipped: totalSkipped,
-                      totalQ: totalQ,
+                    // ── 4. LIVE & TRENDING MOCK TESTS (HORIZONTAL CAROUSEL) ──
+                    _buildSectionHeader(
+                      title: 'Featured Mock Tests',
+                      badgeText: '${allTests.length}+ Ready',
+                      actionText: 'See All',
+                      onAction: () => _handleTabNavigation(1, '/exams'),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    _buildMockTestsCarousel(displayTests),
+                    const SizedBox(height: 22),
 
-                    // 9. Recent Mock Tests & Rank (Website Section 9)
-                    _buildRecentMockTestsCard(completedAttempts),
-                    const SizedBox(height: 20),
-                    _buildRankCard(
-                      leaderboardEntries: leaderboardList,
-                      overallAccuracyPct: overallAccuracyPct,
-                      hasAttempts: completedAttempts.isNotEmpty,
+                    // ── 5. 2x2 SUBJECT MASTERY BENTO GRID ──
+                    _buildSectionHeader(
+                      title: 'Practice by Subject',
+                      badgeText: 'Bilingual',
+                      actionText: 'All Topics',
+                      onAction: () => _handleTabNavigation(2, '/practice'),
                     ),
+                    const SizedBox(height: 12),
+                    _buildSubjectBentoGrid(avgAccuracy: avgAccuracy),
+                    const SizedBox(height: 22),
 
-                    // 10. Upgrade to PracticeKoro Pro Banner (Website Section 10)
-                    if (!isPro) ...[
-                      const SizedBox(height: 24),
-                      _buildUpgradeProBanner(),
-                    ],
+                    // ── 6. TARGET EXAM TEST SERIES (COMPACT MOBILE CARDS) ──
+                    _buildSectionHeader(
+                      title: 'Exam Test Series',
+                      badgeText: '${exams.length} Exams',
+                      actionText: 'Explore',
+                      onAction: () => _handleTabNavigation(1, '/exams'),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildExamSeriesList(exams),
+                    const SizedBox(height: 22),
+
+                    // ── 7. MISTAKE NOTEBOOK & SAVED REVISION STRIP ──
+                    _buildRevisionStrip(
+                      mistakesCount: totalWrong,
+                      bookmarksCount: bookmarksCount,
+                      recentAttempt: attempts.isNotEmpty
+                          ? attempts.first
+                          : null,
+                    ),
                   ],
                 ),
               ),
@@ -614,157 +706,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ===========================================================================
-  // TOP NAVBAR (Matches Website StudentNavbar.tsx)
-  // ===========================================================================
-  Widget _buildStudentNavbar({
-    required List<ExamModel> exams,
-    required List<TestSeriesModel> series,
-    required List<MockTestModel> tests,
+  Widget _buildMobileAppBar({
+    required String targetExam,
+    required int streakDays,
+    required bool isPro,
   }) {
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          // Brand Logo + PracticeKoro 2.0
-          InkWell(
-            onTap: () => _handleTabNavigation(0, '/home'),
-            borderRadius: BorderRadius.circular(10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFF0158FC).withValues(alpha: 0.18),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
-                      'assets/images/logo-circle.png',
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0158FC),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'P',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 7),
-                const Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Practice',
-                        style: TextStyle(color: Color(0xFF0B1F44)),
-                      ),
-                      TextSpan(
-                        text: 'Koro',
-                        style: TextStyle(color: Color(0xFF0158FC)),
-                      ),
-                    ],
-                  ),
-                  style: TextStyle(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: const Color(0xFFBFDBFE),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: const Text(
-                    '2.0',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                ),
-              ],
+          Container(
+            width: 36,
+            height: 36,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: const Color(0xFF3142D6).withValues(alpha: 0.2),
+              ),
+            ),
+            child: Image.asset(
+              'assets/images/logo-circle.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Icon(
+                Icons.school_rounded,
+                color: Color(0xFF3142D6),
+                size: 20,
+              ),
             ),
           ),
           const SizedBox(width: 10),
 
-          // Center Pill Search Bar (Matches StudentNavbar.tsx)
+          // Target Exam Switcher Pill
           Expanded(
             child: GestureDetector(
-              onTap: () => _openLiveSearchModal(
-                exams: exams,
-                series: series,
-                tests: tests,
-              ),
+              onTap: _openTargetExamSheet,
               child: Container(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFFF4F6FB),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Row(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.search_rounded,
-                      size: 16,
-                      color: Color(0xFF0158FC),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3142D6),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                    SizedBox(width: 6),
-                    Expanded(
+                    const SizedBox(width: 7),
+                    Flexible(
                       child: Text(
-                        'Search exams, tests, subjects...',
+                        targetExam,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.2,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 17,
+                      color: Color(0xFF475569),
                     ),
                   ],
                 ),
@@ -773,159 +794,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Notification Bell Button
-          InkWell(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No new notifications right now'),
-                  duration: Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
+          // Streak Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.local_fire_department_rounded,
+                  size: 15,
+                  color: Color(0xFFF59E0B),
                 ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                size: 19,
-                color: Color(0xFF475569),
-              ),
+                const SizedBox(width: 3),
+                Text(
+                  '${streakDays}d',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 6),
 
-          // Profile Avatar
-          InkWell(
-            onTap: () => _handleTabNavigation(4, '/profile'),
-            borderRadius: BorderRadius.circular(12),
+          // Pro / Rank Quick Button
+          GestureDetector(
+            onTap: () => context.push(isPro ? '/rank' : '/pricing'),
             child: Container(
-              width: 35,
-              height: 35,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10.5),
-                child: Image.asset(
-                  'assets/images/student_avatar_hd.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.person_rounded,
-                    size: 18,
-                    color: Color(0xFF0158FC),
-                  ),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF3142D6), Color(0xFF6366F1)],
                 ),
+                borderRadius: BorderRadius.circular(18),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // 1. HERO BANNER WITH APP TOUR PILL (Matches Website Home.tsx Section 1)
-  // ===========================================================================
-  Widget _buildHeroBanner() {
-    return Semantics(
-      button: true,
-      label: 'Start practicing',
-      child: Stack(
-        children: [
-          InkWell(
-            onTap: () => _handleTabNavigation(2, '/practice'),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPro
+                        ? Icons.emoji_events_rounded
+                        : Icons.workspace_premium_rounded,
+                    size: 14,
+                    color: const Color(0xFFFDE047),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isPro ? 'Rank' : 'PRO',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: AspectRatio(
-                  aspectRatio: 438 / 200,
-                  child: Image.asset(
-                    'assets/images/home_hero_banner.png',
-                    width: double.infinity,
-                    fit: BoxFit.fill,
-                    errorBuilder: (_, _, _) => Container(
-                      color: const Color(0xFFD9EEFF),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.school_rounded,
-                        color: Color(0xFF0158FC),
-                        size: 54,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 10,
-            right: 10,
-            child: InkWell(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Welcome to PracticeKoro! Use the tabs below to access Test Series, Practice, Results & Profile.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 13,
-                      color: Color(0xFFFCD34D),
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'App Tour',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
@@ -933,396 +863,336 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ===========================================================================
-  // 2. FOUR STAT CARDS (Matches Website Home.tsx Section 2 Stitch Bento KPIs)
-  // ===========================================================================
-  Widget _buildFourStatCards({
-    required int testsTaken,
-    required int questionsPracticed,
-    required int accuracyPct,
-    required int streakDays,
-  }) {
-    final cards = [
-      {
-        'value': '$testsTaken',
-        'label': 'Tests Taken',
-        'tag': testsTaken > 0 ? '+$testsTaken DONE' : 'READY',
-        'icon': Icons.task_alt_rounded,
-        'bg': const Color(0xFFECFDF5),
-        'fg': const Color(0xFF059669),
-      },
-      {
-        'value': '$questionsPracticed',
-        'label': 'Questions Practiced',
-        'tag': 'SOLVED',
-        'icon': Icons.description_outlined,
-        'bg': const Color(0xFFEFF6FF),
-        'fg': const Color(0xFF0158FC),
-      },
-      {
-        'value': '$accuracyPct%',
-        'label': 'Accuracy',
-        'tag': accuracyPct >= 70 ? 'STRONG' : 'PRECISION',
-        'icon': Icons.check_circle_outline_rounded,
-        'bg': const Color(0xFFFFF1F2),
-        'fg': const Color(0xFFE11D48),
-      },
-      {
-        'value': '$streakDays',
-        'label': 'Day Streak',
-        'tag': streakDays > 0 ? '🔥 ACTIVE' : 'START TODAY',
-        'icon': Icons.local_fire_department_rounded,
-        'bg': const Color(0xFFFFFBEB),
-        'fg': const Color(0xFFD97706),
-      },
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cards.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: 86,
-      ),
-      itemBuilder: (context, idx) {
-        final item = cards[idx];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0B1F44).withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: item['bg'] as Color,
-                  borderRadius: BorderRadius.circular(14),
+  Widget _buildSearchAndQuickChips({required VoidCallback onSearchTap}) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onSearchTap,
+          child: Container(
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-                alignment: Alignment.center,
-                child: Icon(
-                  item['icon'] as IconData,
-                  color: item['fg'] as Color,
-                  size: 22,
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.search_rounded,
+                  color: Color(0xFF3142D6),
+                  size: 20,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item['value'] as String,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: item['bg'] as Color,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            item['tag'] as String,
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              color: item['fg'] as Color,
-                            ),
-                          ),
-                        ),
-                      ],
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Search mock tests, PYQs, topic drills...',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item['label'] as String,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'বাংলা / EN',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF3142D6),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _quickFilters.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, idx) {
+              final selected = _selectedQuickFilter == idx;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedQuickFilter = idx),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFF3142D6) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF3142D6)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    _quickFilters[idx],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : const Color(0xFF475569),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  // ===========================================================================
-  // 3. LIVE TEST CARD (Matches Website Home.tsx Dark #0F172A Card)
-  // ===========================================================================
-  Widget _buildWebsiteLiveTestCard(LiveTestModel liveTest) {
-    final now = DateTime.now();
-    final isLive = liveTest.isLiveNow;
-    final isUpcoming = now.isBefore(liveTest.scheduledStartTime);
-    final diff = isUpcoming
-        ? liveTest.scheduledStartTime.difference(now)
-        : (liveTest.scheduledEndTime.isAfter(now)
-              ? liveTest.scheduledEndTime.difference(now)
-              : Duration.zero);
-
-    final days = diff.inDays.clamp(0, 99).toString().padLeft(2, '0');
-    final hours = (diff.inHours % 24).clamp(0, 23).toString().padLeft(2, '0');
-    final mins = (diff.inMinutes % 60).clamp(0, 59).toString().padLeft(2, '0');
-    final secs = (diff.inSeconds % 60).clamp(0, 59).toString().padLeft(2, '0');
-
+  Widget _buildReadinessHeroCard({
+    required String userName,
+    required String targetExam,
+    required int testsTaken,
+    required int avgAccuracy,
+    required String bestScoreStr,
+    required int totalSolved,
+    required MockTestModel? firstTest,
+  }) {
+    final progressValue = (avgAccuracy / 100.0).clamp(0.0, 1.0);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF3142D6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF1E293B)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF3142D6).withValues(alpha: 0.24),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Status Badge + Countdown Timer
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              // Status Pill
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: isLive
-                      ? const Color(0xFFF43F5E)
-                      : const Color(0xFFF59E0B),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: isLive ? Colors.white : const Color(0xFF0F172A),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isLive ? 'LIVE NOW' : 'UPCOMING LIVE TEST',
-                      style: TextStyle(
-                        color: isLive ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Countdown Timer Boxes
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isLive ? 'Ends in:' : 'Starts in:',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  _buildDarkTimerBox(days, 'd'),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
-                      ':',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  _buildDarkTimerBox(hours, 'h'),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
-                      ':',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  _buildDarkTimerBox(mins, 'm'),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
-                      ':',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  _buildDarkTimerBox(secs, 's'),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Live Test Title
-          Text(
-            liveTest.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Metadata Chips Row
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              _buildDarkMetaItem('⏱️ ${liveTest.durationMinutes} Mins'),
-              _buildDarkMetaItem('📝 ${liveTest.totalQuestions} Questions'),
-              _buildDarkMetaItem('🏆 ${liveTest.totalMarks.toInt()} Marks'),
-              const Text(
-                '🎖️ Statewide Ranking',
-                style: TextStyle(
-                  color: Color(0xFFFCD34D),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFF1E293B)),
-          const SizedBox(height: 14),
-
-          // Bottom Action Bar
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.groups_rounded,
-                      color: Color(0xFF38BDF8),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                        ),
+                      ),
                       child: Text(
-                        '${liveTest.enrolledCount} Students ${isLive ? 'Competing Now' : 'Registered'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        '🎯 TARGET • ${targetExam.toUpperCase()}',
                         style: const TextStyle(
-                          color: Color(0xFFCBD5E1),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFC7D2FE),
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${_getGreeting()}, $userName!',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      testsTaken > 0
+                          ? 'You have completed $testsTaken tests with $avgAccuracy% accuracy.'
+                          : 'Start your first full-length mock test today to unlock your All-India Rank.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFFCBD5E1),
+                        height: 1.35,
+                      ),
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              SizedBox(
+                width: 78,
+                height: 78,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(78, 78),
+                      painter: _AccuracyRingPainter(
+                        progress: progressValue > 0 ? progressValue : 0.08,
+                        trackColor: Colors.white.withValues(alpha: 0.14),
+                        progressColor: avgAccuracy >= 70
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF818CF8),
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$avgAccuracy%',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const Text(
+                          'ACCURACY',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFA5B4FC),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildHeroMiniStat(
+                  label: 'Tests Taken',
+                  value: '$testsTaken',
+                  icon: Icons.assignment_turned_in_rounded,
+                  iconColor: const Color(0xFF60A5FA),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildHeroMiniStat(
+                  label: 'Best Score',
+                  value: bestScoreStr,
+                  icon: Icons.emoji_events_rounded,
+                  iconColor: const Color(0xFFFBBF24),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildHeroMiniStat(
+                  label: 'Solved MCQs',
+                  value: '$totalSolved',
+                  icon: Icons.check_circle_rounded,
+                  iconColor: const Color(0xFF34D399),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                flex: 6,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    if (firstTest != null) {
+                      final enc = Uri.encodeComponent(firstTest.title);
+                      context.push(
+                        '/test-details/${firstTest.id}?title=$enc&isPro=${firstTest.isPremium}',
+                      );
+                    } else {
+                      _handleTabNavigation(1, '/exams');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF3142D6),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text(
+                    'Start Quick Mock',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              InkWell(
-                onTap: () async {
-                  final userId = ref
-                      .read(catalogRepositoryProvider)
-                      .currentUserId;
-                  await ref
-                      .read(catalogRepositoryProvider)
-                      .joinLiveTest(liveTest.id, userId);
-                  if (mounted) {
-                    context.push(
-                      '/live-test/${liveTest.testId}?liveTestId=${Uri.encodeComponent(liveTest.id)}',
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
+              Expanded(
+                flex: 5,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push(
+                    '/topic-practice/daily_drill?title=Daily%2015-Q%20Speed%20Drill',
                   ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isLive
-                          ? [const Color(0xFFF43F5E), const Color(0xFFDC2626)]
-                          : [const Color(0xFF0158FC), const Color(0xFF0EA5E9)],
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.28),
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isLive ? 'Join Live Test' : 'Register Now',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 15,
-                      ),
-                    ],
+                  icon: const Icon(
+                    Icons.bolt_rounded,
+                    size: 18,
+                    color: Color(0xFFFBBF24),
+                  ),
+                  label: const Text(
+                    '15-Q Drill',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1333,1022 +1203,324 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildDarkTimerBox(String numStr, String unit) {
+  Widget _buildHeroMiniStat({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF334155)),
+        color: Colors.white.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      child: RichText(
-        text: TextSpan(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFCBD5E1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required String badgeText,
+    required String actionText,
+    required VoidCallback onAction,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
           children: [
-            TextSpan(
-              text: numStr,
+            Text(
+              title,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
               ),
             ),
-            TextSpan(
-              text: unit,
-              style: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                badgeText,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF3142D6),
+                ),
               ),
             ),
           ],
         ),
-      ),
+        GestureDetector(
+          onTap: onAction,
+          child: Row(
+            children: [
+              Text(
+                actionText,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF3142D6),
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Color(0xFF3142D6),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildDarkMetaItem(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Color(0xFFCBD5E1),
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-  }
-
-  Widget _buildLiveTestLoadingState() {
-    return Container(
-      height: 100,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF1E293B)),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
+  Widget _buildMockTestsCarousel(List<MockTestModel> tests) {
+    if (tests.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Center(
+          child: Text(
+            'Loading mock tests...',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
             ),
           ),
-          SizedBox(width: 12),
-          Text(
-            'Loading live test schedule…',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // 5. POPULAR TEST SERIES (Matches Website Home.tsx Section 5)
-  // ===========================================================================
-  String _resolveExamEmblem(TestSeriesModel series) {
-    if (series.iconUrl != null && series.iconUrl!.trim().isNotEmpty) {
-      final url = series.iconUrl!.trim();
-      if (url.startsWith('http') || url.startsWith('assets/')) {
-        return url;
-      }
-    }
-
-    final idLower = series.examId.toLowerCase();
-    final titleLower = '${series.title} ${series.examTitle ?? ''}'
-        .toLowerCase();
-
-    if (idLower.contains('wbp') ||
-        idLower.contains('kp') ||
-        titleLower.contains('wbp') ||
-        titleLower.contains('police') ||
-        titleLower.contains('constable')) {
-      return 'assets/images/exams/emblem_wbp.png';
-    }
-    if (idLower.contains('wbpsc') ||
-        idLower.contains('wbcs') ||
-        titleLower.contains('wbpsc') ||
-        titleLower.contains('clerkship') ||
-        titleLower.contains('wbcs') ||
-        titleLower.contains('food')) {
-      return 'assets/images/exams/emblem_wbpsc.png';
-    }
-    if (idLower.contains('railway') ||
-        idLower.contains('rrb') ||
-        titleLower.contains('railway') ||
-        titleLower.contains('rrb') ||
-        titleLower.contains('group d') ||
-        titleLower.contains('ntpc')) {
-      return 'assets/images/exams/emblem_railway.png';
-    }
-    if (idLower.contains('tet') ||
-        titleLower.contains('tet') ||
-        titleLower.contains('primary') ||
-        titleLower.contains('teach')) {
-      return 'assets/images/exams/emblem_tet.png';
-    }
-    if (idLower.contains('wbssc') ||
-        titleLower.contains('wbssc') ||
-        titleLower.contains('slst')) {
-      return 'assets/images/exams/emblem_wbssc.png';
-    }
-    if (idLower.contains('ssc') ||
-        titleLower.contains('ssc') ||
-        titleLower.contains('cgl') ||
-        titleLower.contains('gd')) {
-      return 'assets/images/exams/emblem_ssc.png';
-    }
-    return 'assets/images/logo-circle.png';
-  }
-
-  Widget _buildEmblemImage(String pathOrUrl, {double size = 48}) {
-    if (pathOrUrl.startsWith('http')) {
-      return Image.network(
-        pathOrUrl,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => Image.asset(
-          'assets/images/logo-circle.png',
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
         ),
       );
     }
-    return Image.asset(
-      pathOrUrl,
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => Image.asset(
-        'assets/images/logo-circle.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-      ),
-    );
-  }
 
-  Widget _buildPopularTestSeriesSection(
-    List<TestSeriesModel> seriesList, {
-    required bool isLoading,
-    required bool hasError,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Row(
+    return SizedBox(
+      height: 196,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: tests.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, idx) {
+          final test = tests[idx];
+          final encTitle = Uri.encodeComponent(test.title);
+          final isFree = !test.isPremium;
+          final isPyq = test.testType == 'pyq';
+
+          return Container(
+            width: 276,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('🔥', style: TextStyle(fontSize: 18)),
-                SizedBox(width: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isPyq
+                                ? const Color(0xFFFFFBEB)
+                                : isFree
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            isPyq
+                                ? test.typeLabel.toUpperCase()
+                                : isFree
+                                ? 'FREE MOCK'
+                                : 'PRO MOCK',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isPyq
+                                  ? const Color(0xFFD97706)
+                                  : isFree
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF3142D6),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(7),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: const Text(
+                            'বাংলা + Eng',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      isFree ? Icons.lock_open_rounded : Icons.stars_rounded,
+                      size: 16,
+                      color: isFree
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFF59E0B),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
                 Text(
-                  'Popular Test Series',
-                  style: TextStyle(
-                    fontSize: 17,
+                  test.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),
-                    letterSpacing: -0.3,
+                    height: 1.25,
+                  ),
+                ),
+                const Spacer(),
+
+                Row(
+                  children: [
+                    _buildSpecChip(
+                      Icons.help_outline_rounded,
+                      '${test.totalQuestions} Qs',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSpecChip(
+                      Icons.schedule_rounded,
+                      '${test.durationMinutes} Mins',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSpecChip(
+                      Icons.workspace_premium_outlined,
+                      '${test.totalMarks.round()} Marks',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 38,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.push(
+                        '/test-details/${test.id}?title=$encTitle&isPro=${test.isPremium}',
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3142D6),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Attempt Now',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_rounded, size: 15),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-            InkWell(
-              onTap: () => _handleTabNavigation(1, '/test-series'),
-              child: const Row(
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 16,
-                    color: Color(0xFF0158FC),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (isLoading || hasError || seriesList.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              isLoading
-                  ? 'Loading popular test series…'
-                  : 'No popular test series published yet. Check back soon!',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-          )
-        else
-          SizedBox(
-            height: 98,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: seriesList.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, idx) {
-                final series = seriesList[idx];
-                final emblemPath = _resolveExamEmblem(series);
-                return InkWell(
-                  onTap: () => context.push('/test-series/${series.id}'),
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    width: 270,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(
-                            0xFF0F172A,
-                          ).withValues(alpha: 0.025),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: _buildEmblemBadge(emblemPath, size: 60),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                series.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0F172A),
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                series.examTitle ?? 'Test Series',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 16,
-                            color: Color(0xFF0158FC),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildEmblemBadge(String pathOrUrl, {double size = 48}) {
-    if (pathOrUrl == 'assets/images/logo-circle.png') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: _buildEmblemImage(pathOrUrl, size: size),
-      );
-    }
-
-    return ClipOval(
-      child: Container(
-        width: size,
-        height: size,
-        color: const Color(0xFFEFF5FB),
-        alignment: Alignment.center,
-        child: _buildEmblemImage(pathOrUrl, size: size),
+          );
+        },
       ),
     );
   }
 
-  // ===========================================================================
-  // 6. PRACTICE BY SUBJECT (Matches Website Home.tsx Section 6)
-  // ===========================================================================
-  Widget _buildPracticeBySubjectSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Practice by Subject',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
-            ),
-            InkWell(
-              onTap: () => _handleTabNavigation(2, '/practice'),
-              child: const Row(
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 16,
-                    color: Color(0xFF0158FC),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _subjectCards.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: 68,
-          ),
-          itemBuilder: (context, idx) {
-            final sub = _subjectCards[idx];
-            return InkWell(
-              onTap: () => context.push('/practice/topics/${sub['id']}'),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.02),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: sub['color'] as Color,
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        sub['symbol'] as String,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sub['title'] as String,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            sub['subtitle'] as String,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ===========================================================================
-  // 7. RECOMMENDED FOR YOU (Matches Website Home.tsx Section 7)
-  // ===========================================================================
-  Widget _buildRecommendedForYouSection(List<MockTestModel> allTests) {
-    const filters = [
-      'Test Series',
-      'Topic Practice',
-      'Previous Year Questions',
-      'Based on Your Progress',
-    ];
-
-    final filtered = allTests
-        .where((t) {
-          if (_recommendedFilter == 'Previous Year Questions') {
-            return t.testType == 'pyq';
-          }
-          if (_recommendedFilter == 'Topic Practice') {
-            return t.testType == 'chapter_mock' || t.testType == 'subject_mock';
-          }
-          return true;
-        })
-        .take(3)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recommended for You',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
-            ),
-            InkWell(
-              onTap: () => _handleTabNavigation(1, '/test-series'),
-              child: const Row(
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 16,
-                    color: Color(0xFF0158FC),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: filters.map((tab) {
-              final isSelected = _recommendedFilter == tab;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: InkWell(
-                  onTap: () => setState(() => _recommendedFilter = tab),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF0158FC)
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      tab,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (filtered.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'No tests available for this category yet.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-          )
-        else
-          ...filtered.map((test) {
-            final isPyq = test.testType == 'pyq';
-            final badgeText = isPyq
-                ? 'PYQ'
-                : (!test.isPremium ? 'Free' : 'Mock Test');
-            final badgeBg = isPyq
-                ? const Color(0xFFFEF3C7)
-                : (!test.isPremium
-                      ? const Color(0xFFECFDF5)
-                      : const Color(0xFFEFF6FF));
-            final badgeFg = isPyq
-                ? const Color(0xFFD97706)
-                : (!test.isPremium
-                      ? const Color(0xFF059669)
-                      : const Color(0xFF0158FC));
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.description_outlined,
-                            color: Color(0xFF0158FC),
-                            size: 20,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeBg,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            badgeText,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: badgeFg,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      test.title,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        _buildRecommendedMeta(
-                          Icons.description_outlined,
-                          '${test.totalQuestions} Questions',
-                        ),
-                        _buildRecommendedMeta(
-                          Icons.schedule_rounded,
-                          '${test.durationMinutes} Minutes',
-                        ),
-                        _buildRecommendedMeta(
-                          Icons.check_circle_outline_rounded,
-                          'Online CBT',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 38,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final encTitle = Uri.encodeComponent(test.title);
-                          context.push(
-                            '/test-details/${test.id}?title=$encTitle&isPro=${test.isPremium}',
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0158FC),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Start Test',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded, size: 15),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-  Widget _buildRecommendedMeta(IconData icon, String label) {
+  Widget _buildSpecChip(IconData icon, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13.5, color: const Color(0xFF94A3B8)),
-        const SizedBox(width: 4),
+        Icon(icon, size: 13, color: const Color(0xFF64748B)),
+        const SizedBox(width: 3),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 11.5,
-            color: Color(0xFF64748B),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ===========================================================================
-  // 8. YOUR PROGRESS (Matches Website Home.tsx Section 8)
-  // ===========================================================================
-  Widget _buildYourProgressSection({
-    required int overallAccuracyPct,
-    required int totalCorrect,
-    required int totalWrong,
-    required int totalSkipped,
-    required int totalQ,
-  }) {
-    final correctPct = totalQ > 0 ? ((totalCorrect / totalQ) * 100).round() : 0;
-    final wrongPct = totalQ > 0 ? ((totalWrong / totalQ) * 100).round() : 0;
-    final skippedPct = totalQ > 0
-        ? math.max(0, 100 - correctPct - wrongPct)
-        : 100;
-
-    final subjectPerf = [
-      {
-        'name': 'Mathematics',
-        'pct': overallAccuracyPct,
-        'color': const Color(0xFF0158FC),
-      },
-      {
-        'name': 'Reasoning',
-        'pct': overallAccuracyPct,
-        'color': const Color(0xFFF43F5E),
-      },
-      {
-        'name': 'General Knowledge',
-        'pct': overallAccuracyPct,
-        'color': const Color(0xFF10B981),
-      },
-      {
-        'name': 'English',
-        'pct': overallAccuracyPct,
-        'color': const Color(0xFFF59E0B),
-      },
-      {
-        'name': 'Bengali',
-        'pct': overallAccuracyPct,
-        'color': const Color(0xFF9333EA),
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Your Progress',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
-            ),
-            InkWell(
-              onTap: () => _handleTabNavigation(3, '/results'),
-              child: const Row(
-                children: [
-                  Text(
-                    'View Detailed Analytics',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 16,
-                    color: Color(0xFF0158FC),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Circular Accuracy Donut + Legend
-              Row(
-                children: [
-                  SizedBox(
-                    width: 112,
-                    height: 112,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 104,
-                          height: 104,
-                          child: CircularProgressIndicator(
-                            value: overallAccuracyPct / 100.0,
-                            strokeWidth: 11,
-                            backgroundColor: const Color(0xFFE2E8F0),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF10B981),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$overallAccuracyPct%',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                            const Text(
-                              'OVERALL\nACCURACY',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF94A3B8),
-                                height: 1.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLegendRow(
-                          const Color(0xFF10B981),
-                          'Correct ($correctPct%)',
-                        ),
-                        const SizedBox(height: 8),
-                        _buildLegendRow(
-                          const Color(0xFFF43F5E),
-                          'Incorrect ($wrongPct%)',
-                        ),
-                        const SizedBox(height: 8),
-                        _buildLegendRow(
-                          const Color(0xFFCBD5E1),
-                          'Skipped ($skippedPct%)',
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Divider(height: 1, color: Color(0xFFF1F5F9)),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'SUBJECT WISE PERFORMANCE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF64748B),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _handleTabNavigation(3, '/results'),
-                    child: const Text(
-                      'View All >',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0158FC),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ...subjectPerf.map((s) {
-                final pct = s['pct'] as int;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            s['name'] as String,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF334155),
-                            ),
-                          ),
-                          Text(
-                            '$pct%',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: pct / 100.0,
-                          minHeight: 7,
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            s['color'] as Color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLegendRow(Color dotColor, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
             color: Color(0xFF475569),
           ),
         ),
@@ -2356,552 +1528,557 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ===========================================================================
-  // 9A. RECENT MOCK TESTS CARD (Matches Website Home.tsx Section 9 Left)
-  // ===========================================================================
-  Widget _buildRecentMockTestsCard(List<TestAttemptModel> completedAttempts) {
-    final recentList = completedAttempts.take(3).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Recent Mock Tests',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              InkWell(
-                onTap: () => _handleTabNavigation(3, '/results'),
-                child: const Row(
-                  children: [
-                    Text(
-                      'See All',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0158FC),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (recentList.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: Text(
-                  'No mock tests attempted yet. Start your first test to track your progress!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-                ),
-              ),
-            )
-          else
-            ...recentList.map((attempt) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            attempt.testTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Score: ${attempt.score.toStringAsFixed(0)}/${attempt.totalMarks.toStringAsFixed(0)}  •  Accuracy: ${attempt.accuracy.round()}%',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => context.push('/result/${attempt.id}'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'View Result',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0158FC),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // 9B. RANK CARD (Matches Website Home.tsx Section 9 Right)
-  // ===========================================================================
-  Widget _buildRankCard({
-    required List<LeaderboardEntry> leaderboardEntries,
-    required int overallAccuracyPct,
-    required bool hasAttempts,
-  }) {
-    const tabs = ['All India', 'West Bengal', 'Friends'];
-    final topEntries = leaderboardEntries.take(5).toList();
-    final userRank = hasAttempts ? '#1' : '#-';
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Rank',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              InkWell(
-                onTap: () => context.push('/rank'),
-                child: const Row(
-                  children: [
-                    Text(
-                      'See All',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0158FC),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Segmented Control (All India | West Bengal | Friends)
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: tabs.map((t) {
-                final selected = _rankTab == t;
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _rankTab = t),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? const Color(0xFF0158FC)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        t,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Table Header
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    '#',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Student',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                Text(
-                  'Score',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          if (topEntries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Center(
-                child: Text(
-                  'Rankings will appear as students complete mock tests.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-              ),
-            )
-          else
-            ...topEntries.map((item) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      child: Text(
-                        '${item.rank}',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${item.averagePercentage.round()}%',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-
-          const SizedBox(height: 8),
-
-          // Highlighted Current User Row
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  userRank,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0158FC),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ClipOval(
-                  child: Image.asset(
-                    'assets/images/student_avatar_hd.png',
-                    width: 26,
-                    height: 26,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.person_rounded,
-                      size: 18,
-                      color: Color(0xFF0158FC),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'You (${_currentUserName()})',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-                Text(
-                  '$overallAccuracyPct%',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0158FC),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpgradeProBanner() {
-    const features = [
-      'All Exams',
-      'Unlimited Tests',
-      'Detailed Solutions',
-      'Web + Mobile App',
-      'Priority Support',
+  Widget _buildSubjectBentoGrid({required int avgAccuracy}) {
+    final subjects = [
+      {
+        'id': 'gk',
+        'title': 'General Knowledge',
+        'subtitle': 'Static GK, History, Polity & CA',
+        'icon': Icons.public_rounded,
+        'color': const Color(0xFF10B981),
+        'bgColor': const Color(0xFFECFDF5),
+        'progress': avgAccuracy > 0
+            ? (avgAccuracy / 100.0).clamp(0.2, 0.95)
+            : 0.68,
+        'tag': 'High Weightage',
+      },
+      {
+        'id': 'math',
+        'title': 'Mathematics',
+        'subtitle': 'Arithmetic, Mensuration & Ratio',
+        'icon': Icons.calculate_rounded,
+        'color': const Color(0xFF3142D6),
+        'bgColor': const Color(0xFFEEF2FF),
+        'progress': avgAccuracy > 0
+            ? ((avgAccuracy - 4) / 100.0).clamp(0.2, 0.92)
+            : 0.74,
+        'tag': 'Speed Drills',
+      },
+      {
+        'id': 'reasoning',
+        'title': 'GI & Reasoning',
+        'subtitle': 'Series, Coding & Syllogism',
+        'icon': Icons.psychology_rounded,
+        'color': const Color(0xFFF59E0B),
+        'bgColor': const Color(0xFFFFFBEB),
+        'progress': avgAccuracy > 0
+            ? ((avgAccuracy + 5) / 100.0).clamp(0.25, 0.96)
+            : 0.82,
+        'tag': 'Scoring',
+      },
+      {
+        'id': 'english',
+        'title': 'English & Bengali',
+        'subtitle': 'Grammar, Vocab & Comprehension',
+        'icon': Icons.translate_rounded,
+        'color': const Color(0xFF8B5CF6),
+        'bgColor': const Color(0xFFF5F3FF),
+        'progress': avgAccuracy > 0
+            ? (avgAccuracy / 100.0).clamp(0.2, 0.90)
+            : 0.70,
+        'tag': 'Bilingual',
+      },
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0B1F44), Color(0xFF0158FC), Color(0xFF0198FD)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0158FC).withValues(alpha: 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: subjects.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.18,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      itemBuilder: (context, idx) {
+        final s = subjects[idx];
+        final color = s['color'] as Color;
+        final bgColor = s['bgColor'] as Color;
+        final prog = s['progress'] as double;
+        final pct = (prog * 100).round();
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            final enc = Uri.encodeComponent(s['title'] as String);
+            context.push('/topic-practice/${s['id']}?title=$enc');
+          },
+          child: Container(
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Color(0xFFFCD34D),
-                  size: 13,
-                ),
-                SizedBox(width: 5),
-                Text(
-                  'PRACTICEKORO PRO 2.0',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.6,
-                  ),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Upgrade to PracticeKoro Pro',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Get unlimited access to all test series, topic practice & detailed analytics across every West Bengal exam.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: Color(0xFFDBEAFE),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: features.map((f) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      size: 13,
-                      color: Color(0xFF34D399),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        s['icon'] as IconData,
+                        size: 20,
+                        color: color,
+                      ),
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      f,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        s['tag'] as String,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: ElevatedButton(
-              onPressed: () => context.push('/subscription'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0158FC),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                const Spacer(),
+                Text(
+                  s['title'] as String,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  s['subtitle'] as String,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: prog,
+                          minHeight: 5,
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$pct%',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExamSeriesList(List<ExamModel> exams) {
+    final displayExams = exams.take(4).toList();
+    if (displayExams.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: displayExams.map((exam) {
+        final totalTests = exam.totalTests ?? 25;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => context.push('/exams/${exam.id}'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Row(
                 children: [
-                  Text(
-                    'Upgrade Now',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Image.asset(
+                      _getEmblemPath(exam.title),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.verified_rounded,
+                        size: 22,
+                        color: Color(0xFF3142D6),
+                      ),
                     ),
                   ),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_rounded, size: 16),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exam.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Text(
+                              '$totalTests+ Mock Tests',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Free Mock Inside',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Color(0xFF3142D6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRevisionStrip({
+    required int mistakesCount,
+    required int bookmarksCount,
+    required TestAttemptModel? recentAttempt,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Smart Revision & Analytics',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => context.push('/mistakes'),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFFECDD3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.auto_fix_high_rounded,
+                          size: 19,
+                          color: Color(0xFFE11D48),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$mistakesCount Mistakes',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const Text(
+                              'Re-test wrong Qs',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => context.push('/bookmarks'),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFC7D2FE)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.bookmark_rounded,
+                          size: 19,
+                          color: Color(0xFF3142D6),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$bookmarksCount Saved',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const Text(
+                              'Bookmarked MCQs',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (recentAttempt != null) ...[
+          const SizedBox(height: 12),
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _handleTabNavigation(3, '/results'),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.analytics_rounded,
+                      color: Color(0xFF3142D6),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'LAST ATTEMPTED TEST',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF3142D6),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          recentAttempt.testTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${recentAttempt.score.round()}/${recentAttempt.totalMarks.round()} • ${recentAttempt.accuracy.round()}%',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF059669),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ],
-      ),
+      ],
     );
+  }
+}
+
+class _AccuracyRingPainter extends CustomPainter {
+  final double progress;
+  final Color trackColor;
+  final Color progressColor;
+
+  _AccuracyRingPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.progressColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 10) / 2;
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+    final sweepAngle = 2 * math.pi * progress.clamp(0.0, 1.0);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AccuracyRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.progressColor != progressColor;
   }
 }
