@@ -17,7 +17,6 @@ import {
   Target,
   BarChart3,
   Clock,
-  Globe2,
   Sparkles,
   Smartphone,
   Headphones,
@@ -79,7 +78,6 @@ export const Home: React.FC = () => {
   });
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const { data: featuredSeries = [] } = useQuery({ queryKey: ['home-featured-series'], queryFn: () => api.getFeaturedTestSeries(), refetchInterval: 60000 });
 
   // Real-time tick for countdown
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -110,24 +108,11 @@ export const Home: React.FC = () => {
     staleTime: 30000,
   });
 
-  const { data: allTests = [] } = useQuery({
-    queryKey: ['home-all-tests'],
-    queryFn: () => api.getTests(),
-    staleTime: 60000,
-  });
-
-  const { data: platformOverview } = useQuery({
-    queryKey: ['home-platform-rankings'],
-    queryFn: () => api.getPlatformAnalyticsOverview(),
-    staleTime: 60000,
-  });
-
   const completedAttempts = userAttempts.filter((a) => a.status === 'completed');
   const inProgressAttempt = userAttempts.find((a) => a.status === 'in_progress');
   const testsTakenCount = completedAttempts.length;
   const totalCorrectCount = completedAttempts.reduce((sum, a) => sum + (a.correctCount || 0), 0);
   const totalWrongCount = completedAttempts.reduce((sum, a) => sum + (a.wrongCount || 0), 0);
-  const totalSkippedCount = completedAttempts.reduce((sum, a) => sum + (a.skippedCount || 0), 0);
   const questionsPracticedCount = totalCorrectCount + totalWrongCount;
   const overallAccuracyPct =
     completedAttempts.length > 0
@@ -237,11 +222,6 @@ export const Home: React.FC = () => {
     setCurrentSlide((prev) => (prev + 1) % banners.length);
   };
 
-  // Tab state for Recommended section
-  const [recommendedTab, setRecommendedTab] = useState<'mock' | 'topic' | 'pyq' | 'progress'>('mock');
-  // Tab state for Leaderboard
-  const [leaderboardTab, setLeaderboardTab] = useState<'all' | 'wb' | 'friends'>('all');
-
   // Time-based greeting with fallback to Candidate
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -311,65 +291,6 @@ export const Home: React.FC = () => {
       symbol: '🌱',
     },
   ];
-
-  // Recommended tests derived from real backend tests
-  const recommendedTests = allTests
-    .filter((t) => {
-      if (recommendedTab === 'pyq') return t.testType === 'pyq';
-      if (recommendedTab === 'topic') return t.testType === 'topic' || t.testType === 'chapter_mock' || t.testType === 'subject_mock';
-      return true;
-    })
-    .slice(0, 3)
-    .map((t, idx) => ({
-      id: t.id,
-      title: t.title,
-      badge: t.testType === 'pyq' ? 'PYQ' : !t.isPremium ? 'Free' : 'Mock Test',
-      badgeType: idx % 3 === 0 ? 'orange' : idx % 3 === 1 ? 'blue' : 'rose',
-      questions: `${t.totalQuestions || 0} Questions`,
-      duration: `${t.durationMinutes || 60} Minutes`,
-      lang: 'Online CBT',
-      iconBg:
-        idx % 2 === 0
-          ? 'bg-blue-50 text-blue-600 border-blue-100'
-          : 'bg-amber-50 text-amber-600 border-amber-100',
-    }));
-
-  // Recent mock test history derived from real completed attempts
-  const recentTests = completedAttempts.slice(0, 5).map((att, idx) => {
-    const colors = [
-      { color: 'text-blue-600 border-blue-500', iconBg: 'bg-blue-50 text-blue-600' },
-      { color: 'text-purple-600 border-purple-500', iconBg: 'bg-purple-50 text-purple-600' },
-      { color: 'text-emerald-600 border-emerald-500', iconBg: 'bg-emerald-50 text-emerald-600' },
-      { color: 'text-rose-600 border-rose-500', iconBg: 'bg-rose-50 text-rose-600' },
-      { color: 'text-teal-600 border-teal-500', iconBg: 'bg-blue-50 text-blue-600' },
-    ];
-    const style = colors[idx % colors.length];
-    return {
-      id: att.id,
-      testId: att.testId,
-      title: att.testTitle || 'Mock Test',
-      date: new Date(att.createdAt).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
-      score: Math.round(att.score || 0),
-      total: att.totalMarks || 100,
-      color: style.color,
-      iconBg: style.iconBg,
-    };
-  });
-
-  // Leaderboard data from real platform rankings
-  const leaderboardEntries = (platformOverview?.studentRankings || []).slice(0, 5).map((r) => ({
-    rank: r.rank,
-    name: r.name,
-    score: `${Math.round(r.accuracy || 0)}%`,
-    icon: r.rank === 1 ? '👑' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : String(r.rank),
-    isUser: r.userId === user?.id,
-  }));
-  const userLeaderboardRank =
-    (platformOverview?.studentRankings || []).find((r) => r.userId === user?.id)?.rank || null;
 
   // Theme styles come from the shared banner theme map (also used by the
   // admin live preview) — see src/utils/bannerTheme.ts.
@@ -932,16 +853,13 @@ export const Home: React.FC = () => {
         </section>
       )}
 
-      {/* 4. FEATURED & POPULAR TEST SERIES */}
-      <section className="space-y-5">
-        <div>
+      {/* 4. POPULAR TEST SERIES (Controlled dynamically by Admin isPopular flag) */}
+      {popularTestSeries.length > 0 && (
+        <section>
           <div className="mb-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-5 rounded-full bg-gradient-to-b from-[#0158FC] to-[#0198FD]" />
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Popular Test Series
-              </h3>
-            </div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
+              <span>🔥</span> Popular Test Series
+            </h3>
             <Link
               to="/test-series"
               className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
@@ -950,7 +868,7 @@ export const Home: React.FC = () => {
             </Link>
           </div>
           <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
-            {(featuredSeries.length ? featuredSeries : popularTestSeries).map((series) => {
+            {popularTestSeries.map((series) => {
               const emblem = resolvePopularSeriesEmblem(series);
               const isBrandLogo = emblem.includes('logo-icon');
               return (
@@ -994,78 +912,9 @@ export const Home: React.FC = () => {
                 </Link>
               );
             })}
-            {!featuredSeries.length && !popularTestSeries.length && (
-              <div className="col-span-full rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 text-sm text-slate-500">
-                Featured test series will appear here after Admin publishes them.
-              </div>
-            )}
           </div>
-        </div>
-
-        {/* Secondary Popular row when both featuredSeries and popularTestSeries exist */}
-        {featuredSeries.length > 0 && popularTestSeries.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3.5">
-              <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>🔥</span> Trending Exam Packs
-              </h3>
-              <Link
-                to="/test-series"
-                className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                Explore Catalog <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
-              {popularTestSeries.map((series) => {
-                const emblem = resolvePopularSeriesEmblem(series);
-                const isBrandLogo = emblem.includes('logo-icon');
-
-                return (
-                  <Link
-                    key={series.id}
-                    to={`/test-series/${series.id}`}
-                    className="group flex w-[250px] flex-shrink-0 items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 transition-all hover:border-[#0158FC]/50 hover:shadow-md active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 sm:w-auto"
-                  >
-                    {isBrandLogo ? (
-                      <img
-                        src="/logo-icon.png"
-                        alt=""
-                        className="h-12 w-12 shrink-0 rounded-xl object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/logo-icon-circle.png';
-                        }}
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-[#EFF5FB] p-1 shadow-2xs dark:border-slate-700 dark:bg-slate-800">
-                        <img
-                          src={emblem}
-                          alt=""
-                          className="h-full w-full rounded-lg object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/logo-icon.png';
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex min-w-0 flex-1 flex-col justify-center">
-                      <h4 className="line-clamp-2 text-xs sm:text-sm font-extrabold leading-snug text-slate-900 transition-colors group-hover:text-[#0158FC] dark:text-white dark:group-hover:text-blue-400">
-                        {series.title}
-                      </h4>
-                      <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                        {series.examTitle || 'Test Series'}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* 5. PRACTICE BY SUBJECT (8 Subject Bento Cards) */}
       <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)]">
@@ -1114,438 +963,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 6. RECOMMENDED FOR YOU */}
-      <section>
-        <div className="flex items-center justify-between mb-3.5">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-5 rounded-full bg-gradient-to-b from-[#0158FC] to-[#0198FD]" />
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Recommended for You
-            </h3>
-          </div>
-          <Link
-            to="/test-series"
-            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-          >
-            See All <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
-          <button
-            onClick={() => setRecommendedTab('mock')}
-            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
-              recommendedTab === 'mock'
-                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            Test Series
-          </button>
-          <button
-            onClick={() => setRecommendedTab('topic')}
-            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
-              recommendedTab === 'topic'
-                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            Topic Practice
-          </button>
-          <button
-            onClick={() => setRecommendedTab('pyq')}
-            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
-              recommendedTab === 'pyq'
-                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            Previous Year Questions
-          </button>
-          <button
-            onClick={() => setRecommendedTab('progress')}
-            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 active:scale-95 cursor-pointer ${
-              recommendedTab === 'progress'
-                ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            Based on Your Progress
-          </button>
-        </div>
-
-        {/* 3 Recommended Cards */}
-        {recommendedTests.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500">
-            No tests available in this category yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recommendedTests.map((test) => (
-              <div
-                key={test.id}
-                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between hover:border-[#0158FC]/40 dark:hover:border-slate-700 hover:shadow-md transition-all"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3.5">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center border ${test.iconBg}`}
-                    >
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        test.badgeType === 'orange'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                          : test.badgeType === 'blue'
-                          ? 'bg-blue-100 text-[#0158FC] dark:bg-blue-950/60 dark:text-blue-300'
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                      }`}
-                    >
-                      {test.badge}
-                    </span>
-                  </div>
-
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white mb-3 leading-snug line-clamp-2">
-                    {test.title}
-                  </h4>
-
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-5">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
-                      <FileText className="w-3.5 h-3.5 text-[#0158FC]" />
-                      {test.questions}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
-                      <Clock className="w-3.5 h-3.5 text-[#0158FC]" />
-                      {test.duration}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800">
-                      <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
-                      {test.lang}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => navigate(`/exams/${test.id}`)}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:from-[#0047cc] hover:to-[#0158FC] text-white text-xs font-extrabold shadow-sm shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
-                >
-                  <span>Start Test</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 7. YOUR PROGRESS (Accuracy Donut & Subject Mastery) */}
-      <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-[0_8px_30px_-12px_rgba(1,88,252,0.06)] transition-colors">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Your Progress
-            </h3>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-              Real-time accuracy & subject-wise mastery synced with your test attempts
-            </p>
-          </div>
-          <Link
-            to="/results"
-            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-          >
-            View Detailed Analytics <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Donut Chart Gauge */}
-          <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-center gap-6 bg-[#F8FAFF] dark:bg-slate-800/40 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-            <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-              {/* Circular SVG Donut */}
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="currentColor"
-                  className="text-slate-200 dark:text-slate-700"
-                  strokeWidth="10"
-                  fill="transparent"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke="#0158FC"
-                  strokeWidth="10"
-                  strokeDasharray="251.2"
-                  strokeDashoffset={String(251.2 * (1 - overallAccuracyPct / 100))}
-                  strokeLinecap="round"
-                  fill="transparent"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-                  {overallAccuracyPct}%
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                  Overall Accuracy
-                </span>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="space-y-2.5 text-xs font-semibold w-full sm:w-auto">
-              <div className="flex items-center justify-between gap-6">
-                <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  Correct
-                </span>
-                <span className="font-black text-slate-900 dark:text-white tabular-nums">
-                  {totalCorrectCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-6">
-                <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  Incorrect
-                </span>
-                <span className="font-black text-slate-900 dark:text-white tabular-nums">
-                  {totalWrongCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-6">
-                <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  Skipped
-                </span>
-                <span className="font-black text-slate-900 dark:text-white tabular-nums">
-                  {totalSkippedCount}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Subject Wise Performance */}
-          <div className="lg:col-span-7">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Subject Wise Performance
-              </h4>
-              <Link
-                to="/results"
-                className="text-xs font-bold text-[#0158FC] dark:text-blue-400 hover:underline"
-              >
-                View All &gt;
-              </Link>
-            </div>
-
-            <div className="space-y-3.5">
-              {['Mathematics', 'Reasoning', 'General Knowledge', 'English', 'Bengali'].map(
-                (subjName, idx) => {
-                  const pct = completedAttempts.length > 0 ? overallAccuracyPct : 0;
-                  const barColors = [
-                    'from-[#0158FC] to-[#0198FD]',
-                    'from-violet-600 to-indigo-500',
-                    'from-emerald-600 to-teal-500',
-                    'from-rose-600 to-pink-500',
-                    'from-amber-500 to-orange-500',
-                  ];
-                  return (
-                    <div key={subjName}>
-                      <div className="flex justify-between text-xs font-bold mb-1.5">
-                        <span className="text-slate-700 dark:text-slate-300">{subjName}</span>
-                        <span className="text-slate-900 dark:text-white font-black tabular-nums">
-                          {pct}%
-                        </span>
-                      </div>
-                      <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <div
-                          className={`h-full bg-gradient-to-r ${barColors[idx]} rounded-full transition-all duration-500`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. TWO COLUMNS: RECENT MOCK TESTS & LEADERBOARD */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Recent Mock Tests */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)] transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Recent Mock Tests
-              </h3>
-              <Link
-                to="/results"
-                className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                See All <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-
-            {recentTests.length === 0 ? (
-              <div className="py-10 text-center text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                No mock tests attempted yet. Start your first test to track your progress!
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {recentTests.map((test) => (
-                  <div key={test.id} className="py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${test.iconBg}`}
-                      >
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight truncate">
-                          {test.title}
-                        </h4>
-                        <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
-                          {test.date}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-black border tabular-nums ${test.color}`}
-                      >
-                        {test.score}/{test.total}
-                      </span>
-                      <Link
-                        to={`/exams/${test.testId}/results/${test.id}`}
-                        className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline"
-                      >
-                        View Result
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Rank */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)] transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Rank
-            </h3>
-            <Link
-              to="/rank"
-              className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-            >
-              See All <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {/* Segmented Control */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
-            <button
-              onClick={() => setLeaderboardTab('all')}
-              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                leaderboardTab === 'all'
-                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              All India
-            </button>
-            <button
-              onClick={() => setLeaderboardTab('wb')}
-              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                leaderboardTab === 'wb'
-                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              West Bengal
-            </button>
-            <button
-              onClick={() => setLeaderboardTab('friends')}
-              className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                leaderboardTab === 'friends'
-                  ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Friends
-            </button>
-          </div>
-
-          {/* Table */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 font-bold px-3 py-1">
-              <span className="w-8">#</span>
-              <span className="flex-1">Student</span>
-              <span>Score</span>
-            </div>
-
-            {leaderboardEntries.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                Rankings will appear as students complete mock tests.
-              </div>
-            ) : (
-              leaderboardEntries.map((item) => (
-                <div
-                  key={item.rank}
-                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <span className="w-8 font-bold text-base">{item.icon}</span>
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-[#0158FC] dark:text-slate-300 shrink-0">
-                      {item.name.charAt(0)}
-                    </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {item.name}
-                    </span>
-                  </div>
-                  <span className="font-black text-slate-900 dark:text-white tabular-nums">
-                    {item.score}
-                  </span>
-                </div>
-              ))
-            )}
-
-            {/* User Row Highlight */}
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 mt-3">
-              <span className="w-8 font-black text-[#0158FC] dark:text-blue-400 tabular-nums">
-                {userLeaderboardRank ? `#${userLeaderboardRank}` : '#-'}
-              </span>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <img
-                  src={user?.avatarUrl || '/images/student_avatar.png'}
-                  alt="You"
-                  className="w-7 h-7 rounded-full object-cover border border-blue-300 dark:border-blue-700 shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.src = '/images/student_avatar.png';
-                  }}
-                />
-                <span className="font-black text-blue-900 dark:text-blue-200 truncate">
-                  You ({user?.fullName?.split(' ')[0] || 'Candidate'})
-                </span>
-              </div>
-              <span className="font-black text-[#0158FC] dark:text-blue-400 tabular-nums">
-                {overallAccuracyPct}%
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 9. PRO UPGRADE BANNER (Bottom Banner) - Only shown to free students */}
+      {/* PRO UPGRADE BANNER (Bottom Banner) - Only shown to free students */}
       {!isPro && (
         <div className="relative rounded-3xl bg-gradient-to-r from-[#0B1F44] via-[#0138A8] to-[#0158FC] text-white p-6 sm:p-8 overflow-hidden shadow-lg">
           <div className="absolute -right-12 -top-12 w-56 h-56 bg-[#0198FD]/25 rounded-full blur-3xl pointer-events-none" />
