@@ -329,13 +329,12 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Tags Row: Subject, Difficulty, Topic
+                      // Tags Row: Subject, Topic
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
                         children: [
                           _buildTag(currentQ.subjectName ?? 'Polity', const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
-                          _buildTag('Medium', const Color(0xFFFEF3C7), const Color(0xFFD97706)),
                           _buildTag('Fundamental Rights', const Color(0xFFF1F5F9), const Color(0xFF475569)),
                         ],
                       ),

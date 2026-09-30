@@ -20,7 +20,6 @@ import { formatSeconds } from '@/lib/utils';
 import type { MockTest, StudentTestQuestion, AttemptAnswerState } from '@/types';
 import { MaintenanceScreen } from '@/components/common/MaintenanceScreen';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
-import { QuestionImage } from '@/components/common/QuestionImage';
 import { MathText } from '@/components/common/MathText';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 
@@ -495,13 +494,6 @@ export const TestRunner: React.FC = () => {
               <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed">
                 <MathText>{displayedQuestionText}</MathText>
               </h2>
-
-              {/* Question Figure / Diagram (Global Question Feature) */}
-              <QuestionImage
-                src={currentQ.imageUrl}
-                alt={`Question ${currentIndex + 1} Diagram`}
-                priority={true}
-              />
             </div>
 
             {/* Options List (Screen 11: Rounded cards with letter radio) */}

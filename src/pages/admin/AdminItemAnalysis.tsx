@@ -13,7 +13,6 @@ import {
   Edit2,
   ChevronDown,
   ChevronUp,
-  SlidersHorizontal,
   BookOpen,
   Award,
 } from 'lucide-react';
@@ -87,7 +86,6 @@ export const AdminItemAnalysis: React.FC = () => {
   const totalAnalyzed = items.length;
   const highFailureCount = useMemo(() => items.filter((i) => i.isHighFailure).length, [items]);
   const timeTrapsCount = useMemo(() => items.filter((i) => i.isTimeTrap).length, [items]);
-  const misclassifiedCount = useMemo(() => items.filter((i) => i.isMisclassified).length, [items]);
   const avgPlatformAccuracy = useMemo(() => {
     if (items.length === 0) return '0.0';
     const sum = items.reduce((acc, curr) => acc + curr.accuracyRate, 0);
@@ -102,8 +100,6 @@ export const AdminItemAnalysis: React.FC = () => {
       'Bengali Text',
       'Subject',
       'Topic',
-      'Declared Difficulty',
-      'Empirical Difficulty',
       'Total Attempts',
       'Correct',
       'Wrong',
@@ -126,8 +122,6 @@ export const AdminItemAnalysis: React.FC = () => {
       `"${(i.questionBengali || '').replace(/"/g, '""')}"`,
       `"${(i.subjectName || '').replace(/"/g, '""')}"`,
       `"${(i.chapterName || '').replace(/"/g, '""')}"`,
-      `"${i.declaredDifficulty}"`,
-      `"${i.empiricalDifficulty}"`,
       i.totalAttempts,
       i.correctCount,
       i.wrongCount,
@@ -154,43 +148,6 @@ export const AdminItemAnalysis: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const getDifficultyBadge = (diff: string) => {
-    switch (diff) {
-      case 'very_easy':
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-            Very Easy (≥85%)
-          </span>
-        );
-      case 'easy':
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-300 dark:border-teal-800">
-            Easy (70-84%)
-          </span>
-        );
-      case 'moderate':
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-            Moderate (45-69%)
-          </span>
-        );
-      case 'hard':
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-            Hard (20-44%)
-          </span>
-        );
-      case 'extreme':
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
-            Extreme (&lt;20%)
-          </span>
-        );
-      default:
-        return null;
-    }
   };
 
   return (
@@ -375,19 +332,6 @@ export const AdminItemAnalysis: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => handleFilterTypeChange('misclassified')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-              filterType === 'misclassified'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-900/40'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Misjudged Difficulty ({misclassifiedCount})
-          </button>
-
-          <button
-            type="button"
             onClick={() => handleFilterTypeChange('hardest')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               filterType === 'hardest'
@@ -534,28 +478,12 @@ export const AdminItemAnalysis: React.FC = () => {
                           Trap)
                         </span>
                       )}
-                      {item.isMisclassified && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                          Misjudged: Declared {item.declaredDifficulty.toUpperCase()}
-                        </span>
-                      )}
                     </div>
 
                     {/* Question text */}
                     <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
                       {item.questionBengali || item.questionText}
                     </p>
-
-                    {/* Declared vs Empirical Badges */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-400 text-[11px]">Empirical Difficulty:</span>
-                      {getDifficultyBadge(item.empiricalDifficulty)}
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span className="text-slate-400 text-[11px]">Declared:</span>
-                      <span className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300">
-                        {item.declaredDifficulty}
-                      </span>
-                    </div>
 
                     {/* Distractor Analysis Bar */}
                     <div className="pt-2">

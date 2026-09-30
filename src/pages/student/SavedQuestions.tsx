@@ -10,7 +10,6 @@ import {
   Play,
   Trash2,
   Search,
-  Filter,
   ChevronDown,
   ChevronRight,
   MoreVertical,
@@ -28,7 +27,6 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
-import { QuestionImage } from '@/components/common/QuestionImage';
 import { MathText } from '@/components/common/MathText';
 import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import type { BookmarkItem } from '@/types';
@@ -106,7 +104,7 @@ export const SavedQuestions: React.FC = () => {
   // Filters & State
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'easy' | 'hard'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modals & Menus
@@ -198,12 +196,6 @@ export const SavedQuestions: React.FC = () => {
       }
       if (sortBy === 'oldest') {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      }
-      if (sortBy === 'easy') {
-        return (a.question.difficulty === 'easy' ? -1 : 1);
-      }
-      if (sortBy === 'hard') {
-        return (a.question.difficulty === 'hard' ? -1 : 1);
       }
       return 0;
     });
@@ -443,22 +435,6 @@ export const SavedQuestions: React.FC = () => {
                   />
                 </div>
 
-                {/* Filter Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Cycles difficulty filter
-                    const nextDiff =
-                      sortBy === 'easy' ? 'hard' : sortBy === 'hard' ? 'newest' : 'easy';
-                    setSortBy(nextDiff);
-                    showToast(`Filtered by: ${nextDiff}`);
-                  }}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-2xs cursor-pointer"
-                >
-                  <Filter className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Filter</span>
-                </button>
-
                 {/* Sort Dropdown */}
                 <div className="relative">
                   <button
@@ -467,13 +443,7 @@ export const SavedQuestions: React.FC = () => {
                     className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-2xs cursor-pointer whitespace-nowrap"
                   >
                     <span>
-                      {sortBy === 'newest'
-                        ? 'Newest First'
-                        : sortBy === 'oldest'
-                        ? 'Oldest First'
-                        : sortBy === 'easy'
-                        ? 'Easiest First'
-                        : 'Hardest First'}
+                      {sortBy === 'newest' ? 'Newest First' : 'Oldest First'}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                   </button>
@@ -483,8 +453,6 @@ export const SavedQuestions: React.FC = () => {
                       {[
                         { id: 'newest', label: 'Newest First' },
                         { id: 'oldest', label: 'Oldest First' },
-                        { id: 'easy', label: 'Easiest First' },
-                        { id: 'hard', label: 'Hardest First' },
                       ].map((opt) => (
                         <button
                           key={opt.id}
@@ -525,13 +493,6 @@ export const SavedQuestions: React.FC = () => {
                   const theme = getSubjectTheme(item.subjectName);
                   const Icon = theme.icon;
                   const isChecked = selectedIds.includes(item.id);
-                  const diff = (item.question.difficulty || 'medium').toLowerCase();
-                  const diffBadge =
-                    diff === 'easy'
-                      ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
-                      : diff === 'hard'
-                      ? 'bg-[#fff1f2] text-[#be123c] border-[#fecdd3]'
-                      : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]';
 
                   return (
                     <div
@@ -577,13 +538,6 @@ export const SavedQuestions: React.FC = () => {
                           </p>
                         )}
 
-                        {/* Optional Question Image */}
-                        {item.question.imageUrl && (
-                          <div className="pt-1 max-w-sm">
-                            <QuestionImage src={item.question.imageUrl} />
-                          </div>
-                        )}
-
                         {/* Inline Options Preview */}
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                           A. {item.question.optionA} &nbsp; B. {item.question.optionB} &nbsp; C. {item.question.optionC} &nbsp; D. {item.question.optionD}
@@ -598,7 +552,7 @@ export const SavedQuestions: React.FC = () => {
 
                       {/* 4. Right Action Buttons */}
                       <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-3">
-                        {/* Top: Bookmark icon, Difficulty badge, 3-dots */}
+                        {/* Top: Bookmark icon, 3-dots */}
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -608,12 +562,6 @@ export const SavedQuestions: React.FC = () => {
                           >
                             <Bookmark className="w-4 h-4 fill-current" />
                           </button>
-
-                          <span
-                            className={`capitalize text-xs font-bold px-2.5 py-0.5 rounded-md border ${diffBadge}`}
-                          >
-                            {diff}
-                          </span>
 
                           <div className="relative">
                             <button
@@ -899,12 +847,6 @@ export const SavedQuestions: React.FC = () => {
                   ? practiceItem.question.questionBengaliText || practiceItem.question.questionText
                   : practiceItem.question.questionText}</MathText>
               </h3>
-
-              {practiceItem.question.imageUrl && (
-                <div className="max-w-sm mx-auto">
-                  <QuestionImage src={practiceItem.question.imageUrl} />
-                </div>
-              )}
 
               {/* 4 Options */}
               <div className="space-y-2 pt-2">

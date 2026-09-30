@@ -1,7 +1,6 @@
 import React from 'react';
-import { BookOpen, Check, Edit2, Lock, Trash2, Image as ImageIcon } from 'lucide-react';
+import { BookOpen, Check, Edit2, Lock, Trash2 } from 'lucide-react';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
-import { QuestionImage } from '@/components/common/QuestionImage';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 import type { Question } from '@/types';
 
@@ -62,12 +61,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             <h3 className="text-[15px] sm:text-base font-bold text-slate-900 dark:text-white leading-relaxed">
               {questionNumber}. {q.questionBengaliText || q.questionText}
             </h3>
-            <QuestionImage
-              src={q.imageUrl}
-              alt="Question figure"
-              maxHeightClass="max-h-48"
-              className="!my-1.5 !justify-start"
-            />
           </div>
         </div>
 
@@ -262,12 +255,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-slate-400" />
             <span>{subjectTitle}</span>
           </div>
-          {q.imageUrl && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800/60">
-              <ImageIcon className="w-3 h-3" />
-              Diagram
-            </span>
-          )}
           <Lock className="w-3.5 h-3.5 text-slate-400" />
         </div>
 

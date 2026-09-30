@@ -61,24 +61,6 @@ export const QuestionTableRow: React.FC<QuestionTableRowProps> = ({
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-500">
               {q.defaultMarks} Mark
             </span>
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-500">
-              {q.difficulty || 'medium'}
-            </span>
-            {q.imageUrl && (
-              <button
-                type="button"
-                onClick={onPreview}
-                title="Question has figure/diagram. Click to preview."
-                className="inline-flex items-center gap-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-all cursor-pointer"
-              >
-                <img
-                  src={q.imageUrl}
-                  alt=""
-                  className="w-3.5 h-3.5 object-contain rounded shrink-0 bg-white border border-indigo-100"
-                />
-                <span>Figure</span>
-              </button>
-            )}
           </div>
         </div>
       </td>

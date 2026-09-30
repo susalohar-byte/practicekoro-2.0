@@ -29,7 +29,6 @@ import {
   Target,
   Sparkles,
   Check,
-  Image as ImageIcon,
   Radio,
 } from 'lucide-react';
 import type { MockTest, Question, TestQuestionAssignment, Subject, Chapter, Exam } from '@/types';
@@ -38,8 +37,6 @@ import { resolveTestNegativeMarking } from '@/utils/negativeMarking';
 import { getErrorMessage } from '@/lib/errors';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { isMathematicsQuestion, isMathematicsSubject } from '@/utils/shortNotes';
-import { QuestionImageField } from '@/components/admin/QuestionImageField';
-import { QuestionImage } from '@/components/common/QuestionImage';
 import { MathText } from '@/components/common/MathText';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 
@@ -106,8 +103,6 @@ export const AdminTestQuestions: React.FC = () => {
   const [newCorrectOption, setNewCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [newExplanation, setNewExplanation] = useState('');
   const [newMarks, setNewMarks] = useState(1.0);
-  // Global question figure / diagram image URL (optional, supported across all test & question types)
-  const [newImageUrl, setNewImageUrl] = useState('');
   // NOTE: questions never carry negative marks (test-level policy), so there
   // is intentionally no per-question negative-marks field anywhere here.
 
@@ -704,8 +699,6 @@ export const AdminTestQuestions: React.FC = () => {
         explanationBengali: newExplanation.trim() || undefined,
         difficulty: 'medium',
         defaultMarks: newMarks,
-        // Optional diagram/figure image (global support for all tests & questions)
-        imageUrl: newImageUrl.trim() || undefined,
         // Questions never carry negative marks — scoring uses the test-level scheme.
         defaultNegativeMarks: 0,
         isActive: true,
@@ -717,7 +710,6 @@ export const AdminTestQuestions: React.FC = () => {
         return;
       }
 
-      setNewImageUrl('');
       setIsCreateModalOpen(false);
       await loadData();
       setSaveSuccess(true);
@@ -1001,7 +993,6 @@ export const AdminTestQuestions: React.FC = () => {
                 setNewOptionC('');
                 setNewOptionD('');
                 setNewExplanation('');
-                setNewImageUrl('');
                 setCreateError('');
                 setIsCreateModalOpen(true);
               }}
@@ -1572,27 +1563,6 @@ export const AdminTestQuestions: React.FC = () => {
                             </span>
                           ) : null}
 
-                          {q.difficulty && (
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
-                                q.difficulty === 'easy'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40'
-                                  : q.difficulty === 'hard'
-                                    ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/40'
-                                    : 'bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800/40'
-                              }`}
-                            >
-                              {q.difficulty}
-                            </span>
-                          )}
-
-                          {q.imageUrl && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                              <ImageIcon className="w-3 h-3" />
-                              Diagram
-                            </span>
-                          )}
-
                           <span className="text-[10px] font-mono font-bold text-slate-400">
                             Marks: {q.defaultMarks || 1.0}
                           </span>
@@ -1609,14 +1579,6 @@ export const AdminTestQuestions: React.FC = () => {
                             <MathText>{q.questionBengaliText}</MathText>
                           </p>
                         )}
-
-                        {/* Question Diagram (if provided) */}
-                        <QuestionImage
-                          src={q.imageUrl}
-                          alt="Question Diagram"
-                          maxHeightClass="max-h-36"
-                          className="my-2 !justify-start"
-                        />
 
                         {/* Options Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
@@ -1849,28 +1811,9 @@ export const AdminTestQuestions: React.FC = () => {
                           Correct: Option ({q.correctOption.toUpperCase()})
                         </span>
                       )}
-                      {q.difficulty && (
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
-                            q.difficulty === 'easy'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40'
-                              : q.difficulty === 'hard'
-                                ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/40'
-                                : 'bg-sky-50 dark:bg-sky-950/30 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800/40'
-                          }`}
-                        >
-                          {q.difficulty}
-                        </span>
-                      )}
                       {q.subjectName && (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {q.subjectName}
-                        </span>
-                      )}
-                      {q.imageUrl && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                          <ImageIcon className="w-3 h-3" />
-                          Diagram
                         </span>
                       )}
                     </div>
@@ -1884,14 +1827,6 @@ export const AdminTestQuestions: React.FC = () => {
                         <MathText>{q.questionBengaliText}</MathText>
                       </p>
                     )}
-
-                    {/* Question Diagram (if provided) */}
-                    <QuestionImage
-                      src={q.imageUrl}
-                      alt={`Question ${idx + 1} Diagram`}
-                      maxHeightClass="max-h-48"
-                      className="my-2 !justify-start"
-                    />
 
                     {/* Options List */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
@@ -2328,14 +2263,6 @@ export const AdminTestQuestions: React.FC = () => {
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
                   />
                 </div>
-              </div>
-
-              {/* Question Diagram / Figure (Optional for all question types) */}
-              <div className="pt-1">
-                <QuestionImageField
-                  value={newImageUrl}
-                  onChange={setNewImageUrl}
-                />
               </div>
             </div>
 

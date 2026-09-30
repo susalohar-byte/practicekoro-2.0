@@ -44,17 +44,6 @@ const OPTION_KEYS = ['optionA', 'optionB', 'optionC', 'optionD'] as const;
 
 const SITE_URL = 'https://practicekoro.online';
 
-function getDifficultyColor(d?: string) {
-  switch (d) {
-    case 'easy':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-    case 'hard':
-      return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-    default:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -234,13 +223,6 @@ export const QuestionPage: React.FC = () => {
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
               ✓ Solved
             </span>
-            {question.difficulty && (
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getDifficultyColor(question.difficulty)}`}
-              >
-                {question.difficulty}
-              </span>
-            )}
             {question.sourceExam && (
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                 {question.sourceExam}
@@ -265,13 +247,6 @@ export const QuestionPage: React.FC = () => {
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 <MathText>{question.questionText}</MathText>
               </p>
-            )}
-            {question.imageUrl && (
-              <img
-                src={question.imageUrl}
-                alt="Question illustration"
-                className="mt-3 max-h-60 rounded-lg border border-slate-200 dark:border-slate-700"
-              />
             )}
           </div>
 

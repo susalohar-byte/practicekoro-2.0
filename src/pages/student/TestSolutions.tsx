@@ -18,7 +18,6 @@ import {
   Flag,
 } from 'lucide-react';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
-import { QuestionImage } from '@/components/common/QuestionImage';
 import { MathText } from '@/components/common/MathText';
 import type { QuestionSolution, MockTest } from '@/types';
 
@@ -266,12 +265,6 @@ export const TestSolutions: React.FC = () => {
                     <MathText>{sol.questionBengaliText}</MathText>
                   </p>
                 )}
-
-                {/* Question Diagram / Image (Universal) */}
-                <QuestionImage
-                  src={sol.imageUrl}
-                  alt={`Question ${sol.questionOrder} Diagram`}
-                />
               </div>
 
               {/* Options Breakdown */}
