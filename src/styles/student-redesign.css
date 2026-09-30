@@ -68,11 +68,120 @@
   background: linear-gradient(90deg, #0158fc, #0198fd);
   border-radius: 999px;
 }
+.pk-reference-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(1, 152, 253, 0.11), transparent 34%),
+    linear-gradient(180deg, #f7fbff 0%, #f8fafc 100%);
+  color: #07164f;
+}
+.pk-reference-shell {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 24px 96px;
+}
+.pk-reference-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+}
+.pk-reference-header h1 {
+  margin: 0;
+  color: #07164f;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.pk-reference-header p {
+  margin-top: 4px;
+  color: #4f6597;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.pk-header-action {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5edf8;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #07164f;
+  box-shadow: 0 4px 14px rgba(6, 53, 133, 0.06);
+  transition: 160ms ease;
+}
+.pk-header-action:hover {
+  border-color: #bfdbfe;
+  color: #0158fc;
+  transform: translateY(-1px);
+}
+.pk-notification-action span {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 2px solid #f8fbff;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+}
+.pk-reference-card {
+  border: 1px solid #e5edf8;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(6, 53, 133, 0.055);
+}
+@media (prefers-color-scheme: dark) {
+  .pk-reference-page {
+    background: #191919;
+    color: #fff;
+  }
+  .pk-reference-header h1 {
+    color: #fff;
+  }
+  .pk-reference-header p {
+    color: rgba(255, 255, 255, 0.65);
+  }
+  .pk-header-action,
+  .pk-reference-card {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: #202020;
+    color: #fff;
+  }
+}
 @media (max-width: 767px) {
   .pk-student-page {
     background: #f8fafc;
   }
   .pk-student-page .pk-panel {
     border-radius: 18px;
+  }
+  .pk-reference-shell {
+    padding: 14px 14px 92px;
+  }
+  .pk-reference-header {
+    min-height: 58px;
+  }
+  .pk-reference-header h1 {
+    font-size: 1.45rem;
+  }
+  .pk-reference-header p {
+    font-size: 0.75rem;
+  }
+  .pk-header-action {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
   }
 }

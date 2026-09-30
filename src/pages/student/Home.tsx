@@ -386,7 +386,7 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-5 sm:pt-3">
+    <div className="pk-reference-shell space-y-5 pt-2 sm:pt-3">
       {/* Top Bar: Search, Theme, Bell, Profile — embedded directly into the page (no sticky header) */}
       <StudentNavbar embedded onToggleMobileSidebar={onToggleMobileSidebar} />
 

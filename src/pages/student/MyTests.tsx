@@ -28,6 +28,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { TestAttempt } from '@/types';
+import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
 
 /* ───────────────────────── types ───────────────────────── */
 type TestTypeFilter = 'all' | 'mock' | 'topic' | 'pyq' | 'custom';
@@ -272,27 +273,10 @@ export const MyTests: React.FC = () => {
 
   /* ═══════════════════════ RENDER ═══════════════════════ */
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 pb-20 font-sans transition-colors">
-      <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6">
-        {/* ── 0. BREADCRUMB + TITLE ── */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500">
-                <Link
-                  to="/dashboard"
-                  className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                >
-                  Home
-                </Link>
-                <span className="text-slate-300 dark:text-slate-600 font-normal">&gt;</span>
-                <span className="text-slate-800 dark:text-slate-100 font-bold">Results</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                Your <span className="text-[#0158FC] dark:text-blue-400">Results</span>
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
-                Track your performance, identify strengths, and work on weak areas.
-              </p>
-            </div>
+    <div className="pk-reference-page pb-20 font-sans transition-colors">
+      <div className="pk-reference-shell space-y-6">
+        {/* ── 0. PAGE HEADER ── */}
+        <StudentPageHeader title="Results" subtitle="Track Your Progress" />
 
             {/* ── 1. HERO BANNER ── */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-blue-50/80 to-sky-50 dark:from-blue-950/40 dark:via-slate-900/60 dark:to-blue-950/30 border border-blue-100/80 dark:border-blue-800/30 p-5 sm:p-6 shadow-sm dark:shadow-blue-950/10">

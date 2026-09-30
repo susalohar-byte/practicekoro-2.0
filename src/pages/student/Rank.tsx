@@ -194,7 +194,7 @@ export const Rank: React.FC = () => {
   const currentUserRow: LeaderboardUser = {
     rank: computedUserRank,
     name: displayName,
-    avatarUrl: user?.avatarUrl || '/images/profile_user_avatar.jpg',
+    avatarUrl: user?.avatarUrl || '/images/student_avatar.png',
     fallbackText: displayName
       .split(' ')
       .map((w: string) => w[0])
@@ -394,7 +394,7 @@ export const Rank: React.FC = () => {
                   alt={top2.name}
                   className="h-18 w-18 rounded-full object-cover shadow-sm ring-4 ring-slate-200 dark:ring-slate-700"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
               </div>
@@ -457,7 +457,7 @@ export const Rank: React.FC = () => {
                   alt={top1.name}
                   className="h-19 w-19 rounded-full object-cover shadow-md ring-4 ring-amber-300 dark:ring-amber-500 z-0"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
               </div>
@@ -519,7 +519,7 @@ export const Rank: React.FC = () => {
                   alt={top3.name}
                   className="h-18 w-18 rounded-full object-cover shadow-sm ring-4 ring-orange-200 dark:ring-orange-800"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
               </div>
@@ -600,7 +600,7 @@ export const Rank: React.FC = () => {
                             alt={student.name}
                             className="h-8 w-8 rounded-full object-cover shadow-2xs ring-1 ring-slate-200 dark:ring-slate-700 shrink-0"
                             onError={(e) => {
-                              e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                              e.currentTarget.src = '/images/student_avatar.png';
                             }}
                           />
                           <div className="min-w-0">
@@ -647,7 +647,7 @@ export const Rank: React.FC = () => {
                           alt={currentUserRow.name}
                           className="h-9 w-9 rounded-full object-cover ring-2 ring-[#1e60f2] shrink-0"
                           onError={(e) => {
-                            e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                            e.currentTarget.src = '/images/student_avatar.png';
                           }}
                         />
                         <div className="min-w-0">

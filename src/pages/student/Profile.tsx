@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { api } from '@/services/api';
 import { supabase } from '@/lib/supabase';
 import type { TestAttempt, Exam } from '@/types';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
+import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
 import { Button } from '@/components/common/Button';
 import { WEST_BENGAL_DISTRICTS } from '@/data/districts';
@@ -128,7 +128,6 @@ export const Profile: React.FC = () => {
   const { exams, selectedExam, setSelectedExam } = useExam();
   const { subscriptionDetails } = useSubscription();
   const navigate = useNavigate();
-  const { onToggleMobileSidebar } = useOutletContext<{ onToggleMobileSidebar?: () => void }>() || {};
 
   // Performance data
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
@@ -464,7 +463,7 @@ export const Profile: React.FC = () => {
   };
 
   // Avatar source resolution
-  const avatarSrc = user?.avatarUrl || '/images/profile_user_avatar.jpg';
+  const avatarSrc = user?.avatarUrl || '/images/student_avatar.png';
 
   // Exams list derived from real exams catalog
   const displayExams = useMemo(() => {
@@ -499,12 +498,11 @@ export const Profile: React.FC = () => {
   }, [exams, selectedExam]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Top Navbar */}
-      <StudentNavbar embedded onToggleMobileSidebar={onToggleMobileSidebar} />
+    <div className="pk-reference-page flex min-h-screen flex-col text-slate-900 dark:text-slate-100">
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
+      <div className="pk-reference-shell flex-1 space-y-5 sm:space-y-6">
+        <StudentPageHeader title="Profile" subtitle="Manage Your Account" settingsLink="/settings" />
         {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-xl border border-slate-700 text-xs sm:text-sm font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200">
@@ -512,36 +510,6 @@ export const Profile: React.FC = () => {
             <span>{toastMessage}</span>
           </div>
         )}
-
-        {/* 1. Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-          <Link to="/home" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-            Home
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-          <span className="text-slate-800 dark:text-slate-200 font-bold">Profile</span>
-        </nav>
-
-        {/* 2. Page Header with Mascot Art */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="max-w-xl">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              My <span className="text-[#1e60f2]">Profile</span>
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-              Manage your account, track your progress, and customize your learning experience.
-            </p>
-          </div>
-
-          {/* Top Right Decorative Illustration */}
-          <div className="relative shrink-0 flex items-center justify-end">
-            <img
-              src="/images/profile_hero_art.png"
-              alt="Better Aspirants Brighter Bengal - Small Steps Big Results"
-              className="h-20 sm:h-24 w-auto object-contain select-none pointer-events-none drop-shadow-xs"
-            />
-          </div>
-        </div>
 
         {/* 3. Hero Profile Card */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 border border-slate-100 dark:border-slate-800 shadow-xs relative">
@@ -555,7 +523,7 @@ export const Profile: React.FC = () => {
                   alt={user?.fullName || 'Student'}
                   className="w-20 h-20 sm:w-22 sm:h-22 rounded-full object-cover ring-4 ring-white dark:ring-slate-800 shadow-md border border-slate-200 dark:border-slate-700"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
                 <button
@@ -1342,7 +1310,7 @@ export const Profile: React.FC = () => {
                   alt="Candidate preview"
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-300"
                   onError={(e) => {
-                    e.currentTarget.src = '/images/profile_user_avatar.jpg';
+                    e.currentTarget.src = '/images/student_avatar.png';
                   }}
                 />
                 <div className="flex-1 min-w-0">

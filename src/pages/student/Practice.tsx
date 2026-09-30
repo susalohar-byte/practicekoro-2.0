@@ -13,6 +13,7 @@ import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { MathText } from '@/components/common/MathText';
+import { StudentPageHeader } from '@/components/layout/StudentPageHeader';
 import { isMathematicsQuestion } from '@/utils/shortNotes';
 import { TopicTests } from '@/pages/student/TopicTests';
 import {
@@ -379,7 +380,10 @@ export const Practice: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-6 pb-20 pk-student-page">
+    <div className="pk-reference-page pk-reference-shell space-y-6">
+      {!isPracticing && (
+        <StudentPageHeader title="Practice" subtitle="Strengthen Your Concepts" />
+      )}
       {/* =========================================================================
           PRACTICE MODE: INTERACTIVE WORKSPACE
           ========================================================================= */}
