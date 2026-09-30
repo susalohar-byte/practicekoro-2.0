@@ -617,7 +617,7 @@ export const AdminTopicManage: React.FC = () => {
         </div>
 
         {/* Subject Dropdown */}
-        <div ref={subjectDropdownRef} className="relative min-w-[180px]">
+        <div ref={subjectDropdownRef} className="relative min-w-[240px] sm:min-w-[260px]">
           <button
             type="button"
             onClick={() => {
@@ -636,14 +636,14 @@ export const AdminTopicManage: React.FC = () => {
             />
           </button>
           {isSubjectDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1 w-full rounded-xl bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800 shadow-lg z-30 py-1 max-h-60 overflow-y-auto">
+            <div className="absolute left-0 top-full mt-1 w-full min-w-[260px] sm:min-w-[280px] rounded-xl bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-slate-800 shadow-lg z-30 py-1.5 max-h-72 overflow-y-auto">
               <button
                 type="button"
                 onClick={() => {
                   setFilterSubjectId('all');
                   setIsSubjectDropdownOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer ${
                   filterSubjectId === 'all'
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold'
                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
@@ -654,7 +654,7 @@ export const AdminTopicManage: React.FC = () => {
               {subjects.map((s) => (
                 <div
                   key={s.id}
-                  className={`flex items-center justify-between px-3 py-2 transition-colors ${
+                  className={`flex items-center justify-between px-3.5 py-2 transition-colors ${
                     filterSubjectId === s.id
                       ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold'
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
@@ -662,6 +662,7 @@ export const AdminTopicManage: React.FC = () => {
                 >
                   <button
                     type="button"
+                    title={s.name}
                     onClick={() => {
                       setFilterSubjectId(s.id);
                       setIsSubjectDropdownOpen(false);
