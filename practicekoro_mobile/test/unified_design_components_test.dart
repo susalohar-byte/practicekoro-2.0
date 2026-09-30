@@ -142,9 +142,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify headers and scope tabs
-      expect(find.text('Results'), findsOneWidget);
-      expect(find.text('YOUR PROGRESS, YOUR PLACE'), findsOneWidget);
-      expect(find.text('See how you rank'), findsOneWidget);
+      expect(find.text('Leaderboard'), findsOneWidget);
+      expect(find.text('Compete, stay consistent and climb the ranks! 💙'), findsOneWidget);
       expect(find.text('All India'), findsOneWidget);
       expect(find.text('West Bengal'), findsOneWidget);
       expect(find.text('District'), findsOneWidget);

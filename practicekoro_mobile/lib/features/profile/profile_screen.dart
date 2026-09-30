@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/components/pk_card.dart';
 import '../../core/components/pk_dialog.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/datasources/local_storage.dart';
@@ -22,6 +22,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _userEmail = '';
   int _testsTaken = 0;
   int _avgAccuracy = 0;
+  String _bestScore = '0/0';
+  int _dayStreak = 0;
   int _bookmarksCount = 0;
   int _mistakesCount = 0;
 
@@ -63,6 +65,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   attempts.length)
               .round();
 
+    String bestScoreStr = '0/0';
+    if (attempts.isNotEmpty) {
+      double maxSc = 0;
+      double maxTm = 100;
+      for (final a in attempts) {
+        if (a.score >= maxSc) {
+          maxSc = a.score;
+          maxTm = a.totalMarks;
+        }
+      }
+      bestScoreStr = '${maxSc.round()}/${maxTm.round()}';
+    }
+
+    final streakDays = attempts
+        .map((a) => a.completedAt.toIso8601String().substring(0, 10))
+        .toSet()
+        .length;
+
     if (mounted) {
       setState(() {
         _isPro = isPro;
@@ -71,6 +91,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userEmail = email;
         _testsTaken = testsCount;
         _avgAccuracy = avgAcc;
+        _bestScore = bestScoreStr;
+        _dayStreak = streakDays;
         _bookmarksCount = bookmarksCount;
         _mistakesCount = mistakesCount;
       });
@@ -97,362 +119,471 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final initial = _userName.isNotEmpty ? _userName[0].toUpperCase() : 'S';
+    final district =
+        LocalStorageService.getLeaderboardDistrict() ?? 'West Bengal';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'Profile',
-          style: AppTypography.headlineMedium(color: AppColors.navy),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.navy),
-            onPressed: () => context.push('/settings'),
-            tooltip: 'Settings',
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        bottom: false,
+        child: Column(
           children: [
-            // Branded profile summary
+            // Sticky Header (Matches Website Profile.tsx)
             Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: AppColors.heroGradient,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.navy.withValues(alpha: 0.16),
-                    blurRadius: 18,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Column(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF0158FC), Color(0xFF0198FD)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          initial,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Text.rich(
+                        TextSpan(
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    _userName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.titleLarge(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _isPro
-                                        ? AppColors.warningLight
-                                        : Colors.white.withValues(alpha: 0.14),
-                                    borderRadius: AppRadius.rPill,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        _isPro ? '👑' : '⭐',
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        _isPro ? 'Pro Pass' : 'Free Plan',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: _isPro
-                                              ? AppColors.warning
-                                              : Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                            TextSpan(
+                              text: 'My ',
+                              style: TextStyle(color: Color(0xFF0F172A)),
                             ),
-                            if (_userEmail.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                _userEmail,
-                                style: AppTypography.bodySmall(
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                ),
-                              ),
-                            ],
+                            TextSpan(
+                              text: 'Profile',
+                              style: TextStyle(color: Color(0xFF0158FC)),
+                            ),
                           ],
                         ),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Manage your account & track your progress.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 18),
-                  Divider(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.22),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 3 Stats Counter Row: Tests Attempted, Accuracy, Streak
-                  Row(
-                    children: [
-                      _buildProfileStat(
-                        '$_testsTaken',
-                        'Tests Taken',
-                        Colors.white,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 36,
-                        color: Colors.white.withValues(alpha: 0.22),
-                      ),
-                      _buildProfileStat(
-                        '$_avgAccuracy%',
-                        'Avg Accuracy',
-                        Colors.white,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 36,
-                        color: Colors.white.withValues(alpha: 0.22),
-                      ),
-                      _buildProfileStat(
-                        '$_bookmarksCount',
-                        'Saved',
-                        Colors.white,
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      color: Color(0xFF0F172A),
+                    ),
+                    onPressed: () => context.push('/settings'),
+                    tooltip: 'Settings',
                   ),
                 ],
               ),
             ),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-            const SizedBox(height: 14),
-
-            _sectionLabel('Your preparation'),
-            const SizedBox(height: 10),
-
-            // Target Exam Card
-            PKCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              borderColor: AppColors.softBlue,
-              borderRadius: BorderRadius.circular(20),
-              child: Row(
+            // Scrollable Content
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
+                  // 1. White Hero Profile Card (Matches Website Profile.tsx Section 3)
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppColors.veryLightBlue,
-                      borderRadius: AppRadius.rMd,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF0F172A,
+                          ).withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.track_changes_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Target Exam',
-                          style: AppTypography.labelSmall(
-                            color: AppColors.secondaryText,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 68,
+                              height: 68,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFDBEAFE),
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/student_avatar_hd.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.person_rounded,
+                                    size: 32,
+                                    color: Color(0xFF0158FC),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _userName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 19,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _isPro
+                                              ? const Color(0xFFFEF3C7)
+                                              : const Color(0xFFEFF6FF),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _isPro ? '👑 Pro Pass' : '⭐ Free Plan',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: _isPro
+                                                ? const Color(0xFFD97706)
+                                                : const Color(0xFF0158FC),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Aspirant | Keep Learning Keep Growing 🌱',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF475569),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (_userEmail.isNotEmpty)
+                                        _buildMetaTag(
+                                          Icons.mail_outline_rounded,
+                                          _userEmail,
+                                        ),
+                                      _buildMetaTag(
+                                        Icons.location_on_outlined,
+                                        '$district, WB',
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 10),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '"Discipline today creates success tomorrow."',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontStyle: FontStyle.italic,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '— PracticeKoro',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 2. 4 Stat Cards (Matches Website Profile.tsx Section 4)
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 2.35,
+                    children: [
+                      _buildWebsiteStatCard(
+                        icon: Icons.description_outlined,
+                        iconBg: const Color(0xFFEFF6FF),
+                        iconFg: const Color(0xFF0158FC),
+                        value: '$_testsTaken',
+                        label: 'Tests Attempted',
+                      ),
+                      _buildWebsiteStatCard(
+                        icon: Icons.track_changes_rounded,
+                        iconBg: const Color(0xFFFFF1F2),
+                        iconFg: const Color(0xFFE11D48),
+                        value: '$_avgAccuracy%',
+                        label: 'Average Accuracy',
+                      ),
+                      _buildWebsiteStatCard(
+                        icon: Icons.bar_chart_rounded,
+                        iconBg: const Color(0xFFF5F3FF),
+                        iconFg: const Color(0xFF7C3AED),
+                        value: _bestScore,
+                        label: 'Best Score',
+                      ),
+                      _buildWebsiteStatCard(
+                        icon: Icons.local_fire_department_rounded,
+                        iconBg: const Color(0xFFFFFBEB),
+                        iconFg: const Color(0xFFD97706),
+                        value: '$_dayStreak',
+                        label: 'Day Streak',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 3. My Exams / Target Exam Card (Matches Website Profile.tsx Section 6)
+                  PKCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    borderColor: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: AppRadius.rMd,
+                          ),
+                          child: const Icon(
+                            Icons.track_changes_rounded,
+                            color: Color(0xFF0158FC),
+                            size: 20,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _targetExam,
-                          style: AppTypography.titleSmall(
-                            color: AppColors.navy,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Primary Target Exam',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _targetExam,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await context.push<void>(
+                              '/exam-selection',
+                              extra: 'profile',
+                            );
+                            _loadProfileData();
+                          },
+                          child: const Text(
+                            '+ Change Exam',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0158FC),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      await context.push<void>(
-                        '/exam-selection',
-                        extra: 'profile',
-                      );
-                      _loadProfileData();
-                    },
+                  const SizedBox(height: 16),
+
+                  // 4. Account & Study Options Card
+                  PKCard(
+                    padding: EdgeInsets.zero,
+                    borderColor: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Column(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 15, 16, 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Account & Learning',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.bookmark_rounded,
+                          iconColor: AppColors.purple,
+                          iconBgColor: AppColors.purpleLight,
+                          title: 'Saved Questions (Bookmarks)',
+                          badge: '$_bookmarksCount',
+                          onTap: () => context.push('/saved-questions'),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.error_outline_rounded,
+                          iconColor: AppColors.error,
+                          iconBgColor: AppColors.errorLight,
+                          title: 'Incorrect Questions (Mistakes)',
+                          badge: '$_mistakesCount',
+                          onTap: () => context.push('/saved-questions'),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.bar_chart_rounded,
+                          iconColor: const Color(0xFF0158FC),
+                          iconBgColor: const Color(0xFFEFF6FF),
+                          title: 'Leaderboard & Rank',
+                          onTap: () => context.go('/results'),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.workspace_premium_rounded,
+                          iconColor: AppColors.warning,
+                          iconBgColor: AppColors.warningLight,
+                          title: 'Pro Pass Subscription',
+                          trailingText: _isPro ? 'Active' : 'Upgrade',
+                          onTap: () => context.push('/subscription'),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.settings_rounded,
+                          iconColor: const Color(0xFF0F172A),
+                          iconBgColor: const Color(0xFFF1F5F9),
+                          title: 'Settings & Preferences',
+                          onTap: () => context.push('/settings'),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.headset_mic_rounded,
+                          iconColor: AppColors.cyan,
+                          iconBgColor: AppColors.cyanLight,
+                          title: 'Student Helpdesk & Support',
+                          onTap: () => context.push('/support'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 5. Logout Card
+                  PKCard(
+                    padding: EdgeInsets.zero,
+                    borderColor: AppColors.errorLight,
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _handleLogout,
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorLight,
+                          borderRadius: AppRadius.rMd,
+                        ),
+                        child: const Icon(
+                          Icons.logout_rounded,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        'Log Out',
+                        style: AppTypography.titleSmall(color: AppColors.error),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
                     child: Text(
-                      'Change',
-                      style: AppTypography.titleSmall(color: AppColors.primary),
+                      'PracticeKoro v2.0 • Made with ❤️ in West Bengal',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Main Menu Options List
-            PKCard(
-              padding: EdgeInsets.zero,
-              borderColor: AppColors.borderSubtle,
-              borderRadius: BorderRadius.circular(20),
-              child: Column(
-                children: [
-                  _sectionLabel('Your account', horizontal: 16, vertical: 15),
-                  _buildMenuItem(
-                    icon: Icons.bookmark_rounded,
-                    iconColor: AppColors.purple,
-                    iconBgColor: AppColors.purpleLight,
-                    title: 'Saved Questions (Bookmarks)',
-                    badge: '$_bookmarksCount',
-                    onTap: () => context.push('/saved-questions'),
-                  ),
-                  const Divider(
-                    height: 1,
-                    indent: 56,
-                    color: AppColors.borderSubtle,
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.error_outline_rounded,
-                    iconColor: AppColors.error,
-                    iconBgColor: AppColors.errorLight,
-                    title: 'Incorrect Questions (Mistakes)',
-                    badge: '$_mistakesCount',
-                    onTap: () => context.push('/saved-questions'),
-                  ),
-                  const Divider(
-                    height: 1,
-                    indent: 56,
-                    color: AppColors.borderSubtle,
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.bar_chart_rounded,
-                    iconColor: AppColors.primary,
-                    iconBgColor: AppColors.veryLightBlue,
-                    title: 'Leaderboard & Rank',
-                    onTap: () => context.go('/results'),
-                  ),
-                  const Divider(
-                    height: 1,
-                    indent: 56,
-                    color: AppColors.borderSubtle,
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.workspace_premium_rounded,
-                    iconColor: AppColors.warning,
-                    iconBgColor: AppColors.warningLight,
-                    title: 'Pro Pass Subscription',
-                    trailingText: _isPro ? 'Active' : 'Upgrade',
-                    onTap: () => context.push('/subscription'),
-                  ),
-                  const Divider(
-                    height: 1,
-                    indent: 56,
-                    color: AppColors.borderSubtle,
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.settings_rounded,
-                    iconColor: AppColors.navy,
-                    iconBgColor: AppColors.veryLightBlue,
-                    title: 'Settings & Preferences',
-                    onTap: () => context.push('/settings'),
-                  ),
-                  const Divider(
-                    height: 1,
-                    indent: 56,
-                    color: AppColors.borderSubtle,
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.headset_mic_rounded,
-                    iconColor: AppColors.cyan,
-                    iconBgColor: AppColors.cyanLight,
-                    title: 'Student Helpdesk & Support',
-                    onTap: () => context.push('/support'),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Logout Card
-            PKCard(
-              padding: EdgeInsets.zero,
-              borderColor: AppColors.errorLight,
-              borderRadius: BorderRadius.circular(20),
-              onTap: _handleLogout,
-              child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorLight,
-                    borderRadius: AppRadius.rMd,
-                  ),
-                  child: const Icon(
-                    Icons.logout_rounded,
-                    color: AppColors.error,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  'Log Out',
-                  style: AppTypography.titleSmall(color: AppColors.error),
-                ),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.error,
-                  size: 20,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-            Center(
-              child: Text(
-                'PracticeKoro v2.0 • Made with ❤️ in West Bengal',
-                style: AppTypography.bodySmall(color: AppColors.textMuted),
               ),
             ),
           ],
@@ -461,43 +592,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileStat(String value, String label, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: AppTypography.headlineMedium(
-              color: color,
-            ).copyWith(fontSize: 18),
+  Widget _buildMetaTag(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13.5, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTypography.bodySmall(
-              color: Colors.white.withValues(alpha: 0.78),
-            ).copyWith(fontSize: 10.5),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _sectionLabel(
-    String label, {
-    double horizontal = 0,
-    double vertical = 0,
+  Widget _buildWebsiteStatCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconFg,
+    required String value,
+    required String label,
   }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontal, vertical: vertical),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          label,
-          style: AppTypography.titleSmall(
-            color: AppColors.navy,
-          ).copyWith(fontSize: 14),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: iconFg, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -526,7 +696,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: AppTypography.titleSmall(color: AppColors.navy),
+        style: AppTypography.titleSmall(color: const Color(0xFF0F172A)),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -535,15 +705,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.veryLightBlue,
+                color: const Color(0xFFEFF6FF),
                 borderRadius: AppRadius.rPill,
               ),
               child: Text(
                 badge,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                  color: Color(0xFF0158FC),
                 ),
               ),
             ),
@@ -557,14 +727,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.bold,
                 color: trailingText == 'Active'
                     ? AppColors.success
-                    : AppColors.primary,
+                    : const Color(0xFF0158FC),
               ),
             ),
             const SizedBox(width: 6),
           ],
           const Icon(
             Icons.chevron_right_rounded,
-            color: AppColors.secondaryText,
+            color: Color(0xFF94A3B8),
             size: 20,
           ),
         ],
