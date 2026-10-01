@@ -368,7 +368,7 @@ export const Home: React.FC = () => {
                       onError={(e) => {
                         e.currentTarget.src = '/images/exam_hero_banner.png';
                       }}
-                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[3/1] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
+                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[10/3] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
                     />
                   </picture>
                 </a>
@@ -391,7 +391,7 @@ export const Home: React.FC = () => {
                       onError={(e) => {
                         e.currentTarget.src = '/images/exam_hero_banner.png';
                       }}
-                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[3/1] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
+                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[10/3] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
                     />
                   </picture>
                 </Link>
@@ -451,7 +451,7 @@ export const Home: React.FC = () => {
 
         return (
           <div
-            className={`relative rounded-3xl ${theme.cardBg} border p-6 sm:p-8 lg:p-9 pb-8 sm:pb-9 overflow-hidden shadow-xs transition-colors duration-500 group min-h-[305px] md:h-[325px] flex flex-col justify-between`}
+            className={`relative rounded-3xl ${theme.cardBg} border p-6 sm:p-8 lg:p-9 pb-8 sm:pb-9 overflow-hidden shadow-xs transition-colors duration-500 group min-h-[285px] md:h-[300px] flex flex-col justify-between`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
