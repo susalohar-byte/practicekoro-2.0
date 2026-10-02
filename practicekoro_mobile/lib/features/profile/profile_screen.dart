@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/components/pk_dialog.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/pk_bottom_spacing.dart';
+import '../../data/datasources/local_storage.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ValueChanged<int>? onTabSelected;
@@ -661,106 +662,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 18),
 
             // ── 5. SECTION: MY SUBSCRIPTIONS ──
-            const Text(
-              'My Subscriptions',
-              style: TextStyle(
-                fontSize: 17.5,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0B1F5B),
-                letterSpacing: -0.4,
-              ),
-            ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _navigateToTab(1, '/test-series'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE8EEF7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // Crown Icon
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 22,
-                        color: Color(0xFFF59E0B),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'My Test Series',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0B1F5B),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFECFDF5),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Active',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF10B981),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            '2 Active • 1 Completed',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildSubscriptionSection(context),
             const SizedBox(height: 18),
 
             // ── 6. SECTION: ACCOUNT ──
@@ -1056,5 +958,253 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Color(0xFF94A3B8),
       ),
     );
+  }
+
+  // ==========================================
+  // SUBSCRIPTION SECTION (Profile Page)
+  // ==========================================
+  Widget _buildSubscriptionSection(BuildContext context) {
+    final isPro = LocalStorageService.isProUser();
+    final expiryDate = LocalStorageService.getProExpiryDate();
+    final formattedExpiry = expiryDate != null
+        ? '${expiryDate.day} ${_monthName(expiryDate.month)}, ${expiryDate.year}'
+        : '31 Dec, 2026';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'My Subscription',
+              style: TextStyle(
+                fontSize: 17.5,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0B1F5B),
+                letterSpacing: -0.4,
+              ),
+            ),
+            if (isPro)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                    SizedBox(width: 4),
+                    Text(
+                      'PRO MEMBER',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF059669),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isPro ? const Color(0xFFFDE68A) : const Color(0xFFE2ECF8),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0B1F5B).withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Plan Row
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: isPro
+                          ? const LinearGradient(
+                              colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : const LinearGradient(
+                              colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      isPro ? Icons.workspace_premium_rounded : Icons.star_rounded,
+                      size: 24,
+                      color: isPro ? const Color(0xFFD97706) : const Color(0xFF0877FF),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              isPro ? 'PracticeKoro Pro Pass' : 'Free Plan',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0B1F5B),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isPro ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isPro ? 'Active' : 'Free Tier',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: isPro ? const Color(0xFF10B981) : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          isPro
+                              ? 'Validity: $formattedExpiry'
+                              : 'Limited access to selected mock tests',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const SizedBox(height: 12),
+
+              // Available Premium Benefits
+              const Text(
+                'Available Premium Benefits:',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0B1F5B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildBenefitRow('Full access to all 150+ WB Mock Tests & PYQs'),
+              const SizedBox(height: 5),
+              _buildBenefitRow('Detailed bilingual Bengali explanations & solutions'),
+              const SizedBox(height: 5),
+              _buildBenefitRow('State & District-wise Rank & Percentile tracking'),
+              const SizedBox(height: 5),
+              _buildBenefitRow('Mistakes Notebook & Smart Revision'),
+              const SizedBox(height: 14),
+
+              // CTA Button (Upgrade / Extend)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => context.push('/subscription'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isPro ? const Color(0xFF0B1F5B) : const Color(0xFF0877FF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isPro ? Icons.workspace_premium_rounded : Icons.bolt_rounded,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isPro ? 'Manage / Renew Subscription' : 'Upgrade to Pro — ₹299/Year',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_rounded, size: 14),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefitRow(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.check_circle_rounded,
+          size: 14,
+          color: Color(0xFF10B981),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
   }
 }

@@ -353,221 +353,250 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ==========================================
-  // 1. PRACTICEKORO BRAND HEADER (media_1790825370692.png)
+  // ==========================================
+  // 1. PRACTICEKORO BRAND HEADER
   // ==========================================
   Widget _buildPracticeKoroHeader({
     required List<ExamModel> exams,
     required List<TestSeriesModel> series,
     required List<MockTestModel> tests,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Left: Blue Rounded Box with White 'P'
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0877FF),
-            borderRadius: BorderRadius.circular(13),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0877FF).withValues(alpha: 0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: const Text(
-            'P',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 370;
 
-        // Brand Title & Slogan
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Practice',
-                      style: TextStyle(
-                        color: Color(0xFF0B1F5B),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Koro',
-                      style: TextStyle(
-                        color: Color(0xFF0877FF),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Practice Today, Progress Tomorrow',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFF52648A),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
+    final logoSize = isCompact ? 38.0 : 42.0;
+    final actionBtnSize = isCompact ? 35.0 : 38.0;
+    final avatarSize = isCompact ? 36.0 : 40.0;
+    final fontSize = isCompact ? 19.5 : 21.5;
+    final itemGap = isCompact ? 6.0 : 8.0;
+    final dividerGap = isCompact ? 7.0 : 8.5;
+    final cardPaddingH = isCompact ? 12.0 : 14.0;
+    final cardPaddingV = isCompact ? 10.0 : 12.0;
 
-        // Right Actions: Search + Bell ('3') + Circular User Avatar
-        _headerIconButton(
-          icon: Icons.search_rounded,
-          onTap: () => _openLiveSearchModal(
-            exams: exams,
-            series: series,
-            tests: tests,
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: cardPaddingH, vertical: cardPaddingV),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE0EFFE), // Seamless light-blue background matching reference UI
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFD4E7FC),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-        ),
-        const SizedBox(width: 9),
-        _headerNotificationButton(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('3 new exam updates available'),
-                duration: Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 9),
-        GestureDetector(
-          onTap: () => _handleTabNavigation(4, '/profile'),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0B1F5B).withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/student_avatar_hd.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left: PracticeKoro App Icon (assets/images/logo.png)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: logoSize,
+              height: logoSize,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => Container(
+                width: logoSize,
+                height: logoSize,
+                decoration: BoxDecoration(
                   color: const Color(0xFF0877FF),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Colors.white,
-                    size: 24,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: isCompact ? 8 : 10),
+
+          // Brand Title: PracticeKoro (No tagline, existing typography & colors)
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Practice',
+                    style: TextStyle(
+                      color: const Color(0xFF0B1F5B),
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Koro',
+                    style: TextStyle(
+                      color: const Color(0xFF0877FF),
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(width: itemGap),
+
+          // Right Actions: Search + Notification ('3') + Divider + Avatar
+          _headerIconButton(
+            size: actionBtnSize,
+            icon: Icons.search_rounded,
+            onTap: () => _openLiveSearchModal(
+              exams: exams,
+              series: series,
+              tests: tests,
+            ),
+          ),
+          SizedBox(width: itemGap),
+          _headerNotificationButton(
+            size: actionBtnSize,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('3 new exam updates available'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          SizedBox(width: dividerGap),
+
+          // Thin Vertical Divider
+          Container(
+            width: 1,
+            height: isCompact ? 22 : 26,
+            color: const Color(0xFFBFDBFE),
+          ),
+          SizedBox(width: dividerGap),
+
+          // Existing Student's Profile / Avatar Image
+          GestureDetector(
+            onTap: () => _handleTabNavigation(4, '/profile'),
+            child: Container(
+              width: avatarSize,
+              height: avatarSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0B1F5B).withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1.5),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/student_avatar_hd.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: const Color(0xFF0877FF),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _headerIconButton({
     required IconData icon,
     required VoidCallback onTap,
+    double size = 38,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(size / 2),
       child: Container(
-        width: 35,
-        height: 35,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE2ECF8)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0B1F5B).withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: const Color(0xFF0B1F5B).withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 1.5),
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF0B1F5B), size: 19),
+        child: Icon(icon, color: const Color(0xFF0B1F5B), size: size * 0.52),
       ),
     );
   }
 
-  Widget _headerNotificationButton({required VoidCallback onTap}) {
+  Widget _headerNotificationButton({
+    required VoidCallback onTap,
+    double size = 38,
+  }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(size / 2),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 35,
-            height: 35,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2ECF8)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0B1F5B).withValues(alpha: 0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: const Color(0xFF0B1F5B).withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1.5),
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_none_rounded,
-              color: Color(0xFF0B1F5B),
-              size: 19,
+              color: const Color(0xFF0B1F5B),
+              size: size * 0.54,
             ),
           ),
           Positioned(
             right: -2,
             top: -2,
             child: Container(
-              width: 15,
-              height: 15,
+              width: 17,
+              height: 17,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: const Color(0xFFEF4444),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.4),
+                border: Border.all(color: Colors.white, width: 1.5),
               ),
               child: const Text(
                 '3',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 8.5,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w900,
                   height: 1,
                 ),
@@ -938,7 +967,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final title = liveTest?.title ?? 'WBP Constable Weekly Test';
     final dateStr = liveTest != null
         ? _formatLiveTestDate(liveTest.scheduledStartTime)
-        : 'Sat, 28 Sep  •  10:00 AM';
+        : 'Sat, 28 Sep • 10:00 AM';
     final questions = liveTest?.totalQuestions ?? 100;
     final mins = liveTest?.durationMinutes ?? 90;
     final daysStr = liveTest != null
@@ -951,190 +980,431 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? (liveTest.timeRemaining.inMinutes % 60).toString().padLeft(2, '0')
         : '30';
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFF4EE), Color(0xFFF3F8FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5ECF8)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0B1F5B).withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 540;
+        final isVeryNarrow = constraints.maxWidth < 360;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF012452),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF012452).withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          padding: EdgeInsets.symmetric(
+            horizontal: isWide ? 24 : 16,
+            vertical: isWide ? 22 : 16,
+          ),
+          child: isWide
+              ? _buildLiveTestWideLayout(
+                  liveTest: liveTest,
+                  title: title,
+                  dateStr: dateStr,
+                  questions: questions,
+                  mins: mins,
+                  daysStr: daysStr,
+                  hoursStr: hoursStr,
+                  minsStr: minsStr,
+                )
+              : _buildLiveTestCompactLayout(
+                  liveTest: liveTest,
+                  title: title,
+                  dateStr: dateStr,
+                  questions: questions,
+                  mins: mins,
+                  daysStr: daysStr,
+                  hoursStr: hoursStr,
+                  minsStr: minsStr,
+                  isVeryNarrow: isVeryNarrow,
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLiveTestWideLayout({
+    required LiveTestModel? liveTest,
+    required String title,
+    required String dateStr,
+    required int questions,
+    required int mins,
+    required String daysStr,
+    required String hoursStr,
+    required String minsStr,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Left Column: Badge, Title, Date, Meta
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEF233C),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.sensors_rounded,
-                            color: Colors.white,
-                            size: 13,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'LIVE TEST',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF0B1F5B),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
+              _buildLiveTestBadge(),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  height: 1.25,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 10),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildCountdownBox(daysStr, 'Days'),
-                  const SizedBox(width: 5),
-                  _buildCountdownBox(hoursStr, 'Hours'),
-                  const SizedBox(width: 5),
-                  _buildCountdownBox(minsStr, 'Mins'),
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 15,
+                    color: Color(0xFF8FA9C8),
+                  ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      dateStr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFC7D7E9),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              const SizedBox(height: 10),
+              _buildLiveTestMetaRow(
+                questions: questions,
+                mins: mins,
+                isCompact: false,
+              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          color: Color(0xFF20366F),
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            dateStr,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF20366F),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _liveTestDetail(
-                            Icons.description_outlined,
-                            '$questions Questions',
-                          ),
-                          const SizedBox(width: 8),
-                          _liveTestDetail(
-                            Icons.schedule_rounded,
-                            '$mins Minutes',
-                          ),
-                          const SizedBox(width: 8),
-                          _liveTestDetail(Icons.groups_outlined, 'All India Rank'),
-                        ],
-                      ),
-                    ),
-                  ],
+        ),
+        const SizedBox(width: 20),
+        // Right Column: Countdown blocks on top, Join Now button below
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildCountdownBox(daysStr, 'Days', isCompact: false),
+                const SizedBox(width: 8),
+                _buildCountdownBox(hoursStr, 'Hours', isCompact: false),
+                const SizedBox(width: 8),
+                _buildCountdownBox(minsStr, 'Mins', isCompact: false),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _buildJoinNowButton(liveTest: liveTest, isCompact: false),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLiveTestCompactLayout({
+    required LiveTestModel? liveTest,
+    required String title,
+    required String dateStr,
+    required int questions,
+    required int mins,
+    required String daysStr,
+    required String hoursStr,
+    required String minsStr,
+    required bool isVeryNarrow,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Top Row: Red LIVE TEST badge on left + Countdown boxes on right
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildLiveTestBadge(isCompact: true),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildCountdownBox(daysStr, 'Days', isCompact: true),
+                const SizedBox(width: 6),
+                _buildCountdownBox(hoursStr, 'Hours', isCompact: true),
+                const SizedBox(width: 6),
+                _buildCountdownBox(minsStr, 'Mins', isCompact: true),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Title across full width
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Date row
+        Row(
+          children: [
+            const Icon(
+              Icons.calendar_today_rounded,
+              size: 14,
+              color: Color(0xFF8FA9C8),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                dateStr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFC7D7E9),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 36,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (liveTest != null) {
-                      final userId = LocalStorageService.getUserId();
-                      await ref
-                          .read(catalogRepositoryProvider)
-                          .joinLiveTest(liveTest.id, userId);
-                      if (mounted) {
-                        context.push('/live-test/${liveTest.testId}');
-                      }
-                    } else {
-                      _handleTabNavigation(1, '/exams');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0877FF),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Bottom Row: Questions & Duration on left, Join Now on right
+        isVeryNarrow
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLiveTestMetaRow(
+                    questions: questions,
+                    mins: mins,
+                    isCompact: true,
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildJoinNowButton(
+                      liveTest: liveTest,
+                      isCompact: true,
                     ),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Join Now',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                      ),
-                      SizedBox(width: 5),
-                      Icon(Icons.arrow_forward_rounded, size: 14),
-                    ],
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _buildLiveTestMetaRow(
+                      questions: questions,
+                      mins: mins,
+                      isCompact: true,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  _buildJoinNowButton(liveTest: liveTest, isCompact: true),
+                ],
               ),
-            ],
+      ],
+    );
+  }
+
+  Widget _buildLiveTestBadge({bool isCompact = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 13,
+        vertical: isCompact ? 4.5 : 5.5,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFD0424),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.sensors_rounded,
+            color: Colors.white,
+            size: isCompact ? 13 : 14.5,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            'LIVE TEST',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isCompact ? 10.5 : 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLiveTestMetaRow({
+    required int questions,
+    required int mins,
+    required bool isCompact,
+  }) {
+    final iconSize = isCompact ? 13.5 : 15.0;
+    final fontSize = isCompact ? 11.5 : 13.0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.article_outlined,
+          size: iconSize,
+          color: const Color(0xFF8FA9C8),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '$questions Questions',
+          style: TextStyle(
+            color: const Color(0xFFC7D7E9),
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 1.2,
+          height: isCompact ? 11 : 13,
+          color: const Color(0xFF264C7A),
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          Icons.schedule_rounded,
+          size: iconSize,
+          color: const Color(0xFF8FA9C8),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '$mins Minutes',
+          style: TextStyle(
+            color: const Color(0xFFC7D7E9),
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountdownBox(
+    String value,
+    String unit, {
+    bool isCompact = false,
+  }) {
+    return Container(
+      width: isCompact ? 42 : 52,
+      height: isCompact ? 46 : 56,
+      decoration: BoxDecoration(
+        color: const Color(0xFF143964),
+        borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            unit,
+            style: TextStyle(
+              color: const Color(0xFF8FA9C8),
+              fontSize: isCompact ? 9 : 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoinNowButton({
+    required LiveTestModel? liveTest,
+    required bool isCompact,
+  }) {
+    return SizedBox(
+      height: isCompact ? 38 : 44,
+      child: ElevatedButton(
+        onPressed: () async {
+          if (liveTest != null) {
+            final userId = LocalStorageService.getUserId();
+            await ref
+                .read(catalogRepositoryProvider)
+                .joinLiveTest(liveTest.id, userId);
+            if (mounted) {
+              context.push('/live-test/${liveTest.testId}');
+            }
+          } else {
+            _handleTabNavigation(1, '/exams');
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF006BFE),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : 22,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Join Now',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: isCompact ? 13 : 14.5,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: isCompact ? 15 : 17,
+              color: Colors.white,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1160,59 +1430,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     final period = hour24 >= 12 ? 'PM' : 'AM';
-    return '${weekdays[local.weekday - 1]}, ${local.day} ${months[local.month - 1]}  •  $hour12:$minute $period';
-  }
-
-  Widget _liveTestDetail(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: const Color(0xFF0B1F5B)),
-        const SizedBox(width: 3),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Color(0xFF20366F),
-            fontSize: 9.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCountdownBox(String value, String unit) {
-    return Container(
-      width: 37,
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8EEF7)),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF0B1F5B),
-              fontSize: 13.5,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(
-            unit,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
+    return '${weekdays[local.weekday - 1]}, ${local.day} ${months[local.month - 1]} • $hour12:$minute $period';
   }
 
   // ==========================================
