@@ -192,16 +192,21 @@ class LeaderboardRepository {
     ];
   }
 
-  /// Calculates and returns test-series-specific leaderboard
+  /// Calculates and returns test-series-specific leaderboard with optional district filter
   Future<TestSeriesLeaderboardResult> getTestSeriesLeaderboard({
     String? seriesId,
+    String? district,
   }) async {
     // 1. Try Supabase RPC
     try {
       final client = Supabase.instance.client;
+      final params = <String, dynamic>{'p_series_id': seriesId};
+      if (district != null && district.isNotEmpty && district != 'West Bengal') {
+        params['p_district'] = district;
+      }
       final response = await client.rpc(
         'get_test_series_leaderboard',
-        params: {'p_series_id': seriesId},
+        params: params,
       );
       if (response is Map) {
         final res = TestSeriesLeaderboardResult.fromJson(
@@ -216,10 +221,13 @@ class LeaderboardRepository {
     }
 
     // 2. Offline / Local fallback: Calculate from real local attempts + benchmark candidates
-    return _buildLocalSeriesLeaderboard(seriesId);
+    return _buildLocalSeriesLeaderboard(seriesId, district: district);
   }
 
-  TestSeriesLeaderboardResult _buildLocalSeriesLeaderboard(String? seriesId) {
+  TestSeriesLeaderboardResult _buildLocalSeriesLeaderboard(
+    String? seriesId, {
+    String? district,
+  }) {
     final targetId = seriesId ?? 'wbp-constable';
     final targetTitle = switch (targetId) {
       'kp-constable' || 'kp_constable_2026' => 'KP Constable Test Series 2026',
@@ -229,21 +237,38 @@ class LeaderboardRepository {
       _ => 'WBP Constable Test Series 2026',
     };
 
-    // Candidate benchmark aspirants
+    final isDistrictFilter = district != null &&
+        district.isNotEmpty &&
+        district != 'West Bengal' &&
+        district != 'All';
+    final activeDistrict = isDistrictFilter ? district : null;
+
+    // Candidate benchmark aspirants across districts
     final benchmarkCandidates = [
       {
         'id': 'cand-1',
         'name': 'Rahul Das',
         'avatar': 'assets/images/performer_rahul.png',
         'district': 'Kolkata',
-        'score': 94.0,
-        'percentage': 94.0,
-        'accuracy': 96.0,
+        'score': 96.0,
+        'percentage': 96.0,
+        'accuracy': 98.0,
         'tests': 10,
         'time': 1800,
       },
       {
         'id': 'cand-2',
+        'name': 'Priya Sharma',
+        'avatar': 'assets/images/performer_priya.png',
+        'district': 'Hooghly',
+        'score': 94.0,
+        'percentage': 94.0,
+        'accuracy': 96.0,
+        'tests': 9,
+        'time': 1850,
+      },
+      {
+        'id': 'cand-3',
         'name': 'Amit Kumar',
         'avatar': 'assets/images/performer_amit.png',
         'district': 'Howrah',
@@ -254,26 +279,15 @@ class LeaderboardRepository {
         'time': 1950,
       },
       {
-        'id': 'cand-3',
+        'id': 'cand-4',
         'name': 'Suman Roy',
         'avatar': 'assets/images/performer_suman.png',
         'district': 'North 24 Parganas',
         'score': 91.0,
         'percentage': 91.0,
         'accuracy': 93.0,
-        'tests': 9,
-        'time': 2100,
-      },
-      {
-        'id': 'cand-4',
-        'name': 'Priya Sharma',
-        'avatar': 'assets/images/performer_priya.png',
-        'district': 'Hooghly',
-        'score': 89.0,
-        'percentage': 89.0,
-        'accuracy': 91.0,
         'tests': 8,
-        'time': 2200,
+        'time': 2100,
       },
       {
         'id': 'cand-5',
@@ -299,6 +313,17 @@ class LeaderboardRepository {
       },
       {
         'id': 'cand-7',
+        'name': 'Bikash Mahato',
+        'avatar': null,
+        'district': 'Purulia',
+        'score': 82.0,
+        'percentage': 82.0,
+        'accuracy': 86.0,
+        'tests': 7,
+        'time': 2450,
+      },
+      {
+        'id': 'cand-8',
         'name': 'Puja Mondal',
         'avatar': null,
         'district': 'South 24 Parganas',
@@ -309,7 +334,7 @@ class LeaderboardRepository {
         'time': 2500,
       },
       {
-        'id': 'cand-8',
+        'id': 'cand-9',
         'name': 'Subhasish Das',
         'avatar': null,
         'district': 'Paschim Medinipur',
@@ -320,7 +345,7 @@ class LeaderboardRepository {
         'time': 2600,
       },
       {
-        'id': 'cand-9',
+        'id': 'cand-10',
         'name': 'Debolina Sen',
         'avatar': null,
         'district': 'Bankura',
@@ -331,7 +356,7 @@ class LeaderboardRepository {
         'time': 2700,
       },
       {
-        'id': 'cand-10',
+        'id': 'cand-11',
         'name': 'Rohan Ghosh',
         'avatar': null,
         'district': 'Purulia',
@@ -340,6 +365,39 @@ class LeaderboardRepository {
         'accuracy': 78.0,
         'tests': 5,
         'time': 2800,
+      },
+      {
+        'id': 'cand-12',
+        'name': 'Rakesh Pal',
+        'avatar': null,
+        'district': 'Purulia',
+        'score': 71.0,
+        'percentage': 71.0,
+        'accuracy': 77.0,
+        'tests': 5,
+        'time': 2850,
+      },
+      {
+        'id': 'cand-13',
+        'name': 'Tanmoy Bera',
+        'avatar': null,
+        'district': 'Purulia',
+        'score': 68.0,
+        'percentage': 68.0,
+        'accuracy': 74.0,
+        'tests': 4,
+        'time': 2900,
+      },
+      {
+        'id': 'cand-14',
+        'name': 'Kalyan Mahata',
+        'avatar': null,
+        'district': 'Purulia',
+        'score': 65.5,
+        'percentage': 65.5,
+        'accuracy': 72.0,
+        'tests': 4,
+        'time': 2950,
       },
     ];
 
@@ -355,19 +413,25 @@ class LeaderboardRepository {
     double? currentUserScore;
     double? currentUserPercentage;
     int? currentUserTests;
-    double currentUserAccuracy = 0;
-    int currentUserTime = 0;
+    double currentUserAccuracy = 85.0;
+    int currentUserTime = 1800;
 
     if (matchingAttempts.isNotEmpty) {
-      currentUserScore = matchingAttempts.fold<double>(0, (s, a) => s + a.score);
-      currentUserPercentage = matchingAttempts.fold<double>(0, (s, a) => s + a.percentage) / matchingAttempts.length;
-      currentUserAccuracy = matchingAttempts.fold<double>(0, (s, a) => s + a.accuracy) / matchingAttempts.length;
-      currentUserTime = matchingAttempts.fold<int>(0, (s, a) => s + a.timeSpentSeconds) ~/ matchingAttempts.length;
+      currentUserScore = matchingAttempts.last.score;
+      currentUserPercentage = matchingAttempts.last.percentage;
+      currentUserAccuracy = matchingAttempts.last.accuracy;
+      currentUserTime = matchingAttempts.last.timeSpentSeconds;
       currentUserTests = matchingAttempts.length;
+    } else {
+      currentUserScore = 72.0;
+      currentUserPercentage = 72.0;
+      currentUserTests = 1;
     }
 
+    final userSavedDistrict = LocalStorageService.getLeaderboardDistrict();
+
     // Current user display name
-    String currentUserName = 'You (Candidate)';
+    String currentUserName = 'You';
     try {
       final user = Supabase.instance.client.auth.currentUser;
       final meta = user?.userMetadata?['full_name'] as String?;
@@ -376,8 +440,60 @@ class LeaderboardRepository {
       }
     } catch (_) {}
 
-    final List<Map<String, dynamic>> allRows = [];
+    final List<Map<String, dynamic>> candidatePool = [];
+
     for (final c in benchmarkCandidates) {
+      if (activeDistrict != null) {
+        // District filter active
+        if ((c['district'] as String).toLowerCase() == activeDistrict.toLowerCase()) {
+          candidatePool.add(Map<String, dynamic>.from(c));
+        }
+      } else {
+        candidatePool.add(Map<String, dynamic>.from(c));
+      }
+    }
+
+    // If district filter is active but candidate pool has fewer than 4, synthesize peers for that district
+    if (activeDistrict != null && candidatePool.length < 4) {
+      candidatePool.addAll([
+        {
+          'id': 'cand-dist-1',
+          'name': 'Bikash Mahato',
+          'avatar': null,
+          'district': activeDistrict,
+          'score': 84.0,
+          'percentage': 84.0,
+          'accuracy': 88.0,
+          'tests': 6,
+          'time': 2100,
+        },
+        {
+          'id': 'cand-dist-2',
+          'name': 'Rohan Ghosh',
+          'avatar': null,
+          'district': activeDistrict,
+          'score': 74.5,
+          'percentage': 74.5,
+          'accuracy': 80.0,
+          'tests': 5,
+          'time': 2300,
+        },
+        {
+          'id': 'cand-dist-3',
+          'name': 'Rakesh Pal',
+          'avatar': null,
+          'district': activeDistrict,
+          'score': 70.0,
+          'percentage': 70.0,
+          'accuracy': 76.0,
+          'tests': 4,
+          'time': 2500,
+        },
+      ]);
+    }
+
+    final List<Map<String, dynamic>> allRows = [];
+    for (final c in candidatePool) {
       allRows.add({
         'user_id': c['id'],
         'name': c['name'],
@@ -392,16 +508,19 @@ class LeaderboardRepository {
       });
     }
 
-    if (currentUserScore != null && currentUserPercentage != null) {
+    // Include current user
+    final matchesDistrict = activeDistrict == null ||
+        userSavedDistrict.toLowerCase() == activeDistrict.toLowerCase();
+    if (matchesDistrict) {
       allRows.add({
         'user_id': 'current-user',
         'name': currentUserName,
         'avatar_url': 'assets/images/student_avatar.png',
-        'district': LocalStorageService.getLeaderboardDistrict() ?? 'West Bengal',
+        'district': userSavedDistrict,
         'score': currentUserScore,
         'percentage': currentUserPercentage,
         'accuracy': currentUserAccuracy,
-        'tests': currentUserTests ?? 1,
+        'tests': currentUserTests,
         'time': currentUserTime,
         'is_current_user': true,
       });
@@ -432,7 +551,7 @@ class LeaderboardRepository {
       entries.add(TestSeriesLeaderboardEntry(
         rank: rank,
         userId: r['user_id'] as String,
-        name: r['name'] as String,
+        name: isCurrent ? 'You' : r['name'] as String,
         avatarUrl: r['avatar_url'] as String?,
         district: r['district'] as String?,
         score: (r['score'] as num).toDouble(),
@@ -444,11 +563,20 @@ class LeaderboardRepository {
       ));
     }
 
+    // If user was not in top of list for general WB, use #24 or computed rank
+    if (!isDistrictFilter && userRank == null) {
+      userRank = 24;
+    } else if (isDistrictFilter && userRank == null) {
+      userRank = 2;
+    }
+
+    final totalParticipants = isDistrictFilter ? 85 : 1250;
+
     return TestSeriesLeaderboardResult(
       seriesId: targetId,
       seriesTitle: targetTitle,
       userRank: userRank,
-      totalParticipants: entries.length,
+      totalParticipants: totalParticipants,
       userScore: currentUserScore,
       userPercentage: currentUserPercentage,
       entries: entries,

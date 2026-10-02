@@ -28,8 +28,8 @@ class LocalStorageService {
     await _prefs?.setString(_leaderboardDistrictKey, district);
   }
 
-  static String? getLeaderboardDistrict() {
-    return _prefs?.getString(_leaderboardDistrictKey);
+  static String getLeaderboardDistrict() {
+    return _prefs?.getString(_leaderboardDistrictKey) ?? 'Purulia';
   }
 
   static const String _onboardingCompleteKey = 'pk_onboarding_completed';

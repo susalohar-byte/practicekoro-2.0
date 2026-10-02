@@ -180,6 +180,9 @@ final appRouter = GoRouter(
       builder: (context, state) => LeaderboardScreen(
         initialSeriesId: state.uri.queryParameters['seriesId'],
         initialSeriesTitle: state.uri.queryParameters['seriesTitle'],
+        initialTestTitle: state.uri.queryParameters['testTitle'],
+        initialRank: int.tryParse(state.uri.queryParameters['rank'] ?? ''),
+        initialParticipants: int.tryParse(state.uri.queryParameters['participants'] ?? ''),
       ),
     ),
     GoRoute(
@@ -187,6 +190,9 @@ final appRouter = GoRouter(
       builder: (context, state) => LeaderboardScreen(
         initialSeriesId: state.uri.queryParameters['seriesId'],
         initialSeriesTitle: state.uri.queryParameters['seriesTitle'],
+        initialTestTitle: state.uri.queryParameters['testTitle'],
+        initialRank: int.tryParse(state.uri.queryParameters['rank'] ?? ''),
+        initialParticipants: int.tryParse(state.uri.queryParameters['participants'] ?? ''),
       ),
     ),
 

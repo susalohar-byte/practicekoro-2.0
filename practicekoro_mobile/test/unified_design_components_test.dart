@@ -171,8 +171,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify headers and test series selector
-      expect(find.text('Leaderboard'), findsOneWidget);
-      expect(find.text('Compete, stay consistent and climb the ranks! 💙'), findsOneWidget);
+      expect(find.text('Test Series Rank'), findsOneWidget);
       expect(find.text('WBP Constable Test Series 2026'), findsAtLeast(1));
       expect(find.text('You (Susanta Lohar)'), findsNothing);
     });

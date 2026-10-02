@@ -239,7 +239,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
             const Center(
               child: Text(
-                'Test Completed!',
+                'Great Job!',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -248,11 +248,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            Center(
+            const Center(
               child: Text(
-                'Here is your performance in ${attempt.testTitle}',
-                style: const TextStyle(
+                'You have completed the test',
+                style: TextStyle(
                   fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
@@ -290,73 +291,26 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
                 return Column(
                   children: [
-                    // Score summary card
+                    // Main Score Card (Screen 10)
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 16,
+                      ),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFEAF2FF), Colors.white],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFD9E7FD)),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.06),
-                            blurRadius: 14,
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: Column(
                         children: [
-                          // Test Series Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFD9E7FD)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.school_rounded,
-                                  size: 13,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 5),
-                                Flexible(
-                                  child: Text(
-                                    seriesTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.navy,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'YOUR SCORE',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -367,111 +321,117 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                                   attempt.score % 1 == 0 ? 0 : 1,
                                 ),
                                 style: const TextStyle(
-                                  fontSize: 42,
+                                  fontSize: 38,
                                   fontWeight: FontWeight.w900,
-                                  color: AppColors.primary,
-                                  letterSpacing: -1.2,
+                                  color: AppColors.navy,
+                                  letterSpacing: -1,
                                 ),
                               ),
                               Text(
-                                ' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
+                                '/${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
                                 style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textSecondary,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.navy,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Score',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            child: Divider(
+                              height: 1,
+                              color: Color(0xFFF1F5F9),
+                            ),
+                          ),
+                          Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border:
-                                      Border.all(color: const Color(0xFFD9E7FD)),
-                                ),
-                                child: Text(
-                                  '${attempt.percentage.toStringAsFixed(1)}% score',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.navy,
-                                  ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '${attempt.correctCount}',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF16A34A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'Correct',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              // Clickable Test Series Rank badge
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(20),
-                                  onTap: () {
-                                    context.push(
-                                      '/rank?seriesId=${Uri.encodeComponent(seriesId)}&seriesTitle=${Uri.encodeComponent(seriesTitle)}',
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFFEF3C7),
-                                          Color(0xFFFDE68A),
-                                        ],
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: const Color(0xFFF1F5F9),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '${attempt.wrongCount}',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFFEF4444),
                                       ),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: const Color(0xFFF59E0B)
-                                            .withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'Wrong',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF64748B),
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFF59E0B)
-                                              .withValues(alpha: 0.15),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.emoji_events_rounded,
-                                          size: 14,
-                                          color: Color(0xFFB45309),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          'Test Series Rank: #$testSeriesRank',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w900,
-                                            color: Color(0xFF92400E),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(
-                                          Icons.arrow_forward_ios_rounded,
-                                          size: 9,
-                                          color: Color(0xFF92400E),
-                                        ),
-                                      ],
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: const Color(0xFFF1F5F9),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '${attempt.skippedCount}',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFFF59E0B),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'Skipped',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -480,52 +440,177 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                       ),
                     ),
 
+                    const SizedBox(height: 14),
+
+                    // Test Series Rank Card (Screen 10)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Test Series Rank',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '#$testSeriesRank',
+                                  style: const TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Among ${_seriesLeaderboard?.totalParticipants ?? attempt.testSeriesParticipants ?? 1250} students',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {
+                              context.push(
+                                '/rank?seriesId=${Uri.encodeComponent(seriesId)}&seriesTitle=${Uri.encodeComponent(seriesTitle)}&testTitle=${Uri.encodeComponent(attempt.testTitle)}&rank=$testSeriesRank',
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFBFDBFE),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'View Rank',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Side-by-side Action Buttons (Screen 10)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                context.push(
+                                  '/solutions/${attempt.testId}',
+                                  extra: attempt,
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                  color: Color(0xFFBFDBFE),
+                                  width: 1.5,
+                                ),
+                                backgroundColor: const Color(0xFFEFF6FF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text(
+                                'View Solutions',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                context.push('/test-details/${attempt.testId}');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text(
+                                'Attempt Again',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 16),
 
                     _buildRankingCard(attempt),
                   ],
                 );
               },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Triple Metric Row: Correct, Incorrect, Skipped
-            Row(
-              children: [
-                Expanded(
-                  child: _buildResultStatCard(
-                    icon: Icons.check_circle_outline_rounded,
-                    count: '${attempt.correctCount}',
-                    label: 'Correct',
-                    color: const Color(0xFF16A34A),
-                    bgColor: const Color(0xFFF0FDF4),
-                    borderColor: const Color(0xFFBBF7D0),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildResultStatCard(
-                    icon: Icons.cancel_outlined,
-                    count: '${attempt.wrongCount}',
-                    label: 'Incorrect',
-                    color: const Color(0xFFEF4444),
-                    bgColor: const Color(0xFFFEF2F2),
-                    borderColor: const Color(0xFFFECACA),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildResultStatCard(
-                    icon: Icons.remove_circle_outline_rounded,
-                    count: '${attempt.skippedCount}',
-                    label: 'Skipped',
-                    color: const Color(0xFF64748B),
-                    bgColor: const Color(0xFFF8FAFC),
-                    borderColor: const Color(0xFFE2E8F0),
-                  ),
-                ),
-              ],
             ),
 
             const SizedBox(height: 16),
@@ -1226,46 +1311,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     );
   }
 
-  Widget _buildResultStatCard({
-    required IconData icon,
-    required String count,
-    required String label,
-    required Color color,
-    required Color bgColor,
-    required Color borderColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 6),
-          Text(
-            count,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildAnalysisRow({
     required IconData icon,

@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/components/pk_button.dart';
-import '../../core/components/pk_card.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_typography.dart';
-import '../../data/datasources/local_storage.dart';
 
+/// Screen 4: Test Instructions
+/// Faithful reproduction of the PracticeKoro Test Instructions UI.
 class TestDetailsScreen extends StatefulWidget {
   final String testId;
   final String testTitle;
@@ -20,9 +17,9 @@ class TestDetailsScreen extends StatefulWidget {
     super.key,
     required this.testId,
     this.testTitle = 'Mock Test',
-    this.totalQuestions = 85,
+    this.totalQuestions = 100,
     this.durationMinutes = 60,
-    this.totalMarks = 85.0,
+    this.totalMarks = 100.0,
     this.negativeMarks = 0.25,
     this.isPremium = false,
   });
@@ -32,252 +29,290 @@ class TestDetailsScreen extends StatefulWidget {
 }
 
 class _TestDetailsScreenState extends State<TestDetailsScreen> {
-  bool _agreedToInstructions = true;
-  bool _isPro = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserStatus();
-  }
-
-  void _loadUserStatus() {
-    final pro = LocalStorageService.isProUser();
-    if (mounted) {
-      setState(() => _isPro = pro);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bool canAttempt = !widget.isPremium || _isPro;
+    final marksPerQuestion = (widget.totalMarks / (widget.totalQuestions > 0 ? widget.totalQuestions : 1)).toStringAsFixed(0);
+
+    final instructions = [
+      'This test contains ${widget.totalQuestions} multiple choice questions (MCQs).',
+      'The total time duration is ${widget.durationMinutes} minutes.',
+      'Each question carries $marksPerQuestion mark.',
+      widget.negativeMarks > 0
+          ? '${widget.negativeMarks} negative marks for each wrong answer.'
+          : 'There is no negative marking.',
+      'You can mark questions for review and come back later.',
+      'The timer will not stop once the test starts.',
+      'Make sure you have a stable internet connection.',
+    ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.navy),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
           onPressed: () => context.pop(),
         ),
-        title: Text(
+        title: const Text(
           'Test Instructions',
-          style: AppTypography.titleLarge(color: AppColors.navy),
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
+          ),
         ),
-        centerTitle: false,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Card
-            PKCard(
-              padding: const EdgeInsets.all(18),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  const SizedBox(height: 8),
+
+                  // Center Clipboard Illustration
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFDBEAFE), width: 1.5),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 48,
+                        height: 58,
                         decoration: BoxDecoration(
-                          color: widget.isPremium
-                              ? AppColors.warningLight
-                              : AppColors.successLight,
-                          borderRadius: AppRadius.rPill,
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          widget.isPremium ? '👑 PRO PASS' : '✓ FREE TEST',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: widget.isPremium
-                                ? const Color(0xFFB45309)
-                                : const Color(0xFF047857),
-                          ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildClipboardLine(26),
+                            const SizedBox(height: 4),
+                            _buildClipboardLine(22),
+                            const SizedBox(height: 4),
+                            _buildClipboardLine(18),
+                            const Spacer(),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(Icons.check_rounded, size: 12, color: Color(0xFF16A34A)),
+                            ),
+                          ],
                         ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Heading
+                  const Text(
+                    'Read the instructions carefully',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.navy,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 3 Spec Pills (Purple, Blue, Amber)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildSpecPill(
+                        icon: Icons.description_outlined,
+                        label: '${widget.totalQuestions} Questions',
+                        color: const Color(0xFF6D28D9),
+                        bgColor: const Color(0xFFF5F3FF),
+                        borderColor: const Color(0xFFDDD6FE),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.veryLightBlue,
-                          borderRadius: AppRadius.rPill,
-                        ),
-                        child: Text(
-                          LocalStorageService.isBilingualEnabled() ? 'BILINGUAL (EN/BN)' : 'বাংলা মাধ্যম',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
+                      _buildSpecPill(
+                        icon: Icons.access_time_rounded,
+                        label: '${widget.durationMinutes} Minutes',
+                        color: const Color(0xFF1D4ED8),
+                        bgColor: const Color(0xFFEFF6FF),
+                        borderColor: const Color(0xFFDBEAFE),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildSpecPill(
+                        icon: Icons.military_tech_outlined,
+                        label: '${widget.totalMarks.toInt()} Marks',
+                        color: const Color(0xFFB45309),
+                        bgColor: const Color(0xFFFFFBEB),
+                        borderColor: const Color(0xFFFDE68A),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.testTitle,
-                    style: AppTypography.headlineMedium(color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Full simulation of latest West Bengal Police Recruitment Board examination pattern with real-time analytics.',
-                    style: AppTypography.bodySmall(color: AppColors.secondaryText),
-                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Instructions List
+                  ...List.generate(instructions.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFFDBEAFE)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                instructions[index],
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
                   const SizedBox(height: 16),
-                  const Divider(color: AppColors.borderSubtle, height: 1),
-                  const SizedBox(height: 16),
-                  // 4 Spec counters
-                  Row(
-                    children: [
-                      _specItem('Questions', '${widget.totalQuestions}'),
-                      _specItem('Duration', '${widget.durationMinutes}m'),
-                      _specItem('Total Marks', '${widget.totalMarks.toInt()}'),
-                      _specItem('Negative', '-${widget.negativeMarks}'),
-                    ],
-                  ),
                 ],
               ),
             ),
+          ),
 
-            const SizedBox(height: 16),
-
-            // Examination Guidelines
-            PKCard(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Important Exam Guidelines',
-                    style: AppTypography.titleMedium(color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 12),
-                  _ruleRow(
-                    Icons.timer_outlined,
-                    'Server Clock Sync',
-                    'The countdown timer starts immediately once you click Start Test. The test automatically submits when time expires.',
-                  ),
-                  const SizedBox(height: 12),
-                  _ruleRow(
-                    Icons.check_circle_outline_rounded,
-                    'Marking Scheme',
-                    'Each correct answer awards 1 mark. Each incorrect answer deducts 0.25 marks. No penalty for unanswered questions.',
-                  ),
-                  const SizedBox(height: 12),
-                  _ruleRow(
-                    Icons.grid_view_rounded,
-                    'Question Palette',
-                    'Use the question palette to jump to questions. Green: Answered, Amber: Marked for review, Grey: Unvisited.',
-                  ),
-                  const SizedBox(height: 12),
-                  _ruleRow(
-                    Icons.refresh_rounded,
-                    'Solutions & Ranks',
-                    'Immediately upon completion, you will receive your state percentile rank, question explanations, and mistake analysis.',
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Terms checkbox
-            Row(
-              children: [
-                Checkbox(
-                  value: _agreedToInstructions,
-                  activeColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  onChanged: (val) => setState(() => _agreedToInstructions = val ?? true),
-                ),
-                Expanded(
-                  child: Text(
-                    'I have read and understood all instructions and agree to begin the timed test.',
-                    style: AppTypography.bodySmall(color: AppColors.secondaryText),
-                  ),
+          // Sticky Bottom CTA Button
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -3),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: const Border(top: BorderSide(color: AppColors.border, width: 1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -3),
-              ),
-            ],
-          ),
-          child: canAttempt
-              ? PKPrimaryButton(
-                  text: 'Start Test Now',
-                  icon: Icons.play_arrow_rounded,
-                  onPressed: _agreedToInstructions
-                      ? () => context.push('/live-test/${widget.testId}')
-                      : null,
-                )
-              : PKPrimaryButton(
-                  text: 'Unlock Test with Pro Pass (₹99)',
-                  icon: Icons.lock_open_rounded,
-                  onPressed: () => context.push('/subscription'),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  context.push('/live-test/${widget.testId}');
+                },
+                icon: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                label: const Text(
+                  'I Understand, Start Test',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
-        ),
-      ),
-    );
-  }
-
-  Widget _specItem(String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: AppTypography.headlineMedium(color: AppColors.primary).copyWith(fontSize: 17),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTypography.labelSmall(color: AppColors.secondaryText),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _ruleRow(IconData icon, String title, String desc) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: AppColors.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTypography.titleSmall(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                desc,
-                style: AppTypography.bodySmall(color: AppColors.secondaryText),
-              ),
-            ],
+  Widget _buildClipboardLine(double width) {
+    return Container(
+      width: width,
+      height: 2.5,
+      decoration: BoxDecoration(
+        color: const Color(0xFFCBD5E1),
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  Widget _buildSpecPill({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
