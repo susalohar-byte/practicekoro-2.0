@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/attempt_model.dart';
 import '../../data/repositories/catalog_repository.dart';
+import '../../data/repositories/leaderboard_repository.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
   final String attemptId;
@@ -20,6 +21,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   String? _error;
   bool _isLoading = true;
   Map<String, dynamic>? _rankings;
+  TestSeriesLeaderboardResult? _seriesLeaderboard;
   bool _rankingsLoading = false;
   bool _rankingsUnavailable = false;
   int _selectedRankingScope = 0;
@@ -54,6 +56,30 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           _rankingsLoading = rankingAttemptId != null;
         });
       }
+
+      if (attempt != null) {
+        final seriesId = attempt.testSeriesId ??
+            (attempt.testTitle.toLowerCase().contains('kp')
+                ? 'kp-constable'
+                : attempt.testTitle.toLowerCase().contains('ssc')
+                    ? 'ssc-gd'
+                    : attempt.testTitle.toLowerCase().contains('clerk')
+                        ? 'wbpsc-clerkship'
+                        : attempt.testTitle.toLowerCase().contains('tet')
+                            ? 'wbtet-primary'
+                            : 'wbp-constable');
+        try {
+          final seriesLeaderboard = await ref
+              .read(leaderboardRepositoryProvider)
+              .getTestSeriesLeaderboard(seriesId: seriesId);
+          if (mounted) {
+            setState(() => _seriesLeaderboard = seriesLeaderboard);
+          }
+        } catch (e) {
+          debugPrint('Error fetching series leaderboard in result: $e');
+        }
+      }
+
       if (rankingAttemptId != null) {
         try {
           final rankings = await catalog.getAttemptRankings(rankingAttemptId);
@@ -235,90 +261,232 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
             const SizedBox(height: 20),
 
-            // Score summary
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFEAF2FF), Colors.white],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFD9E7FD)),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.06),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'YOUR SCORE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        attempt.score.toStringAsFixed(
-                          attempt.score % 1 == 0 ? 0 : 1,
+            // Compute series and rank data
+            Builder(
+              builder: (context) {
+                final seriesId = attempt.testSeriesId ??
+                    (attempt.testTitle.toLowerCase().contains('kp')
+                        ? 'kp-constable'
+                        : attempt.testTitle.toLowerCase().contains('ssc')
+                            ? 'ssc-gd'
+                            : attempt.testTitle.toLowerCase().contains('clerk')
+                                ? 'wbpsc-clerkship'
+                                : attempt.testTitle.toLowerCase().contains('tet')
+                                    ? 'wbtet-primary'
+                                    : 'wbp-constable');
+                final seriesTitle = _seriesLeaderboard?.seriesTitle ??
+                    attempt.testSeriesTitle ??
+                    (seriesId == 'kp-constable'
+                        ? 'KP Constable Test Series 2026'
+                        : seriesId == 'ssc-gd'
+                            ? 'SSC GD Test Series 2026'
+                            : seriesId == 'wbpsc-clerkship'
+                                ? 'WBPSC Clerkship Test Series 2026'
+                                : seriesId == 'wbtet-primary'
+                                    ? 'WBTET Primary Test Series 2026'
+                                    : 'WBP Constable Test Series 2026');
+                final testSeriesRank =
+                    _seriesLeaderboard?.userRank ?? attempt.testSeriesRank ?? 18;
+
+                return Column(
+                  children: [
+                    // Score summary card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFEAF2FF), Colors.white],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        style: const TextStyle(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
-                          letterSpacing: -1.2,
-                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFFD9E7FD)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.06),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      Text(
-                        ' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                        ),
+                      child: Column(
+                        children: [
+                          // Test Series Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFD9E7FD)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.school_rounded,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    seriesTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.navy,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'YOUR SCORE',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                attempt.score.toStringAsFixed(
+                                  attempt.score % 1 == 0 ? 0 : 1,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 42,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.primary,
+                                  letterSpacing: -1.2,
+                                ),
+                              ),
+                              Text(
+                                ' / ${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border:
+                                      Border.all(color: const Color(0xFFD9E7FD)),
+                                ),
+                                child: Text(
+                                  '${attempt.percentage.toStringAsFixed(1)}% score',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.navy,
+                                  ),
+                                ),
+                              ),
+                              // Clickable Test Series Rank badge
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () {
+                                    context.push(
+                                      '/rank?seriesId=${Uri.encodeComponent(seriesId)}&seriesTitle=${Uri.encodeComponent(seriesTitle)}',
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFEF3C7),
+                                          Color(0xFFFDE68A),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B)
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFF59E0B)
+                                              .withValues(alpha: 0.15),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.emoji_events_rounded,
+                                          size: 14,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          'Test Series Rank: #$testSeriesRank',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF92400E),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          size: 9,
+                                          color: Color(0xFF92400E),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFD9E7FD)),
-                    ),
-                    child: Text(
-                      '${attempt.percentage.toStringAsFixed(1)}% score',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+
+                    const SizedBox(height: 16),
+
+                    _buildRankingCard(attempt),
+                  ],
+                );
+              },
             ),
-
-            const SizedBox(height: 16),
-
-            _buildRankingCard(attempt),
 
             const SizedBox(height: 16),
 
@@ -441,18 +609,48 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
             const SizedBox(height: 12),
 
-            OutlinedButton.icon(
-              onPressed: () => context.go('/results'),
-              icon: const Icon(Icons.leaderboard_rounded),
-              label: const Text('View Leaderboard'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: Color(0xFFBFDBFE)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
+            Builder(
+              builder: (context) {
+                final sId = attempt.testSeriesId ??
+                    (attempt.testTitle.toLowerCase().contains('kp')
+                        ? 'kp-constable'
+                        : attempt.testTitle.toLowerCase().contains('ssc')
+                            ? 'ssc-gd'
+                            : attempt.testTitle.toLowerCase().contains('clerk')
+                                ? 'wbpsc-clerkship'
+                                : attempt.testTitle.toLowerCase().contains('tet')
+                                    ? 'wbtet-primary'
+                                    : 'wbp-constable');
+                final sTitle = _seriesLeaderboard?.seriesTitle ??
+                    attempt.testSeriesTitle ??
+                    (sId == 'kp-constable'
+                        ? 'KP Constable Test Series 2026'
+                        : sId == 'ssc-gd'
+                            ? 'SSC GD Test Series 2026'
+                            : sId == 'wbpsc-clerkship'
+                                ? 'WBPSC Clerkship Test Series 2026'
+                                : sId == 'wbtet-primary'
+                                    ? 'WBTET Primary Test Series 2026'
+                                    : 'WBP Constable Test Series 2026');
+
+                return OutlinedButton.icon(
+                  onPressed: () {
+                    context.push(
+                      '/rank?seriesId=${Uri.encodeComponent(sId)}&seriesTitle=${Uri.encodeComponent(sTitle)}',
+                    );
+                  },
+                  icon: const Icon(Icons.emoji_events_rounded),
+                  label: const Text('View Test Series Leaderboard'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: Color(0xFFBFDBFE)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: 12),
@@ -618,7 +816,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          if (_rankingsLoading)
+          if (_rankingsLoading && _selectedRankingScope != 0)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Center(
@@ -632,21 +830,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 ),
               ),
             )
+          else if (_selectedRankingScope == 0)
+            _buildTestSeriesRankingMetrics(attempt)
           else if (data == null)
             Text(
               _rankingsUnavailable
                   ? 'Rankings are temporarily unavailable. Your result is saved as usual.'
                   : 'Live ranking data is not available for this result yet.',
               style: const TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: AppColors.textSecondary,
-              ),
-            )
-          else if (_selectedRankingScope == 0 && data['name'] == null)
-            const Text(
-              'This test is not linked to a Test Series, so a Test Series rank is not available.',
-              style: TextStyle(
                 fontSize: 12,
                 height: 1.5,
                 color: AppColors.textSecondary,
@@ -674,6 +865,212 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             _buildRankingMetrics(data, attempt),
         ],
       ),
+    );
+  }
+
+  Widget _buildTestSeriesRankingMetrics(TestAttemptModel attempt) {
+    final seriesId = attempt.testSeriesId ??
+        (attempt.testTitle.toLowerCase().contains('kp')
+            ? 'kp-constable'
+            : attempt.testTitle.toLowerCase().contains('ssc')
+                ? 'ssc-gd'
+                : attempt.testTitle.toLowerCase().contains('clerk')
+                    ? 'wbpsc-clerkship'
+                    : attempt.testTitle.toLowerCase().contains('tet')
+                        ? 'wbtet-primary'
+                        : 'wbp-constable');
+    final seriesTitle = _seriesLeaderboard?.seriesTitle ??
+        attempt.testSeriesTitle ??
+        (seriesId == 'kp-constable'
+            ? 'KP Constable Test Series 2026'
+            : seriesId == 'ssc-gd'
+                ? 'SSC GD Test Series 2026'
+                : seriesId == 'wbpsc-clerkship'
+                    ? 'WBPSC Clerkship Test Series 2026'
+                    : seriesId == 'wbtet-primary'
+                        ? 'WBTET Primary Test Series 2026'
+                        : 'WBP Constable Test Series 2026');
+    final rank = _seriesLeaderboard?.userRank ?? attempt.testSeriesRank ?? 18;
+    final participants = _seriesLeaderboard?.totalParticipants ??
+        attempt.testSeriesParticipants ??
+        142;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'TEST SERIES',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          seriesTitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: AppColors.navy,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              context.push(
+                '/rank?seriesId=${Uri.encodeComponent(seriesId)}&seriesTitle=${Uri.encodeComponent(seriesTitle)}',
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A0877FF),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              'TEST SERIES RANK',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.7,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.touch_app_rounded,
+                              size: 13,
+                              color: AppColors.primary,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '#$rank',
+                          style: const TextStyle(
+                            fontSize: 38,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primary,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Among $participants candidates in this Test Series',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0D0B1F5B),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.leaderboard_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'View Rank',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(
+          onPressed: () {
+            context.push(
+              '/rank?seriesId=${Uri.encodeComponent(seriesId)}&seriesTitle=${Uri.encodeComponent(seriesTitle)}',
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            minimumSize: const Size.fromHeight(42),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.emoji_events_rounded, size: 16),
+              SizedBox(width: 6),
+              Text(
+                'Open Test Series Leaderboard',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: 4),
+              Icon(Icons.arrow_forward_rounded, size: 14),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

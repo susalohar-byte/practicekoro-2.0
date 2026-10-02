@@ -295,7 +295,7 @@ class CatalogRepository {
     if (client == null) return null;
     final row = await client
         .from('test_attempts')
-        .select('*, tests(title, total_questions)')
+        .select('*, tests(title, total_questions, test_series_id, test_series(title))')
         .eq('id', attemptId)
         .maybeSingle();
     if (row == null || row['status'] != 'completed') return null;
@@ -327,6 +327,7 @@ class CatalogRepository {
         .eq('attempt_id', attemptId)
         .maybeSingle();
     final test = row['tests'] as Map<String, dynamic>?;
+    final series = test?['test_series'] as Map<String, dynamic>?;
     final totalMarks = (row['total_marks'] as num?)?.toDouble() ?? 0;
     final score = (row['score'] as num?)?.toDouble() ?? 0;
     return TestAttemptModel.fromJson({
@@ -352,6 +353,8 @@ class CatalogRepository {
       'completed_at': row['end_time'] ?? row['created_at'],
       'negative_marks_deducted': negativeMarksDeducted,
       'answers': answers,
+      'test_series_id': test?['test_series_id'],
+      'test_series_title': series?['title'],
     });
   }
 

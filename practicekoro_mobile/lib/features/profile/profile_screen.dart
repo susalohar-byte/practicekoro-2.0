@@ -489,11 +489,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   Expanded(
-                    child: _buildStatColumn(
-                      icon: Icons.emoji_events_rounded,
-                      iconColor: const Color(0xFFF59E0B),
-                      value: '1,245',
-                      label: 'Rank',
+                    child: GestureDetector(
+                      onTap: () => context.push('/rank'),
+                      behavior: HitTestBehavior.opaque,
+                      child: _buildStatColumn(
+                        icon: Icons.emoji_events_rounded,
+                        iconColor: const Color(0xFFF59E0B),
+                        value: '1,245',
+                        label: 'Rank',
+                      ),
                     ),
                   ),
                   Expanded(
@@ -580,6 +584,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            // Rank & Leaderboard Banner in My Progress
+            GestureDetector(
+              onTap: () => context.push('/rank'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFFBEB), Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFCD34D)),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.emoji_events_rounded,
+                        size: 22,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rank & Leaderboard',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0B1F5B),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'View your rank across Test Series & participants',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: Color(0xFFD97706),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 18),
 
@@ -712,6 +789,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
+                  _buildMenuItem(
+                    icon: Icons.emoji_events_rounded,
+                    iconBg: const Color(0xFFFEF3C7),
+                    iconColor: const Color(0xFFD97706),
+                    title: 'Rank',
+                    subtitle: 'View Test Series rankings and leaderboards',
+                    onTap: () => context.push('/rank'),
+                  ),
+                  const Divider(height: 1, indent: 62, endIndent: 14, color: Color(0xFFF1F5FC)),
                   _buildMenuItem(
                     icon: Icons.person_rounded,
                     iconBg: const Color(0xFFF3E8FF),

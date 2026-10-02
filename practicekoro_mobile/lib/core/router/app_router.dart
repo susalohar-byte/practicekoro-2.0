@@ -177,11 +177,17 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/leaderboard',
-      builder: (context, state) => const LeaderboardScreen(),
+      builder: (context, state) => LeaderboardScreen(
+        initialSeriesId: state.uri.queryParameters['seriesId'],
+        initialSeriesTitle: state.uri.queryParameters['seriesTitle'],
+      ),
     ),
     GoRoute(
       path: '/rank',
-      builder: (context, state) => const LeaderboardScreen(),
+      builder: (context, state) => LeaderboardScreen(
+        initialSeriesId: state.uri.queryParameters['seriesId'],
+        initialSeriesTitle: state.uri.queryParameters['seriesTitle'],
+      ),
     ),
 
     // 23. Profile Screen (via MainScaffold tab 4)

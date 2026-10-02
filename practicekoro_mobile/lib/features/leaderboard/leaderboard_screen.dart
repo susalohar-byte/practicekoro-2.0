@@ -3,153 +3,145 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../data/datasources/local_storage.dart';
-import '../../data/models/attempt_model.dart';
 import '../../data/repositories/leaderboard_repository.dart';
 
 class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({super.key});
+  final String? initialSeriesId;
+  final String? initialSeriesTitle;
+
+  const LeaderboardScreen({
+    super.key,
+    this.initialSeriesId,
+    this.initialSeriesTitle,
+  });
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  String _scope = 'West Bengal';
-  String _district = 'Kolkata';
   final _repository = LeaderboardRepository();
-  late Future<List<LeaderboardEntry>> _leaderboardFuture;
+
+  List<Map<String, String>> _availableSeries = [];
+  String _selectedSeriesId = 'wbp-constable';
+  String _selectedSeriesTitle = 'WBP Constable Test Series 2026';
+
+  late Future<TestSeriesLeaderboardResult> _leaderboardFuture;
+  bool _isLoadingSeries = true;
 
   @override
   void initState() {
     super.initState();
-    final savedDistrict = LocalStorageService.getLeaderboardDistrict();
-    if (savedDistrict != null && _districts.contains(savedDistrict)) {
-      _district = savedDistrict;
+    if (widget.initialSeriesId != null && widget.initialSeriesId!.isNotEmpty) {
+      _selectedSeriesId = widget.initialSeriesId!;
     }
-    _loadLeaderboard();
-  }
+    if (widget.initialSeriesTitle != null &&
+        widget.initialSeriesTitle!.isNotEmpty) {
+      _selectedSeriesTitle = widget.initialSeriesTitle!;
+    }
 
-  static const _districts = [
-    'Alipurduar',
-    'Bankura',
-    'Birbhum',
-    'Cooch Behar',
-    'Dakshin Dinajpur',
-    'Darjeeling',
-    'Hooghly',
-    'Howrah',
-    'Jalpaiguri',
-    'Jhargram',
-    'Kalimpong',
-    'Kolkata',
-    'Malda',
-    'Murshidabad',
-    'Nadia',
-    'North 24 Parganas',
-    'Paschim Bardhaman',
-    'Paschim Medinipur',
-    'Purba Bardhaman',
-    'Purba Medinipur',
-    'Purulia',
-    'South 24 Parganas',
-    'Uttar Dinajpur',
-  ];
-
-  String get _scopeKey => switch (_scope) {
-    'West Bengal' => 'west_bengal',
-    'District' => 'district',
-    _ => 'all_india',
-  };
-
-  void _loadLeaderboard() {
-    _leaderboardFuture = _repository.getLeaderboard(
-      scope: _scopeKey,
-      district: _scope == 'District' ? _district : null,
+    _leaderboardFuture = _repository.getTestSeriesLeaderboard(
+      seriesId: _selectedSeriesId,
     );
+
+    _loadInitialData();
   }
 
-  static const _avatarColors = [
-    Color(0xFF2563EB),
-    Color(0xFF7C3AED),
-    Color(0xFF0F766E),
-    Color(0xFFDB2777),
-    Color(0xFFEA580C),
-    Color(0xFF4F46E5),
-  ];
+  Future<void> _loadInitialData() async {
+    try {
+      final seriesList = await _repository.getAvailableTestSeries();
+      if (mounted) {
+        setState(() {
+          _availableSeries = seriesList;
+          _isLoadingSeries = false;
 
-  List<Map<String, dynamic>> _visibleStudents(List<LeaderboardEntry> entries) {
-    return entries
-        .map(
-          (entry) => {
-            'name': entry.name,
-            'score': entry.averagePercentage,
-            'district': entry.district ?? 'West Bengal',
-            'tests': entry.completedTests,
-            'color': _avatarColors[(entry.rank - 1) % _avatarColors.length],
-            'rank': entry.rank,
-          },
-        )
-        .toList(growable: false);
+          // If no initialSeriesId was supplied, use the first available series or user's target exam
+          if (widget.initialSeriesId == null ||
+              widget.initialSeriesId!.isEmpty) {
+            final targetExam = LocalStorageService.getTargetExam();
+            if (targetExam != null) {
+              final match = seriesList.firstWhere(
+                (s) =>
+                    s['id'] == targetExam ||
+                    s['slug'] == targetExam ||
+                    s['id']!.contains(targetExam),
+                orElse: () => seriesList.first,
+              );
+              _selectedSeriesId = match['id']!;
+              _selectedSeriesTitle = match['title']!;
+            } else if (seriesList.isNotEmpty) {
+              _selectedSeriesId = seriesList.first['id']!;
+              _selectedSeriesTitle = seriesList.first['title']!;
+            }
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingSeries = false);
+      }
+    }
+
+    _fetchLeaderboard();
+  }
+
+  void _fetchLeaderboard() {
+    setState(() {
+      _leaderboardFuture = _repository.getTestSeriesLeaderboard(
+        seriesId: _selectedSeriesId,
+      );
+    });
+  }
+
+  void _onSelectSeries(String id, String title) {
+    if (_selectedSeriesId == id) return;
+    setState(() {
+      _selectedSeriesId = id;
+      _selectedSeriesTitle = title;
+    });
+    _fetchLeaderboard();
   }
 
   @override
   Widget build(BuildContext context) {
-    final completedAttempts = LocalStorageService.getAttempts();
-    final userTestCount = completedAttempts.length;
-    final userAccuracy = completedAttempts.isEmpty
-        ? 0
-        : (completedAttempts.fold<double>(0, (s, a) => s + a.accuracy) /
-                  completedAttempts.length)
-              .round();
-    final userAvgScore = completedAttempts.isEmpty
-        ? 0.0
-        : completedAttempts.fold<double>(0, (s, a) => s + a.score) /
-              completedAttempts.length;
-    final userStreak = completedAttempts
-        .map((a) => a.completedAt.toIso8601String().substring(0, 10))
-        .toSet()
-        .length;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF1F5FC),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // Sticky Header (Matches Website Rank.tsx)
+            // ── TOP APP BAR / HEADER ──
             Container(
               width: double.infinity,
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
                 children: [
-                  if (Navigator.of(context).canPop()) ...[
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      borderRadius: BorderRadius.circular(10),
-                      child: const Padding(
-                        padding: EdgeInsets.only(right: 10),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          size: 22,
-                          color: Color(0xFF0F172A),
-                        ),
+                  InkWell(
+                    onTap: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        context.go('/results');
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 16,
+                        color: Color(0xFF0B1F5B),
                       ),
                     ),
-                  ] else ...[
-                    InkWell(
-                      onTap: () => context.go('/home'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: const Padding(
-                        padding: EdgeInsets.only(right: 10),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          size: 22,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  const SizedBox(width: 12),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,17 +149,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         Text(
                           'Leaderboard',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                            letterSpacing: -0.5,
+                            color: Color(0xFF0B1F5B),
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        SizedBox(height: 1),
                         Text(
                           'Compete, stay consistent and climb the ranks! 💙',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Color(0xFF64748B),
                             fontWeight: FontWeight.w500,
                           ),
@@ -175,81 +167,254 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       ],
                     ),
                   ),
+                  IconButton(
+                    onPressed: _fetchLeaderboard,
+                    tooltip: 'Refresh',
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: Color(0xFF0877FF),
+                    ),
+                  ),
                 ],
               ),
             ),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-            // Scrollable Body
-            Expanded(
-              child: ListView(
-                padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 16),
-                children: [
-                  // 1. User's Personal Performance Strip (Matches Website Rank.tsx)
-                  _buildPersonalStatsCard(
-                    tests: userTestCount,
-                    avgScore: userAvgScore,
-                    accuracy: userAccuracy,
-                    streak: userStreak,
+            // ── TEST SERIES HORIZONTAL SELECTOR ──
+            if (!_isLoadingSeries && _availableSeries.isNotEmpty)
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _availableSeries.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final item = _availableSeries[index];
+                      final isSelected = item['id'] == _selectedSeriesId;
+                      return GestureDetector(
+                        onTap: () => _onSelectSeries(
+                          item['id']!,
+                          item['title']!,
+                        ),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF0877FF)
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF0877FF)
+                                  : const Color(0xFFE2E8F0),
+                              width: 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF0877FF)
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              item['title']!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF0B1F5B),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 16),
+                ),
+              ),
 
-                  // 2. Scope Picker & District Dropdown
-                  _buildScopePicker(),
-                  if (_scope == 'District') ...[
-                    const SizedBox(height: 10),
-                    _buildDistrictPicker(),
-                  ],
-                  const SizedBox(height: 18),
-
-                  // 3. Live Platform Leaderboard
-                  FutureBuilder<List<LeaderboardEntry>>(
+            // ── LEADERBOARD CONTENT WITH RESPONSIVE MAX-WIDTH ──
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: FutureBuilder<TestSeriesLeaderboardResult>(
                     future: _leaderboardFuture,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 48),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF0158FC),
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF0877FF),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 44,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Could not load rankings for $_selectedSeriesTitle.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF0B1F5B),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                ElevatedButton(
+                                  onPressed: _fetchLeaderboard,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0877FF),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text('Try Again'),
+                                ),
+                              ],
                             ),
                           ),
                         );
                       }
-                      if (snapshot.hasError) {
-                        return _buildMessage(
-                          Icons.leaderboard_outlined,
-                          'Rankings unavailable',
-                          'Sign in and connect to the internet to load live rankings.',
-                          action: TextButton.icon(
-                            onPressed: () => setState(_loadLeaderboard),
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Try again'),
+
+                      final data = snapshot.data;
+                      if (data == null || data.entries.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.emoji_events_outlined,
+                                  size: 48,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No rankings available for\n$_selectedSeriesTitle yet.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0B1F5B),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Complete tests in this test series to be the first on the leaderboard!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }
-                      final students = _visibleStudents(
-                        snapshot.data ?? const [],
+
+                      return RefreshIndicator(
+                        color: const Color(0xFF0877FF),
+                        onRefresh: () async => _fetchLeaderboard(),
+                        child: ListView(
+                          padding: PKBottomSpacing.edgeInsets(
+                            context,
+                            horizontal: 16,
+                            top: 14,
+                          ),
+                          children: [
+                            // ── ACTIVE TEST SERIES & USER STATUS CARD ──
+                            _buildSeriesHeaderCard(data),
+
+                            const SizedBox(height: 16),
+
+                            // ── SECTION HEADER ──
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.leaderboard_rounded,
+                                      size: 18,
+                                      color: Color(0xFF0877FF),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Ranking List',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF0B1F5B),
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${data.totalParticipants} Participants',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // ── RANKING LIST ROWS ──
+                            ...data.entries.map((entry) => _buildRankRow(entry)),
+
+                            const SizedBox(height: 20),
+                          ],
+                        ),
                       );
-                      if (students.isEmpty) {
-                        return _buildMessage(
-                          Icons.emoji_events_outlined,
-                          _scope == 'District'
-                              ? 'No rankings for $_district yet'
-                              : 'No ranked attempts yet',
-                          'Rankings will appear after students complete mock tests.',
-                        );
-                      }
-                      return _buildRankings(students);
                     },
                   ),
-
-                  // 4. Recent Test Results Section
-                  if (completedAttempts.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _buildMyTestAttemptsSection(completedAttempts),
-                  ],
-                ],
+                ),
               ),
             ),
           ],
@@ -258,521 +423,425 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _buildPersonalStatsCard({
-    required int tests,
-    required double avgScore,
-    required int accuracy,
-    required int streak,
-  }) {
+  // ===========================================================================
+  // TEST SERIES PERFORMANCE BANNER CARD
+  // ===========================================================================
+  Widget _buildSeriesHeaderCard(TestSeriesLeaderboardResult data) {
+    final rankText = data.userRank != null ? '#${data.userRank}' : 'Not Ranked';
+    final rankSubtext = data.userRank != null
+        ? 'Among ${data.totalParticipants} students'
+        : 'Complete a test to get ranked';
+
+    final scoreText = data.userPercentage != null
+        ? '${data.userPercentage!.toStringAsFixed(1)}%'
+        : '—';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B1F5B), Color(0xFF133488), Color(0xFF0877FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.025),
-            blurRadius: 8,
+            color: const Color(0xFF0B1F5B).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.stars_rounded,
+                      size: 13,
+                      color: Color(0xFFFBBF24),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'TEST SERIES RANKING',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.emoji_events_rounded,
+                size: 26,
+                color: Color(0xFFFBBF24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            data.seriesTitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'YOUR RANK',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.7,
+                          color: Color(0xFF93C5FD),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        rankText,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        rankSubtext,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 44,
+                  color: Colors.white.withValues(alpha: 0.2),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AVG SCORE',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.7,
+                        color: Color(0xFF93C5FD),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      scoreText,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF34D399),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      '${data.totalParticipants} attempted',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // INDIVIDUAL RANKING LIST ROW
+  // ===========================================================================
+  Widget _buildRankRow(TestSeriesLeaderboardEntry entry) {
+    final isTop1 = entry.rank == 1;
+    final isTop2 = entry.rank == 2;
+    final isTop3 = entry.rank == 3;
+    final isCurrentUser = entry.isCurrentUser;
+
+    // Rank badge colors
+    final Color badgeBg;
+    final Color badgeTextColor;
+    if (isTop1) {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeTextColor = const Color(0xFFD97706);
+    } else if (isTop2) {
+      badgeBg = const Color(0xFFF1F5F9);
+      badgeTextColor = const Color(0xFF475569);
+    } else if (isTop3) {
+      badgeBg = const Color(0xFFFFEDD5);
+      badgeTextColor = const Color(0xFFC2410C);
+    } else {
+      badgeBg = const Color(0xFFF8FAFC);
+      badgeTextColor = const Color(0xFF64748B);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isCurrentUser ? const Color(0xFFEFF6FF) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCurrentUser
+              ? const Color(0xFF0877FF)
+              : const Color(0xFFE8EEF7),
+          width: isCurrentUser ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isCurrentUser
+                ? const Color(0xFF0877FF).withValues(alpha: 0.12)
+                : const Color(0xFF0B1F5B).withValues(alpha: 0.02),
+            blurRadius: isCurrentUser ? 10 : 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          _buildStatColumn('$tests', 'Tests'),
-          _buildVerticalDivider(),
-          _buildStatColumn(avgScore.toStringAsFixed(1), 'Avg Score'),
-          _buildVerticalDivider(),
-          _buildStatColumn('$accuracy%', 'Accuracy'),
-          _buildVerticalDivider(),
-          _buildStatColumn('🔥 $streak', 'Streak'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatColumn(String value, String label) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVerticalDivider() {
-    return Container(
-      width: 1,
-      height: 32,
-      color: const Color(0xFFE2E8F0),
-    );
-  }
-
-  Widget _buildMyTestAttemptsSection(List<TestAttemptModel> attempts) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Your Completed Mock Tests',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...attempts.take(10).map((a) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
+          // ── RANK NUMBER BADGE ──
+          Container(
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              color: badgeBg,
+              shape: BoxShape.circle,
+              border: isTop1
+                  ? Border.all(color: const Color(0xFFFBBF24), width: 1.5)
+                  : null,
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.assignment_turned_in_rounded,
-                    color: Color(0xFF0158FC),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        a.testTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Score: ${a.score.toStringAsFixed(1)}/${a.totalMarks.toStringAsFixed(0)}  •  Correct: ${a.correctCount}  •  Wrong: ${a.wrongCount}',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${a.accuracy.round()}%',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF059669),
+            alignment: Alignment.center,
+            child: isTop1
+                ? const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 18,
+                    color: Color(0xFFD97706),
+                  )
+                : Text(
+                    '${entry.rank}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: badgeTextColor,
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
+          ),
+          const SizedBox(width: 12),
 
-  Widget _buildRankings(List<Map<String, dynamic>> students) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'Top Performers',
-              style: TextStyle(
-                color: Color(0xFF0F172A),
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              _scope == 'District' ? _district : _scope,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildPodium(students),
-        if (students.length > 3) ...[
-          const SizedBox(height: 20),
-          const Text(
-            'All Rankings',
-            style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...students
-              .skip(3)
-              .toList()
-              .asMap()
-              .entries
-              .map((entry) => _buildStudentRow(entry.value, entry.key + 4)),
-        ],
-      ],
-    );
-  }
+          // ── STUDENT AVATAR ──
+          _buildAvatar(entry),
+          const SizedBox(width: 12),
 
-  Widget _buildMessage(
-    IconData icon,
-    String title,
-    String message, {
-    Widget? action,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFF0158FC), size: 34),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          ?action,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScopePicker() {
-    const scopes = ['All India', 'West Bengal', 'District'];
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: scopes.map((scope) {
-          final selected = _scope == scope;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() {
-                _scope = scope;
-                _loadLeaderboard();
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 9,
-                  horizontal: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFF0158FC)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  scope,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected ? Colors.white : const Color(0xFF64748B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildDistrictPicker() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _district,
-          isExpanded: true,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Color(0xFF0158FC),
-          ),
-          items: _districts
-              .map(
-                (district) =>
-                    DropdownMenuItem(value: district, child: Text(district)),
-              )
-              .toList(),
-          onChanged: (district) {
-            if (district == null) return;
-            setState(() => _district = district);
-            LocalStorageService.saveLeaderboardDistrict(district);
-            setState(_loadLeaderboard);
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPodium(List<Map<String, dynamic>> students) {
-    final first = students[0];
-    final second = students.length > 1 ? students[1] : null;
-    final third = students.length > 2 ? students[2] : null;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 20, 10, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: second == null
-                ? const SizedBox()
-                : _podiumPerson(second, 2, const Color(0xFF94A3B8), 66),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _podiumPerson(
-              first,
-              1,
-              const Color(0xFFF59E0B),
-              90,
-              champion: true,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: third == null
-                ? const SizedBox()
-                : _podiumPerson(third, 3, const Color(0xFFCD7F32), 54),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _podiumPerson(
-    Map<String, dynamic> student,
-    int rank,
-    Color medal,
-    double height, {
-    bool champion = false,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (champion)
-          const Icon(
-            Icons.workspace_premium_rounded,
-            color: Color(0xFFF59E0B),
-            size: 23,
-          )
-        else
-          const SizedBox(height: 23),
-        const SizedBox(height: 4),
-        CircleAvatar(
-          radius: champion ? 24 : 20,
-          backgroundColor: student['color'] as Color,
-          child: Text(
-            (student['name'] as String)[0],
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          student['name'] as String,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.navy,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        Text(
-          '${(student['score'] as double).toStringAsFixed(1)}%',
-          style: TextStyle(
-            fontSize: 12,
-            color: champion ? const Color(0xFF0158FC) : const Color(0xFF64748B),
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: height,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                medal.withValues(alpha: champion ? 0.18 : 0.11),
-                Colors.white,
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-            border: Border.all(color: medal.withValues(alpha: 0.25)),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$rank',
-            style: TextStyle(
-              fontSize: champion ? 27 : 20,
-              color: medal.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStudentRow(Map<String, dynamic> student, int rank) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 34,
-            child: Text(
-              '#$rank',
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: student['color'] as Color,
-            child: Text(
-              (student['name'] as String)[0],
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 11),
+          // ── STUDENT NAME & DISTRICT / BADGE ──
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  student['name'] as String,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0F172A),
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight:
+                              isCurrentUser ? FontWeight.w900 : FontWeight.w800,
+                          color: isCurrentUser
+                              ? const Color(0xFF0877FF)
+                              : const Color(0xFF0B1F5B),
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0877FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'YOU',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${student['district']} · ${student['tests']} tests',
+                  entry.district != null && entry.district!.isNotEmpty
+                      ? entry.district!
+                      : '${entry.testsCompleted} ${entry.testsCompleted == 1 ? "test" : "tests"} completed',
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            '${(student['score'] as double).toStringAsFixed(1)}%',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF0F172A),
-              fontWeight: FontWeight.w800,
+          const SizedBox(width: 10),
+
+          // ── SCORE / PERCENTAGE BADGE ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isTop1
+                  ? const Color(0xFFECFDF5)
+                  : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isTop1
+                    ? const Color(0xFFA7F3D0)
+                    : const Color(0xFFBFDBFE),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${entry.percentage.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    color: isTop1
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF0877FF),
+                  ),
+                ),
+                Text(
+                  '${entry.score.toStringAsFixed(entry.score % 1 == 0 ? 0 : 1)} pts',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(TestSeriesLeaderboardEntry entry) {
+    if (entry.avatarUrl != null &&
+        entry.avatarUrl!.isNotEmpty &&
+        entry.avatarUrl!.startsWith('assets/')) {
+      return Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: AssetImage(entry.avatarUrl!),
+            fit: BoxFit.cover,
+          ),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+      );
+    }
+
+    final initials = entry.name
+        .trim()
+        .split(' ')
+        .map((w) => w.isNotEmpty ? w[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+
+    const colors = [
+      Color(0xFF0877FF),
+      Color(0xFF8B5CF6),
+      Color(0xFF10B981),
+      Color(0xFFF59E0B),
+      Color(0xFFEF4444),
+      Color(0xFF0284C7),
+    ];
+    final color = colors[entry.rank % colors.length];
+
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials.isNotEmpty ? initials : 'P',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
       ),
     );
   }

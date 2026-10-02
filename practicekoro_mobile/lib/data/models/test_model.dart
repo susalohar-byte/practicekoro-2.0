@@ -19,6 +19,8 @@ class MockTestModel {
   final String? examTitle;
   final String? subjectName;
   final String? chapterName;
+  final String? testSeriesId;
+  final String? testSeriesTitle;
 
   const MockTestModel({
     required this.id,
@@ -41,9 +43,12 @@ class MockTestModel {
     this.examTitle,
     this.subjectName,
     this.chapterName,
+    this.testSeriesId,
+    this.testSeriesTitle,
   });
 
   factory MockTestModel.fromJson(Map<String, dynamic> json) {
+    final seriesData = json['test_series'] as Map<String, dynamic>?;
     return MockTestModel(
       id: json['id'] as String,
       examId: json['exam_id'] as String?,
@@ -65,6 +70,8 @@ class MockTestModel {
       examTitle: json['exam_title'] as String?,
       subjectName: json['subject_name'] as String?,
       chapterName: json['chapter_name'] as String?,
+      testSeriesId: json['test_series_id'] as String?,
+      testSeriesTitle: json['test_series_title'] as String? ?? seriesData?['title'] as String?,
     );
   }
 
@@ -90,6 +97,8 @@ class MockTestModel {
       'exam_title': examTitle,
       'subject_name': subjectName,
       'chapter_name': chapterName,
+      'test_series_id': testSeriesId,
+      'test_series_title': testSeriesTitle,
     };
   }
 

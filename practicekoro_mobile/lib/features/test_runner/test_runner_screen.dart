@@ -310,6 +310,27 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen> {
       negativeMarksDeducted: negMarks,
       completedAt: DateTime.now(),
       answers: _answers,
+      testSeriesId: _test?.testSeriesId ??
+          (_test?.title.toLowerCase().contains('kp') == true
+              ? 'kp-constable'
+              : _test?.title.toLowerCase().contains('ssc') == true
+                  ? 'ssc-gd'
+                  : _test?.title.toLowerCase().contains('clerk') == true
+                      ? 'wbpsc-clerkship'
+                      : _test?.title.toLowerCase().contains('tet') == true
+                          ? 'wbtet-primary'
+                          : 'wbp-constable'),
+      testSeriesTitle: _test?.testSeriesTitle ??
+          _test?.examTitle ??
+          (_test?.title.toLowerCase().contains('kp') == true
+              ? 'KP Constable Test Series 2026'
+              : _test?.title.toLowerCase().contains('ssc') == true
+                  ? 'SSC GD Test Series 2026'
+                  : _test?.title.toLowerCase().contains('clerk') == true
+                      ? 'WBPSC Clerkship Test Series 2026'
+                      : _test?.title.toLowerCase().contains('tet') == true
+                          ? 'WBTET Primary Test Series 2026'
+                          : 'WBP Constable Test Series 2026'),
     );
 
     if (widget.liveTestId != null &&

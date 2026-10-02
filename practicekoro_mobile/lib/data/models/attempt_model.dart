@@ -47,6 +47,10 @@ class TestAttemptModel {
   final double negativeMarksDeducted;
   final DateTime completedAt;
   final Map<String, AttemptAnswerState> answers;
+  final String? testSeriesId;
+  final String? testSeriesTitle;
+  final int? testSeriesRank;
+  final int? testSeriesParticipants;
 
   const TestAttemptModel({
     required this.id,
@@ -65,7 +69,57 @@ class TestAttemptModel {
     this.negativeMarksDeducted = 0,
     required this.completedAt,
     this.answers = const {},
+    this.testSeriesId,
+    this.testSeriesTitle,
+    this.testSeriesRank,
+    this.testSeriesParticipants,
   });
+
+  TestAttemptModel copyWith({
+    String? id,
+    String? userId,
+    String? testId,
+    String? testTitle,
+    double? score,
+    double? totalMarks,
+    double? percentage,
+    double? accuracy,
+    int? correctCount,
+    int? wrongCount,
+    int? skippedCount,
+    int? timeSpentSeconds,
+    int? totalQuestions,
+    double? negativeMarksDeducted,
+    DateTime? completedAt,
+    Map<String, AttemptAnswerState>? answers,
+    String? testSeriesId,
+    String? testSeriesTitle,
+    int? testSeriesRank,
+    int? testSeriesParticipants,
+  }) {
+    return TestAttemptModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      testId: testId ?? this.testId,
+      testTitle: testTitle ?? this.testTitle,
+      score: score ?? this.score,
+      totalMarks: totalMarks ?? this.totalMarks,
+      percentage: percentage ?? this.percentage,
+      accuracy: accuracy ?? this.accuracy,
+      correctCount: correctCount ?? this.correctCount,
+      wrongCount: wrongCount ?? this.wrongCount,
+      skippedCount: skippedCount ?? this.skippedCount,
+      timeSpentSeconds: timeSpentSeconds ?? this.timeSpentSeconds,
+      totalQuestions: totalQuestions ?? this.totalQuestions,
+      negativeMarksDeducted: negativeMarksDeducted ?? this.negativeMarksDeducted,
+      completedAt: completedAt ?? this.completedAt,
+      answers: answers ?? this.answers,
+      testSeriesId: testSeriesId ?? this.testSeriesId,
+      testSeriesTitle: testSeriesTitle ?? this.testSeriesTitle,
+      testSeriesRank: testSeriesRank ?? this.testSeriesRank,
+      testSeriesParticipants: testSeriesParticipants ?? this.testSeriesParticipants,
+    );
+  }
 
   factory TestAttemptModel.fromJson(Map<String, dynamic> json) {
     final rawAnswers = json['answers'] as Map<String, dynamic>? ?? {};
@@ -94,6 +148,11 @@ class TestAttemptModel {
           ? DateTime.parse(json['completed_at'] as String)
           : DateTime.now(),
       answers: parsedAnswers,
+      testSeriesId: json['test_series_id'] as String?,
+      testSeriesTitle: json['test_series_title'] as String?,
+      testSeriesRank: (json['test_series_rank'] as num?)?.toInt(),
+      testSeriesParticipants:
+          (json['test_series_participants'] as num?)?.toInt(),
     );
   }
 
@@ -115,6 +174,10 @@ class TestAttemptModel {
       'negative_marks_deducted': negativeMarksDeducted,
       'completed_at': completedAt.toIso8601String(),
       'answers': answers.map((k, v) => MapEntry(k, v.toJson())),
+      'test_series_id': testSeriesId,
+      'test_series_title': testSeriesTitle,
+      'test_series_rank': testSeriesRank,
+      'test_series_participants': testSeriesParticipants,
     };
   }
 }

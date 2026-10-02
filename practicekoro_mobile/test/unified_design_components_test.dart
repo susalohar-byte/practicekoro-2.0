@@ -161,7 +161,7 @@ void main() {
       expect(find.text('Test Series Results'), findsOneWidget);
     });
 
-    testWidgets('LeaderboardScreen renders real scope filters and empty/error state without dummy data', (tester) async {
+    testWidgets('LeaderboardScreen renders test series rankings and header without dummy data', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: LeaderboardScreen(),
@@ -170,12 +170,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify headers and scope tabs
+      // Verify headers and test series selector
       expect(find.text('Leaderboard'), findsOneWidget);
       expect(find.text('Compete, stay consistent and climb the ranks! 💙'), findsOneWidget);
-      expect(find.text('All India'), findsOneWidget);
-      expect(find.text('West Bengal'), findsOneWidget);
-      expect(find.text('District'), findsOneWidget);
+      expect(find.text('WBP Constable Test Series 2026'), findsAtLeast(1));
       expect(find.text('You (Susanta Lohar)'), findsNothing);
     });
 
