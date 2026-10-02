@@ -926,10 +926,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       list = list.take(100).toList();
     }
 
-    final userRank = data.userRank ?? widget.initialRank ?? 24;
-    final userInEntries = list.any((e) => e.isCurrentUser || e.rank == userRank);
+    // In District Mode, show all district peers in clean numbered order
+    if (_selectedLocationIndex == 1) {
+      return list.map((entry) => _buildRankRow(entry)).toList();
+    }
 
-    if (_selectedTab == 0 && !userInEntries && list.isNotEmpty) {
+    final userRank = data.userRank ?? widget.initialRank ?? 24;
+    final userInEntries = list.any((e) => e.isCurrentUser || e.name == 'You' || e.rank == userRank);
+
+    if (_selectedTab == 0 && !userInEntries && list.isNotEmpty && userRank > 4) {
       final topEntries =
           list.take(4).map((entry) => _buildRankRow(entry)).toList();
       final rows = <Widget>[...topEntries];
@@ -959,7 +964,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             rank: userRank,
             userId: 'current-user',
             name: 'You',
-            district: null,
+            district: _userDistrict,
             score: data.userScore ?? 72.0,
             percentage: data.userPercentage ?? 72.0,
             accuracy: 85.0,
@@ -973,13 +978,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       // Next student row (Screen 11: Rakesh Pal, 71/100)
       rows.add(
         _buildRankRow(
-          const TestSeriesLeaderboardEntry(
-            rank: 25,
+          TestSeriesLeaderboardEntry(
+            rank: userRank + 1,
             userId: 'cand-rakesh',
             name: 'Rakesh Pal',
-            district: 'Purulia',
-            score: 71.0,
-            percentage: 71.0,
+            district: _userDistrict,
+            score: (data.userScore ?? 72.0) - 1.0,
+            percentage: (data.userPercentage ?? 72.0) - 1.0,
             accuracy: 80.0,
             testsCompleted: 1,
             timeSpentSeconds: 1900,
@@ -996,14 +1001,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   // ===========================================================================
   // INDIVIDUAL RANKING LIST ROW (Screen 11)
+  // Numbered order: 1. Student Name — Score, 2. Student Name — Score...
   // ===========================================================================
   Widget _buildRankRow(TestSeriesLeaderboardEntry entry) {
     final isTop1 = entry.rank == 1;
+    final isTop2 = entry.rank == 2;
+    final isTop3 = entry.rank == 3;
     final isCurrentUser = entry.isCurrentUser || entry.name == 'You';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: isCurrentUser ? const Color(0xFFEFF6FF) : Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1013,10 +1021,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               : const Color(0xFFE2E8F0),
           width: isCurrentUser ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isCurrentUser ? 0.04 : 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // Rank column
+          // Rank badge/number (1, 2, 3...)
           SizedBox(
             width: 32,
             child: isCurrentUser
@@ -1043,14 +1058,26 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         size: 20,
                         color: Color(0xFFF59E0B),
                       )
-                    : Text(
-                        '${entry.rank}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
+                    : isTop2
+                        ? const Icon(
+                            Icons.military_tech_rounded,
+                            size: 20,
+                            color: Color(0xFF94A3B8),
+                          )
+                        : isTop3
+                            ? const Icon(
+                                Icons.military_tech_rounded,
+                                size: 20,
+                                color: Color(0xFFB45309),
+                              )
+                            : Text(
+                                '${entry.rank}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
           ),
           const SizedBox(width: 8),
 
@@ -1058,27 +1085,83 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           _buildAvatar(entry),
           const SizedBox(width: 10),
 
-          // Student Name
+          // Student Name & District
           Expanded(
-            child: Text(
-              entry.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: isCurrentUser ? FontWeight.w900 : FontWeight.w700,
-                color: isCurrentUser ? AppColors.primary : AppColors.navy,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: isCurrentUser ? FontWeight.w900 : FontWeight.w700,
+                          color: isCurrentUser ? AppColors.primary : AppColors.navy,
+                        ),
+                      ),
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDBEAFE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'You',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (entry.district != null && entry.district!.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    entry.district!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
 
-          // Score (Screen 11: 96/100)
-          Text(
-            '${entry.score.toInt()}/100',
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: isCurrentUser ? AppColors.primary : AppColors.navy,
+          // Score (Numbered Score display)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isCurrentUser
+                  ? const Color(0xFFDBEAFE)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isCurrentUser
+                    ? const Color(0xFFBFDBFE)
+                    : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Text(
+              '${entry.score.toStringAsFixed(entry.score % 1 == 0 ? 0 : 1)}/100',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: isCurrentUser ? AppColors.primary : AppColors.navy,
+              ),
             ),
           ),
         ],
