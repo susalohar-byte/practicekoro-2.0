@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/components/pk_button.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../core/components/pk_card.dart';
 import '../../core/components/pk_tab.dart';
 import '../../core/theme/app_radius.dart';
@@ -84,7 +85,7 @@ class _SupportScreenState extends State<SupportScreen> {
         centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 16, additionalGap: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

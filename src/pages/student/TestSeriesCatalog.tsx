@@ -1,148 +1,124 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/services/api';
 import {
-  Layers,
   Search,
   ArrowRight,
-  Award,
-  BookOpen,
-  Shield,
-  Zap,
-  TrendingUp,
-  FileText,
-  Sparkles,
-  CheckCircle2,
-  Crown,
   X,
+  FileText,
+  BookOpen,
+  HelpCircle,
+  ChevronRight,
+  Filter,
 } from 'lucide-react';
 import type { TestSeries } from '@/types';
 
-// Category filter tabs
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All', icon: Layers },
-  { id: 'police', label: 'WBP', icon: Shield },
-  { id: 'kp', label: 'KP', icon: Award },
-  { id: 'ssc', label: 'SSC', icon: Zap },
-  { id: 'railways', label: 'Railway', icon: TrendingUp },
-  { id: 'other', label: 'Other', icon: BookOpen },
+const FILTERS = [
+  'All Exams',
+  'State Exams',
+  'Central Exams',
+  'Teaching',
+  'Railway',
+  'Police',
 ];
 
-type AccessFilter = 'all' | 'free' | 'pro';
-
-// Emblem mapping based on exam title or category
-function getSeriesEmblem(series: TestSeries): { emblem: string; bgColor: string } {
-  if (series.iconUrl) {
-    return {
-      emblem: series.iconUrl,
-      bgColor: 'bg-[#EFF6FF] dark:bg-slate-800/80 border-blue-200/70 dark:border-slate-700/60',
-    };
-  }
-
+// Emblem and gradient mapping based on series data
+function getSeriesVisuals(series: TestSeries): {
+  emblem: string;
+  gradient: string;
+  category: string;
+  fullMocks: number;
+  topicTests: number;
+  pyqs: number;
+} {
   const title = (series.title || '').toLowerCase();
   const exam = (series.examTitle || '').toLowerCase();
-  const combined = `${title} ${exam}`;
+  const cat = (series.examCategory || '').toLowerCase();
+  const combined = `${title} ${exam} ${cat}`;
 
-  if (combined.includes('wbp') || combined.includes('constable') || combined.includes('police')) {
-    if (combined.includes('kolkata') || combined.includes('kp')) {
+  const total = series.testsCount ?? series.testCount ?? 20;
+  const fullMocks = Math.max(5, Math.round(total * 0.5));
+  const topicTests = Math.max(3, Math.round(total * 0.3));
+  const pyqs = Math.max(2, total - fullMocks - topicTests);
+
+  if (combined.includes('wbp') || combined.includes('police') || combined.includes('constable')) {
+    if (combined.includes('kp') || combined.includes('kolkata')) {
       return {
-        emblem: '/images/exams/icon_kolkata_police.png',
-        bgColor: 'bg-[#EFF6FF] dark:bg-blue-950/40 border-[#DBEAFE] dark:border-blue-900/60',
+        emblem: '/images/exams/emblem_series_kp.png',
+        gradient: 'from-[#EDE9FE] to-[#DDD6FE]',
+        category: 'Police',
+        fullMocks,
+        topicTests,
+        pyqs,
       };
     }
     return {
-      emblem: '/images/exams/emblem_wbp.png',
-      bgColor: 'bg-[#FFF4F0] dark:bg-slate-800/80 border-[#FDE2D7] dark:border-slate-700/60',
+      emblem: '/images/exams/emblem_series_wbp.png',
+      gradient: 'from-[#FFF7E6] to-[#FDE8C4]',
+      category: 'Police',
+      fullMocks,
+      topicTests,
+      pyqs,
     };
   }
-  if (combined.includes('wbcs')) {
+  if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('gd')) {
     return {
-      emblem: '/images/exams/wbcs_emblem.png',
-      bgColor: 'bg-[#EEF2FF] dark:bg-indigo-950/40 border-[#E0E7FF] dark:border-indigo-900/60',
+      emblem: '/images/exams/emblem_series_ssc.png',
+      gradient: 'from-[#FEE2E2] to-[#FECACA]',
+      category: 'Central Exams',
+      fullMocks,
+      topicTests,
+      pyqs,
     };
   }
-  if (combined.includes('clerk') || combined.includes('wbpsc') || combined.includes('misc')) {
-    return {
-      emblem: '/images/exams/emblem_wbpsc.png',
-      bgColor: 'bg-[#FFFBEB] dark:bg-amber-950/40 border-[#FEF3C7] dark:border-amber-900/60',
-    };
-  }
-  if (combined.includes('slst') || combined.includes('wbssc') || combined.includes('group d')) {
-    return {
-      emblem: '/images/exams/emblem_wbssc.png',
-      bgColor: 'bg-[#ECFDF5] dark:bg-emerald-950/40 border-[#D1FAE5] dark:border-emerald-900/60',
-    };
-  }
-  if (combined.includes('tet') || combined.includes('teach')) {
-    return {
-      emblem: '/images/exams/emblem_tet.png',
-      bgColor: 'bg-[#FAF5FF] dark:bg-purple-950/40 border-[#F3E8FF] dark:border-purple-900/60',
-    };
-  }
-  if (combined.includes('rail') || combined.includes('ntpc') || combined.includes('rrb')) {
+  if (combined.includes('rail') || combined.includes('ntpc') || combined.includes('group d')) {
     return {
       emblem: '/images/exams/emblem_railway.png',
-      bgColor: 'bg-[#F0F9FF] dark:bg-sky-950/40 border-[#E0F2FE] dark:border-sky-900/60',
+      gradient: 'from-[#EFF6FF] to-[#DBEAFE]',
+      category: 'Railway',
+      fullMocks,
+      topicTests,
+      pyqs,
     };
   }
-  if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('gd') || combined.includes('mts')) {
+  if (combined.includes('tet') || combined.includes('teach') || combined.includes('primary')) {
     return {
-      emblem: '/images/exams/emblem_ssc.png',
-      bgColor: 'bg-[#FFFBEB] dark:bg-amber-950/40 border-[#FEF3C7] dark:border-amber-900/60',
+      emblem: '/images/exams/emblem_tet.png',
+      gradient: 'from-[#FEF3C7] to-[#FDE68A]',
+      category: 'Teaching',
+      fullMocks,
+      topicTests,
+      pyqs,
+    };
+  }
+  if (combined.includes('wbssc') || combined.includes('slst')) {
+    return {
+      emblem: '/images/exams/emblem_wbssc.png',
+      gradient: 'from-[#ECFDF5] to-[#D1FAE5]',
+      category: 'State Exams',
+      fullMocks,
+      topicTests,
+      pyqs,
     };
   }
 
   return {
-    emblem: '/images/exams/emblem_wbp.png',
-    bgColor: 'bg-[#EFF6FF] dark:bg-slate-800/80 border-blue-200/70 dark:border-slate-700/60',
+    emblem: series.iconUrl || '/images/exams/emblem_wbp.png',
+    gradient: 'from-[#EFF6FF] to-[#DBEAFE]',
+    category: 'State Exams',
+    fullMocks,
+    topicTests,
+    pyqs,
   };
-}
-
-function SeriesEmblem({ emblem, bgColor }: { emblem: string; bgColor: string }) {
-  const isBrandLogo = emblem.includes('logo-icon');
-  if (isBrandLogo) {
-    return (
-      <img
-        src="/logo-icon.png"
-        alt=""
-        className="h-16 w-16 shrink-0 rounded-2xl object-cover shadow-xs"
-        onError={(event) => {
-          event.currentTarget.src = '/logo-icon-circle.png';
-        }}
-      />
-    );
-  }
-
-  return (
-    <div
-      className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl border p-1.5 flex items-center justify-center shadow-2xs ${bgColor}`}
-    >
-      <img
-        src={emblem}
-        alt=""
-        className="h-full w-full rounded-xl object-contain"
-        onError={(event) => {
-          event.currentTarget.src = '/logo-icon.png';
-        }}
-      />
-    </div>
-  );
 }
 
 export const TestSeriesCatalog: React.FC = () => {
   const navigate = useNavigate();
-  const outletCtx = useOutletContext<{
-    onToggleMobileSidebar?: () => void;
-    onToggleCollapse?: () => void;
-    isSidebarCollapsed?: boolean;
-  }>() || {};
-
   const [seriesList, setSeriesList] = useState<TestSeries[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [accessFilter, setAccessFilter] = useState<AccessFilter>('all');
+  const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSort, setSelectedSort] = useState<'Popular' | 'Most Tests' | 'A-Z'>('Popular');
 
   useEffect(() => {
     let mounted = true;
@@ -165,429 +141,346 @@ export const TestSeriesCatalog: React.FC = () => {
     };
   }, []);
 
-  // Filter series based on search, category tab, and access level
-  const filteredSeries = useMemo(() => {
+  const selectedFilter = FILTERS[selectedFilterIndex];
+
+  // Filter series based on category pill and search query
+  const filteredList = useMemo(() => {
     return seriesList.filter((series) => {
-      // Search filter
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchesTitle = series.title.toLowerCase().includes(query);
-        const matchesExam = (series.examTitle || '').toLowerCase().includes(query);
-        const matchesDesc = (series.description || '').toLowerCase().includes(query);
-        if (!matchesTitle && !matchesExam && !matchesDesc) return false;
-      }
+      const { category } = getSeriesVisuals(series);
+      const matchesCategory =
+        selectedFilterIndex === 0 ||
+        (selectedFilter === 'State Exams' &&
+          (category === 'State Exams' || category === 'Teaching')) ||
+        (selectedFilter === 'Central Exams' && category === 'Central Exams') ||
+        (selectedFilter === 'Railway' && category === 'Railway') ||
+        (selectedFilter === 'Police' && category === 'Police') ||
+        (selectedFilter === 'Teaching' && category === 'Teaching');
 
-      // Access filter (Free vs Pro Pass)
-      if (accessFilter === 'free' && series.isPremium) return false;
-      if (accessFilter === 'pro' && !series.isPremium) return false;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesQuery =
+        query === '' ||
+        series.title.toLowerCase().includes(query) ||
+        (series.examTitle || '').toLowerCase().includes(query) ||
+        (series.description || '').toLowerCase().includes(query) ||
+        category.toLowerCase().includes(query);
 
-      // Category filter
-      if (activeCategory !== 'all') {
-        const title = (series.title || '').toLowerCase();
-        const exam = (series.examTitle || '').toLowerCase();
-        const cat = (series.examCategory || '').toLowerCase();
-        const combined = `${title} ${exam} ${cat}`;
-
-        if (
-          (activeCategory === 'police' || activeCategory === 'kp') &&
-          !(
-            combined.includes('police') ||
-            combined.includes('wbp') ||
-            combined.includes('kp') ||
-            combined.includes('constable') ||
-            combined.includes('si')
-          )
-        ) {
-          return false;
-        }
-        if (
-          activeCategory === 'ssc' &&
-          !(
-            combined.includes('ssc') ||
-            combined.includes('cgl') ||
-            combined.includes('gd') ||
-            combined.includes('mts') ||
-            combined.includes('chsl') ||
-            combined.includes('central')
-          )
-        ) {
-          return false;
-        }
-        if (
-          activeCategory === 'railways' &&
-          !(
-            combined.includes('rail') ||
-            combined.includes('ntpc') ||
-            combined.includes('rrb') ||
-            combined.includes('group d') ||
-            combined.includes('alp')
-          )
-        ) {
-          return false;
-        }
-        if (
-          activeCategory === 'other' &&
-          (combined.includes('police') ||
-            combined.includes('wbp') ||
-            combined.includes('kp') ||
-            combined.includes('constable') ||
-            combined.includes('si') ||
-            combined.includes('ssc') ||
-            combined.includes('cgl') ||
-            combined.includes('gd') ||
-            combined.includes('mts') ||
-            combined.includes('chsl') ||
-            combined.includes('central') ||
-            combined.includes('rail') ||
-            combined.includes('ntpc') ||
-            combined.includes('rrb') ||
-            combined.includes('group d') ||
-            combined.includes('alp'))
-        ) {
-          return false;
-        }
-      }
-
-      return true;
+      return matchesCategory && matchesQuery;
     });
-  }, [seriesList, searchTerm, activeCategory, accessFilter]);
+  }, [seriesList, selectedFilterIndex, selectedFilter, searchQuery]);
 
-  const totalTestsCount = useMemo(
-    () => seriesList.reduce((sum, s) => sum + (s.testsCount ?? s.testCount ?? 0), 0),
-    [seriesList]
-  );
+  // Sort list
+  const sortedList = useMemo(() => {
+    const list = [...filteredList];
+    if (selectedSort === 'Most Tests') {
+      list.sort(
+        (a, b) => (b.testsCount ?? b.testCount ?? 0) - (a.testsCount ?? a.testCount ?? 0)
+      );
+    } else if (selectedSort === 'A-Z') {
+      list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return list;
+  }, [filteredList, selectedSort]);
+
+  // 3 Popular Test Series for the top carousel
+  const popularSeries = [
+    {
+      id: 'wbp_constable_2026',
+      title: 'WBP Constable',
+      subtitle: 'Test Series 2026',
+      badge: '🔥 Bestseller',
+      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
+      bgImage: '/images/series_wbp_bg.png',
+      emblem: '/images/exams/emblem_series_wbp.png',
+    },
+    {
+      id: 'kp_constable_2026',
+      title: 'KP Constable',
+      subtitle: 'Test Series 2026',
+      badge: '⭐ Most Popular',
+      badgeBg: 'bg-[#FEF3C7] text-[#B45309]',
+      bgImage: '/images/series_kp_bg.png',
+      emblem: '/images/exams/emblem_series_kp.png',
+    },
+    {
+      id: 'ssc_gd_2026',
+      title: 'SSC GD',
+      subtitle: 'Test Series 2026',
+      badge: '🔥 Bestseller',
+      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
+      bgImage: '/images/series_ssc_bg.png',
+      emblem: '/images/exams/emblem_series_ssc.png',
+    },
+  ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-10 sm:pt-3 font-sans">
-      {/* Top Navbar */}
-      <StudentNavbar
-        embedded
-        showSearch={false}
-        onToggleMobileSidebar={outletCtx.onToggleMobileSidebar}
-      />
+    <div className="space-y-4 sm:space-y-5">
+      {/* ── 1. PAGE HEADER (TITLE, SUBTITLE & CATEGORY PILLS) ── */}
+      <div>
+        <h1 className="text-2xl sm:text-[28px] font-black text-[#07194A] dark:text-white tracking-tight leading-tight">
+          Test Series
+        </h1>
+        <p className="text-xs sm:text-[13px] text-[#52648A] dark:text-slate-400 font-medium mt-1">
+          Choose the right test series and boost your preparation
+        </p>
 
-      {/* 1. HERO BANNER WITH INTEGRATED SEARCH & STATS */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B1F44] via-[#0138A8] to-[#0158FC] p-6 sm:p-8 lg:p-10 text-white shadow-xl shadow-blue-900/10 border border-white/10">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#0198FD]/30 blur-3xl pointer-events-none" />
-        <div className="absolute right-24 -bottom-20 h-56 w-56 rounded-full bg-amber-400/15 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-md border border-white/20 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-amber-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Complete Preparation</span>
-            </div>
-
-            <h1 className="mt-3.5 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-              Test Series —{' '}
-              <span className="text-amber-300">All Exams in One Subscription</span>
-            </h1>
-
-            <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-blue-100 max-w-xl">
-              Full Mock Tests · Chapter-wise Tests · Previous Year Questions · Live Tests ·
-              Detailed Bilingual Solutions synced with latest exam patterns.
-            </p>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  document.getElementById('popular-series')?.scrollIntoView({ behavior: 'smooth' })
-                }
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs sm:text-sm font-black text-[#0158FC] shadow-md hover:bg-blue-50 transition-all active:scale-95 cursor-pointer"
-              >
-                <span>Start Testing</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-100 px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                <span>
-                  {seriesList.length} Series · {totalTestsCount}+ Tests Available
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Search Box Card inside Hero */}
-          <div className="w-full lg:w-96 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg">
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-blue-100 mb-2">
-              Find Your Exam Series
-            </label>
-            <div className="relative flex items-center">
-              <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-              <input
-                aria-label="Search test series"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search WBP, WBPSC, SSC, Railway..."
-                className="w-full rounded-xl border border-white/20 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-9 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-amber-300"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 p-1 rounded-full text-slate-400 hover:text-slate-700"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
-              <span className="text-blue-200 font-semibold">Quick:</span>
-              {['WBP', 'WBPSC', 'SSC', 'Railway'].map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setSearchTerm(tag)}
-                  className="px-2 py-0.5 rounded-md bg-white/15 hover:bg-white/25 text-white font-bold transition-colors cursor-pointer"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. TEST TYPE SHORTCUTS (4 Bento Cards) */}
-      <section
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
-        aria-label="Test type shortcuts"
-      >
-        {[
-          {
-            label: 'Full Mock Tests',
-            sub: 'Exam-pattern timed CBT',
-            icon: FileText,
-            color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-            filter: 'full_mock',
-          },
-          {
-            label: 'Chapter-wise Tests',
-            sub: 'Topic & concept mastery',
-            icon: BookOpen,
-            color: 'bg-[#0158FC]/10 text-[#0158FC] dark:text-blue-400',
-            filter: 'topic',
-          },
-          {
-            label: 'Previous Year Questions',
-            sub: 'Authentic past papers',
-            icon: Award,
-            color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-            filter: 'pyq',
-          },
-          {
-            label: 'Live Tests',
-            sub: 'All-India & State Rank',
-            icon: Zap,
-            color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-            filter: 'live',
-          },
-        ].map(({ label, sub, icon: Icon, color, filter }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() =>
-              navigate(filter === 'live' ? '/live-test' : `/practice?type=${filter}`)
-            }
-            className="group flex items-center gap-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-left shadow-[0_4px_16px_-8px_rgba(1,88,252,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#0158FC]/40 hover:shadow-md cursor-pointer"
-          >
-            <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${color}`}
-            >
-              <Icon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <span className="block text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors leading-tight">
-                {label}
-              </span>
-              <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {sub}
-              </span>
-            </div>
-          </button>
-        ))}
-      </section>
-
-      {/* 3. FILTER BAR (Category Pills + Access Filter Toggle) */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        {/* Category Tabs */}
-        <div
-          className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none"
-          aria-label="Filter by exam category"
-        >
-          {CATEGORY_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeCategory === tab.id;
+        {/* Category Filter Pills (App-style horizontal scroll) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-3.5 scrollbar-none">
+          {FILTERS.map((filter, idx) => {
+            const isSelected = selectedFilterIndex === idx;
             return (
               <button
-                key={tab.id}
+                key={filter}
                 type="button"
-                onClick={() => setActiveCategory(tab.id)}
-                className={`inline-flex items-center gap-1.5 shrink-0 rounded-xl px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-sm shadow-blue-500/25'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-[#0158FC]'
+                onClick={() => setSelectedFilterIndex(idx)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#0066FF] text-white shadow-sm shadow-blue-500/25'
+                    : 'bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#0066FF]/40'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{tab.label}</span>
+                {filter}
               </button>
             );
           })}
         </div>
+      </div>
 
-        {/* Access Filter Pills (All / Free / Pro) */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 self-start sm:self-auto">
-          {(
-            [
-              { id: 'all', label: 'All Series' },
-              { id: 'free', label: 'Free' },
-              { id: 'pro', label: 'Pro Pass' },
-            ] as const
-          ).map((item) => (
+      {/* ── 2. SEARCH & FILTER SECTION (App PKSearchFilterBar) ── */}
+      <div className="space-y-2">
+        <div className="relative flex items-center bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 rounded-2xl shadow-2xs px-3.5 py-2.5">
+          <Search className="w-4 h-4 text-[#0066FF] shrink-0 mr-2.5" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search test series (e.g. WBP, SSC, TET...)"
+            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none"
+          />
+          {searchQuery && (
             <button
-              key={item.id}
               type="button"
-              onClick={() => setAccessFilter(item.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                accessFilter === item.id
-                  ? 'bg-white dark:bg-slate-900 text-[#0158FC] dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              onClick={() => setSearchQuery('')}
+              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              aria-label="Clear search"
             >
-              {item.label}
+              <X className="w-4 h-4" />
             </button>
-          ))}
+          )}
         </div>
-      </section>
 
-      {/* 4. TEST SERIES GRID */}
-      <section id="popular-series" className="space-y-4">
+        {/* Search feedback pill */}
+        {searchQuery.trim() && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-[#0066FF] font-bold">
+              <span>Results for "{searchQuery}"</span>
+              <span className="text-[#07194A] dark:text-white">({filteredList.length})</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs font-bold text-red-500 hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. POPULAR TEST SERIES CAROUSEL ── */}
+      {selectedFilterIndex === 0 && !searchQuery.trim() && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🔥</span>
+              <h2 className="text-base sm:text-lg font-black text-[#07194A] dark:text-white tracking-tight">
+                Popular Test Series
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('all-test-series')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-xs sm:text-sm font-bold text-[#0066FF] hover:underline flex items-center gap-1"
+            >
+              <span>See All</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible">
+            {popularSeries.map((series, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  const match = seriesList.find((s) =>
+                    s.title.toLowerCase().includes(series.title.toLowerCase())
+                  );
+                  if (match) {
+                    navigate(`/test-series/${match.slug || match.id}`);
+                  }
+                }}
+                className="relative min-w-[240px] sm:min-w-0 p-4 rounded-2xl border border-white/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex flex-col justify-between overflow-hidden group cursor-pointer"
+              >
+                <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
+                  <img src={series.bgImage} alt="" className="w-full h-full object-cover" />
+                </div>
+
+                <div className="relative z-10 flex items-start justify-between mb-3">
+                  <div>
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold mb-1.5 ${series.badgeBg}`}
+                    >
+                      {series.badge}
+                    </span>
+                    <h4 className="text-base font-black text-[#0B1F5B] dark:text-white leading-tight">
+                      {series.title}
+                    </h4>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                      {series.subtitle}
+                    </p>
+                  </div>
+                  <img src={series.emblem} alt="" className="w-12 h-12 object-contain shrink-0" />
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800">
+                  <span className="text-xs font-bold text-[#0066FF] group-hover:underline">
+                    Explore Series
+                  </span>
+                  <div className="w-6 h-6 rounded-full bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center text-[#0066FF]">
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── 4. ALL TEST SERIES LIST (App TestSeriesCard) ── */}
+      <section id="all-test-series" className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-5 rounded-full bg-gradient-to-b from-[#0158FC] to-[#0198FD]" />
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              🔥 Popular Test Series
+            <h2 className="text-base sm:text-lg font-black text-[#07194A] dark:text-white tracking-tight">
+              All Test Series
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-slate-800 text-[#0158FC] dark:text-blue-400 text-xs font-extrabold">
-              {filteredSeries.length}
+            <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-slate-800 text-[#0066FF] text-xs font-bold">
+              {sortedList.length}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveCategory('all');
-              setAccessFilter('all');
-              setSearchTerm('');
-            }}
-            className="inline-flex items-center gap-1 text-xs sm:text-sm font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline cursor-pointer"
-          >
-            See All <ArrowRight className="h-4 w-4" />
-          </button>
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={selectedSort}
+              onChange={(e) => setSelectedSort(e.target.value as any)}
+              className="bg-transparent text-[#0066FF] font-bold outline-none cursor-pointer"
+            >
+              <option value="Popular">Popular</option>
+              <option value="Most Tests">Most Tests</option>
+              <option value="A-Z">A-Z</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-            {[1, 2, 3, 4, 5, 6].map((item) => (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
               <div
-                key={item}
-                className="h-52 animate-pulse rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 shadow-2xs"
+                key={i}
+                className="h-28 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 animate-pulse"
               />
             ))}
           </div>
-        ) : filteredSeries.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-10 text-center">
-            <Layers className="mx-auto h-10 w-10 text-[#0158FC]" />
-            <p className="mt-3 text-base font-black text-slate-900 dark:text-white">
-              No Test Series Found
-            </p>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Try another category or search term.
+        ) : sortedList.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
+            <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+              No test series found matching your criteria.
             </p>
             <button
               type="button"
               onClick={() => {
-                setActiveCategory('all');
-                setAccessFilter('all');
-                setSearchTerm('');
+                setSelectedFilterIndex(0);
+                setSearchQuery('');
               }}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#0158FC] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 cursor-pointer"
+              className="mt-3 px-4 py-1.5 rounded-full bg-[#0066FF] text-white text-xs font-bold"
             >
               Reset Filters
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-            {filteredSeries.map((series) => {
-              const { emblem, bgColor } = getSeriesEmblem(series);
-              const totalTests = series.testsCount ?? series.testCount ?? 0;
+          <div className="space-y-3">
+            {sortedList.map((series) => {
+              const { emblem, gradient, fullMocks, topicTests, pyqs } = getSeriesVisuals(series);
               return (
-                <article
+                <div
                   key={series.id}
-                  className="group rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.08)] hover:border-[#0158FC]/50 hover:shadow-lg transition-all flex flex-col justify-between"
+                  onClick={() => navigate(`/test-series/${series.slug || series.id}`)}
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-[#E8EEF7] dark:border-slate-800 p-3 sm:p-4 shadow-[0_3px_10px_rgba(7,25,74,0.035)] hover:shadow-md hover:border-[#0066FF]/40 transition-all cursor-pointer flex items-center gap-3 sm:gap-4 group"
                 >
-                  <div>
-                    <div className="flex items-start gap-4">
-                      <SeriesEmblem emblem={emblem} bgColor={bgColor} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          {series.isPremium ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                              <Crown className="h-3 w-3 fill-amber-500 text-amber-500" />
-                              Pro Series
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                              Free Access
-                            </span>
-                          )}
-                          {series.isPopular && (
-                            <span className="inline-flex items-center rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                              🔥 Popular
-                            </span>
-                          )}
-                        </div>
+                  {/* Square Exam Emblem Icon with soft gradient (66px) */}
+                  <div
+                    className={`w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-xl bg-gradient-to-br ${gradient} p-2 flex items-center justify-center shrink-0 border border-white dark:border-slate-700 shadow-2xs`}
+                  >
+                    <img
+                      src={emblem}
+                      alt=""
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.currentTarget.src = '/logo-icon.png';
+                      }}
+                    />
+                  </div>
 
-                        <h3 className="text-base font-black text-slate-900 dark:text-white leading-snug group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors line-clamp-2">
-                          {series.title}
-                        </h3>
-                      </div>
-                    </div>
-
-                    <div className="mt-3.5 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/50 px-2.5 py-1 font-bold text-[#0158FC] dark:text-blue-300">
-                        {totalTests} Tests
+                  {/* Content Column */}
+                  <div className="min-w-0 flex-1">
+                    {/* Top Row: Title + Full Syllabus Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm sm:text-[15px] font-extrabold text-[#07194A] dark:text-white truncate group-hover:text-[#0066FF] transition-colors">
+                        {series.title}
+                      </h3>
+                      <span className="shrink-0 px-2 py-0.5 rounded-md bg-[#EFF6FF] dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-[#0066FF] text-[10px] font-bold">
+                        Full Syllabus
                       </span>
-                      {series.examTitle && (
-                        <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[200px]">
-                          {series.examTitle}
-                        </span>
-                      )}
                     </div>
 
-                    <p className="mt-3 line-clamp-2 text-xs sm:text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                      {series.description ||
-                        'Full Mock, Chapter-wise, PYQ and Live Tests with detailed solutions.'}
+                    {/* Subtitle */}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                      {series.description || 'Latest pattern • Chapter-wise & full length mock tests'}
                     </p>
-                  </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
-                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
-                      Bilingual • Latest Pattern
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/test-series/${series.slug || series.id}`)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:from-[#0047cc] hover:to-[#0158FC] px-4 py-2.5 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-blue-500/20 transition-all active:scale-95 cursor-pointer"
-                    >
-                      <span>View Series</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
+                    {/* Bottom Row: 3 Stat Chips + View Button */}
+                    <div className="flex items-center justify-between gap-2 mt-2.5 pt-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EEF5FF] dark:bg-blue-950/40 text-[#0066FF] dark:text-blue-400 text-[10.5px] font-bold shrink-0">
+                          <FileText className="w-3 h-3" />
+                          <span>{fullMocks} Full Mock</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EDF8F2] dark:bg-emerald-950/40 text-[#10B981] dark:text-emerald-400 text-[10.5px] font-bold shrink-0">
+                          <BookOpen className="w-3 h-3" />
+                          <span>{topicTests} Topic</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] dark:bg-amber-950/40 text-[#F59E0B] dark:text-amber-400 text-[10.5px] font-bold shrink-0">
+                          <HelpCircle className="w-3 h-3" />
+                          <span>{pyqs} PYQ</span>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/test-series/${series.slug || series.id}`);
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#0066FF] hover:bg-[#0066FF] hover:text-white dark:hover:bg-[#0066FF] dark:hover:text-white text-xs font-bold transition-colors"
+                      >
+                        <span>View</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </article>
+                </div>
               );
             })}
           </div>
@@ -596,4 +489,3 @@ export const TestSeriesCatalog: React.FC = () => {
     </div>
   );
 };
-

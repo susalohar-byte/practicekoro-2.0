@@ -1,72 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useOutletContext } from 'react-router-dom';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { bannerService } from '@/services/bannerService';
-import { getBannerTheme as getSharedBannerTheme } from '@/utils/bannerTheme';
 import {
-  ArrowRight,
   ChevronRight,
   ChevronLeft,
-  FileCheck,
-  FileText,
-  Flame,
-  CheckCircle2,
-  BookOpen,
-  Target,
-  BarChart3,
-  Clock,
+  Calendar,
   Sparkles,
-  Smartphone,
-  Headphones,
-  Trophy,
+  ArrowRight,
+  Radio,
+  Play,
+  BookOpen,
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { api } from '@/services/api';
 
-const resolvePopularSeriesEmblem = (series: {
-  iconUrl?: string | null;
-  examId?: string | null;
-  title: string;
-  examTitle?: string | null;
-}) => {
-  if (series.iconUrl && series.iconUrl.trim().length > 0) {
-    return series.iconUrl.trim();
-  }
-  const combined = `${series.examId || ''} ${series.title || ''} ${series.examTitle || ''}`.toLowerCase();
-  if (combined.includes('wbp') || combined.includes('constable') || combined.includes('police') || combined.includes('kp')) {
-    return '/images/exams/emblem_wbp.png';
-  }
-  if (combined.includes('wbpsc') || combined.includes('clerkship') || combined.includes('wbcs') || combined.includes('misc') || combined.includes('food')) {
-    return '/images/exams/emblem_wbpsc.png';
-  }
-  if (combined.includes('rail') || combined.includes('rrb') || combined.includes('ntpc') || combined.includes('group d') || combined.includes('group-d')) {
-    return '/images/exams/emblem_railway.png';
-  }
-  if (combined.includes('tet') || combined.includes('teach') || combined.includes('primary')) {
-    return '/images/exams/emblem_tet.png';
-  }
-  if (combined.includes('wbssc') || combined.includes('slst') || combined.includes('school')) {
-    return '/images/exams/emblem_wbssc.png';
-  }
-  if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('chsl') || combined.includes('gd')) {
-    return '/images/exams/emblem_ssc.png';
-  }
-  return '/logo-icon-circle.png';
-};
-
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
   const navigate = useNavigate();
-  const { onToggleMobileSidebar } = useOutletContext<{
-    onToggleMobileSidebar: () => void;
-    onToggleCollapse: () => void;
-    isSidebarCollapsed: boolean;
-  }>();
-
-  // Dynamic Banners (cached query with audience targeting and static fallback)
   const queryClient = useQueryClient();
+
+  // Dynamic Banners
   const audience = isPro ? 'pro' : 'free';
   const { data: banners = [] } = useQuery({
     queryKey: ['hero-banners', audience],
@@ -95,12 +50,6 @@ export const Home: React.FC = () => {
     refetchInterval: 30000,
   });
 
-  const { data: popularTestSeries = [] } = useQuery({
-    queryKey: ['popular-test-series'],
-    queryFn: () => api.getPopularTestSeries(),
-    staleTime: 30000,
-  });
-
   const { data: userAttempts = [] } = useQuery({
     queryKey: ['home-user-attempts', user?.id],
     queryFn: () => (user?.id ? api.getUserAttempts(user.id) : Promise.resolve([])),
@@ -108,85 +57,9 @@ export const Home: React.FC = () => {
     staleTime: 30000,
   });
 
-  const completedAttempts = userAttempts.filter((a) => a.status === 'completed');
   const inProgressAttempt = userAttempts.find((a) => a.status === 'in_progress');
-  const testsTakenCount = completedAttempts.length;
-  const totalCorrectCount = completedAttempts.reduce((sum, a) => sum + (a.correctCount || 0), 0);
-  const totalWrongCount = completedAttempts.reduce((sum, a) => sum + (a.wrongCount || 0), 0);
-  const questionsPracticedCount = totalCorrectCount + totalWrongCount;
-  const overallAccuracyPct =
-    completedAttempts.length > 0
-      ? Math.round(
-          completedAttempts.reduce((sum, a) => sum + (a.accuracy || 0), 0) /
-            completedAttempts.length
-        )
-      : 0;
-  const activeStreakDays = (() => {
-    if (completedAttempts.length === 0) return 0;
-    const uniqueDays = new Set(
-      completedAttempts.map((a) => new Date(a.createdAt).toISOString().slice(0, 10))
-    );
-    return uniqueDays.size;
-  })();
 
-  const liveStartAt = activeLiveTest?.startAt || activeLiveTest?.scheduledStartTime;
-  const startTime = liveStartAt ? new Date(liveStartAt).getTime() : Date.now() + 300000000;
-  const durationMs = (activeLiveTest?.durationMinutes || 90) * 60 * 1000;
-  const endTime = startTime + durationMs;
-
-  const isLiveNow = activeLiveTest?.status === 'live' || (currentTime >= startTime && currentTime <= endTime);
-  const isEnded = activeLiveTest?.status === 'ended' || (currentTime > endTime && activeLiveTest?.status !== 'upcoming');
-  const isUpcoming = !isLiveNow && !isEnded;
-
-  const timeDiff = Math.max(0, startTime - currentTime);
-  const countdownDays = String(Math.floor(timeDiff / (1000 * 60 * 60 * 24))).padStart(2, '0');
-  const countdownHours = String(Math.floor((timeDiff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
-  const countdownMinutes = String(Math.floor((timeDiff / (1000 * 60)) % 60)).padStart(2, '0');
-  const countdownSeconds = String(Math.floor((timeDiff / 1000) % 60)).padStart(2, '0');
-
-  // Keep slide index within valid bounds whenever active banners change
-  useEffect(() => {
-    if (banners.length > 0 && currentSlide >= banners.length) {
-      setCurrentSlide(0);
-    }
-  }, [banners.length, currentSlide]);
-
-  // Mobile Touch Swipe Handling
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const minSwipeDistance = 45;
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setIsHovered(true);
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    setIsHovered(false);
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    if (distance > minSwipeDistance) {
-      nextSlide();
-    } else if (distance < -minSwipeDistance) {
-      prevSlide();
-    }
-  };
-
-  // Onboarding Modal State
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
-
-  useEffect(() => {
-    const handleOpenTour = () => setIsOnboardingOpen(true);
-    window.addEventListener('pk_open_onboarding', handleOpenTour);
-    return () => window.removeEventListener('pk_open_onboarding', handleOpenTour);
-  }, []);
-
-  // Real-time synchronization for banner and live test changes
+  // Real-time sync
   useEffect(() => {
     const unsubscribeBanners = bannerService.subscribeToBannerUpdates(() => {
       queryClient.invalidateQueries({ queryKey: ['hero-banners'] });
@@ -205,7 +78,15 @@ export const Home: React.FC = () => {
     };
   }, [queryClient]);
 
-  // Auto rotation every 5s when not hovered or touched
+  // Live test countdown
+  const liveStartAt = activeLiveTest?.startAt || activeLiveTest?.scheduledStartTime;
+  const startTime = liveStartAt ? new Date(liveStartAt).getTime() : Date.now() + 172800000;
+  const timeDiff = Math.max(0, startTime - currentTime);
+  const countdownDays = String(Math.floor(timeDiff / (1000 * 60 * 60 * 24))).padStart(2, '0');
+  const countdownHours = String(Math.floor((timeDiff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+  const countdownMinutes = String(Math.floor((timeDiff / (1000 * 60)) % 60)).padStart(2, '0');
+
+  // Slide rotation
   useEffect(() => {
     if (banners.length <= 1 || isHovered) return;
     const timer = setInterval(() => {
@@ -217,818 +98,739 @@ export const Home: React.FC = () => {
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev === 0 ? banners.length - 1 : prev - 1));
   };
-
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % banners.length);
   };
 
-  // Time-based greeting with fallback to Candidate
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'GOOD MORNING';
-    if (hour < 17) return 'GOOD AFTERNOON';
-    return 'GOOD EVENING';
-  };
+  // Onboarding Modal
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
 
-  const displayName = user?.fullName?.split(' ')[0]?.toUpperCase() || 'CANDIDATE';
-
-  // Subject categories for practice
-  const subjects = [
+  // 4 Core Practice Cards
+  const coreActions = [
     {
-      id: 'math',
-      title: 'Mathematics',
-      questions: 'Topic Practice',
-      color: 'bg-blue-600 text-white',
-      symbol: '∑',
+      title: 'Mock Test',
+      subtitle: 'Full Test Experience',
+      image: '/images/card_mock_test.png',
+      route: '/test-series',
+      gradient: 'from-[#00A2FF] to-[#0052D4]',
+      shadow: 'shadow-[0_4px_12px_rgba(0,82,212,0.28)]',
     },
     {
-      id: 'reasoning',
-      title: 'Reasoning',
-      questions: 'Topic Practice',
-      color: 'bg-rose-500 text-white',
-      symbol: '🎗',
+      title: 'Topic Practice',
+      subtitle: 'Chapter-wise',
+      image: '/images/card_topic_practice.png',
+      route: '/practice',
+      gradient: 'from-[#2DD878] to-[#059669]',
+      shadow: 'shadow-[0_4px_12px_rgba(5,150,105,0.28)]',
     },
     {
-      id: 'gk',
-      title: 'General Knowledge',
-      questions: 'Topic Practice',
-      color: 'bg-emerald-500 text-white',
-      symbol: '🌐',
+      title: 'Previous Year',
+      subtitle: 'Real Exam Questions',
+      image: '/images/card_previous_year.png',
+      route: '/practice?tab=pyqs',
+      gradient: 'from-[#FBBF24] via-[#F97316] to-[#EA580C]',
+      shadow: 'shadow-[0_4px_12px_rgba(234,88,12,0.28)]',
     },
     {
-      id: 'english',
-      title: 'English',
-      questions: 'Topic Practice',
-      color: 'bg-purple-600 text-white',
-      symbol: 'A',
-    },
-    {
-      id: 'bengali',
-      title: 'Bengali',
-      questions: 'Topic Practice',
-      color: 'bg-amber-500 text-white',
-      symbol: 'অ',
-    },
-    {
-      id: 'computer',
-      title: 'Computer Awareness',
-      questions: 'Topic Practice',
-      color: 'bg-sky-500 text-white',
-      symbol: '💻',
-    },
-    {
-      id: 'current-affairs',
-      title: 'Current Affairs',
-      questions: 'Topic Practice',
-      color: 'bg-pink-500 text-white',
-      symbol: '📅',
-    },
-    {
-      id: 'environment',
-      title: 'Environment',
-      questions: 'Topic Practice',
-      color: 'bg-teal-500 text-white',
-      symbol: '🌱',
+      title: 'Live Tests',
+      subtitle: 'Join & Compete',
+      image: '/images/card_live_tests.png',
+      route: '/test-series',
+      gradient: 'from-[#FB7185] via-[#E11D48] to-[#BE123C]',
+      shadow: 'shadow-[0_4px_12px_rgba(190,18,60,0.28)]',
     },
   ];
 
-  // Theme styles come from the shared banner theme map (also used by the
-  // admin live preview) — see src/utils/bannerTheme.ts.
-  const getBannerTheme = (theme?: string) => getSharedBannerTheme(theme);
+  // 3 Popular Exams
+  const popularExams = [
+    {
+      title: 'WBP Constable',
+      testsCount: '120+ Tests',
+      image: '/images/exam_wbp_card.png',
+      route: '/test-series',
+      gradient: 'from-[#00A2FF] to-[#0052D4]',
+    },
+    {
+      title: 'KP Constable',
+      testsCount: '100+ Tests',
+      image: '/images/exam_kp_card.png',
+      route: '/test-series',
+      gradient: 'from-[#A855F7] to-[#6D28D9]',
+    },
+    {
+      title: 'SSC GD',
+      testsCount: '150+ Tests',
+      image: '/images/exam_ssc_card.png',
+      route: '/test-series',
+      gradient: 'from-[#F97316] to-[#DC2626]',
+    },
+  ];
 
-  const getPillIcon = (name: string, iconClass: string) => {
-    const lower = name.toLowerCase();
-    if (lower.includes('topic') || lower.includes('practice')) return <Target className={iconClass} />;
-    if (lower.includes('pyq') || lower.includes('previous') || lower.includes('question')) return <BookOpen className={iconClass} />;
-    if (lower.includes('solution') || lower.includes('correct')) return <CheckCircle2 className={iconClass} />;
-    if (lower.includes('rank') || lower.includes('analysis') || lower.includes('score')) return <BarChart3 className={iconClass} />;
-    if (lower.includes('exam') || lower.includes('mock') || lower.includes('test')) return <FileText className={iconClass} />;
-    return <Sparkles className={iconClass} />;
-  };
+  // 3 Popular Test Series
+  const popularSeries = [
+    {
+      title: 'WBP Constable',
+      subtitle: 'Test Series 2026',
+      badge: '🔥 Bestseller',
+      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
+      bgImage: '/images/series_wbp_bg.png',
+      emblem: '/images/exams/emblem_series_wbp.png',
+      route: '/test-series',
+    },
+    {
+      title: 'KP Constable',
+      subtitle: 'Test Series 2026',
+      badge: '⭐ Most Popular',
+      badgeBg: 'bg-[#FEF3C7] text-[#B45309]',
+      bgImage: '/images/series_kp_bg.png',
+      emblem: '/images/exams/emblem_series_kp.png',
+      route: '/test-series',
+    },
+    {
+      title: 'SSC GD',
+      subtitle: 'Test Series 2026',
+      badge: '🔥 Bestseller',
+      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
+      bgImage: '/images/series_ssc_bg.png',
+      emblem: '/images/exams/emblem_series_ssc.png',
+      route: '/test-series',
+    },
+  ];
+
+  // Continue Practice Items
+  const continueItems = [
+    ...(inProgressAttempt
+      ? [
+          {
+            examBadge: 'Current In-Progress',
+            testName: inProgressAttempt.testTitle || 'Mock Test',
+            subject: 'Continue where you left off',
+            completed:
+              (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0),
+            total: Math.max(
+              1,
+              (inProgressAttempt.correctCount || 0) +
+                (inProgressAttempt.wrongCount || 0) +
+                (inProgressAttempt.skippedCount || 0)
+            ),
+            emblem: '/images/exams/emblem_series_wbp.png',
+            bgImage: '/images/series_wbp_bg.png',
+            badgeBg: 'bg-[#E0EDFF] text-[#0066FF]',
+            btnColor: 'bg-[#0066FF]',
+            route: `/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`,
+          },
+        ]
+      : []),
+    {
+      examBadge: 'WBP Constable',
+      testName: 'Mock Test 12',
+      subject: 'General Knowledge',
+      completed: 7,
+      total: 20,
+      emblem: '/images/exams/emblem_series_wbp.png',
+      bgImage: '/images/series_wbp_bg.png',
+      badgeBg: 'bg-[#E0EDFF] text-[#0066FF]',
+      btnColor: 'bg-[#0066FF]',
+      route: '/test-series',
+    },
+    {
+      examBadge: 'KP Constable',
+      testName: 'Mock Test 08',
+      subject: 'Reasoning',
+      completed: 12,
+      total: 25,
+      emblem: '/images/exams/emblem_series_kp.png',
+      bgImage: '/images/series_kp_bg.png',
+      badgeBg: 'bg-[#F0E5FA] text-[#6B21A8]',
+      btnColor: 'bg-[#6B21A8]',
+      route: '/test-series',
+    },
+    {
+      examBadge: 'SSC GD',
+      testName: 'Practice Set 05',
+      subject: 'Mathematics',
+      completed: 10,
+      total: 30,
+      emblem: '/images/exams/emblem_series_ssc.png',
+      bgImage: '/images/series_ssc_bg.png',
+      badgeBg: 'bg-[#FFE5DA] text-[#EA580C]',
+      btnColor: 'bg-[#EA580C]',
+      route: '/practice',
+    },
+  ];
+
+  // Top Performers
+  const topPerformers = [
+    {
+      rank: 1,
+      name: 'Rahul Das',
+      score: '94%',
+      exam: 'WBP Constable',
+      tests: '32 Tests Attempted',
+      avatar: '/images/performer_rahul.png',
+      badge: '/images/performer_badge_1.png',
+      bgGradient: 'from-[#FFFDF5] to-[#FFF7E8]',
+      scoreBg: 'bg-[#FEE8CE] text-[#9A3412]',
+    },
+    {
+      rank: 2,
+      name: 'Amit Kumar',
+      score: '92%',
+      exam: 'KP Constable',
+      tests: '28 Tests Attempted',
+      avatar: '/images/performer_amit.png',
+      badge: '/images/performer_badge_2.png',
+      bgGradient: 'from-[#F4F8FD] to-[#E9F3FE]',
+      scoreBg: 'bg-[#DBEAFE] text-[#1D4ED8]',
+    },
+    {
+      rank: 3,
+      name: 'Sneha Roy',
+      score: '89%',
+      exam: 'SSC GD',
+      tests: '25 Tests Attempted',
+      avatar: '/images/performer_sneha.png',
+      badge: '/images/performer_badge_3.png',
+      bgGradient: 'from-[#FFF7F2] to-[#FDECE3]',
+      scoreBg: 'bg-[#FFE5DA] text-[#9A3412]',
+    },
+    {
+      rank: 4,
+      name: 'Priya Sharma',
+      score: '86%',
+      exam: 'WBP Constable',
+      tests: '22 Tests Attempted',
+      avatar: '/images/performer_priya.png',
+      badge: '/images/performer_badge_4.png',
+      bgGradient: 'from-[#F2FBF6] to-[#E4F8EE]',
+      scoreBg: 'bg-[#D1FAE5] text-[#065F46]',
+    },
+  ];
 
   return (
-    <div className="pk-reference-shell space-y-5 pt-2 sm:pt-3">
-      {/* Top Bar: Search, Theme, Bell, Profile — embedded directly into the page (no sticky header) */}
-      <StudentNavbar embedded onToggleMobileSidebar={onToggleMobileSidebar} />
-
-      {/* 1. DYNAMIC HERO BANNER CAROUSEL */}
-      {banners.length > 0 && (() => {
-        const activeBanners = banners;
-        const banner = activeBanners[currentSlide] || activeBanners[0];
-        const theme = getBannerTheme(banner.themeGradient);
-        const formattedBadge = (banner.badgeText || '')
-          .replace('{GREETING}', getGreeting())
-          .replace('{USER}', displayName);
-
-        const isTextOverlay = banner.bannerType === 'text_overlay';
-
-        if (!isTextOverlay && banner.imageUrl) {
-          const isExternalLink = banner.primaryCtaLink?.startsWith('http');
-          const destination = banner.primaryCtaLink || '/exams';
-
-          return (
-            <div
-              className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-slate-800 transition-all duration-300 group bg-slate-100 dark:bg-slate-900 select-none"
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-            >
-              {/* App Tour Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsOnboardingOpen(true)}
-                className="absolute top-3 right-3 z-20 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/60 backdrop-blur-md text-white border border-white/20 text-[10.5px] font-bold shadow-md hover:bg-slate-900/80 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                title="Watch App Tour"
-              >
-                <Sparkles className="w-3 h-3 text-amber-400 animate-spin-slow" />
-                <span>App Tour</span>
-              </button>
-
-              {/* Clickable Full Banner Image with Responsive Aspect Ratio */}
-              {isExternalLink ? (
-                <a
-                  href={destination}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => bannerService.trackBannerClick(banner.id)}
-                  className="block w-full overflow-hidden cursor-pointer"
-                  aria-label={banner.title}
-                >
-                  <picture>
-                    {banner.mobileImageUrl && (
-                      <source media="(max-width: 639px)" srcSet={banner.mobileImageUrl} />
-                    )}
-                    <img
-                      src={banner.imageUrl}
-                      alt={banner.title}
-                      loading={currentSlide === 0 ? 'eager' : 'lazy'}
-                      decoding="async"
-                      onError={(e) => {
-                        e.currentTarget.src = '/images/exam_hero_banner.png';
-                      }}
-                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[10/3] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
-                    />
-                  </picture>
-                </a>
-              ) : (
-                <Link
-                  to={destination}
-                  onClick={() => bannerService.trackBannerClick(banner.id)}
-                  className="block w-full overflow-hidden cursor-pointer"
-                  aria-label={banner.title}
-                >
-                  <picture>
-                    {banner.mobileImageUrl && (
-                      <source media="(max-width: 639px)" srcSet={banner.mobileImageUrl} />
-                    )}
-                    <img
-                      src={banner.imageUrl}
-                      alt={banner.title}
-                      loading={currentSlide === 0 ? 'eager' : 'lazy'}
-                      decoding="async"
-                      onError={(e) => {
-                        e.currentTarget.src = '/images/exam_hero_banner.png';
-                      }}
-                      className="w-full aspect-[16/7] sm:aspect-[21/8] md:aspect-[10/3] object-cover object-center rounded-2xl sm:rounded-3xl transition-transform duration-500 group-hover:scale-[1.01]"
-                    />
-                  </picture>
-                </Link>
-              )}
-
-              {/* Carousel Controls */}
-              {activeBanners.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      prevSlide();
-                    }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 dark:bg-slate-800/80 hover:bg-white text-slate-700 dark:text-slate-200 shadow-md border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
-                    aria-label="Previous banner"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      nextSlide();
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 dark:bg-slate-800/80 hover:bg-white text-slate-700 dark:text-slate-200 shadow-md border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
-                    aria-label="Next banner"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-
-                  <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/40 backdrop-blur-md">
-                    {activeBanners.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setCurrentSlide(i);
-                        }}
-                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                          i === currentSlide ? 'w-6 bg-white shadow-xs' : 'w-2 bg-white/60 hover:bg-white'
-                        }`}
-                        aria-label={`Slide ${i + 1}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        }
-
-        return (
+    <div className="space-y-4 sm:space-y-5">
+      {/* ========================================================= */}
+      {/* 1. HERO BANNER (Aspect Ratio 438/200)                     */}
+      {/* ========================================================= */}
+      <section className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-[#E2ECF8] dark:border-slate-800 bg-[#D9EEFF] dark:bg-slate-900 group select-none">
+        {banners.length > 0 && banners[currentSlide]?.imageUrl ? (
           <div
-            className={`relative rounded-3xl ${theme.cardBg} border p-6 sm:p-8 lg:p-9 pb-8 sm:pb-9 overflow-hidden shadow-xs transition-colors duration-500 group min-h-[285px] md:h-[300px] flex flex-col justify-between`}
+            className="relative w-full aspect-[438/200] cursor-pointer"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onClick={() => {
+              const b = banners[currentSlide];
+              if (b) {
+                bannerService.trackBannerClick(b.id);
+                if (b.primaryCtaLink?.startsWith('http')) {
+                  window.open(b.primaryCtaLink, '_blank');
+                } else {
+                  navigate(b.primaryCtaLink || '/practice');
+                }
+              }
+            }}
           >
-            <div className="max-w-3xl relative z-10">
-              {/* Greeting Badge & App Tour Trigger */}
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {formattedBadge && (
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${theme.badge} border text-[11px] font-black tracking-wider uppercase shadow-2xs`}>
-                    <span>{formattedBadge}</span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsOnboardingOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-slate-700 text-[11px] font-bold shadow-2xs hover:bg-blue-50 dark:hover:bg-slate-700 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                  title="Watch App Tour"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-500 animate-spin-slow" />
-                  <span>App Tour</span>
-                </button>
-              </div>
-
-              {/* Heading */}
-              <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-black text-slate-900 tracking-tight leading-[1.2] mb-2.5">
-                {banner.title}
-                {banner.highlightWord && (
-                  <>
-                    <br />
-                    <span className={theme.highlightText}>{banner.highlightWord}</span>
-                  </>
-                )}
-              </h1>
-
-              {/* Subtitle */}
-              {banner.subtitle && (
-                <p className="text-xs sm:text-sm text-slate-600 font-medium mb-5 max-w-lg leading-relaxed line-clamp-2">
-                  {banner.subtitle}
-                </p>
-              )}
-
-              {/* CTA Buttons */}
-              <div className="flex flex-wrap items-center gap-3 mb-5">
-                {banner.primaryCtaText && (
-                  <Link
-                    to={banner.primaryCtaLink || '/exams'}
-                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl ${theme.primaryBtn} text-xs sm:text-sm font-bold shadow-md transition-all active:scale-[0.98]`}
-                  >
-                    <span>{banner.primaryCtaText}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                )}
-                {banner.secondaryCtaText && (
-                  <Link
-                    to={banner.secondaryCtaLink || '/exams'}
-                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl ${theme.secondaryBtn} text-xs sm:text-sm font-bold shadow-2xs transition-all active:scale-[0.98]`}
-                  >
-                    <span>{banner.secondaryCtaText}</span>
-                  </Link>
-                )}
-              </div>
-
-              {/* Feature Badges Row - Single line */}
-              {banner.featurePills && banner.featurePills.length > 0 && (
-                <div className="flex items-center gap-2 text-[10.5px] font-semibold text-slate-700 pt-1 pb-3 overflow-x-auto scrollbar-none max-w-full">
-                  {banner.featurePills.map((pill, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200/80 shadow-2xs whitespace-nowrap shrink-0"
-                    >
-                      {getPillIcon(pill, `w-3.5 h-3.5 ${theme.pillIcon}`)} {pill}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Carousel Controls (When multiple active banners exist) */}
-            {activeBanners.length > 1 && (
+            <img
+              src={banners[currentSlide].imageUrl}
+              alt={banners[currentSlide].title || 'Hero Banner'}
+              className="w-full h-full object-fill object-center"
+              onError={(e) => {
+                e.currentTarget.src = '/images/home_hero_banner.png';
+              }}
+            />
+            {banners.length > 1 && (
               <>
-                {/* Prev Arrow */}
                 <button
                   type="button"
-                  onClick={prevSlide}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md border border-slate-200/80 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95"
-                  aria-label="Previous banner"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevSlide();
+                  }}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Previous slide"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-
-                {/* Next Arrow */}
                 <button
                   type="button"
-                  onClick={nextSlide}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md border border-slate-200/80 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95"
-                  aria-label="Next banner"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextSlide();
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Next slide"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
-
-                {/* Dots Navigation */}
-                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/20 backdrop-blur-md">
-                  {activeBanners.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setCurrentSlide(i)}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        i === currentSlide ? 'w-6 bg-white shadow-xs' : 'w-2 bg-white/60 hover:bg-white'
-                      }`}
-                      aria-label={`Slide ${i + 1}`}
-                    />
-                  ))}
-                </div>
               </>
             )}
           </div>
-        );
-      })()}
+        ) : (
+          <div
+            onClick={() => navigate('/practice')}
+            className="w-full aspect-[438/200] cursor-pointer relative"
+          >
+            <img
+              src="/images/home_hero_banner.png"
+              alt="Practice Smart - Get Closer to Your Dream Job"
+              className="w-full h-full object-fill object-center"
+              onError={(e) => {
+                e.currentTarget.src = '/images/exam_hero_banner.png';
+              }}
+            />
+          </div>
+        )}
+      </section>
 
-      {/* 2. 4 VIBRANT KPI STAT CARDS (Stitch Bento Grid) */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* 1. Tests Taken */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(1,88,252,0.08)] hover:shadow-md hover:border-blue-300/80 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Tests Taken</span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#0158FC]/10 text-[#0158FC] dark:text-blue-400 flex items-center justify-center shrink-0">
-              <FileCheck className="w-5 h-5" />
+      {/* ========================================================= */}
+      {/* 2. 4 CORE PRACTICE ACTION CARDS                           */}
+      {/* ========================================================= */}
+      <section className="grid grid-cols-4 gap-2 sm:gap-3.5">
+        {coreActions.map((card, idx) => (
+          <Link
+            key={idx}
+            to={card.route}
+            className={`relative aspect-[221/224] rounded-2xl sm:rounded-2xl overflow-hidden ${card.shadow} hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 group block`}
+          >
+            <img
+              src={card.image}
+              alt={card.title}
+              className="w-full h-full object-fill"
+              onError={(e) => {
+                // Fallback vector card
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            {/* Fallback decorative elements if image fails or transparent */}
+            <div className="absolute inset-0 bg-gradient-to-br -z-10 from-blue-600 to-indigo-700" />
+          </Link>
+        ))}
+      </section>
+
+      {/* ========================================================= */}
+      {/* 3. LIVE TEST CARD                                         */}
+      {/* ========================================================= */}
+      <section className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#FFF4EE] to-[#F3F8FF] dark:from-slate-900 dark:to-slate-800 border border-[#E5ECF8] dark:border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EF233C] text-white text-[10px] font-black uppercase tracking-wider mb-2">
+              <Radio className="w-3 h-3 animate-pulse" />
+              <span>LIVE TEST</span>
             </div>
+            <h3 className="text-base sm:text-lg font-black text-[#0B1F5B] dark:text-white tracking-tight">
+              {activeLiveTest?.title || 'WBP Constable Weekly Test'}
+            </h3>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-              {testsTakenCount}
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Completed</span>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-[#0158FC] dark:text-blue-400 font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0158FC]" />
-            <span>Synced with My Results</span>
+
+          {/* Countdown Boxes */}
+          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+            <div className="w-9 h-11 bg-white dark:bg-slate-800 border border-[#E8EEF7] dark:border-slate-700 rounded-xl flex flex-col items-center justify-center shadow-2xs">
+              <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white leading-tight">
+                {countdownDays}
+              </span>
+              <span className="text-[8px] font-semibold text-slate-500">Days</span>
+            </div>
+            <div className="w-9 h-11 bg-white dark:bg-slate-800 border border-[#E8EEF7] dark:border-slate-700 rounded-xl flex flex-col items-center justify-center shadow-2xs">
+              <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white leading-tight">
+                {countdownHours}
+              </span>
+              <span className="text-[8px] font-semibold text-slate-500">Hours</span>
+            </div>
+            <div className="w-9 h-11 bg-white dark:bg-slate-800 border border-[#E8EEF7] dark:border-slate-700 rounded-xl flex flex-col items-center justify-center shadow-2xs">
+              <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white leading-tight">
+                {countdownMinutes}
+              </span>
+              <span className="text-[8px] font-semibold text-slate-500">Mins</span>
+            </div>
           </div>
         </div>
 
-        {/* 2. Questions Practiced */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(16,185,129,0.08)] hover:shadow-md hover:border-emerald-300/80 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Questions Practiced</span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <FileText className="w-5 h-5" />
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#E5ECF8]/70 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-3.5 text-xs text-[#20366F] dark:text-slate-300 font-semibold">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#20366F] dark:text-blue-400" />
+              <span>Sat, 28 Sep • 10:00 AM</span>
             </div>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span>{activeLiveTest?.totalQuestions || 100} Questions</span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span>{activeLiveTest?.durationMinutes || 90} Minutes</span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span className="text-[#0877FF] font-bold">All India Rank</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-              {questionsPracticedCount}
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Solved</span>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{totalCorrectCount} Correct Answers</span>
-          </div>
-        </div>
 
-        {/* 3. Overall Accuracy */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(124,58,237,0.08)] hover:shadow-md hover:border-violet-300/80 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Accuracy</span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
-              <Target className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-              {overallAccuracyPct}%
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Net</span>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-violet-600 dark:text-violet-400 font-bold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{overallAccuracyPct >= 75 ? 'High Accuracy Tier' : 'Keep Practicing Daily'}</span>
-          </div>
-        </div>
-
-        {/* 4. Day Streak */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-[0_6px_20px_-10px_rgba(245,158,11,0.08)] hover:shadow-md hover:border-amber-300/80 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Day Streak</span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <Flame className="w-5 h-5 fill-amber-500/20" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-              {activeStreakDays}
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">Days Active</span>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-bold">
-            <span>🔥</span>
-            <span>{activeStreakDays > 0 ? 'Momentum Active!' : 'Start Today’s Streak'}</span>
-          </div>
+          <Link
+            to="/test-series"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#0877FF] hover:bg-[#0066FF] text-white text-xs font-extrabold shadow-sm active:scale-95 transition-all"
+          >
+            <span>Join Now</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </section>
 
-      {/* 3. BENTO ROW: LIVE TEST SPOTLIGHT & CONTINUE IN-PROGRESS TEST */}
-      {(activeLiveTest || inProgressAttempt) && (
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* LIVE TEST CARD (Synced with Mobile UI & Supabase) */}
-          {activeLiveTest && (
-            <div
-              className={`${
-                inProgressAttempt ? 'lg:col-span-7' : 'lg:col-span-12'
-              } rounded-3xl bg-gradient-to-br from-[#0B1F44] via-[#0F2557] to-[#0138A8] text-white p-5 sm:p-6 shadow-xl border border-blue-400/20 relative overflow-hidden flex flex-col justify-between`}
-            >
-              <div className="absolute -right-16 -top-16 w-52 h-52 bg-[#0198FD]/20 rounded-full blur-3xl pointer-events-none" />
-              <div className="relative z-10">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                  {/* Status badge */}
-                  {isLiveNow ? (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500 text-white text-[11px] font-black tracking-wider uppercase shadow-sm shadow-rose-500/30">
-                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                      LIVE NOW
-                    </div>
-                  ) : isEnded ? (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700/90 text-slate-200 text-[11px] font-black tracking-wider uppercase">
-                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      LIVE TEST ENDED
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black tracking-wider uppercase shadow-sm">
-                      <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
-                      UPCOMING LIVE TEST
-                    </div>
-                  )}
-
-                  {/* Countdown timer boxes: only show if isUpcoming */}
-                  {isUpcoming && (
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
-                        <span className="font-extrabold text-sm">{countdownDays}</span>{' '}
-                        <span className="text-[10px] text-blue-200">d</span>
-                      </div>
-                      <span className="text-blue-300 font-bold">:</span>
-                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
-                        <span className="font-extrabold text-sm">{countdownHours}</span>{' '}
-                        <span className="text-[10px] text-blue-200">h</span>
-                      </div>
-                      <span className="text-blue-300 font-bold">:</span>
-                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-white font-mono tabular-nums">
-                        <span className="font-extrabold text-sm">{countdownMinutes}</span>{' '}
-                        <span className="text-[10px] text-blue-200">m</span>
-                      </div>
-                      <span className="text-blue-300 font-bold">:</span>
-                      <div className="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-amber-300 font-mono tabular-nums">
-                        <span className="font-extrabold text-sm">{countdownSeconds}</span>{' '}
-                        <span className="text-[10px] text-amber-200">s</span>
-                      </div>
-                    </div>
-                  )}
-                  {isLiveNow && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-rose-300 animate-pulse">
-                      <span className="inline-block w-2 h-2 rounded-full bg-rose-400" />
-                      <span>Active Examination in Progress</span>
-                    </div>
-                  )}
-                </div>
-
-                <h4 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-snug">
-                  {activeLiveTest.title}
-                </h4>
-
-                <div className="flex items-center gap-2.5 text-xs font-semibold text-blue-100 mb-5 flex-wrap">
-                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
-                    ⏱️ {activeLiveTest.durationMinutes} Mins
-                  </span>
-                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
-                    📝 {activeLiveTest.totalQuestions} Questions
-                  </span>
-                  <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/10 flex items-center gap-1.5">
-                    🏆 {activeLiveTest.totalMarks} Marks
-                  </span>
-                  {activeLiveTest.rankingEnabled && (
-                    <span className="px-3 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center gap-1.5 text-amber-300 font-bold">
-                      🎖️ Statewide Ranking
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/15">
-                <div className="text-xs font-bold text-blue-100 flex items-center gap-1.5">
-                  👥{' '}
-                  <span>
-                    {(activeLiveTest.enrolledCount ?? 0).toLocaleString()} Students{' '}
-                    {isEnded ? 'Participated' : isLiveNow ? 'Competing Now' : 'Registered'}
-                  </span>
-                </div>
-                {isLiveNow ? (
-                  <Link
-                    to={`/live-test`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-black transition-all shadow-md shadow-rose-500/30 active:scale-95"
-                  >
-                    <span>Join Live Test</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                ) : isEnded ? (
-                  <Link
-                    to={`/live-test`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all border border-white/20 active:scale-95"
-                  >
-                    <Trophy className="w-3.5 h-3.5 text-amber-300" />
-                    <span>View Result & Ranking</span>
-                  </Link>
-                ) : (
-                  <Link
-                    to={`/live-test`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#0158FC] hover:bg-blue-50 text-xs font-black transition-all shadow-md active:scale-95"
-                  >
-                    <span>Register Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* CONTINUE YOUR TEST (Only shown if user has a real in_progress attempt) */}
-          {inProgressAttempt && (() => {
-            const answeredCount =
-              (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0);
-            const totalQuestions = Math.max(
-              1,
-              answeredCount + (inProgressAttempt.skippedCount || 0)
-            );
-            const progressPct = Math.min(100, Math.round((answeredCount / totalQuestions) * 100));
-            return (
-              <div
-                className={`${
-                  activeLiveTest ? 'lg:col-span-5' : 'lg:col-span-12'
-                } rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(1,88,252,0.1)] flex flex-col justify-between relative overflow-hidden`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 text-[11px] font-black uppercase tracking-wider">
-                      IN PROGRESS
-                    </span>
-                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-[#0158FC]" />
-                      Continue Your Test
-                    </span>
-                  </div>
-
-                  <div className="flex items-start gap-3.5 mb-5">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0158FC]/15 to-[#0198FD]/10 border border-blue-200/60 dark:border-blue-800/60 flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5 text-[#0158FC]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-base font-black text-slate-900 dark:text-white leading-snug line-clamp-2">
-                        {inProgressAttempt.testTitle || 'Mock Test'}
-                      </h4>
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
-                        Attempted {answeredCount}/{totalQuestions} questions
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2 mb-5">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-slate-500 dark:text-slate-400">Completion Progress</span>
-                      <span className="text-[#0158FC] dark:text-blue-400 tabular-nums">{progressPct}%</span>
-                    </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#0158FC] to-[#0198FD] rounded-full transition-all duration-500"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <Link
-                    to={`/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:from-[#0047cc] hover:to-[#0158FC] text-white text-xs font-extrabold transition-all shadow-md shadow-blue-500/25 active:scale-95"
-                  >
-                    <span>Resume Test</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/exams/${inProgressAttempt.testId}`)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-        </section>
-      )}
-
-      {/* 4. POPULAR TEST SERIES (Controlled dynamically by Admin isPopular flag) */}
-      {popularTestSeries.length > 0 && (
-        <section>
-          <div className="mb-3.5 flex items-center justify-between">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
-              <span>🔥</span> Popular Test Series
-            </h3>
-            <Link
-              to="/test-series"
-              className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1"
-            >
-              See All <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
-            {popularTestSeries.map((series) => {
-              const emblem = resolvePopularSeriesEmblem(series);
-              const isBrandLogo = emblem.includes('logo-icon');
-              return (
-                <Link
-                  key={series.id}
-                  to={`/test-series/${series.slug || series.id}`}
-                  className="group flex min-w-[250px] sm:min-w-0 items-center gap-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 transition-all hover:border-[#0158FC]/50 hover:shadow-md active:scale-[0.99]"
-                >
-                  {isBrandLogo ? (
-                    <img
-                      src="/logo-icon.png"
-                      alt=""
-                      className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-xs"
-                      onError={(event) => {
-                        event.currentTarget.src = '/logo-icon-circle.png';
-                      }}
-                    />
-                  ) : (
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-[#EFF5FB] dark:bg-slate-800 p-1.5 shadow-2xs flex items-center justify-center">
-                      <img
-                        src={emblem}
-                        alt=""
-                        className="h-full w-full rounded-xl object-contain"
-                        onError={(event) => {
-                          event.currentTarget.src = '/logo-icon.png';
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h4 className="line-clamp-2 text-xs sm:text-sm font-black leading-snug text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors">
-                      {series.title}
-                    </h4>
-                    <p className="mt-1 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                      {series.examTitle || 'Test Series'}
-                    </p>
-                  </div>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-slate-800 text-[#0158FC] dark:text-blue-400 transition-colors group-hover:bg-[#0158FC] group-hover:text-white">
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* 5. PRACTICE BY SUBJECT (8 Subject Bento Cards) */}
-      <section className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-[0_6px_24px_-12px_rgba(1,88,252,0.06)]">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Practice by Subject
-            </h3>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-              Master chapter-wise concepts & boost accuracy across key exam subjects
-            </p>
+      {/* ========================================================= */}
+      {/* 4. POPULAR EXAMS                                          */}
+      {/* ========================================================= */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🔥</span>
+            <h2 className="text-lg sm:text-xl font-black text-[#0B1F5B] dark:text-white tracking-tight">
+              Popular Exams
+            </h2>
           </div>
           <Link
-            to="/practice"
-            className="text-xs font-extrabold text-[#0158FC] dark:text-blue-400 hover:underline flex items-center gap-1 shrink-0"
+            to="/test-series"
+            className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
           >
-            See All <ChevronRight className="w-4 h-4" />
+            <span>See All</span>
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {subjects.map((subj) => (
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+          {popularExams.map((exam, idx) => (
             <Link
-              key={subj.id}
-              to={`/practice?subject=${subj.id}`}
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F8FAFF] dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800 hover:border-[#0158FC]/40 hover:shadow-sm transition-all group active:scale-[0.98]"
+              key={idx}
+              to={exam.route}
+              className="relative aspect-[3/2] rounded-2xl overflow-hidden shadow-[0_4px_10px_rgba(11,31,91,0.10)] hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 group block bg-slate-200 dark:bg-slate-800"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-xs shrink-0 ${subj.color}`}
-                >
-                  {subj.symbol}
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white group-hover:text-[#0158FC] dark:group-hover:text-blue-400 transition-colors truncate">
-                    {subj.title}
-                  </h4>
-                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {subj.questions}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-[#0158FC] dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+              <img
+                src={exam.image}
+                alt={exam.title}
+                className="w-full h-full object-fill"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              {/* Glossy overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-white/5 to-transparent pointer-events-none" />
             </Link>
           ))}
         </div>
       </section>
 
-      {/* PRO UPGRADE BANNER (Bottom Banner) - Only shown to free students */}
-      {!isPro && (
-        <div className="relative rounded-3xl bg-gradient-to-r from-[#0B1F44] via-[#0138A8] to-[#0158FC] text-white p-6 sm:p-8 overflow-hidden shadow-lg">
-          <div className="absolute -right-12 -top-12 w-56 h-56 bg-[#0198FD]/25 rounded-full blur-3xl pointer-events-none" />
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
-            <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-sm">
-                  <Sparkles className="w-4 h-4 fill-slate-950" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-black text-white">
-                  Upgrade to <span className="text-amber-300">PracticeKoro Pro</span>
-                </h3>
-              </div>
-              <p className="text-xs sm:text-sm text-blue-100">
-                Get unlimited access to all exams, mock tests, PYQ, topic practice and detailed solutions.
-              </p>
+      {/* ========================================================= */}
+      {/* 5. POPULAR TEST SERIES                                    */}
+      {/* ========================================================= */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👑</span>
+            <h2 className="text-lg sm:text-xl font-black text-[#0B1F5B] dark:text-white tracking-tight">
+              Popular Test Series
+            </h2>
+          </div>
+          <Link
+            to="/test-series"
+            className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
+          >
+            <span>See All</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
 
-              {/* Checklist */}
-              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-bold text-white/90">
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> All Exams
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible">
+          {popularSeries.map((series, idx) => (
+            <Link
+              key={idx}
+              to={series.route}
+              className="relative min-w-[240px] sm:min-w-0 p-4 rounded-2xl border border-white/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex flex-col justify-between overflow-hidden group"
+            >
+              {/* Background monument image */}
+              <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
+                <img
+                  src={series.bgImage}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="relative z-10 flex items-start justify-between mb-3">
+                <div>
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold mb-1.5 ${series.badgeBg}`}
+                  >
+                    {series.badge}
+                  </span>
+                  <h4 className="text-base font-black text-[#0B1F5B] dark:text-white leading-tight">
+                    {series.title}
+                  </h4>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                    {series.subtitle}
+                  </p>
+                </div>
+                <img
+                  src={series.emblem}
+                  alt=""
+                  className="w-12 h-12 object-contain shrink-0"
+                />
+              </div>
+
+              <div className="relative z-10 flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800">
+                <span className="text-xs font-bold text-[#0877FF] group-hover:underline">
+                  Explore Series
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Unlimited Tests
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Detailed Solutions
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-sky-300" /> Web + Mobile App
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Headphones className="w-4 h-4 text-amber-300" /> Priority Support
-                </span>
+                <div className="w-6 h-6 rounded-full bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center text-[#0877FF]">
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ========================================================= */}
+      {/* 6. CONTINUE PRACTICING                                     */}
+      {/* ========================================================= */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#00E676] to-[#00C853] flex items-center justify-center shadow-xs">
+              <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-black text-[#0B1F5B] dark:text-white tracking-tight">
+              Continue Practice
+            </h2>
+          </div>
+          <Link
+            to="/practice"
+            className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
+          >
+            <span>See All</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible">
+          {continueItems.slice(0, 3).map((item, idx) => {
+            const pct = Math.round((item.completed / item.total) * 100);
+            return (
+              <div
+                key={idx}
+                className="relative min-w-[250px] sm:min-w-0 p-4 rounded-2xl border border-white dark:border-slate-800 bg-[#F1F6FE] dark:bg-slate-900 shadow-sm flex flex-col justify-between overflow-hidden"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-lg text-[9.5px] font-bold mb-1 ${item.badgeBg}`}
+                    >
+                      {item.examBadge}
+                    </span>
+                    <h4 className="text-sm font-black text-[#0B1F5B] dark:text-white truncate">
+                      {item.testName}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+                      {item.subject}
+                    </p>
+                  </div>
+                  <img
+                    src={item.emblem}
+                    alt=""
+                    className="w-10 h-10 object-contain shrink-0"
+                  />
+                </div>
+
+                <div className="space-y-1.5 my-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {item.completed}/{item.total} questions
+                    </span>
+                    <span className="text-[#0877FF]">{pct}%</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-[#0877FF] rounded-full"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <Link
+                  to={item.route}
+                  className={`mt-1 w-full py-1.5 px-3 rounded-xl ${item.btnColor} text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all`}
+                >
+                  <span>Continue Test</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ========================================================= */}
+      {/* 7. TOP PERFORMERS                                         */}
+      {/* ========================================================= */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏆</span>
+            <h2 className="text-lg sm:text-xl font-black text-[#0B1F5B] dark:text-white tracking-tight">
+              Top Performers
+            </h2>
+          </div>
+          <Link
+            to="/results"
+            className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
+          >
+            <span>View Leaderboard</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+          {topPerformers.map((p) => (
+            <div
+              key={p.rank}
+              className={`relative aspect-square rounded-2xl p-3 sm:p-4 bg-gradient-to-br ${p.bgGradient} dark:from-slate-900 dark:to-slate-800 border border-white dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center overflow-hidden`}
+            >
+              {/* Rosette Medal Badge in Top-Left */}
+              <img
+                src={p.badge}
+                alt={`Rank ${p.rank}`}
+                className="absolute top-2 left-2 w-7 h-7 sm:w-8 sm:h-8 object-contain"
+              />
+
+              {/* Avatar with Wreath */}
+              <div className="relative w-12 h-12 sm:w-14 sm:h-14 mb-1.5">
+                <img
+                  src={p.avatar}
+                  alt={p.name}
+                  className="w-full h-full rounded-full object-cover border-2 border-white shadow-xs"
+                />
+              </div>
+
+              <h4 className="text-xs sm:text-sm font-black text-[#0B1F5B] dark:text-white truncate max-w-full">
+                {p.name}
+              </h4>
+              <span
+                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black my-1 ${p.scoreBg}`}
+              >
+                {p.score}
+              </span>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold truncate max-w-full">
+                {p.exam}
+              </p>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
+                {p.tests}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ========================================================= */}
+      {/* 8. TODAY'S INFO & MOTIVATIONAL QUOTE                      */}
+      {/* ========================================================= */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {/* Today's Info */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#F1F6FE] dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/images/today_info_sunrise.png"
+                alt=""
+                className="w-8 h-8 object-contain"
+              />
+              <div>
+                <h3 className="text-base font-black text-[#07194A] dark:text-white">
+                  Today's Info
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Learn something new everyday
+                </p>
               </div>
             </div>
+            <div className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-slate-800 text-[#0066FF] text-[11px] font-bold border border-blue-100 dark:border-slate-700 flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              <span>01 Oct 2026</span>
+            </div>
+          </div>
 
-            <div className="flex flex-col items-center sm:items-end gap-2 shrink-0 w-full sm:w-auto">
-              <Link
-                to="/subscription"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-blue-50 text-[#0158FC] text-sm font-black shadow-md transition-all"
-              >
-                <span>Upgrade Now</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <span className="text-[11px] text-blue-200 font-medium">
-                Start your success journey today!
-              </span>
+          <div className="p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-[#E2ECF8] dark:border-slate-700 flex items-center gap-3">
+            <img
+              src="/images/today_info_book_circle.png"
+              alt=""
+              className="w-11 h-11 object-contain shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-[13px] font-bold text-[#07194A] dark:text-white leading-snug">
+                ভারতের সংবিধান ২৬ জানুয়ারি ১৯৫০ সালে গৃহীত হয় এবং সেদিনই কার্যকর হয়।
+              </p>
+              <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EBF3FF] dark:bg-slate-700 text-[#0066FF] dark:text-blue-400 text-[10.5px] font-bold">
+                <BookOpen className="w-3 h-3" />
+                <span>Indian Polity</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Motivational Quote */}
+        <div className="relative p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#FFF6F8] to-[#FDECEF] dark:from-slate-900 dark:to-slate-800 border border-[#FCDCE8] dark:border-slate-800 shadow-xs flex flex-col justify-between overflow-hidden">
+          <img
+            src="/images/quote_mountain_summit.png"
+            alt=""
+            className="absolute right-0 bottom-0 h-28 object-contain pointer-events-none opacity-80"
+          />
+
+          <div className="relative z-10 mb-2">
+            <span className="text-2xl font-serif text-[#F43F5E] font-black leading-none">
+              “
+            </span>
+            <p className="text-xs sm:text-[13px] font-bold text-[#07194A] dark:text-white leading-relaxed pr-16 mt-1">
+              ছোট ছোট প্রচেষ্টার যোগফলই বড় সাফল্য, তাই প্রতিদিন একটু একটু করে এগিয়ে চলুন।
+            </p>
+            <p className="text-[11px] font-extrabold text-[#F43F5E] mt-2">
+              — রবার্ট কলিয়ার
+            </p>
+          </div>
+
+          <div className="relative z-10 pt-2 flex items-center">
+            <span className="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-[#BE123C] dark:text-rose-300 text-[10px] font-black">
+              Target Exam: 2026
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================= */}
+      {/* 9. BOTTOM PRO PASS BANNER                                  */}
+      {/* ========================================================= */}
+      {!isPro && (
+        <section className="relative rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0B1F44] via-[#0138A8] to-[#0158FC] text-white p-5 sm:p-6 overflow-hidden shadow-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div className="space-y-1 max-w-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-white">
+                  Upgrade to <span className="text-amber-300">PracticeKoro Pro</span>
+                </h3>
+              </div>
+              <p className="text-xs text-blue-100 font-medium">
+                Get unlimited access to all exams, mock tests, PYQ, and statewide rankings.
+              </p>
+            </div>
+
+            <Link
+              to="/subscription"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#0158FC] text-xs font-black shadow-sm shrink-0 active:scale-95 transition-all"
+            >
+              <span>Get Pro Pass</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </section>
       )}
 
-      {/* Interactive Animated Onboarding Tour Modal */}
+      {/* Tour Modal */}
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
-        onComplete={() => {
-          try {
-            localStorage.setItem('pk_onboarded', 'true');
-          } catch {
-            // ignore
-          }
-          setIsOnboardingOpen(false);
-        }}
+        onComplete={() => setIsOnboardingOpen(false)}
       />
     </div>
   );

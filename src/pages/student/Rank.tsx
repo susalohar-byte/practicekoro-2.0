@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Flame,
   Globe,
@@ -14,7 +14,6 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 import type { TestAttempt } from '@/types';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import { WEST_BENGAL_DISTRICTS } from '@/data/districts';
 
 interface LeaderboardUser {
@@ -59,7 +58,6 @@ const GoldenLaurelWreath: React.FC = () => (
 export const Rank: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { onToggleMobileSidebar } = useOutletContext<{ onToggleMobileSidebar?: () => void }>() || {};
 
   const [selectedExam, setSelectedExam] = useState<string>('WBP Constable');
   const [selectedScope, setSelectedScope] = useState<string>('West Bengal');
@@ -212,9 +210,6 @@ export const Rank: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Top Navbar */}
-      <StudentNavbar embedded onToggleMobileSidebar={onToggleMobileSidebar} />
-
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
         {/* 1. Breadcrumb */}

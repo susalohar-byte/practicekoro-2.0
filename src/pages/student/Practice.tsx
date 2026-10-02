@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation, useSearchParams, useOutletContext } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useExam } from '@/context/ExamContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import {
   usePracticeRevision,
   useRemoveBookmark,
   useResolveMistake,
 } from '@/hooks/usePracticeRevision';
-import { api } from '@/services/api';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
@@ -33,30 +30,20 @@ import {
   Trash2,
   Award,
   BookOpen,
-  ListChecks,
   FileText,
-  XSquare,
   Crosshair,
-  Table,
   Globe,
   Calculator,
   Brain,
   Monitor,
-  Shuffle,
-  SlidersHorizontal,
-  BarChart2,
   Clock,
   Target,
-  CheckSquare,
-  Flame,
-  Check,
   Sparkles,
   Zap,
 } from 'lucide-react';
-import type { Question, TestAttempt } from '@/types';
+import type { Question } from '@/types';
 
 type PracticeTab = 'dashboard' | 'topics' | 'mistakes' | 'bookmarks';
-type PracticeModeTab = 'subjects' | 'topics' | 'pyq';
 
 interface PracticeAnswerRecord {
   questionId: string;
@@ -66,11 +53,9 @@ interface PracticeAnswerRecord {
 
 export const Practice: React.FC = () => {
   const { user } = useAuth();
-  const { exams, selectedExam, setSelectedExam } = useExam();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const outletCtx = useOutletContext<{ onToggleMobileSidebar?: () => void } | undefined>() || {};
 
   // Revision data: cached mistakes + bookmarks (TanStack Query)
   const {
@@ -87,29 +72,8 @@ export const Practice: React.FC = () => {
   const resolveMistake = useResolveMistake(user?.id);
   const removeBookmark = useRemoveBookmark(user?.id);
 
-  // User attempts for real database-synced Practice Activity stats
-  const [userAttempts, setUserAttempts] = useState<TestAttempt[]>([]);
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    api
-      .getUserAttempts(user.id)
-      .then((res) => {
-        if (!cancelled) setUserAttempts(res || []);
-      })
-      .catch(() => {
-        // non-blocking
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
   // Tab state
   const [activeTab, setActiveTab] = useState<PracticeTab>('dashboard');
-  const [activeModeTab, setActiveModeTab] = useState<PracticeModeTab>('subjects');
-  const [isExamDropdownOpen, setIsExamDropdownOpen] = useState(false);
-  const [activityPeriod, setActivityPeriod] = useState<'month' | 'week' | 'all'>('month');
 
   // List view state
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -294,166 +258,9 @@ export const Practice: React.FC = () => {
   const sessionAccuracy =
     sessionTotal > 0 ? ((sessionCorrect / sessionTotal) * 100).toFixed(1) : '0';
 
-  // 6 canonical subjects matching the reference UI
-  const subjectsData = [
-    {
-      id: 'subj-gk',
-      title: 'General Knowledge',
-      questionsCount: '1,250',
-      progress: 68,
-      icon: BookOpen,
-      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60',
-      iconBorder: 'border-emerald-100/70 dark:border-emerald-900/60',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-      progressColor: 'bg-emerald-500',
-    },
-    {
-      id: 'subj-ga',
-      title: 'General Awareness',
-      questionsCount: '980',
-      progress: 54,
-      icon: Globe,
-      iconBg: 'bg-teal-50 dark:bg-teal-950/60',
-      iconBorder: 'border-teal-100/70 dark:border-teal-900/60',
-      iconColor: 'text-teal-600 dark:text-teal-400',
-      progressColor: 'bg-teal-500',
-    },
-    {
-      id: 'subj-math',
-      title: 'Mathematics',
-      questionsCount: '1,120',
-      progress: 42,
-      icon: Calculator,
-      isSigma: true,
-      iconBg: 'bg-blue-50 dark:bg-blue-950/60',
-      iconBorder: 'border-blue-100/70 dark:border-blue-900/60',
-      iconColor: 'text-blue-600 dark:text-blue-400',
-      progressColor: 'bg-blue-600',
-    },
-    {
-      id: 'subj-reasoning',
-      title: 'Reasoning',
-      questionsCount: '1,040',
-      progress: 61,
-      icon: Brain,
-      iconBg: 'bg-rose-50 dark:bg-rose-950/60',
-      iconBorder: 'border-rose-100/70 dark:border-rose-900/60',
-      iconColor: 'text-rose-500 dark:text-rose-400',
-      progressColor: 'bg-rose-500',
-    },
-    {
-      id: 'subj-english',
-      title: 'English',
-      questionsCount: '860',
-      progress: 48,
-      icon: Languages,
-      isBadgeA: true,
-      iconBg: 'bg-purple-50 dark:bg-purple-950/60',
-      iconBorder: 'border-purple-100/70 dark:border-purple-900/60',
-      iconColor: 'text-purple-600 dark:text-purple-400',
-      progressColor: 'bg-purple-600',
-    },
-    {
-      id: 'subj-computer',
-      title: 'Computer Awareness',
-      questionsCount: '420',
-      progress: 35,
-      icon: Monitor,
-      iconBg: 'bg-sky-50 dark:bg-sky-950/60',
-      iconBorder: 'border-sky-100/70 dark:border-sky-900/60',
-      iconColor: 'text-sky-600 dark:text-sky-400',
-      progressColor: 'bg-sky-500',
-    },
-  ];
-
-  // 3 Continue Practicing items matching reference UI
-  const continueItems = [
-    {
-      id: 'cont-1',
-      title: 'Blood Relations',
-      subjectSubtitle: 'Reasoning • 25 questions',
-      progress: 68,
-      buttonText: 'Continue',
-      icon: BookOpen,
-      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
-    {
-      id: 'cont-2',
-      title: 'Indian History - Medieval',
-      subjectSubtitle: 'General Knowledge • 30 questions',
-      progress: 33,
-      buttonText: 'Continue',
-      icon: BookOpen,
-      iconBg: 'bg-rose-50 dark:bg-rose-950/60',
-      iconColor: 'text-rose-500 dark:text-rose-400',
-    },
-    {
-      id: 'cont-3',
-      title: 'Simplification',
-      subjectSubtitle: 'Mathematics • 20 questions',
-      progress: 0,
-      buttonText: 'Start',
-      icon: Calculator,
-      isSigma: true,
-      iconBg: 'bg-blue-50 dark:bg-blue-950/60',
-      iconColor: 'text-blue-600 dark:text-blue-400',
-    },
-  ];
-
-  // Real database-synced Practice Activity metrics
-  const activityStats = useMemo(() => {
-    const now = Date.now();
-    const cutoff =
-      activityPeriod === 'week'
-        ? now - 7 * 86400 * 1000
-        : activityPeriod === 'month'
-          ? now - 30 * 86400 * 1000
-          : 0;
-
-    const filteredAttempts = userAttempts.filter((a) => {
-      if (!cutoff) return true;
-      const ts = new Date(a.createdAt).getTime();
-      return !Number.isNaN(ts) && ts >= cutoff;
-    });
-
-    const totalCorrect = filteredAttempts.reduce((s, a) => s + (a.correctCount || 0), 0);
-    const totalWrong = filteredAttempts.reduce((s, a) => s + (a.wrongCount || 0), 0);
-    const attemptQuestions = totalCorrect + totalWrong;
-    const resolvedMistakesCount = mistakes.filter((m) => m.isResolved).length;
-    const questionsPracticed = attemptQuestions + resolvedMistakesCount + bookmarks.length;
-    const accuracy =
-      attemptQuestions > 0
-        ? Math.round((totalCorrect / attemptQuestions) * 100)
-        : mistakes.length > 0
-          ? Math.round((resolvedMistakesCount / mistakes.length) * 100)
-          : 0;
-
-    const uniqueDays = new Set(
-      userAttempts
-        .map((a) => {
-          const d = new Date(a.createdAt);
-          return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-        })
-        .filter(Boolean)
-    );
-
-    return {
-      questionsPracticed,
-      accuracy,
-      topicsCompleted: filteredAttempts.length + resolvedMistakesCount,
-      dayStreak: uniqueDays.size,
-    };
-  }, [userAttempts, mistakes, bookmarks, activityPeriod]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6 pb-24 pk-student-page">
-      {/* Embedded Student Navbar */}
-      <StudentNavbar
-        embedded
-        showSearch={false}
-        onToggleMobileSidebar={outletCtx.onToggleMobileSidebar}
-      />
+    <div className="space-y-4 sm:space-y-5 pb-12 pk-student-page">
 
       {/* =========================================================================
           PRACTICE MODE: INTERACTIVE WORKSPACE
@@ -863,701 +670,462 @@ export const Practice: React.FC = () => {
           )}
 
           {/* =========================================================================
-              VIEW 1: PRACTICE DASHBOARD (100% Visual Replica of Reference Screenshot)
+              VIEW 1: PRACTICE DASHBOARD (1:1 PracticeKoro App UI)
               ========================================================================= */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* TOP HERO BANNER (Stitch Navy-to-Electric-Blue Bento) */}
-              <div className="relative overflow-hidden rounded-3xl border border-blue-200/40 dark:border-blue-900/40 bg-gradient-to-br from-[#0B1F44] via-[#0158FC] to-[#0198FD] p-6 sm:p-7 md:p-8 min-h-[185px] shadow-xl shadow-blue-600/15 text-white">
-                {/* Ambient glow */}
-                <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-cyan-400/25 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-24 left-1/3 w-64 h-64 rounded-full bg-indigo-500/20 blur-3xl" />
+          {activeTab === 'dashboard' && (() => {
+            const subjectFilters = [
+              'All Subjects',
+              'General Knowledge',
+              'Mathematics',
+              'Bengali',
+              'English',
+              'Reasoning',
+              'General Science',
+              'Computer',
+              'Current Affairs',
+            ];
 
-                <div className="max-w-2xl z-10 relative">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] font-bold tracking-wide uppercase mb-3">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-                    <span>Smart Revision & Drill Hub</span>
-                    <span className="text-white/40">•</span>
-                    <span className="text-cyan-200">
-                      {pendingMistakes.length} Mistakes • {bookmarks.length} Saved
-                    </span>
-                  </div>
+            const allSubjectsList = [
+              {
+                id: 'general_knowledge',
+                title: 'General Knowledge',
+                chaptersCount: '25 Chapters',
+                iconBg: 'bg-[#EBF3FF] dark:bg-blue-950/50',
+                iconColor: 'text-[#2563EB] dark:text-blue-400',
+                icon: FileText,
+              },
+              {
+                id: 'mathematics',
+                title: 'Mathematics',
+                chaptersCount: '30 Chapters',
+                iconBg: 'bg-[#E6F8EE] dark:bg-emerald-950/50',
+                iconColor: 'text-[#16A34A] dark:text-emerald-400',
+                icon: Calculator,
+              },
+              {
+                id: 'english',
+                title: 'English',
+                chaptersCount: '20 Chapters',
+                iconBg: 'bg-[#F3E8FF] dark:bg-purple-950/50',
+                iconColor: 'text-[#9333EA] dark:text-purple-400',
+                symbol: 'A',
+                symbolBg: 'bg-[#9333EA] text-white',
+              },
+              {
+                id: 'bengali',
+                title: 'Bengali',
+                chaptersCount: '25 Chapters',
+                iconBg: 'bg-[#FFEDD5] dark:bg-amber-950/50',
+                iconColor: 'text-[#EA580C] dark:text-amber-400',
+                symbol: 'অ',
+                symbolBg: 'bg-[#EA580C] text-white',
+              },
+              {
+                id: 'reasoning',
+                title: 'Reasoning',
+                chaptersCount: '30 Chapters',
+                iconBg: 'bg-[#FFE4E6] dark:bg-rose-950/50',
+                iconColor: 'text-[#E11D48] dark:text-rose-400',
+                icon: Brain,
+              },
+              {
+                id: 'general_science',
+                title: 'General Science',
+                chaptersCount: '20 Chapters',
+                iconBg: 'bg-[#FEF3C7] dark:bg-amber-950/50',
+                iconColor: 'text-[#D97706] dark:text-amber-400',
+                icon: Sparkles,
+              },
+              {
+                id: 'computer',
+                title: 'Computer Awareness',
+                chaptersCount: '15 Chapters',
+                iconBg: 'bg-[#E0F2FE] dark:bg-sky-950/50',
+                iconColor: 'text-[#0284C7] dark:text-sky-400',
+                icon: Monitor,
+              },
+              {
+                id: 'current_affairs',
+                title: 'Current Affairs',
+                chaptersCount: '12 Chapters',
+                iconBg: 'bg-[#FCE7F3] dark:bg-pink-950/50',
+                iconColor: 'text-[#DB2777] dark:text-pink-400',
+                icon: Clock,
+              },
+              {
+                id: 'environment',
+                title: 'Environment',
+                chaptersCount: '10 Chapters',
+                iconBg: 'bg-[#DCFCE7] dark:bg-green-950/50',
+                iconColor: 'text-[#15803D] dark:text-green-400',
+                icon: Globe,
+              },
+            ];
 
-                  <h1 className="text-2xl sm:text-3xl md:text-[34px] font-black tracking-tight text-white leading-tight">
-                    Practice <span className="text-cyan-300">Smarter</span>, Rank Faster
+            const continueItemsList = [
+              {
+                id: 'cont_math',
+                title: 'Percentage Basics',
+                subtitle: 'Mathematics • Practice Set 02',
+                completed: 8,
+                total: 20,
+                pct: 40,
+                icon: Calculator,
+                iconBg: 'bg-[#E6F8EE] dark:bg-emerald-950/50 text-[#16A34A]',
+              },
+              {
+                id: 'cont_gk',
+                title: 'Indian Constitution',
+                subtitle: 'General Knowledge • Chapter 04',
+                completed: 12,
+                total: 25,
+                pct: 48,
+                icon: FileText,
+                iconBg: 'bg-[#EBF3FF] dark:bg-blue-950/50 text-[#2563EB]',
+              },
+              {
+                id: 'cont_reasoning',
+                title: 'Number Series',
+                subtitle: 'Reasoning • Chapter 01',
+                completed: 5,
+                total: 20,
+                pct: 25,
+                icon: Brain,
+                iconBg: 'bg-[#FFE4E6] dark:bg-rose-950/50 text-[#E11D48]',
+              },
+            ];
+
+            const quickItemsList = [
+              {
+                id: 'quick_10',
+                title: '10 Questions',
+                subtitle: 'Daily Practice',
+                icon: Target,
+                iconBg: 'bg-[#E6F8EE] text-[#16A34A]',
+              },
+              {
+                id: 'quick_25',
+                title: '25 Questions',
+                subtitle: 'Mixed Practice',
+                icon: FileText,
+                iconBg: 'bg-[#FFEDD5] text-[#EA580C]',
+              },
+              {
+                id: 'quick_50',
+                title: '50 Questions',
+                subtitle: 'Full Practice',
+                icon: Award,
+                iconBg: 'bg-[#F3E8FF] text-[#8B5CF6]',
+              },
+            ];
+
+            const query = (searchParams.get('q') || '').trim().toLowerCase();
+            const selectedFilter = searchParams.get('subject_filter') || 'All Subjects';
+
+            const filteredSubjects = allSubjectsList.filter((item) => {
+              const matchesFilter =
+                selectedFilter === 'All Subjects' ||
+                item.title.toLowerCase() === selectedFilter.toLowerCase();
+              const matchesQuery =
+                query === '' ||
+                item.title.toLowerCase().includes(query) ||
+                item.chaptersCount.toLowerCase().includes(query);
+              return matchesFilter && matchesQuery;
+            });
+
+            return (
+              <div className="space-y-4 sm:space-y-5">
+                {/* ── 1. TITLE & SUBTITLE (App Practice Header) ── */}
+                <div>
+                  <h1 className="text-2xl sm:text-[28px] font-black text-[#0B1F5B] dark:text-white tracking-tight leading-tight">
+                    Practice
                   </h1>
-                  <p className="text-xs sm:text-sm text-blue-100/90 mt-2 font-medium leading-relaxed max-w-lg">
-                    Build your concepts, master weak topics, and boost exam-day accuracy with
-                    targeted subject drills and auto-tracked revision notebooks.
+                  <p className="text-xs sm:text-[13px] text-[#64748B] dark:text-slate-400 font-medium mt-1">
+                    Subject-wise practice to strengthen your preparation
                   </p>
 
-                  {/* 5 Feature Badges Row */}
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mt-5">
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange('topics')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-cyan-300" />
-                      <span>Chapter-wise Practice</span>
-                    </button>
+                  {/* ── 2. SUBJECT CATEGORY FILTER PILLS ── */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-3.5 scrollbar-none">
+                    {subjectFilters.map((filter) => {
+                      const isSelected = selectedFilter === filter;
+                      return (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => {
+                            const newParams = new URLSearchParams(searchParams);
+                            if (filter === 'All Subjects') {
+                              newParams.delete('subject_filter');
+                            } else {
+                              newParams.set('subject_filter', filter);
+                            }
+                            setSearchParams(newParams);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#0877FF] text-white shadow-sm shadow-blue-500/25'
+                              : 'bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#0877FF]/40'
+                          }`}
+                        >
+                          {filter}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange('topics')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
-                    >
-                      <Table className="w-3.5 h-3.5 text-sky-300" />
-                      <span>Topic-wise Practice</span>
-                    </button>
+                {/* ── 3. SEARCH BAR (App PKSearchFilterBar) ── */}
+                <div className="space-y-2">
+                  <div className="relative flex items-center bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 rounded-2xl shadow-2xs px-3.5 py-2.5">
+                    <Crosshair className="w-4 h-4 text-[#0877FF] shrink-0 mr-2.5" />
+                    <input
+                      type="text"
+                      value={searchParams.get('q') || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const newParams = new URLSearchParams(searchParams);
+                        if (val) {
+                          newParams.set('q', val);
+                        } else {
+                          newParams.delete('q');
+                        }
+                        setSearchParams(newParams);
+                      }}
+                      placeholder="Search subject or chapter..."
+                      className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none"
+                    />
+                    {query && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newParams = new URLSearchParams(searchParams);
+                          newParams.delete('q');
+                          setSearchParams(newParams);
+                        }}
+                        className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
+                  {/* Quick Revision Access Chips */}
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
                     <button
                       type="button"
-                      onClick={() => navigate('/test-series')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                      onClick={() => handleTabChange('mistakes')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100 transition-colors"
                     >
-                      <FileText className="w-3.5 h-3.5 text-emerald-300" />
-                      <span>Previous Year Questions</span>
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Mistakes Notebook</span>
+                      {pendingMistakes.length > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px]">
+                          {pendingMistakes.length}
+                        </span>
+                      )}
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleTabChange('bookmarks')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900 text-[#0877FF] dark:text-blue-400 text-xs font-bold hover:bg-blue-100 transition-colors"
                     >
-                      <Bookmark className="w-3.5 h-3.5 text-rose-300 fill-rose-300" />
-                      <span>Saved Questions ({bookmarks.length})</span>
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>Saved Questions</span>
+                      {bookmarks.length > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-[#0877FF] text-white text-[10px]">
+                          {bookmarks.length}
+                        </span>
+                      )}
                     </button>
+                  </div>
+                </div>
 
+                {/* ── 4. SECTION 1: SUBJECTS (2-Column Grid on Mobile, 3-4 Column on Desktop) ── */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-[#0B1F5B] dark:text-white" />
+                      <h2 className="text-base sm:text-lg font-black text-[#0B1F5B] dark:text-white tracking-tight">
+                        Subjects
+                      </h2>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleTabChange('mistakes')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white transition-all"
+                      onClick={() => handleTabChange('topics')}
+                      className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
                     >
-                      <Crosshair className="w-3.5 h-3.5 text-amber-300" />
-                      <span>Detailed Solutions</span>
+                      <span>See All</span>
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
 
-                {/* Right Character & Books Illustration */}
-                <div className="hidden md:block absolute right-2 bottom-0 h-full max-h-[195px] pointer-events-none select-none drop-shadow-xl">
-                  <img
-                    src="/images/practice/hero_illustration_blend.png"
-                    alt="Consistent Practice Creates Big Results"
-                    className="h-full w-auto object-contain object-bottom"
-                  />
-                </div>
-              </div>
-
-              {/* TWO COLUMN BENTO GRID LAYOUT */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* ========================================================= */}
-                {/* LEFT MAIN COLUMN (~68%)                                   */}
-                {/* ========================================================= */}
-                <div className="lg:col-span-8 space-y-6">
-                  {/* SECTION A: Choose what you want to practice */}
-                  <section className="space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                          Choose what you want to practice
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                          Select a mode and start practicing now.
-                        </p>
-                      </div>
-
-                      {/* Doodle graphic on the right */}
-                      <div className="hidden sm:block shrink-0 select-none pointer-events-none">
-                        <img
-                          src="/images/practice/pick_mode_doodle_clean.png"
-                          alt="Pick a mode & start now!"
-                          className="h-8 w-auto object-contain"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 5 Mode Bento Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                      {/* Card 1: Subject Practice */}
-                      <div
-                        onClick={() => {
-                          setActiveModeTab('subjects');
-                          document
-                            .getElementById('exam-subject-section')
-                            ?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-400/60 dark:hover:border-purple-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100/70 dark:border-purple-900/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                            <BookOpen className="w-4.5 h-4.5" />
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
-                        </div>
-                        <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
-                            Subject Practice
-                          </h3>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                            Practice by subject
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Card 2: Topic Practice */}
-                      <div
-                        onClick={() => handleTabChange('topics')}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-400/60 dark:hover:border-emerald-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100/70 dark:border-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                            <ListChecks className="w-4.5 h-4.5" />
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
-                        </div>
-                        <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
-                            Topic Practice
-                          </h3>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                            Practice by topic
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Card 3: Previous Year Questions */}
-                      <div
-                        onClick={() => navigate('/test-series')}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-amber-400/60 dark:hover:border-amber-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-100/70 dark:border-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-                            <FileText className="w-4.5 h-4.5" />
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
-                        </div>
-                        <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
-                            Previous Year Questions
-                          </h3>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                            Real exam questions
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Card 4: Saved Questions */}
-                      <div
-                        onClick={() => handleTabChange('bookmarks')}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-rose-400/60 dark:hover:border-rose-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100/70 dark:border-rose-900/60 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
-                            <Bookmark className="w-4.5 h-4.5 fill-rose-500" />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {bookmarks.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300 text-[10px] font-black">
-                                {bookmarks.length}
-                              </span>
-                            )}
-                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
-                            Saved Questions
-                          </h3>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                            Your bookmarked questions
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Card 5: Incorrect Questions */}
-                      <div
-                        onClick={() => handleTabChange('mistakes')}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-red-400/60 dark:hover:border-red-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-100/70 dark:border-red-900/60 flex items-center justify-center text-red-500 dark:text-red-400 shrink-0">
-                            <XSquare className="w-4.5 h-4.5" />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {pendingMistakes.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-300 text-[10px] font-black">
-                                {pendingMistakes.length}
-                              </span>
-                            )}
-                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-red-500 group-hover:translate-x-0.5 transition-all mt-0.5" />
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug">
-                            Incorrect Questions
-                          </h3>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                            Practice your mistakes
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* SECTION B: Select Exam & Subject */}
-                  <section id="exam-subject-section" className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                        Select Exam & Subject
-                      </h2>
-                      <button
-                        onClick={() => navigate('/test-series')}
-                        className="text-xs font-bold text-[#0158FC] hover:underline cursor-pointer transition-colors"
-                      >
-                        Change Exam
-                      </button>
-                    </div>
-
-                    {/* Filter Controls Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      {/* Exam Dropdown Selector Pill */}
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsExamDropdownOpen((prev) => !prev)}
-                          className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
-                        >
-                          <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-[#0158FC] to-[#0198FD] text-white font-black text-[9px] flex items-center justify-center shrink-0">
-                            {selectedExam?.title
-                              ? selectedExam.title.slice(0, 2).toUpperCase()
-                              : 'WB'}
-                          </div>
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                            {selectedExam?.title || 'WBP Constable'}
-                          </span>
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExamDropdownOpen ? 'rotate-180' : ''}`}
-                          />
-                        </button>
-
-                        {/* Dropdown Menu for Switching Exams */}
-                        {isExamDropdownOpen && (
-                          <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Select Practice Exam
-                            </div>
-                            {exams.map((ex) => (
-                              <button
-                                key={ex.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedExam(ex);
-                                  setIsExamDropdownOpen(false);
-                                }}
-                                className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors ${
-                                  selectedExam?.id === ex.id
-                                    ? 'font-bold text-[#0158FC] bg-blue-50/50 dark:bg-blue-950/40'
-                                    : 'text-slate-700 dark:text-slate-200'
-                                }`}
-                              >
-                                <span>{ex.title}</span>
-                                {selectedExam?.id === ex.id && (
-                                  <Check className="w-3.5 h-3.5 text-[#0158FC]" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Segmented Filter Tabs: [Subjects] [Topics] [PYQ] */}
-                      <div className="inline-flex items-center p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
-                        <button
-                          type="button"
-                          onClick={() => setActiveModeTab('subjects')}
-                          className={`text-xs font-bold px-4 py-1.5 rounded-xl transition-all ${
-                            activeModeTab === 'subjects'
-                              ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          Subjects
-                        </button>
-                        <button
-                          type="button"
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+                    {filteredSubjects.map((sub) => {
+                      const Icon = sub.icon;
+                      return (
+                        <div
+                          key={sub.id}
                           onClick={() => handleTabChange('topics')}
-                          className={`text-xs font-bold px-4 py-1.5 rounded-xl transition-all ${
-                            activeModeTab === 'topics'
-                              ? 'bg-gradient-to-r from-[#0158FC] to-[#0198FD] text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
+                          className="h-16 px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:border-[#0877FF]/40 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
                         >
-                          Topics
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/test-series')}
-                          className="text-xs font-bold px-4 py-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
-                        >
-                          PYQ
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 6 Subject Cards in 3 Columns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-                      {subjectsData.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => handleTabChange('topics')}
-                            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/60 dark:hover:border-blue-500/50 transition-all cursor-pointer group flex flex-col justify-between"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div
-                                  className={`w-10 h-10 rounded-2xl ${item.iconBg} border ${item.iconBorder} flex items-center justify-center ${item.iconColor} shrink-0`}
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {/* Icon or Symbol Box */}
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${sub.iconBg} ${sub.iconColor}`}
+                            >
+                              {sub.symbol ? (
+                                <span
+                                  className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs ${sub.symbolBg}`}
                                 >
-                                  {item.isSigma ? (
-                                    <span className="font-serif font-black text-base leading-none">
-                                      Σ
-                                    </span>
-                                  ) : item.isBadgeA ? (
-                                    <span className="font-sans font-black text-sm leading-none">
-                                      A
-                                    </span>
-                                  ) : (
-                                    <Icon className="w-4.5 h-4.5" />
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug truncate">
-                                    {item.title}
-                                  </h3>
-                                  <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                                    {item.questionsCount} questions
-                                  </p>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
-                            </div>
-
-                            {/* Progress Bar & Percentage */}
-                            <div className="flex items-center gap-2.5 mt-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                              <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${item.progressColor}`}
-                                  style={{ width: `${item.progress}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
-                                {item.progress}%
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* SECTION C: Continue Practicing */}
-                  <section className="space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                          Continue Practicing
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                          Pick up where you left off.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleTabChange('topics')}
-                        className="text-xs font-bold text-[#0158FC] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>View All</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* 3 Continue Practicing Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-                      {continueItems.map((cont) => {
-                        const Icon = cont.icon;
-                        return (
-                          <div
-                            key={cont.id}
-                            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 text-left shadow-xs hover:shadow-md hover:border-blue-300/60 dark:hover:border-blue-500/50 transition-all flex flex-col justify-between"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`w-10 h-10 rounded-2xl ${cont.iconBg} flex items-center justify-center ${cont.iconColor} shrink-0`}
-                              >
-                                {cont.isSigma ? (
-                                  <span className="font-serif font-black text-base leading-none">
-                                    Σ
-                                  </span>
-                                ) : (
-                                  <Icon className="w-4.5 h-4.5" />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <h3 className="text-xs sm:text-[13px] font-extrabold text-slate-900 dark:text-white leading-snug truncate">
-                                  {cont.title}
-                                </h3>
-                                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-medium">
-                                  {cont.subjectSubtitle}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Progress bar + Action Button */}
-                            <div className="flex items-center justify-between gap-3 mt-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-[#0158FC] to-[#0198FD]"
-                                    style={{ width: `${cont.progress}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
-                                  {cont.progress}%
+                                  {sub.symbol}
                                 </span>
-                              </div>
+                              ) : Icon ? (
+                                <Icon className="w-4.5 h-4.5" />
+                              ) : null}
+                            </div>
 
-                              <button
-                                onClick={() => handleTabChange('topics')}
-                                className="px-3.5 py-1.5 bg-gradient-to-r from-[#0158FC] to-[#0198FD] hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
-                              >
-                                {cont.buttonText}
-                              </button>
+                            <div className="min-w-0">
+                              <h3 className="text-xs sm:text-sm font-extrabold text-[#0B1F5B] dark:text-white truncate group-hover:text-[#0877FF] transition-colors leading-tight">
+                                {sub.title}
+                              </h3>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5 truncate">
+                                {sub.chaptersCount}
+                              </p>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                </div>
 
-                {/* ========================================================= */}
-                {/* RIGHT SIDEBAR COLUMN (~32%)                               */}
-                {/* ========================================================= */}
-                <div className="lg:col-span-4 space-y-5">
-                  {/* CARD 1: Your Practice Activity (Synced with Database) */}
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center">
-                          <Zap className="w-3.5 h-3.5" />
+                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
                         </div>
-                        <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
-                          Your Practice Activity
-                        </h2>
-                      </div>
-                      <div className="relative">
-                        <select
-                          value={activityPeriod}
-                          onChange={(e) =>
-                            setActivityPeriod(e.target.value as 'month' | 'week' | 'all')
-                          }
-                          className="text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-2.5 py-1 rounded-xl outline-none cursor-pointer"
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* ── 5. SECTION 2: CONTINUE PRACTICE ── */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-[#0B1F5B] dark:text-white" />
+                      <h2 className="text-base sm:text-lg font-black text-[#0B1F5B] dark:text-white tracking-tight">
+                        Continue Practice
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('topics')}
+                      className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
+                    >
+                      <span>See All</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {continueItemsList.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-md transition-all flex flex-col justify-between"
                         >
-                          <option value="month">This Month</option>
-                          <option value="week">This Week</option>
-                          <option value="all">All Time</option>
-                        </select>
-                      </div>
+                          <div className="flex items-start gap-2.5 mb-2.5">
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.iconBg}`}
+                            >
+                              <Icon className="w-4.5 h-4.5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-xs sm:text-[13px] font-extrabold text-[#0B1F5B] dark:text-white truncate">
+                                {item.title}
+                              </h4>
+                              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                                {item.subtitle}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1 my-1">
+                            <div className="flex items-center justify-between text-[10.5px] font-bold">
+                              <span className="text-slate-600 dark:text-slate-400">
+                                {item.completed}/{item.total} questions
+                              </span>
+                              <span className="text-[#0877FF]">{item.pct}%</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className="h-full bg-[#0877FF] rounded-full"
+                                style={{ width: `${item.pct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleTabChange('topics')}
+                            className="mt-2 w-full py-1.5 rounded-xl bg-[#0877FF] hover:bg-[#0066FF] text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all"
+                          >
+                            <span>Continue</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* ── 6. SECTION 3: QUICK PRACTICE ── */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-[#0877FF]" />
+                      <h2 className="text-base sm:text-lg font-black text-[#0B1F5B] dark:text-white tracking-tight">
+                        Quick Practice
+                      </h2>
                     </div>
-
-                    {/* 2x2 Stats Grid */}
-                    <div className="grid grid-cols-2 gap-2.5 mt-4">
-                      {/* Stat 1: Questions Practiced */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            {activityStats.questionsPracticed}
-                          </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
-                            Questions Practiced
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stat 2: Accuracy */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center shrink-0">
-                          <Target className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            {activityStats.accuracy}%
-                          </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
-                            Accuracy
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stat 3: Topics Completed */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
-                          <CheckSquare className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            {activityStats.topicsCompleted}
-                          </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
-                            Topics Completed
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stat 4: Day Streak */}
-                      <div className="bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 p-3.5 flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center shrink-0">
-                          <Flame className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
-                            {activityStats.dayStreak}
-                          </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-tight">
-                            Day Streak
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('topics')}
+                      className="text-xs sm:text-sm font-bold text-[#0877FF] hover:underline flex items-center gap-1"
+                    >
+                      <span>See All</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {/* CARD 2: Quick Tools */}
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3">
-                    <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
-                      Quick Tools
-                    </h2>
-
-                    <div className="space-y-2 pt-1">
-                      {/* Tool 1: Random Practice */}
-                      <div
-                        onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center shrink-0">
-                            <Shuffle className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
-                              Random Practice
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {quickItemsList.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleTabChange('topics')}
+                          className="h-16 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:border-[#0877FF]/40 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.iconBg}`}
+                            >
+                              <Icon className="w-4.5 h-4.5" />
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Get random questions
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-extrabold text-[#0B1F5B] dark:text-white truncate group-hover:text-[#0877FF] transition-colors leading-tight">
+                                {item.title}
+                              </h4>
+                              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5 truncate">
+                                {item.subtitle}
+                              </p>
                             </div>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
-                      </div>
-
-                      {/* Tool 2: Custom Practice */}
-                      <div
-                        onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
-                            <SlidersHorizontal className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
-                              Custom Practice
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Create your own set
-                            </div>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
-                      </div>
-
-                      {/* Tool 3: Weak Topic Practice */}
-                      <div
-                        onClick={() => handleTabChange('mistakes')}
-                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0">
-                            <BarChart2 className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
-                              Weak Topic Practice
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Focus on low accuracy topics
-                            </div>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
-                      </div>
-
-                      {/* Tool 4: Time-based Practice */}
-                      <div
-                        onClick={() => handleTabChange('topics')}
-                        className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0158FC] flex items-center justify-center shrink-0">
-                            <Clock className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white">
-                              Time-based Practice
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Improve speed & accuracy
-                            </div>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0158FC] group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-
-                  {/* CARD 3: Motivational Quote Card with Succulent Plant */}
-                  <div className="bg-gradient-to-br from-[#EEF6FF] via-[#E8F2FC] to-[#E3EFFF] dark:from-slate-800/80 dark:to-slate-900/80 rounded-3xl border border-blue-100/70 dark:border-blue-900/40 p-5 shadow-xs flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-3xl sm:text-4xl text-[#2563EB]/40 font-serif leading-none block">
-                        “
-                      </span>
-                      <p className="italic font-bold text-xs sm:text-[13px] text-blue-950 dark:text-blue-200 leading-snug">
-                        &ldquo;Discipline today
-                        <br />
-                        Success tomorrow.&rdquo;
-                      </p>
-                      <div className="text-[11px] font-bold text-slate-600 dark:text-slate-400 pt-1">
-                        — PracticeKoro
-                      </div>
-                    </div>
-
-                    {/* Plant image */}
-                    <div className="w-14 sm:w-16 h-auto shrink-0 select-none pointer-events-none">
-                      <img
-                        src="/images/practice/quote_plant_clean.png"
-                        alt="PracticeKoro Growth"
-                        className="w-full h-auto object-contain"
-                      />
-                    </div>
-                  </div>
-                </div>
+                </section>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* =========================================================================
               VIEW 2: TOPIC TESTS

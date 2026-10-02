@@ -1,211 +1,914 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/datasources/local_storage.dart';
-import '../../data/repositories/catalog_repository.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
+import '../../core/widgets/pk_search_filter_bar.dart';
 
 class PracticeScreen extends ConsumerStatefulWidget {
   final String initialTab;
+  final ValueChanged<int>? onTabSelected;
 
-  const PracticeScreen({super.key, this.initialTab = 'subjects'});
+  const PracticeScreen({
+    super.key,
+    this.initialTab = 'subjects',
+    this.onTabSelected,
+  });
 
   @override
   ConsumerState<PracticeScreen> createState() => _PracticeScreenState();
 }
 
-class _PracticeScreenState extends ConsumerState<PracticeScreen> {
-  late String _activeTab;
-  List<Map<String, dynamic>> _pyqPapers = [];
+class _PracticeSubjectData {
+  final String id;
+  final String title;
+  final String chaptersCount;
+  final Color iconBg;
+  final Color iconColor;
+  final IconData? icon;
+  final String? symbol;
+  final Color? symbolBg;
 
-  static const List<Map<String, dynamic>> _topicDrills = [
-    {
-      'id': 'indian_constitution',
-      'title': 'Indian Constitution & Polity',
-      'subject': 'General Knowledge',
-      'questions': 50,
-      'difficulty': 'Moderate',
-      'color': Color(0xFF10B981),
-    },
-    {
-      'id': 'wb_geography',
-      'title': 'Geography of West Bengal & India',
-      'subject': 'General Knowledge',
-      'questions': 45,
-      'difficulty': 'Easy',
-      'color': Color(0xFF10B981),
-    },
-    {
-      'id': 'ratio_proportion',
-      'title': 'Ratio, Proportion & Partnership',
-      'subject': 'Mathematics',
-      'questions': 40,
-      'difficulty': 'Moderate',
-      'color': Color(0xFF3142D6),
-    },
-    {
-      'id': 'percentage_profit',
-      'title': 'Percentage, Profit & Loss',
-      'subject': 'Mathematics',
-      'questions': 45,
-      'difficulty': 'Moderate',
-      'color': Color(0xFF3142D6),
-    },
-    {
-      'id': 'time_work',
-      'title': 'Time & Work, Pipe & Cistern',
-      'subject': 'Mathematics',
-      'questions': 35,
-      'difficulty': 'Hard',
-      'color': Color(0xFF3142D6),
-    },
-    {
-      'id': 'number_series',
-      'title': 'Number & Alphabet Series',
-      'subject': 'GI & Reasoning',
-      'questions': 40,
-      'difficulty': 'Easy',
-      'color': Color(0xFFF59E0B),
-    },
-    {
-      'id': 'coding_decoding',
-      'title': 'Coding-Decoding & Analogy',
-      'subject': 'GI & Reasoning',
-      'questions': 40,
-      'difficulty': 'Moderate',
-      'color': Color(0xFFF59E0B),
-    },
-    {
-      'id': 'english_grammar',
-      'title': 'Prepositions, Tense & Voice Change',
-      'subject': 'English',
-      'questions': 50,
-      'difficulty': 'Moderate',
-      'color': Color(0xFF8B5CF6),
-    },
+  const _PracticeSubjectData({
+    required this.id,
+    required this.title,
+    required this.chaptersCount,
+    required this.iconBg,
+    required this.iconColor,
+    this.icon,
+    this.symbol,
+    this.symbolBg,
+  });
+}
+
+class _ContinuePracticeData {
+  final String id;
+  final String subjectId;
+  final String title;
+  final String subtitle;
+  final int completedQuestions;
+  final int totalQuestions;
+  final Color iconBg;
+  final Color iconColor;
+  final IconData icon;
+
+  const _ContinuePracticeData({
+    required this.id,
+    required this.subjectId,
+    required this.title,
+    required this.subtitle,
+    required this.completedQuestions,
+    required this.totalQuestions,
+    required this.iconBg,
+    required this.iconColor,
+    required this.icon,
+  });
+}
+
+class _QuickPracticeData {
+  final String id;
+  final String title;
+  final String subtitle;
+  final Color iconBg;
+  final Color iconColor;
+  final IconData icon;
+
+  const _QuickPracticeData({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.iconBg,
+    required this.iconColor,
+    required this.icon,
+  });
+}
+
+class _PracticeScreenState extends ConsumerState<PracticeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  int _selectedFilterIndex = 0;
+
+  static const List<String> _subjectFilters = [
+    'All Subjects',
+    'General Knowledge',
+    'Mathematics',
+    'Bengali',
+    'English',
+    'Reasoning',
+    'General Science',
+    'Computer',
+    'Current Affairs',
+  ];
+
+  static const List<_PracticeSubjectData> _allSubjects = [
+    _PracticeSubjectData(
+      id: 'general_knowledge',
+      title: 'General Knowledge',
+      chaptersCount: '25 Chapters',
+      iconBg: Color(0xFFEBF3FF),
+      iconColor: Color(0xFF2563EB),
+      icon: Icons.article_rounded,
+    ),
+    _PracticeSubjectData(
+      id: 'mathematics',
+      title: 'Mathematics',
+      chaptersCount: '30 Chapters',
+      iconBg: Color(0xFFE6F8EE),
+      iconColor: Color(0xFF16A34A),
+      icon: Icons.calculate_rounded,
+    ),
+    _PracticeSubjectData(
+      id: 'english',
+      title: 'English',
+      chaptersCount: '20 Chapters',
+      iconBg: Color(0xFFF3E8FF),
+      iconColor: Color(0xFF9333EA),
+      symbol: 'A',
+      symbolBg: Color(0xFF9333EA),
+    ),
+    _PracticeSubjectData(
+      id: 'bengali',
+      title: 'Bengali',
+      chaptersCount: '25 Chapters',
+      iconBg: Color(0xFFFFEDD5),
+      iconColor: Color(0xFFEA580C),
+      symbol: 'অ',
+      symbolBg: Color(0xFFEA580C),
+    ),
+    _PracticeSubjectData(
+      id: 'reasoning',
+      title: 'Reasoning',
+      chaptersCount: '30 Chapters',
+      iconBg: Color(0xFFFFE4E6),
+      iconColor: Color(0xFFE11D48),
+      icon: Icons.hub_rounded,
+    ),
+    _PracticeSubjectData(
+      id: 'general_science',
+      title: 'General Science',
+      chaptersCount: '20 Chapters',
+      iconBg: Color(0xFFFEF3C7),
+      iconColor: Color(0xFFD97706),
+      icon: Icons.science_outlined,
+    ),
+    _PracticeSubjectData(
+      id: 'computer_awareness',
+      title: 'Computer',
+      chaptersCount: '15 Chapters',
+      iconBg: Color(0xFFEDE9FE),
+      iconColor: Color(0xFF7C3AED),
+      icon: Icons.laptop_mac_rounded,
+    ),
+    _PracticeSubjectData(
+      id: 'current_affairs',
+      title: 'Current Affairs',
+      chaptersCount: '25 Chapters',
+      iconBg: Color(0xFFECFDF5),
+      iconColor: Color(0xFF10B981),
+      icon: Icons.bar_chart_rounded,
+    ),
+  ];
+
+  static const List<_ContinuePracticeData> _continueItems = [
+    _ContinuePracticeData(
+      id: 'number_system',
+      subjectId: 'mathematics',
+      title: 'Number System',
+      subtitle: 'Mathematics • WBP Constable',
+      completedQuestions: 12,
+      totalQuestions: 30,
+      iconBg: Color(0xFFE6F8EE),
+      iconColor: Color(0xFF16A34A),
+      icon: Icons.calculate_rounded,
+    ),
+    _ContinuePracticeData(
+      id: 'indian_history',
+      subjectId: 'general_knowledge',
+      title: 'Indian History',
+      subtitle: 'General Knowledge • WBP Constable',
+      completedQuestions: 18,
+      totalQuestions: 25,
+      iconBg: Color(0xFFEBF3FF),
+      iconColor: Color(0xFF2563EB),
+      icon: Icons.article_rounded,
+    ),
+    _ContinuePracticeData(
+      id: 'analogy',
+      subjectId: 'reasoning',
+      title: 'Analogy',
+      subtitle: 'Reasoning • WBP Constable',
+      completedQuestions: 8,
+      totalQuestions: 20,
+      iconBg: Color(0xFFFFE4E6),
+      iconColor: Color(0xFFE11D48),
+      icon: Icons.hub_rounded,
+    ),
+  ];
+
+  static const List<_QuickPracticeData> _quickPracticeItems = [
+    _QuickPracticeData(
+      id: 'quick_10',
+      title: '10 Questions',
+      subtitle: 'Daily Practice',
+      iconBg: Color(0xFFE6F8EE),
+      iconColor: Color(0xFF16A34A),
+      icon: Icons.track_changes_rounded,
+    ),
+    _QuickPracticeData(
+      id: 'quick_25',
+      title: '25 Questions',
+      subtitle: 'Mixed Practice',
+      iconBg: Color(0xFFFFEDD5),
+      iconColor: Color(0xFFEA580C),
+      icon: Icons.description_rounded,
+    ),
+    _QuickPracticeData(
+      id: 'quick_50',
+      title: '50 Questions',
+      subtitle: 'Full Practice',
+      iconBg: Color(0xFFF3E8FF),
+      iconColor: Color(0xFF8B5CF6),
+      icon: Icons.emoji_events_rounded,
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
-    _activeTab =
-        const {'subjects', 'topics', 'pyqs'}.contains(widget.initialTab)
-        ? widget.initialTab
-        : 'subjects';
-    _loadPyqPapers();
+    _searchFocusNode.addListener(() {
+      setState(() {});
+    });
   }
 
-  Future<void> _loadPyqPapers() async {
-    final repo = ref.read(catalogRepositoryProvider);
-    final pyqs = await repo.getMockTests(testType: 'pyq');
-    if (mounted) {
-      setState(() {
-        _pyqPapers = pyqs.map((p) {
-          return {
-            'id': p.id,
-            'title': p.title,
-            'subtitle':
-                '${p.totalQuestions} Questions • ${p.durationMinutes} Mins',
-            'year': '${p.year ?? "PYQ"}',
-            'isPro': p.isPremium,
-          };
-        }).toList();
-      });
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final attempts = LocalStorageService.getAttempts();
-    final totalCorrect = attempts.fold<int>(0, (sum, a) => sum + a.correctCount);
-    final totalWrong = attempts.fold<int>(0, (sum, a) => sum + a.wrongCount);
-    final questionsPracticed = totalCorrect + totalWrong;
-    final avgAccuracyPct = attempts.isEmpty
-        ? 0
-        : (attempts.fold<double>(0, (s, a) => s + a.accuracy) / attempts.length)
-              .round();
-    final bookmarksCount = LocalStorageService.getBookmarks().length;
+    final query = _searchController.text.trim().toLowerCase();
+    final selectedFilter = _subjectFilters[_selectedFilterIndex];
+
+    final filteredSubjects = _allSubjects.where((item) {
+      final matchesFilter = _selectedFilterIndex == 0 ||
+          item.title.toLowerCase() == selectedFilter.toLowerCase();
+      final matchesQuery = query.isEmpty ||
+          item.title.toLowerCase().contains(query) ||
+          item.chaptersCount.toLowerCase().contains(query);
+      return matchesFilter && matchesQuery;
+    }).toList();
+
+    final filteredContinueItems = _continueItems.where((item) {
+      final matchesQuery = query.isEmpty ||
+          item.title.toLowerCase().contains(query) ||
+          item.subtitle.toLowerCase().contains(query);
+      return matchesQuery;
+    }).toList();
+
+    final bool hasNoResults =
+        filteredSubjects.isEmpty && filteredContinueItems.isEmpty && query.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FB),
+      backgroundColor: const Color(0xFFF1F5FC),
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: ListView(
+          padding: PKBottomSpacing.edgeInsets(context, horizontal: 16, top: 12),
           children: [
-            // ── NATIVE MOBILE TOP HEADER ──
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // ── 1. SCREEN TITLE & SUBTITLE ──
+            const Text(
+              'Practice',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0B1F5B),
+                letterSpacing: -0.6,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 3),
+            const Text(
+              'Subject-wise practice to strengthen your preparation',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── 2. SUBJECT CATEGORY FILTER PILLS ──
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _subjectFilters.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final isSelected = _selectedFilterIndex == idx;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedFilterIndex = idx),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF0877FF) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF0877FF)
+                              : const Color(0xFFE2ECF8),
+                        ),
+                        boxShadow: [
+                          if (isSelected)
+                            BoxShadow(
+                              color: const Color(0xFF0877FF).withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _subjectFilters[idx],
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? Colors.white : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── 3. CLEAN FULL-WIDTH SEARCH BAR + FILTER BUTTON ROW (REUSABLE COMPONENT) ──
+            PKSearchFilterBar(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              hintText: 'Search subject or chapter...',
+              searchIconColor: const Color(0xFF0877FF),
+              isFilterActive: _selectedFilterIndex != 0,
+              onFilterTap: () => _showFilterSheet(context),
+              onChanged: (_) => setState(() {}),
+              onClear: () => setState(() {}),
+            ),
+
+
+            // Active Search Feedback Pill
+            if (query.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Practice & PYQ Hub',
-                        style: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.5,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.search_rounded,
+                          size: 13,
+                          color: Color(0xFF0877FF),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Subject drills, past papers & mistake revision',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(width: 5),
+                        Text(
+                          'Results for "$query"',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0877FF),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '(${filteredSubjects.length + filteredContinueItems.length})',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0B1F5B),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                    child: const Text(
+                      'Clear',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            // Empty state if nothing matches
+            if (hasNoResults) ...[
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE8EEF7)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.search_off_rounded,
+                        size: 32,
+                        color: Color(0xFF0877FF),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'No practice content found',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0B1F5B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'We couldn\'t find any subjects or chapters matching "$query".',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF64748B),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _selectedFilterIndex = 0;
+                        });
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Reset All Filters'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0877FF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (!hasNoResults) ...[
+              const SizedBox(height: 18),
+
+              // ── 4. SECTION 1: SUBJECTS (2-COLUMN GRID) ──
+              if (filteredSubjects.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.menu_book_rounded,
+                          size: 19,
+                          color: Color(0xFF0B1F5B),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Subjects',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0B1F5B),
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _selectedFilterIndex = 0;
+                        _searchController.clear();
+                      }),
+                      child: const Row(
+                        children: [
+                          Text(
+                            'See All',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF0877FF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 3),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 15,
+                            color: Color(0xFF0877FF),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 2-Column Responsive Grid Layout
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = (constraints.maxWidth - 10) / 2;
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: filteredSubjects
+                          .map((sub) => SizedBox(
+                                width: itemWidth,
+                                child: _buildSubjectGridCard(context, sub),
+                              ))
+                          .toList(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 22),
+              ],
+
+              // ── 5. SECTION 2: CONTINUE PRACTICE ──
+              if (filteredContinueItems.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 19,
+                          color: Color(0xFF0B1F5B),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Continue Practice',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0B1F5B),
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        final enc = Uri.encodeComponent('Mathematics');
+                        context.push('/practice/topics/mathematics?title=$enc');
+                      },
+                      child: const Row(
+                        children: [
+                          Text(
+                            'See All',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF0877FF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 3),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 15,
+                            color: Color(0xFF0877FF),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...filteredContinueItems.map((item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _buildContinuePracticeCard(context, item),
+                    )),
+                const SizedBox(height: 14),
+              ],
+
+              // ── 6. SECTION 3: QUICK PRACTICE ──
+              if (query.isEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.bolt_rounded,
+                          size: 21,
+                          color: Color(0xFF0877FF),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Quick Practice',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0B1F5B),
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        final enc = Uri.encodeComponent('Quick Practice');
+                        context.push('/practice/topics/quick_10?title=$enc');
+                      },
+                      child: const Row(
+                        children: [
+                          Text(
+                            'See All',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF0877FF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 3),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 15,
+                            color: Color(0xFF0877FF),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 60,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _quickPracticeItems.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, idx) {
+                      return _buildQuickPracticeCard(context, _quickPracticeItems[idx]);
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // SUBJECT GRID CARD (2-COLUMN)
+  // ==========================================
+  Widget _buildSubjectGridCard(BuildContext context, _PracticeSubjectData item) {
+    return GestureDetector(
+      onTap: () {
+        final enc = Uri.encodeComponent(item.title);
+        context.push('/practice/topics/${item.id}?title=$enc');
+      },
+      child: Container(
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8EEF7)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Icon / Symbol Box
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: item.iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: item.symbol != null
+                  ? Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: item.symbolBg ?? item.iconColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        item.symbol!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      item.icon,
+                      size: 20,
+                      color: item.iconColor,
+                    ),
+            ),
+            const SizedBox(width: 8),
+
+            // Title & Chapter count
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0B1F5B),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.chaptersCount,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+
+            // Circular Arrow Button
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F2FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                size: 13,
+                color: Color(0xFF0877FF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CONTINUE PRACTICE CARD
+  // ==========================================
+  Widget _buildContinuePracticeCard(BuildContext context, _ContinuePracticeData item) {
+    final progress = (item.completedQuestions / item.totalQuestions).clamp(0.0, 1.0);
+    return GestureDetector(
+      onTap: () {
+        final enc = Uri.encodeComponent(item.title);
+        context.push('/practice/topics/${item.subjectId}?title=$enc');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8EEF7)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left Icon Box
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: item.iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                item.icon,
+                size: 22,
+                color: item.iconColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Middle Details with Progress Bar
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0B1F5B),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: () => context.push('/mistakes'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF1F2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFECDD3)),
-                          ),
-                          child: Text(
-                            '$totalWrong Wrong',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFFE11D48),
-                            ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 4.5,
+                            backgroundColor: const Color(0xFFE2ECF8),
+                            valueColor: const AlwaysStoppedAnimation(Color(0xFF0877FF)),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => context.push('/bookmarks'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFC7D2FE)),
-                          ),
-                          child: Text(
-                            '$bookmarksCount Saved',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF3142D6),
-                            ),
-                          ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${item.completedQuestions}/${item.totalQuestions} questions',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -213,59 +916,33 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(width: 10),
 
-            // ── SCROLLABLE NATIVE MOBILE BODY ──
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            // Right Continue Pill Button
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFDBEAFE)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Indigo-Violet Instant Drill Hero Card
-                  _buildInstantDrillCard(
-                    questionsPracticed: questionsPracticed,
-                    avgAccuracyPct: avgAccuracyPct,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 2. 2x2 Quick Practice Modes Bento (Strictly No Flashcards)
-                  const Text(
-                    'Practice Modes',
+                  Text(
+                    'Continue',
                     style: TextStyle(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.3,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0877FF),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _buildPracticeModesBento(
-                    totalWrong: totalWrong,
-                    bookmarksCount: bookmarksCount,
+                  SizedBox(width: 3),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 13,
+                    color: Color(0xFF0877FF),
                   ),
-                  const SizedBox(height: 22),
-
-                  // 3. Segmented Pill Switcher (Subjects | Topics | PYQ Papers)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTabPill('subjects', 'Subjects'),
-                        _buildTabPill('topics', 'Topic Drills'),
-                        _buildTabPill('pyqs', 'PYQ Papers'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 4. Active Tab Content
-                  if (_activeTab == 'subjects') _buildSubjectsList(),
-                  if (_activeTab == 'topics') _buildTopicsList(),
-                  if (_activeTab == 'pyqs') _buildPyqsList(),
                 ],
               ),
             ),
@@ -275,658 +952,142 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     );
   }
 
-  Widget _buildInstantDrillCard({
-    required int questionsPracticed,
-    required int avgAccuracyPct,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF3142D6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  // ==========================================
+  // QUICK PRACTICE CARD (HORIZONTAL)
+  // ==========================================
+  Widget _buildQuickPracticeCard(BuildContext context, _QuickPracticeData item) {
+    return GestureDetector(
+      onTap: () {
+        final enc = Uri.encodeComponent(item.title);
+        context.push('/practice/topics/${item.id}?title=$enc');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8EEF7)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0B1F5B).withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3142D6).withValues(alpha: 0.22),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '⚡ RAPID MCQ ENGINE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFFFDE047),
-                    letterSpacing: 0.4,
-                  ),
-                ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: item.iconBg,
+                borderRadius: BorderRadius.circular(10),
               ),
-              Text(
-                '$questionsPracticed Solved • $avgAccuracyPct% Acc.',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFC7D2FE),
-                ),
+              alignment: Alignment.center,
+              child: Icon(
+                item.icon,
+                size: 20,
+                color: item.iconColor,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Daily 15-Minute Speed Drill',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: -0.4,
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Instant explanation after every question in Bengali & English.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: Color(0xFFCBD5E1),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push(
-                    '/topic-practice/mixed_drill?title=Mixed%20Speed%20Drill',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF3142D6),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  icon: const Icon(Icons.bolt_rounded, size: 18),
-                  label: const Text(
-                    'Start 15-Q Drill',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _activeTab = 'pyqs'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.28),
-                    ),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  icon: const Icon(Icons.history_edu_rounded, size: 18),
-                  label: const Text(
-                    'Solve PYQ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPracticeModesBento({
-    required int totalWrong,
-    required int bookmarksCount,
-  }) {
-    final modes = [
-      {
-        'title': 'Topic Drills',
-        'subtitle': 'Chapter-wise MCQs',
-        'badge': '50+ Topics',
-        'icon': Icons.track_changes_rounded,
-        'color': const Color(0xFF3142D6),
-        'bg': const Color(0xFFEEF2FF),
-        'onTap': () => setState(() => _activeTab = 'topics'),
-      },
-      {
-        'title': 'PYQ Archive',
-        'subtitle': 'Official past papers',
-        'badge': '2018–2025',
-        'icon': Icons.history_edu_rounded,
-        'color': const Color(0xFF059669),
-        'bg': const Color(0xFFECFDF5),
-        'onTap': () => setState(() => _activeTab = 'pyqs'),
-      },
-      {
-        'title': 'Mistake Notebook',
-        'subtitle': 'Re-attempt wrong Qs',
-        'badge': '$totalWrong Qs',
-        'icon': Icons.auto_fix_high_rounded,
-        'color': const Color(0xFFE11D48),
-        'bg': const Color(0xFFFFF1F2),
-        'onTap': () => context.push('/mistakes'),
-      },
-      {
-        'title': 'Saved Bookmarks',
-        'subtitle': 'Important exam Qs',
-        'badge': '$bookmarksCount Saved',
-        'icon': Icons.bookmark_rounded,
-        'color': const Color(0xFFD97706),
-        'bg': const Color(0xFFFFFBEB),
-        'onTap': () => context.push('/bookmarks'),
-      },
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: modes.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.38,
-      ),
-      itemBuilder: (context, idx) {
-        final m = modes[idx];
-        final color = m['color'] as Color;
-        final bg = m['bg'] as Color;
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: m['onTap'] as VoidCallback,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
+            const SizedBox(width: 9),
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: bg,
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Icon(
-                        m['icon'] as IconData,
-                        size: 19,
-                        color: color,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: bg,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        m['badge'] as String,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
                 Text(
-                  m['title'] as String,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  item.title,
                   style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0B1F5B),
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  m['subtitle'] as String,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  item.subtitle,
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTabPill(String key, String label) {
-    final isSelected = _activeTab == key;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _activeTab = key),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF3142D6) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: isSelected ? Colors.white : const Color(0xFF475569),
+            const SizedBox(width: 8),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F2FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                size: 11,
+                color: Color(0xFF0877FF),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSubjectsList() {
-    final defaultSubjects = [
-      {
-        'id': 'gk',
-        'name': 'General Knowledge & Current Affairs',
-        'topics': 'History, Polity, Geography, Science & Static GK',
-        'count': '1,500+ MCQs',
-        'icon': Icons.public_rounded,
-        'color': const Color(0xFF10B981),
-        'bg': const Color(0xFFECFDF5),
-      },
-      {
-        'id': 'math',
-        'name': 'Elementary Mathematics',
-        'topics': 'Arithmetic, Ratio, Percentage, Profit-Loss & Mensuration',
-        'count': '1,200+ MCQs',
-        'icon': Icons.calculate_rounded,
-        'color': const Color(0xFF3142D6),
-        'bg': const Color(0xFFEEF2FF),
-      },
-      {
-        'id': 'reasoning',
-        'name': 'General Intelligence & Reasoning',
-        'topics': 'Number Series, Coding-Decoding, Blood Relation & Puzzles',
-        'count': '1,000+ MCQs',
-        'icon': Icons.psychology_rounded,
-        'color': const Color(0xFFF59E0B),
-        'bg': const Color(0xFFFFFBEB),
-      },
-      {
-        'id': 'english',
-        'name': 'General English',
-        'topics': 'Grammar, Vocabulary, Idioms, Voice & Narration',
-        'count': '950+ MCQs',
-        'icon': Icons.translate_rounded,
-        'color': const Color(0xFF8B5CF6),
-        'bg': const Color(0xFFF5F3FF),
-      },
-      {
-        'id': 'bengali',
-        'name': 'সাধারণ বাংলা (Bengali Grammar)',
-        'topics': 'সন্ধি, সমাস, কারক, বাগধারা ও এক কথায় প্রকাশ',
-        'count': '800+ MCQs',
-        'icon': Icons.menu_book_rounded,
-        'color': const Color(0xFFE11D48),
-        'bg': const Color(0xFFFFF1F2),
-      },
-    ];
-
-    return Column(
-      children: defaultSubjects.map((s) {
-        final color = s['color'] as Color;
-        final bg = s['bg'] as Color;
-        final name = s['name'] as String;
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              final enc = Uri.encodeComponent(name);
-              context.push('/topic-practice/${s['id']}?title=$enc');
-            },
-            child: Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: bg,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(s['icon'] as IconData, color: color, size: 23),
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Filter by Subject',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0B1F5B),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bg,
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                s['count'] as String,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: color,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          s['topics'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 15,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _subjectFilters.map((f) {
+                    final isSel = _subjectFilters[_selectedFilterIndex] == f;
+                    return ChoiceChip(
+                      label: Text(f),
+                      selected: isSel,
+                      selectedColor: const Color(0xFF0877FF),
+                      backgroundColor: const Color(0xFFF1F5FC),
+                      labelStyle: TextStyle(
+                        color: isSel ? Colors.white : const Color(0xFF0B1F5B),
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) {
+                        setState(() => _selectedFilterIndex = _subjectFilters.indexOf(f));
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+              ],
             ),
           ),
         );
-      }).toList(),
-    );
-  }
-
-  Widget _buildTopicsList() {
-    return Column(
-      children: _topicDrills.map((t) {
-        final color = t['color'] as Color;
-        final title = t['title'] as String;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () {
-              final enc = Uri.encodeComponent(title);
-              context.push('/topic-practice/${t['id']}?title=$enc');
-            },
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${t['subject']} • ${t['questions']} MCQs • ${t['difficulty']}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      'Drill',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF3142D6),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildPyqsList() {
-    final papers = _pyqPapers.isNotEmpty
-        ? _pyqPapers
-        : [
-            {
-              'id': 'wbp_pyq_2024',
-              'title': 'WBP Constable Preliminary Official Paper',
-              'subtitle': '100 Questions • 60 Mins',
-              'year': '2024',
-              'isPro': false,
-            },
-            {
-              'id': 'wbpsc_clerk_pyq',
-              'title': 'WBPSC Clerkship Part-I Official Paper',
-              'subtitle': '100 Questions • 90 Mins',
-              'year': '2024',
-              'isPro': false,
-            },
-            {
-              'id': 'tet_pyq_2023',
-              'title': 'WB Primary TET Official Question Paper',
-              'subtitle': '150 Questions • 150 Mins',
-              'year': '2023',
-              'isPro': false,
-            },
-          ];
-
-    return Column(
-      children: papers.map((p) {
-        final title = p['title'] as String;
-        final isPro = p['isPro'] as bool? ?? false;
-        final enc = Uri.encodeComponent(title);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () =>
-                context.push('/test-details/${p['id']}?title=$enc&isPro=$isPro'),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
-                    ),
-                    child: Text(
-                      (p['year'] as String).isNotEmpty
-                          ? p['year'] as String
-                          : 'PYQ',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          p['subtitle'] as String,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3142D6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      'Solve',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+      },
     );
   }
 }

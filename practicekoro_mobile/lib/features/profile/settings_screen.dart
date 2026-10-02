@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/components/pk_card.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../core/components/pk_dialog.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
@@ -65,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 16, additionalGap: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

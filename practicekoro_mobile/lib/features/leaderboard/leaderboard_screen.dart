@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/attempt_model.dart';
 import '../../data/repositories/leaderboard_repository.dart';
@@ -182,7 +183,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             // Scrollable Body
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 16),
                 children: [
                   // 1. User's Personal Performance Strip (Matches Website Rank.tsx)
                   _buildPersonalStatsCard(

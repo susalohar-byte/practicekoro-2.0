@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/navigation/main_scaffold.dart';
@@ -21,8 +22,9 @@ import '../../features/auth/login_screen.dart';
 import '../../data/models/attempt_model.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/splash',
+  initialLocation: kIsWeb ? '/home' : '/splash',
   routes: [
+    GoRoute(path: '/', redirect: (context, state) => '/home'),
     // 1. Splash Screen
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
 
@@ -149,6 +151,13 @@ final appRouter = GoRouter(
     // 17. Topic Practice Screen
     GoRoute(
       path: '/practice/topics/:subjectId',
+      builder: (context, state) {
+        final subjectId = state.pathParameters['subjectId'] ?? 'math';
+        return TopicScreen(subjectId: subjectId);
+      },
+    ),
+    GoRoute(
+      path: '/topic-practice/:subjectId',
       builder: (context, state) {
         final subjectId = state.pathParameters['subjectId'] ?? 'math';
         return TopicScreen(subjectId: subjectId);

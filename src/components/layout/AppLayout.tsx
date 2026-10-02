@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { StudentSidebar } from './StudentSidebar';
+import { StudentNavbar } from './StudentNavbar';
 import { BottomNav } from './BottomNav';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { useAuth } from '@/context/AuthContext';
@@ -11,53 +11,28 @@ export const AppLayout: React.FC = () => {
   const { isMaintenanceMode, loading: maintLoading } = useMaintenance();
   const { isAdmin } = useAuth();
 
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('pk_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
   // If platform maintenance mode is enabled and user is NOT an admin, block student access and display MaintenanceScreen
   if (!maintLoading && isMaintenanceMode && !isAdmin) {
     return <MaintenanceScreen />;
   }
 
-  const toggleCollapse = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('pk_sidebar_collapsed', String(next));
-      } catch {
-        // Ignore malformed cached UI preference and retain the default layout.
-      }
-      return next;
-    });
-  };
-
   return (
-    <div className="min-h-screen flex bg-[#F6F9FF] dark:bg-slate-950">
-      {/* Side Navbar Component for Student Dashboard */}
-      <StudentSidebar
-        isOpen={mobileSidebarOpen}
-        onClose={() => setMobileSidebarOpen(false)}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={toggleCollapse}
-      />
+    <div className="min-h-screen flex flex-col bg-[#F1F5FC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#0877FF]/20 selection:text-[#0877FF]">
+      {/* 1. App Top Navigation Bar (Shared across Mobile, Tablet, Laptop & Desktop) */}
+      <StudentNavbar />
 
-      {/* Main Content Column (no top header: navbar lives only on Home) */}
-      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
-        <main className="flex-1 pb-20 lg:pb-12">
+      {/* 2. Main Content Responsive Container */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12">
           <Outlet
             context={{
-              onToggleMobileSidebar: () => setMobileSidebarOpen((prev) => !prev),
-              onToggleCollapse: toggleCollapse,
-              isSidebarCollapsed: isCollapsed,
+              onToggleMobileSidebar: () => {},
+              onToggleCollapse: () => {},
+              isSidebarCollapsed: false,
             }}
           />
         </main>
+        {/* 3. Mobile Floating Navigation Pill (App 1:1) */}
         <BottomNav />
       </div>
 

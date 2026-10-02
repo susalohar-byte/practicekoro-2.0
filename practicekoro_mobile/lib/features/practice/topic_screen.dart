@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../data/datasources/local_storage.dart';
 import '../../data/models/subject_model.dart';
 import '../../data/models/test_model.dart';
@@ -119,7 +120,7 @@ class _TopicScreenState extends ConsumerState<TopicScreen> {
           : _topics.isEmpty
           ? _emptyState('No active topics are set up for this subject yet.')
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+              padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 18),
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Bookmark,
   BookOpen,
@@ -28,7 +28,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { MathText } from '@/components/common/MathText';
-import { StudentNavbar } from '@/components/layout/StudentNavbar';
 import type { BookmarkItem } from '@/types';
 
 
@@ -97,7 +96,6 @@ function formatDate(dateStr?: string): string {
 export const SavedQuestions: React.FC = () => {
   const { user } = useAuth();
   const { isBilingualEnabled } = useContentLanguage();
-  const { onToggleMobileSidebar } = useOutletContext<{ onToggleMobileSidebar?: () => void }>() || {};
 
   const [items, setItems] = useState<BookmarkItem[]>([]);
 
@@ -289,9 +287,6 @@ export const SavedQuestions: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Top Navbar */}
-      <StudentNavbar embedded onToggleMobileSidebar={onToggleMobileSidebar} />
-
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
         {/* Toast Notification */}

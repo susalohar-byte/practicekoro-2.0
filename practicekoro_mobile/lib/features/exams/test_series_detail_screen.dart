@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../data/models/test_model.dart';
 import '../../data/models/test_series_model.dart';
 import '../../data/repositories/catalog_repository.dart';
@@ -168,7 +169,7 @@ class _TestSeriesDetailScreenState
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 14),
           children: [
             Container(
               padding: const EdgeInsets.all(18),
