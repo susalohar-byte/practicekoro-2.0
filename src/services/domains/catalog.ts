@@ -20,6 +20,7 @@ import type {
   AttemptAnswerState,
   TestAttempt,
   TestSeriesAnalytics,
+  AttemptRankings,
   GradedResult,
   QuestionSolution,
   MistakeItem,
@@ -1060,6 +1061,17 @@ export const catalogApi = {
     }
 
     return null;
+  },
+
+  async getAttemptRankings(attemptId: string): Promise<AttemptRankings | null> {
+    if (!isSupabaseConfigured) return null;
+
+    const { data, error } = await supabase.rpc('get_attempt_rankings', {
+      p_attempt_id: attemptId,
+    });
+    if (error) throw new Error(error.message || 'Failed to load rankings');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    return data as unknown as AttemptRankings;
   },
 
   async getAttemptSolutions(attemptId: string, testId: string): Promise<QuestionSolution[]> {

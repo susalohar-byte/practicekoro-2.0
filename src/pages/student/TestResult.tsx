@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 import { Card } from '@/components/common/Card';
+import { ResultRankingCard } from '@/components/student/ResultRankingCard';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import {
@@ -287,6 +288,8 @@ export const TestResult: React.FC = () => {
         {/* Decorative background trophy icon */}
         <Award className="absolute right-4 -bottom-6 w-56 h-56 text-white/5 pointer-events-none" />
       </Card>
+
+      <ResultRankingCard attemptId={result.attemptId} />
 
       {/* Breakdown Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">

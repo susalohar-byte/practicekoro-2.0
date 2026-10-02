@@ -547,6 +547,10 @@ export interface Database {
         Args: { p_series_id: string };
         Returns: Json;
       };
+      get_attempt_rankings: {
+        Args: { p_attempt_id: string };
+        Returns: Json;
+      };
       get_admin_dashboard_counts: {
         Args: Record<string, never>;
         Returns: Json;

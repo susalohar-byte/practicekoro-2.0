@@ -495,6 +495,26 @@ export interface GradedResult {
   passed: boolean;
 }
 
+export interface AttemptRankings {
+  testSeries: {
+    id: string | null;
+    name: string | null;
+    score: number;
+    totalMarks: number;
+    rank: number | null;
+    participants: number;
+  };
+  district: {
+    name: string | null;
+    rank: number | null;
+    participants: number;
+  };
+  westBengal: {
+    rank: number | null;
+    participants: number;
+  };
+}
+
 export interface QuestionSolution {
   id: string;
   questionOrder: number;

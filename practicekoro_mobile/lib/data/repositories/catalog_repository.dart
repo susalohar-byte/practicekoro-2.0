@@ -355,6 +355,18 @@ class CatalogRepository {
     });
   }
 
+  Future<Map<String, dynamic>?> getAttemptRankings(String attemptId) async {
+    final client = _supabase;
+    if (client == null || client.auth.currentUser == null) return null;
+
+    final response = await client.rpc(
+      'get_attempt_rankings',
+      params: {'p_attempt_id': attemptId},
+    );
+    if (response is! Map) return null;
+    return Map<String, dynamic>.from(response);
+  }
+
   Future<List<ChapterModel>> getChaptersForSubject(String subjectId) async {
     final client = _supabase;
     if (client == null) return [];

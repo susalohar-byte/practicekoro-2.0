@@ -19,6 +19,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   TestAttemptModel? _attempt;
   String? _error;
   bool _isLoading = true;
+  Map<String, dynamic>? _rankings;
+  bool _rankingsLoading = false;
+  bool _rankingsUnavailable = false;
+  int _selectedRankingScope = 0;
 
   @override
   void initState() {
@@ -35,10 +39,32 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       }
     }
     try {
-      attempt ??= await ref
-          .read(catalogRepositoryProvider)
-          .getCompletedAttempt(widget.attemptId);
-      if (mounted) setState(() => _attempt = attempt);
+      final catalog = ref.read(catalogRepositoryProvider);
+      attempt ??= await catalog.getCompletedAttempt(widget.attemptId);
+      final rankingAttemptId = attempt != null &&
+          RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+          ).hasMatch(attempt.id)
+          ? attempt.id
+          : null;
+      if (mounted) {
+        setState(() {
+          _attempt = attempt;
+          _isLoading = false;
+          _rankingsLoading = rankingAttemptId != null;
+        });
+      }
+      if (rankingAttemptId != null) {
+        try {
+          final rankings = await catalog.getAttemptRankings(rankingAttemptId);
+          if (mounted) setState(() => _rankings = rankings);
+        } catch (error) {
+          debugPrint('Could not load attempt rankings: $error');
+          if (mounted) setState(() => _rankingsUnavailable = true);
+        } finally {
+          if (mounted) setState(() => _rankingsLoading = false);
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -292,6 +318,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
             const SizedBox(height: 16),
 
+            _buildRankingCard(attempt),
+
+            const SizedBox(height: 16),
+
             // Triple Metric Row: Correct, Incorrect, Skipped
             Row(
               children: [
@@ -456,6 +486,345 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Map<String, dynamic>? _rankingData(String key) {
+    final value = _rankings?[key];
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  Widget _buildRankingCard(TestAttemptModel attempt) {
+    const scopeKeys = ['testSeries', 'district', 'westBengal'];
+    const scopeLabels = ['Test Series Rank', 'District Rank', 'West Bengal Rank'];
+    final data = _rankingData(scopeKeys[_selectedRankingScope]);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD9E7FD)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Ranking',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.navy,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Live rank from completed results',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Row(
+              children: List.generate(scopeLabels.length, (index) {
+                final isSelected = _selectedRankingScope == index;
+                return Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: isSelected,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedRankingScope = index),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        alignment: Alignment.center,
+                        constraints: const BoxConstraints(minHeight: 38),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 3,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: isSelected
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x140F172A),
+                                    blurRadius: 5,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Text(
+                          scopeLabels[index],
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            height: 1.15,
+                            fontWeight: FontWeight.w800,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_rankingsLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            )
+          else if (data == null)
+            Text(
+              _rankingsUnavailable
+                  ? 'Rankings are temporarily unavailable. Your result is saved as usual.'
+                  : 'Live ranking data is not available for this result yet.',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            )
+          else if (_selectedRankingScope == 0 && data['name'] == null)
+            const Text(
+              'This test is not linked to a Test Series, so a Test Series rank is not available.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            )
+          else if (_selectedRankingScope == 1 && data['name'] == null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF2FF),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: const Text(
+                'Select your district in Profile to view your district rank.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            _buildRankingMetrics(data, attempt),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankingMetrics(
+    Map<String, dynamic> data,
+    TestAttemptModel attempt,
+  ) {
+    final rank = (data['rank'] as num?)?.toInt();
+    final participants = (data['participants'] as num?)?.toInt() ?? 0;
+    final title = switch (_selectedRankingScope) {
+      0 => data['name'] as String? ?? attempt.testTitle,
+      1 => data['name'] as String? ?? '',
+      _ => 'West Bengal',
+    };
+    final rankSupporting = switch (_selectedRankingScope) {
+      0 => participants > 0
+          ? 'Among $participants Test Series students'
+          : 'No other completed results yet',
+      1 => participants > 0
+          ? 'Among $participants students in $title'
+          : 'No other completed results in $title yet',
+      _ => participants > 0
+          ? 'Among $participants PracticeKoro students'
+          : 'No other completed results yet',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title.isNotEmpty) ...[
+          Text(
+            _selectedRankingScope == 0 ? 'TEST SERIES' : 'RANKING SCOPE',
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.navy,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _selectedRankingScope == 0
+                        ? 'TEST SERIES RANK'
+                        : _selectedRankingScope == 1
+                        ? 'DISTRICT RANK'
+                        : 'WEST BENGAL RANK',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.7,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    rank == null ? '—' : '#$rank',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      height: 1.05,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    rankSupporting,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      height: 1.35,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_selectedRankingScope == 0) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: _buildRankingSmallMetric(
+                  'Score',
+                  '${attempt.score.toStringAsFixed(attempt.score % 1 == 0 ? 0 : 1)}/${attempt.totalMarks.toStringAsFixed(attempt.totalMarks % 1 == 0 ? 0 : 1)}',
+                ),
+              ),
+            ] else ...[
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: _buildRankingSmallMetric(
+                  _selectedRankingScope == 1 ? 'District' : 'Region',
+                  title,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRankingSmallMetric(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7FC),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: AppColors.navy,
+            ),
+          ),
+        ],
       ),
     );
   }
