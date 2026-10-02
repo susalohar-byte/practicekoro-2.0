@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api } from '@/services/api';
+import { api, DEFAULT_POPULAR_EXAMS } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
   Shield,
@@ -27,8 +27,17 @@ import {
   ChevronRight,
   Upload,
   GripVertical,
+  Flame,
+  Palette,
+  ArrowRight,
+  ArrowLeft,
+  Calendar,
+  RotateCcw,
+  Eye,
 } from 'lucide-react';
-import type { Exam, MockTest } from '@/types';
+import type { Exam, MockTest, PopularExamCard } from '@/types';
+import { cn } from '@/lib/utils';
+import { PopularExamEditModal } from '@/pages/admin/PopularExamEditModal';
 import { getErrorMessage } from '@/lib/errors';
 import {
   normalizeLegacyExamCategory,
@@ -57,6 +66,15 @@ export const AdminExams: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [copiedSlugId, setCopiedSlugId] = useState<string | null>(null);
+
+  // Tab State: 'all' = Target Exams table, 'popular' = Popular Exams Showcase
+  const [activeTab, setActiveTab] = useState<'all' | 'popular'>('all');
+
+  // Popular Exams Showcase States
+  const [popularExams, setPopularExams] = useState<PopularExamCard[]>([]);
+  const [isPopularSaving, setIsPopularSaving] = useState(false);
+  const [editingPopularCard, setEditingPopularCard] = useState<PopularExamCard | null>(null);
+  const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
 
   // Success Feedback
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
@@ -132,10 +150,11 @@ export const AdminExams: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [rawExams, allTests, dbCats] = await Promise.all([
+      const [rawExams, allTests, dbCats, popCards] = await Promise.all([
         api.getAllAdminExams(),
         api.getAllAdminTests(),
         api.getExamCategories().catch(() => []),
+        api.getPopularExams().catch(() => DEFAULT_POPULAR_EXAMS),
       ]);
       const allExams = (rawExams || []).map((e) => ({
         ...e,
@@ -143,6 +162,7 @@ export const AdminExams: React.FC = () => {
       }));
       setExams(allExams);
       setTests(allTests);
+      setPopularExams(popCards && popCards.length > 0 ? popCards : DEFAULT_POPULAR_EXAMS);
       if (dbCats && dbCats.length > 0) {
         const catNames = dbCats
           .map((c) => c.name)
@@ -161,6 +181,84 @@ export const AdminExams: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // Popular Exams Handlers
+  const handleSavePopularExams = async (updatedCards: PopularExamCard[]) => {
+    try {
+      setIsPopularSaving(true);
+      await api.savePopularExams(updatedCards);
+      setPopularExams(updatedCards);
+      setActionSuccessMessage('🔥 Popular Exams showcase updated and published successfully!');
+    } catch (err) {
+      console.error('Failed to save popular exams:', err);
+    } finally {
+      setIsPopularSaving(false);
+    }
+  };
+
+  const handleResetPopularExams = async () => {
+    if (!window.confirm('Reset Popular Exams showcase to standard default cards?')) return;
+    await handleSavePopularExams(DEFAULT_POPULAR_EXAMS);
+  };
+
+  const handleMovePopularCard = async (index: number, direction: 'left' | 'right') => {
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= popularExams.length) return;
+    const reordered = [...popularExams];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const updated = reordered.map((card, idx) => ({ ...card, orderIndex: idx + 1 }));
+    await handleSavePopularExams(updated);
+  };
+
+  const handleTogglePopularActive = async (index: number) => {
+    const updated = popularExams.map((c, i) =>
+      i === index ? { ...c, isActive: c.isActive === false ? true : false } : c
+    );
+    await handleSavePopularExams(updated);
+  };
+
+  const handleDeletePopularCard = async (index: number) => {
+    if (!window.confirm('Remove this exam from the Popular Exams showcase?')) return;
+    const updated = popularExams.filter((_, i) => i !== index);
+    await handleSavePopularExams(updated);
+  };
+
+  const openCreatePopularCard = () => {
+    setEditingPopularCard({
+      id: `popular-${Date.now()}`,
+      title: 'New Exam',
+      testsCount: '50+ Tests',
+      cardBadge: '50+ Tests',
+      cardGradientStart: '#0084FF',
+      cardGradientEnd: '#0048C6',
+      cardBgImage: '/images/exam_wbp_bg.png',
+      cardEmblemUrl: '/images/exams/emblem_wbp.png',
+      cardArrowColor: '#0066FF',
+      orderIndex: popularExams.length + 1,
+      route: '/test-series',
+      isActive: true,
+    });
+    setIsPopularModalOpen(true);
+  };
+
+  const openEditPopularCard = (card: PopularExamCard) => {
+    setEditingPopularCard({ ...card });
+    setIsPopularModalOpen(true);
+  };
+
+  const handleSavePopularModal = async (cardData: PopularExamCard) => {
+    let updated: PopularExamCard[];
+    const existingIndex = popularExams.findIndex((c) => c.id === cardData.id);
+    if (existingIndex >= 0) {
+      updated = popularExams.map((c) => (c.id === cardData.id ? cardData : c));
+    } else {
+      updated = [...popularExams, { ...cardData, orderIndex: popularExams.length + 1 }];
+    }
+    await handleSavePopularExams(updated);
+    setIsPopularModalOpen(false);
+    setEditingPopularCard(null);
+  };
 
   useEffect(() => {
     loadData();
@@ -756,7 +854,248 @@ export const AdminExams: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter / Search Toolbar */}
+      {/* View Switcher: All Target Exams vs Popular Exams Showcase */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
+            activeTab === 'all'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+          )}
+        >
+          <Shield className="w-4 h-4" />
+          <span>All Target Exams</span>
+          <span
+            className={cn(
+              'px-1.5 py-0.5 rounded-full text-[10px] font-black',
+              activeTab === 'all'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+            )}
+          >
+            {stats.total}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('popular')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
+            activeTab === 'popular'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+          )}
+        >
+          <Flame className="w-4 h-4 text-amber-300" />
+          <span>🔥 Popular Exams Showcase</span>
+          <span
+            className={cn(
+              'px-1.5 py-0.5 rounded-full text-[10px] font-black',
+              activeTab === 'popular'
+                ? 'bg-white/20 text-white'
+                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+            )}
+          >
+            {popularExams.filter((c) => c.isActive !== false).length} Live
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'popular' ? (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Action Bar */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-indigo-500/10 border border-amber-200/80 dark:border-amber-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔥</span>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Student Homepage — Popular Exams Showcase
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white uppercase tracking-wider">
+                  Live on Homepage
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+                Configure the prominent cards shown under "🔥 Popular Exams" on the student dashboard. All titles, tests count badges, background artwork, center emblems, and gradient colors are 100% dynamic, vector-sharp, and configurable.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs font-bold border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-500" />}
+                onClick={handleResetPopularExams}
+                disabled={isPopularSaving}
+              >
+                Reset Defaults
+              </Button>
+              <Button
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={openCreatePopularCard}
+                disabled={isPopularSaving}
+              >
+                Add Showcase Card
+              </Button>
+            </div>
+          </div>
+
+          {/* Cards Showcase Preview & Manager */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <Eye className="w-3.5 h-3.5 text-amber-500" />
+                <span>Live Student Homepage Preview ({popularExams.length} Cards)</span>
+              </h4>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                Click "Edit Styling" on any card to customize its text, colors, backdrop art, or emblem
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {popularExams.map((card, idx) => (
+                <div
+                  key={card.id || idx}
+                  className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 shadow-sm space-y-4 flex flex-col justify-between"
+                >
+                  {/* Card Order Badge & Active Status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-black flex items-center justify-center">
+                        #{idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">
+                        {card.title}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePopularActive(idx)}
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors',
+                        card.isActive !== false
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                      )}
+                    >
+                      {card.isActive !== false ? '● Live' : 'Hidden'}
+                    </button>
+                  </div>
+
+                  {/* 1:1 Live Interactive Visual Card */}
+                  <div
+                    className="relative aspect-[3/2] w-full rounded-[18px] overflow-hidden shadow-md group block select-none"
+                    style={{
+                      background: `linear-gradient(135deg, ${card.cardGradientStart || '#0084FF'}, ${card.cardGradientEnd || '#0048C6'})`,
+                    }}
+                  >
+                    {card.cardBgImage && (
+                      <img
+                        src={card.cardBgImage}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/16 via-white/5 to-transparent pointer-events-none" />
+                    {card.cardEmblemUrl && (
+                      <div className="absolute top-[33%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center pointer-events-none">
+                        <img
+                          src={card.cardEmblemUrl}
+                          alt={card.title}
+                          className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]"
+                        />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 p-3.5 flex flex-col justify-end text-white pointer-events-none">
+                      <h3 className="text-base font-black tracking-tight text-white text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] leading-tight mb-2">
+                        {card.title}
+                      </h3>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                          <Calendar className="w-3.5 h-3.5 text-white" />
+                          <span>{card.cardBadge || card.testsCount}</span>
+                        </div>
+                        <div
+                          className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-md pointer-events-auto"
+                          style={{ color: card.cardArrowColor || '#0066FF' }}
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Meta & Color Preview */}
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5">
+                      <Palette className="w-3 h-3 text-slate-400" />
+                      <span className="font-mono text-[10px]">{card.cardGradientStart}</span>
+                      <span>→</span>
+                      <span className="font-mono text-[10px]">{card.cardGradientEnd}</span>
+                    </div>
+                    <span className="truncate max-w-[120px] text-[10px] font-mono">{card.route}</span>
+                  </div>
+
+                  {/* Card Action Controls */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMovePopularCard(idx, 'left')}
+                        disabled={idx === 0 || isPopularSaving}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+                        title="Move Card Left"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMovePopularCard(idx, 'right')}
+                        disabled={idx === popularExams.length - 1 || isPopularSaving}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+                        title="Move Card Right"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<Edit2 className="w-3 h-3 text-indigo-500" />}
+                        onClick={() => openEditPopularCard(card)}
+                        className="text-xs font-semibold"
+                      >
+                        Edit Styling
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePopularCard(idx)}
+                        disabled={isPopularSaving}
+                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title="Delete Card"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filter / Search Toolbar */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Box */}
@@ -1231,6 +1570,8 @@ export const AdminExams: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* =================================================================== */}
@@ -1935,6 +2276,18 @@ export const AdminExams: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL: Popular Exam Card Styling & Content */}
+      <PopularExamEditModal
+        isOpen={isPopularModalOpen}
+        onClose={() => {
+          setIsPopularModalOpen(false);
+          setEditingPopularCard(null);
+        }}
+        card={editingPopularCard}
+        onSave={handleSavePopularModal}
+        existingExams={exams}
+      />
     </div>
   );
 };

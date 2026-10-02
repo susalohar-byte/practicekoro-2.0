@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { bannerService } from '@/services/bannerService';
-import { api } from '@/services/api';
+import { api, DEFAULT_POPULAR_EXAMS } from '@/services/api';
 import { cn } from '@/lib/utils';
 import {
   ChevronRight,
@@ -15,11 +15,12 @@ import {
   Radio,
   Play,
   FileText,
-  Zap,
   BookOpen,
   Crosshair,
+  Target,
   Clock,
 } from 'lucide-react';
+import type { PopularExamCard } from '@/types';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { ExamSelectorModal } from '@/components/student/ExamSelectorModal';
 
@@ -77,7 +78,14 @@ export const Home: React.FC = () => {
     [userAttempts]
   );
 
-  // Real-time banner & live test sync
+  // 4. Dynamic Popular Exams Cards (Admin-controllable)
+  const { data: popularExamsCards = [] } = useQuery<PopularExamCard[]>({
+    queryKey: ['popular-exams'],
+    queryFn: () => api.getPopularExams(),
+    staleTime: 60000,
+  });
+
+  // Real-time banner, live test & popular exams sync
   useEffect(() => {
     const unsubscribeBanners = bannerService.subscribeToBannerUpdates(() => {
       queryClient.invalidateQueries({ queryKey: ['hero-banners'] });
@@ -90,9 +98,17 @@ export const Home: React.FC = () => {
             queryClient.refetchQueries({ queryKey: ['active-live-test'] });
           })
         : () => {};
+
+    const handleExamsUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['popular-exams'] });
+      queryClient.refetchQueries({ queryKey: ['popular-exams'] });
+    };
+    window.addEventListener('practicekoro:exams_updated', handleExamsUpdated);
+
     return () => {
       unsubscribeBanners();
       unsubscribeLiveTests();
+      window.removeEventListener('practicekoro:exams_updated', handleExamsUpdated);
     };
   }, [queryClient]);
 
@@ -160,7 +176,7 @@ export const Home: React.FC = () => {
       shadowColor: 'rgba(5, 150, 105, 0.28)',
       arrowColor: '#059669',
       gradient: 'from-[#2DD878] to-[#059669]',
-      icon: Zap,
+      icon: Target,
     },
     {
       title: 'Previous Year',
@@ -184,36 +200,16 @@ export const Home: React.FC = () => {
     },
   ];
 
-  // 4. Popular Exams
-  const popularExams = [
-    {
-      title: 'WBP Constable',
-      testsCount: '120+ Tests',
-      image: '/images/exam_wbp_card.png',
-      emblem: '/images/exams/emblem_wbp.png',
-      route: '/exams/wbp-constable',
-      gradient: 'from-[#00A2FF] to-[#0052D4]',
-      arrowColor: '#0066FF',
-    },
-    {
-      title: 'KP Constable',
-      testsCount: '100+ Tests',
-      image: '/images/exam_kp_card.png',
-      emblem: '/images/exams/emblem_series_kp.png',
-      route: '/exams/kp-constable',
-      gradient: 'from-[#A855F7] to-[#6D28D9]',
-      arrowColor: '#8B5CF6',
-    },
-    {
-      title: 'SSC GD',
-      testsCount: '150+ Tests',
-      image: '/images/exam_ssc_card.png',
-      emblem: '/images/exams/emblem_ssc.png',
-      route: '/exams/ssc-gd',
-      gradient: 'from-[#F97316] to-[#DC2626]',
-      arrowColor: '#EA580C',
-    },
-  ];
+  // 4. Popular Exams (Dynamic & Admin-customizable)
+  const popularExams = useMemo(() => {
+    if (popularExamsCards && popularExamsCards.length > 0) {
+      const active = popularExamsCards.filter((c) => c.isActive !== false);
+      if (active.length > 0) {
+        return active.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+      }
+    }
+    return DEFAULT_POPULAR_EXAMS;
+  }, [popularExamsCards]);
 
   // 5. Popular Test Series
   const popularSeries = [
@@ -484,7 +480,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ========================================================= */}
-      {/* 2. 4 CORE PRACTICE ACTION CARDS (Master 1:1)               */}
+      {/* 2. 4 CORE PRACTICE ACTION CARDS (100% Crisp Vector UI)    */}
       {/* ========================================================= */}
       <section>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
@@ -499,37 +495,55 @@ export const Home: React.FC = () => {
                   boxShadow: `0 8px 18px ${card.shadowColor}`,
                 }}
               >
-                {/* 1:1 Master Image */}
-                <img
-                  src={card.image}
-                  alt={`${card.title} - ${card.subtitle}`}
-                  className="w-full h-full object-cover rounded-[18px]"
-                  onError={(e) => {
-                    // Graceful fallback to mobile vector layout if image asset not ready
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-
-                {/* Fallback Vector Card (Matches _buildFallbackVectorCard 100%) */}
+                {/* 100% Crisp Vector Card UI (Matches Mobile App & Reference UI 1:1) */}
                 <div
                   className={cn(
-                    'absolute inset-0 rounded-[18px] bg-gradient-to-br flex flex-col justify-between p-3.5 sm:p-4 text-white -z-10',
+                    'relative w-full h-full rounded-[18px] bg-gradient-to-br flex flex-col justify-between p-3 sm:p-3.5 text-white overflow-hidden',
                     card.gradient
                   )}
                 >
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-[#0066FF] flex items-center justify-center shadow-md mb-2">
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <h3 className="text-xs sm:text-sm font-black tracking-tight leading-tight">
+                  {/* Ambient abstract wave / circular glow top-left */}
+                  <div className="absolute -left-5 -top-5 w-20 h-20 rounded-full bg-white/10 pointer-events-none" />
+
+                  {/* Watermark graphic bottom-right */}
+                  <div className="absolute -right-2 -bottom-2 opacity-15 pointer-events-none text-white">
+                    <Icon className="w-12 h-12" />
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="flex flex-col items-center text-center z-10">
+                    {idx === 0 ? (
+                      // Mock Test: White squircle tile with blue icon inside
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-[#0066FF] flex items-center justify-center shadow-md mb-1.5">
+                        <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </div>
+                    ) : idx === 1 ? (
+                      // Topic Practice: Direct white target crosshairs icon
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center mb-1.5 text-white">
+                        <Icon className="w-8 h-8 sm:w-9 sm:h-9" />
+                      </div>
+                    ) : idx === 2 ? (
+                      // Previous Year: White folded sheet with orange horizontal lines
+                      <div className="w-9 h-11 sm:w-10 sm:h-12 bg-white rounded-l-md rounded-br-md rounded-tr-xl shadow-md p-1.5 flex flex-col justify-center gap-1 mb-1">
+                        <div className="w-3.5 h-1 bg-[#F97316] rounded-xs" />
+                        <div className="w-5 h-1 bg-[#F97316] rounded-xs" />
+                      </div>
+                    ) : (
+                      // Live Tests: Radio waves broadcast icon
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center mb-1.5 text-white">
+                        <Icon className="w-8 h-8 sm:w-9 sm:h-9" />
+                      </div>
+                    )}
+                    <h3 className="text-xs sm:text-sm font-black tracking-tight leading-tight text-white">
                       {card.title}
                     </h3>
-                    <p className="text-[9.5px] sm:text-[11px] text-white/90 font-medium mt-0.5">
+                    <p className="text-[9.5px] sm:text-[11px] text-white/90 font-medium mt-0.5 leading-tight">
                       {card.subtitle}
                     </p>
                   </div>
 
-                  <div className="flex justify-center">
+                  {/* Circular arrow button near bottom center */}
+                  <div className="flex justify-center z-10">
                     <div
                       className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm"
                       style={{ color: card.arrowColor }}
@@ -655,53 +669,52 @@ export const Home: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-5">
           {popularExams.map((exam, idx) => (
             <Link
-              key={idx}
-              to={exam.route}
-              className="relative aspect-[3/2] rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 group block bg-[#0B1F5B]"
+              key={exam.id || idx}
+              to={exam.route || '/test-series'}
+              className="relative aspect-[3/2] rounded-[20px] sm:rounded-[22px] overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 group block"
+              style={{
+                background: `linear-gradient(135deg, ${exam.cardGradientStart || '#0084FF'}, ${exam.cardGradientEnd || '#0048C6'})`,
+              }}
             >
-              {/* Exam Card Image */}
-              <img
-                src={exam.image}
-                alt={exam.title}
-                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+              {/* Clean backdrop artwork (monument, officer, glowing pedestal) */}
+              {exam.cardBgImage && (
+                <img
+                  src={exam.cardBgImage}
+                  alt=""
+                  className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                />
+              )}
 
               {/* Glassy Surface Reflection Overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/16 via-white/5 to-transparent pointer-events-none" />
 
-              {/* Fallback Vector Card (Matches _buildFallbackExamCard 100%) */}
-              <div
-                className={cn(
-                  'absolute inset-0 bg-gradient-to-br p-4 sm:p-5 flex flex-col justify-between text-white -z-10',
-                  exam.gradient
-                )}
-              >
-                {/* Upper-Center Emblem */}
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-xs p-1.5 shadow-md flex items-center justify-center mb-1">
-                    <img
-                      src={exam.emblem}
-                      alt=""
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
-                    {exam.title}
-                  </h3>
+              {/* Crisp Center-Top Emblem / Icon (Razor-sharp vector badge) */}
+              {exam.cardEmblemUrl && (
+                <div className="absolute top-[33%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 flex items-center justify-center pointer-events-none">
+                  <img
+                    src={exam.cardEmblemUrl}
+                    alt={exam.title}
+                    className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)] group-hover:scale-110 transition-transform duration-300"
+                  />
                 </div>
+              )}
 
-                {/* Bottom Row: Calendar tests count + Arrow circle */}
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{exam.testsCount}</span>
+              {/* Razor-sharp vector typography & button overlay (100% Crisp Vector UI) */}
+              <div className="absolute inset-0 p-3.5 sm:p-4.5 flex flex-col justify-end text-white pointer-events-none">
+                {/* Exam Title (Crisp native vector text - Controllable from Admin) */}
+                <h3 className="text-base sm:text-lg lg:text-xl font-black tracking-tight text-white text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] leading-tight mb-2.5 sm:mb-3">
+                  {exam.title}
+                </h3>
+
+                {/* Bottom Row: Calendar tests count + Arrow circle button */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                    <span>{exam.cardBadge || exam.testsCount}</span>
                   </div>
                   <div
-                    className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm"
-                    style={{ color: exam.arrowColor }}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white flex items-center justify-center shadow-md pointer-events-auto group-hover:scale-110 transition-transform"
+                    style={{ color: exam.cardArrowColor || '#0066FF' }}
                   >
                     <ArrowRight className="w-4 h-4" />
                   </div>

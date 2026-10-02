@@ -18,5 +18,7 @@ export const api = {
   ...liveRevisionApi,
 };
 
-export type { Exam, Subject, Chapter, TestSeries, MockTest, Question } from '@/types';
+export type { Exam, Subject, Chapter, TestSeries, MockTest, Question, PopularExamCard } from '@/types';
 export type { LiveTest } from '@/services/domains/liveRevision';
+export { DEFAULT_POPULAR_EXAMS } from '@/services/domains/admin.exams';
+

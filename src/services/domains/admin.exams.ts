@@ -1,7 +1,7 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localExams, localTests } from '@/services/domains/localStore';
 import { notifyExamsUpdated } from '@/lib/dataSync';
-import type { Exam } from '@/types';
+import type { Exam, PopularExamCard } from '@/types';
 import type { ExamRow } from '@/services/domains/localStore';
 
 /** Section of the admin API: exams (split from domains/admin.ts, same behaviour). */
@@ -314,6 +314,119 @@ export async function deleteExam(id: string): Promise<boolean> {
   return true;
 }
 
+export const DEFAULT_POPULAR_EXAMS: PopularExamCard[] = [
+  {
+    id: 'wbp-constable',
+    examId: 'wbp-constable',
+    title: 'WBP Constable',
+    slug: 'wbp-constable',
+    testsCount: '120+ Tests',
+    cardBadge: '120+ Tests',
+    cardGradientStart: '#0084FF',
+    cardGradientEnd: '#0048C6',
+    cardBgImage: '/images/exam_wbp_bg.png',
+    cardEmblemUrl: '/images/exams/emblem_wbp.png',
+    cardArrowColor: '#0066FF',
+    orderIndex: 1,
+    route: '/exams/wbp-constable',
+    isActive: true,
+  },
+  {
+    id: 'kp-constable',
+    examId: 'kp-constable',
+    title: 'KP Constable',
+    slug: 'kp-constable',
+    testsCount: '100+ Tests',
+    cardBadge: '100+ Tests',
+    cardGradientStart: '#9B27F4',
+    cardGradientEnd: '#5E09BD',
+    cardBgImage: '/images/exam_kp_bg.png',
+    cardEmblemUrl: '/images/exams/emblem_series_kp.png',
+    cardArrowColor: '#8B5CF6',
+    orderIndex: 2,
+    route: '/exams/kp-constable',
+    isActive: true,
+  },
+  {
+    id: 'ssc-gd',
+    examId: 'ssc-gd',
+    title: 'SSC GD',
+    slug: 'ssc-gd',
+    testsCount: '150+ Tests',
+    cardBadge: '150+ Tests',
+    cardGradientStart: '#F97316',
+    cardGradientEnd: '#C22B00',
+    cardBgImage: '/images/exam_ssc_bg.png',
+    cardEmblemUrl: '/images/exams/emblem_ssc.png',
+    cardArrowColor: '#EA580C',
+    orderIndex: 3,
+    route: '/exams/ssc-gd',
+    isActive: true,
+  },
+];
+
+export async function getPopularExams(): Promise<PopularExamCard[]> {
+  try {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('id', 'popular_exams_config')
+        .maybeSingle();
+
+      if (!error && data?.value) {
+        const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('pk_popular_exams_config', JSON.stringify(parsed));
+            }
+          } catch (_) {}
+          return parsed;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch popular exams from Supabase app_settings:', err);
+  }
+
+  // Fallback: localStorage
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem('pk_popular_exams_config');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+  } catch (_) {}
+
+  return DEFAULT_POPULAR_EXAMS;
+}
+
+export async function savePopularExams(cards: PopularExamCard[]): Promise<PopularExamCard[]> {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('pk_popular_exams_config', JSON.stringify(cards));
+    }
+  } catch (_) {}
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('app_settings').upsert({
+        id: 'popular_exams_config',
+        value: JSON.stringify(cards),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Could not sync popular exams to app_settings:', err);
+    }
+  }
+
+  notifyExamsUpdated();
+  return cards;
+}
+
 export const adminExamsApi = {
   getExamContentCounts,
   getAllAdminExams,
@@ -321,4 +434,7 @@ export const adminExamsApi = {
   createExam,
   updateExam,
   deleteExam,
+  getPopularExams,
+  savePopularExams,
 };
+

@@ -96,6 +96,31 @@ export interface Exam {
   subjectsCount?: number;
   totalVacancies?: number;
   questionsCount?: number;
+  isPopular?: boolean;
+  popularOrder?: number;
+  cardBadge?: string;
+  cardGradientStart?: string;
+  cardGradientEnd?: string;
+  cardBgImage?: string;
+  cardEmblemUrl?: string;
+  cardArrowColor?: string;
+}
+
+export interface PopularExamCard {
+  id: string;
+  examId?: string;
+  title: string;
+  slug?: string;
+  testsCount: string;
+  cardBadge?: string;
+  cardGradientStart: string;
+  cardGradientEnd: string;
+  cardBgImage?: string;
+  cardEmblemUrl?: string;
+  cardArrowColor?: string;
+  orderIndex: number;
+  route: string;
+  isActive?: boolean;
 }
 
 export interface ExamCategory {
