@@ -183,6 +183,8 @@ final appRouter = GoRouter(
         initialTestTitle: state.uri.queryParameters['testTitle'],
         initialRank: int.tryParse(state.uri.queryParameters['rank'] ?? ''),
         initialParticipants: int.tryParse(state.uri.queryParameters['participants'] ?? ''),
+        initialDistrict: state.uri.queryParameters['district'],
+        initialLocationScope: int.tryParse(state.uri.queryParameters['scope'] ?? ''),
       ),
     ),
     GoRoute(
@@ -193,6 +195,8 @@ final appRouter = GoRouter(
         initialTestTitle: state.uri.queryParameters['testTitle'],
         initialRank: int.tryParse(state.uri.queryParameters['rank'] ?? ''),
         initialParticipants: int.tryParse(state.uri.queryParameters['participants'] ?? ''),
+        initialDistrict: state.uri.queryParameters['district'],
+        initialLocationScope: int.tryParse(state.uri.queryParameters['scope'] ?? ''),
       ),
     ),
 
