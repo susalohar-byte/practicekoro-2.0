@@ -40,8 +40,8 @@ export const PopularExams: React.FC = () => {
         className="pointer-events-none absolute -right-28 -top-36 h-[32rem] w-[32rem] rounded-full bg-blue-300/20 blur-3xl dark:bg-blue-700/10"
       />
       <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-end gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-10">
-          <Reveal>
+        <div className="flex flex-col items-center text-center">
+          <Reveal className="flex w-full flex-col items-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-blue-700 shadow-sm dark:border-blue-900/70 dark:bg-slate-900 dark:text-blue-300 sm:text-[11px]">
               <Compass className="h-4 w-4" aria-hidden="true" />
               Popular exams
@@ -52,30 +52,20 @@ export const PopularExams: React.FC = () => {
                 Exam
               </span>
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base sm:leading-7">
+            <p className="mx-auto mt-4 w-full max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base sm:leading-7">
               Pick your target exam and find focused mock tests, previous-year questions, and topic
               practice in one place.
             </p>
           </Reveal>
 
-          <Reveal delay={100}>
-            <div className="grid grid-cols-2 gap-3 rounded-3xl border border-white bg-white/75 p-3 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.38)] backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/80 sm:min-w-[20rem] sm:p-4">
-              <div className="rounded-2xl bg-blue-50/80 px-4 py-3 dark:bg-blue-950/40">
-                <p className="text-2xl font-black tracking-tight text-pk-navy dark:text-white">
-                  {featuredExamCount}
-                </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Featured exams
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800/80">
-                <p className="text-2xl font-black tracking-tight text-pk-navy dark:text-white">
-                  {examCategories.length - 1}
-                </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Exam categories
-                </p>
-              </div>
+          <Reveal delay={100} className="mt-5">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                <span className="font-black text-pk-primary">{featuredExamCount}</span> featured exams
+              </span>
+              <span className="rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                <span className="font-black text-pk-primary">{examCategories.length - 1}</span> exam categories
+              </span>
             </div>
           </Reveal>
         </div>
@@ -140,7 +130,7 @@ export const PopularExams: React.FC = () => {
 
         {/* Exam Cards Grid */}
         {filteredPopularExams.length > 0 ? (
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {filteredPopularExams.map((exam, index) => {
               const isCatalogCard = Boolean(exam.isCustomIcon);
               const badgeTone =
@@ -161,7 +151,7 @@ export const PopularExams: React.FC = () => {
                     onClick={() => navigate(exam.route)}
                     aria-label={`Explore ${exam.title}`}
                     className={cn(
-                      'group relative flex min-h-[236px] w-full flex-col overflow-hidden rounded-[1.75rem] border p-5 text-left transition-all duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 active:scale-[0.99] sm:min-h-[248px] sm:p-6',
+                      'group relative flex min-h-[208px] w-full flex-col overflow-hidden rounded-[1.5rem] border p-4 text-left transition-all duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 active:scale-[0.99] sm:min-h-[220px] sm:p-5',
                       isCatalogCard
                         ? 'border-blue-700 bg-gradient-to-br from-[#071b4b] via-[#073b9b] to-[#0758fc] text-white shadow-[0_18px_48px_-24px_rgba(1,52,150,0.7)] hover:shadow-[0_24px_58px_-26px_rgba(1,52,150,0.8)]'
                         : 'border-slate-200/90 bg-white text-slate-900 shadow-[0_14px_38px_-28px_rgba(15,23,42,0.35)] hover:border-blue-200 hover:shadow-[0_24px_55px_-32px_rgba(1,88,252,0.42)] dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:hover:border-blue-800'
@@ -189,20 +179,20 @@ export const PopularExams: React.FC = () => {
                     <div className="relative z-10 flex items-start justify-between gap-4">
                       <span
                         className={cn(
-                          'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl p-2.5 transition-transform group-hover:scale-105',
+                          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl p-2 transition-transform group-hover:scale-105',
                           isCatalogCard
                             ? 'bg-white/15 text-white shadow-inner shadow-white/10'
                             : 'border border-blue-100 bg-gradient-to-br from-blue-50 to-white shadow-sm dark:border-slate-700 dark:from-slate-800 dark:to-slate-900'
                         )}
                       >
                         {isCatalogCard ? (
-                          <Layers className="h-7 w-7" aria-hidden="true" />
+                          <Layers className="h-6 w-6" aria-hidden="true" />
                         ) : (
                           <img
                             src={exam.icon}
                             alt=""
                             loading="lazy"
-                            className="h-10 w-10 object-contain"
+                            className="h-9 w-9 object-contain"
                           />
                         )}
                       </span>
@@ -218,10 +208,10 @@ export const PopularExams: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="relative z-10 mt-5 min-w-0">
+                    <div className="relative z-10 mt-3 min-w-0">
                       <h3
                         className={cn(
-                          'line-clamp-2 min-h-[3.5rem] text-lg font-extrabold leading-snug tracking-tight sm:text-xl',
+                          'line-clamp-2 min-h-[2.75rem] text-base font-extrabold leading-snug tracking-tight sm:text-lg',
                           isCatalogCard
                             ? 'text-white'
                             : 'text-slate-950 transition-colors group-hover:text-pk-primary dark:text-white dark:group-hover:text-blue-300'
@@ -231,7 +221,7 @@ export const PopularExams: React.FC = () => {
                       </h3>
                       <p
                         className={cn(
-                          'mt-1 line-clamp-2 min-h-10 text-xs leading-5 sm:text-[13px]',
+                          'mt-1 line-clamp-2 min-h-9 text-xs leading-[1.125rem]',
                           isCatalogCard
                             ? 'text-blue-100/85'
                             : 'text-slate-500 dark:text-slate-400'
@@ -243,7 +233,7 @@ export const PopularExams: React.FC = () => {
 
                     <div
                       className={cn(
-                        'relative z-10 mt-auto flex items-center justify-between gap-3 border-t pt-4',
+                        'relative z-10 mt-auto flex items-center justify-between gap-2 border-t pt-3',
                         isCatalogCard ? 'border-white/15' : 'border-slate-100 dark:border-slate-800'
                       )}
                     >
