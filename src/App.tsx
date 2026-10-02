@@ -72,6 +72,9 @@ const Support = lazyWithRetry(() =>
 const SavedQuestions = lazyWithRetry(() =>
   import('@/pages/student/SavedQuestions').then((module) => ({ default: module.SavedQuestions }))
 );
+const AudioBooks = lazyWithRetry(() =>
+  import('@/pages/student/AudioBooks').then((module) => ({ default: module.AudioBooks }))
+);
 const Rank = lazyWithRetry(() =>
   import('@/pages/student/Rank').then((module) => ({ default: module.Rank }))
 );
@@ -303,6 +306,14 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <SavedQuestions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="audio-books"
+            element={
+              <ProtectedRoute>
+                <AudioBooks />
               </ProtectedRoute>
             }
           />

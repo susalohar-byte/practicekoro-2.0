@@ -12,12 +12,14 @@ import {
   Calendar,
   Sparkles,
   ArrowRight,
+  Bookmark,
+  Headphones,
   Radio,
   Play,
   FileText,
   BookOpen,
   Crosshair,
-  Target,
+  Trophy,
   Clock,
 } from 'lucide-react';
 import type { PopularExamCard } from '@/types';
@@ -153,45 +155,41 @@ export const Home: React.FC = () => {
   };
 
   // -------------------------------------------------------------
-  // Master Design Data Arrays (Matching home_screen.dart 100%)
+  // Home screen data
   // -------------------------------------------------------------
 
-  // 2. 4 Core Practice Cards
+  // 2. Four core learning shortcuts
   const coreCards = [
     {
-      title: 'Mock Test',
-      subtitle: 'Full Test Experience',
-      image: '/images/card_mock_test.png',
-      route: '/test-series',
+      title: 'Audio Book',
+      subtitle: 'Listen & Learn',
+      route: '/audio-books',
       shadowColor: 'rgba(0, 91, 212, 0.28)',
       arrowColor: '#0052D4',
       gradient: 'from-[#00A2FF] to-[#0052D4]',
-      icon: FileText,
+      icon: Headphones,
     },
     {
-      title: 'Topic Practice',
-      subtitle: 'Chapter-wise',
-      image: '/images/card_topic_practice.png',
-      route: '/practice',
+      title: 'Saved Questions',
+      subtitle: 'Review Bookmarks',
+      route: '/saved-questions',
       shadowColor: 'rgba(5, 150, 105, 0.28)',
       arrowColor: '#059669',
       gradient: 'from-[#2DD878] to-[#059669]',
-      icon: Target,
+      icon: Bookmark,
     },
     {
-      title: 'Previous Year',
-      subtitle: 'Real Exam Questions',
-      image: '/images/card_previous_year.png',
-      route: '/practice?tab=pyqs',
+      title: 'Rank',
+      subtitle: 'Track Your Position',
+      route: '/rank',
       shadowColor: 'rgba(249, 115, 22, 0.28)',
       arrowColor: '#EA580C',
       gradient: 'from-[#FBBF24] via-[#F97316] to-[#EA580C]',
-      icon: BookOpen,
+      icon: Trophy,
     },
     {
       title: 'Live Tests',
       subtitle: 'Join & Compete',
-      image: '/images/card_live_tests.png',
       route: '/live-test',
       shadowColor: 'rgba(225, 29, 72, 0.28)',
       arrowColor: '#BE123C',
@@ -495,7 +493,7 @@ export const Home: React.FC = () => {
                   boxShadow: `0 8px 18px ${card.shadowColor}`,
                 }}
               >
-                {/* 100% Crisp Vector Card UI (Matches Mobile App & Reference UI 1:1) */}
+                {/* Crisp HTML/CSS shortcut card with a vector icon and gradient. */}
                 <div
                   className={cn(
                     'relative w-full h-full rounded-[18px] bg-gradient-to-br flex flex-col justify-between p-3 sm:p-3.5 text-white overflow-hidden',
@@ -513,20 +511,19 @@ export const Home: React.FC = () => {
                   {/* Card Content */}
                   <div className="flex flex-col items-center text-center z-10">
                     {idx === 0 ? (
-                      // Mock Test: White squircle tile with blue icon inside
+                      // Audio Book: White squircle tile with blue icon inside
                       <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-[#0066FF] flex items-center justify-center shadow-md mb-1.5">
                         <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                     ) : idx === 1 ? (
-                      // Topic Practice: Direct white target crosshairs icon
+                      // Saved Questions: Direct white bookmark icon
                       <div className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center mb-1.5 text-white">
-                        <Icon className="w-8 h-8 sm:w-9 sm:h-9" />
+                        <Icon className="w-7 h-7 sm:w-8 sm:h-8" />
                       </div>
                     ) : idx === 2 ? (
-                      // Previous Year: White folded sheet with orange horizontal lines
-                      <div className="w-9 h-11 sm:w-10 sm:h-12 bg-white rounded-l-md rounded-br-md rounded-tr-xl shadow-md p-1.5 flex flex-col justify-center gap-1 mb-1">
-                        <div className="w-3.5 h-1 bg-[#F97316] rounded-xs" />
-                        <div className="w-5 h-1 bg-[#F97316] rounded-xs" />
+                      // Rank: White medal tile with an orange trophy icon
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-[#F97316] flex items-center justify-center shadow-md mb-1.5">
+                        <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                     ) : (
                       // Live Tests: Radio waves broadcast icon
