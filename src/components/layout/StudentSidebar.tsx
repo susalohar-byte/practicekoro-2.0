@@ -168,7 +168,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                     key={item.label}
                     to={item.path}
                     onClick={onClose}
-                    title={isCollapsed ? item.label : undefined}
                     className={cn(
                       'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all duration-150',
                       isCollapsed ? 'justify-center px-0' : '',
@@ -192,7 +191,14 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
                     {/* Active highlight dot when collapsed */}
                     {isCollapsed && active && (
-                      <span className="absolute right-1 w-1.5 h-1.5 rounded-full bg-white" />
+                      <span className="absolute right-1 w-1.5 h-1.5 rounded-full bg-white shadow-xs" />
+                    )}
+
+                    {/* Desktop Floating Tooltip when collapsed */}
+                    {isCollapsed && (
+                      <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center border border-slate-700 animate-in fade-in zoom-in-95 duration-100">
+                        {item.label}
+                      </span>
                     )}
                   </Link>
                 );
@@ -220,7 +226,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                     key={item.label}
                     to={item.path}
                     onClick={onClose}
-                    title={isCollapsed ? item.label : undefined}
                     className={cn(
                       'group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all duration-150',
                       isCollapsed ? 'justify-center px-0' : '',
@@ -241,33 +246,56 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                         {item.label}
                       </span>
                     )}
+
+                    {/* Desktop Floating Tooltip when collapsed */}
+                    {isCollapsed && (
+                      <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center border border-slate-700 animate-in fade-in zoom-in-95 duration-100">
+                        {item.label}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
             </div>
           </div>
 
-          {/* Pro Pass Mini Banner (Only when expanded) */}
-          {!isCollapsed && !isPro && (
-            <div className="pt-2">
-              <div className="rounded-2xl p-3 bg-gradient-to-br from-[#0B1F5B] to-[#0877FF] text-white shadow-sm space-y-2">
-                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black">
-                  <Crown className="w-3.5 h-3.5 fill-amber-300" />
-                  <span>Pro Pass</span>
-                </div>
-                <p className="text-[11px] text-blue-100 font-medium leading-snug">
-                  Unlock all 120+ mock tests & detailed solutions.
-                </p>
+          {/* Pro Pass Card / Collapsed Button */}
+          {!isPro && (
+            isCollapsed ? (
+              <div className="pt-2 flex justify-center">
                 <Link
                   to="/subscription"
                   onClick={onClose}
-                  className="inline-flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-white text-[#0877FF] hover:bg-blue-50 text-[11px] font-bold transition-colors cursor-pointer"
+                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B1F5B] to-[#0877FF] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
+                  aria-label="Upgrade to Pro Pass"
                 >
-                  <span>Upgrade Now</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <Crown className="w-5 h-5 fill-amber-300 animate-pulse" />
+                  <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-amber-300 text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center gap-1 border border-slate-700">
+                    Upgrade to Pro Pass
+                  </span>
                 </Link>
               </div>
-            </div>
+            ) : (
+              <div className="pt-2">
+                <div className="rounded-2xl p-3 bg-gradient-to-br from-[#0B1F5B] to-[#0877FF] text-white shadow-sm space-y-2">
+                  <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black">
+                    <Crown className="w-3.5 h-3.5 fill-amber-300" />
+                    <span>Pro Pass</span>
+                  </div>
+                  <p className="text-[11px] text-blue-100 font-medium leading-snug">
+                    Unlock all 120+ mock tests & detailed solutions.
+                  </p>
+                  <Link
+                    to="/subscription"
+                    onClick={onClose}
+                    className="inline-flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-white text-[#0877FF] hover:bg-blue-50 text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    <span>Upgrade Now</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            )
           )}
         </div>
 
@@ -282,8 +310,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             <Link
               to="/profile"
               onClick={onClose}
-              className="flex items-center gap-2.5 min-w-0 flex-1"
-              title={isCollapsed ? (user?.fullName || 'Student') : undefined}
+              className="group relative flex items-center gap-2.5 min-w-0 flex-1"
             >
               <div className="w-8 h-8 rounded-full border border-[#E2EAF8] dark:border-slate-700 overflow-hidden bg-[#0877FF] shrink-0">
                 <img
@@ -305,6 +332,13 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                     {isPro ? 'Pro Member' : 'Student'}
                   </p>
                 </div>
+              )}
+
+              {/* Desktop Floating Tooltip when collapsed */}
+              {isCollapsed && (
+                <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center border border-slate-700 animate-in fade-in zoom-in-95 duration-100">
+                  {user?.fullName || 'Candidate Profile'}
+                </span>
               )}
             </Link>
 

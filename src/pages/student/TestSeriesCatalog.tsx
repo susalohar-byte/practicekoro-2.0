@@ -385,7 +385,7 @@ export const TestSeriesCatalog: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
@@ -410,14 +410,14 @@ export const TestSeriesCatalog: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             {sortedList.map((series) => {
               const { emblem, gradient, fullMocks, topicTests, pyqs } = getSeriesVisuals(series);
               return (
                 <div
                   key={series.id}
                   onClick={() => navigate(`/test-series/${series.slug || series.id}`)}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-[#E8EEF7] dark:border-slate-800 p-3 sm:p-4 shadow-[0_3px_10px_rgba(7,25,74,0.035)] hover:shadow-md hover:border-[#0066FF]/40 transition-all cursor-pointer flex items-center gap-3 sm:gap-4 group"
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-[#E8EEF7] dark:border-slate-800 p-3.5 sm:p-4 shadow-[0_3px_10px_rgba(7,25,74,0.035)] hover:shadow-lg hover:-translate-y-0.5 hover:border-[#0066FF]/50 transition-all duration-200 cursor-pointer flex items-center gap-3 sm:gap-4 group"
                 >
                   {/* Square Exam Emblem Icon with soft gradient (66px) */}
                   <div

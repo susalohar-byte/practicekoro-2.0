@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type { TestAttempt } from '@/types';
+import { cn } from '@/lib/utils';
 
 // ==========================================
 // TYPES & DATA
@@ -431,9 +432,19 @@ export const MyTests: React.FC = () => {
         })}
       </div>
 
-      {/* ── 3. TOTAL PERFORMANCE CARD (APP 1:1) ── */}
-      {(selectedFilter === 'Overview' || selectedFilter === 'Mock Tests') && (
-        <div className="bg-white dark:bg-slate-900 rounded-[20px] p-4 sm:p-5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_3px_10px_rgba(11,31,91,0.03)] space-y-4">
+      {/* ── 3 & 4. PERFORMANCE CARDS (Desktop 2-column grid in Overview) ── */}
+      {(selectedFilter === 'Overview' ||
+        selectedFilter === 'Mock Tests' ||
+        selectedFilter === 'Practice Tests') && (
+        <div
+          className={cn(
+            'grid gap-4 sm:gap-5 items-stretch',
+            selectedFilter === 'Overview' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'
+          )}
+        >
+          {/* ── 3. TOTAL PERFORMANCE CARD (APP 1:1) ── */}
+          {(selectedFilter === 'Overview' || selectedFilter === 'Mock Tests') && (
+            <div className="bg-white dark:bg-slate-900 rounded-[20px] p-4 sm:p-5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_3px_10px_rgba(11,31,91,0.03)] space-y-4 h-full flex flex-col justify-between">
           {/* Header Row: Title & Subtitle + Time Dropdown */}
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -639,7 +650,7 @@ export const MyTests: React.FC = () => {
 
       {/* ── 4. SUBJECT-WISE PERFORMANCE CARD (APP 1:1) ── */}
       {(selectedFilter === 'Overview' || selectedFilter === 'Practice Tests') && (
-        <div className="bg-white dark:bg-slate-900 rounded-[20px] p-4 sm:p-5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_3px_10px_rgba(11,31,91,0.03)] space-y-3.5">
+        <div className="bg-white dark:bg-slate-900 rounded-[20px] p-4 sm:p-5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_3px_10px_rgba(11,31,91,0.03)] space-y-3.5 h-full flex flex-col justify-between">
           {/* Header Row */}
           <div className="flex items-center justify-between">
             <h2 className="text-[17.5px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.3px]">
@@ -723,6 +734,8 @@ export const MyTests: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
+      )}
 
       {/* ── 5. RECENT TESTS SECTION (APP 1:1) ── */}
       {(selectedFilter === 'Overview' ||
@@ -745,12 +758,12 @@ export const MyTests: React.FC = () => {
           </div>
 
           {/* Cards List */}
-          <div className="space-y-2.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {recentTestsList.map((test) => (
               <div
                 key={test.id}
                 onClick={() => handleTestClick(test)}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-md hover:border-blue-200 transition-all flex items-center gap-3 cursor-pointer group"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 flex items-center gap-3 cursor-pointer group"
               >
                 {/* Emblem */}
                 <div className="shrink-0">{renderEmblem(test.emblemType)}</div>
@@ -814,14 +827,14 @@ export const MyTests: React.FC = () => {
           </div>
 
           {/* Series Cards */}
-          <div className="space-y-2.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {DEFAULT_SERIES_RESULTS.map((series) => {
               const progressPct = Math.round((series.completedTests / series.totalTests) * 100);
               return (
                 <div
                   key={series.id}
                   onClick={() => navigate(`/test-series/${series.id}`)}
-                  className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-md hover:border-blue-200 transition-all flex items-center gap-3 cursor-pointer group"
+                  className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 flex items-center gap-3 cursor-pointer group"
                 >
                   {/* Left Emblem */}
                   <div className="shrink-0">{renderEmblem(series.emblemType)}</div>

@@ -56,7 +56,7 @@ export const AppLayout: React.FC = () => {
           isSidebarCollapsed={isSidebarCollapsed}
         />
 
-        <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12">
+        <main className="flex-1 w-full max-w-6xl xl:max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12 transition-all duration-200">
           <Outlet
             context={{
               onToggleMobileSidebar: () => setIsMobileSidebarOpen(true),

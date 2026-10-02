@@ -209,10 +209,8 @@ export const Rank: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
-        {/* 1. Breadcrumb */}
+    <div className="space-y-5 sm:space-y-6 text-slate-900 dark:text-slate-100">
+      {/* 1. Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           <Link to="/home" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
             Home
@@ -877,6 +875,5 @@ export const Rank: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
   );
 };

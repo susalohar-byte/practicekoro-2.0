@@ -269,7 +269,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
 
               {/* Desktop View: Clean Integrated Search Bar */}
               {showSearch && (
-                <div ref={searchContainerRef} className="hidden lg:block relative w-80 xl:w-96">
+                <div ref={searchContainerRef} className="hidden lg:block relative w-80 xl:w-96 focus-within:w-96 xl:focus-within:w-[420px] transition-all duration-200">
                   <form onSubmit={handleSearchSubmit} className="relative">
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
@@ -303,30 +303,41 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                   {isSearchOpen && (
                     <div className="absolute left-0 top-full mt-2 w-full bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 no-scrollbar">
-                        {filteredResults.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => handleSelectItem(item)}
-                            className="p-2.5 hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 rounded-xl cursor-pointer transition-colors flex items-center justify-between group"
-                          >
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-[#0B1F5B] dark:text-white group-hover:text-[#0877FF] transition-colors">
-                                  {item.title}
-                                </span>
-                                {item.badge && (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-[#EFF5FF] text-[#0877FF] text-[9px] font-extrabold">
-                                    {item.badge}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">
-                                {item.subtitle}
-                              </p>
-                            </div>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all" />
+                        {filteredResults.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-slate-500 font-medium">
+                            No matching exams, subjects or tests found.
                           </div>
-                        ))}
+                        ) : (
+                          filteredResults.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => handleSelectItem(item)}
+                              className="p-2.5 hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 rounded-xl cursor-pointer transition-colors flex items-center justify-between group"
+                            >
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-[#0B1F5B] dark:text-white group-hover:text-[#0877FF] transition-colors">
+                                    {item.title}
+                                  </span>
+                                  {item.badge && (
+                                    <span className="px-1.5 py-0.2 rounded-md bg-[#EFF5FF] text-[#0877FF] text-[9px] font-extrabold">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">
+                                  {item.subtitle}
+                                </p>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all" />
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800 px-2 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                        <span>Press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[9px]">↵</kbd> to view</span>
+                        <span><kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[9px]">ESC</kbd> to close</span>
                       </div>
                     </div>
                   )}

@@ -286,10 +286,8 @@ export const SavedQuestions: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6">
-        {/* Toast Notification */}
+    <div className="space-y-5 sm:space-y-6 text-slate-900 dark:text-slate-100">
+      {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-xl border border-slate-700 text-xs sm:text-sm font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200">
             <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -810,7 +808,6 @@ export const SavedQuestions: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
 
       {/* ========================================================================= */}
       {/* Interactive Practice Modal                                                */}

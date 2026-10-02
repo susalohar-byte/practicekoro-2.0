@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 import { api } from '@/services/api';
+import { cn } from '@/lib/utils';
 
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
@@ -346,10 +347,10 @@ export const Home: React.FC = () => {
                     e.stopPropagation();
                     prevSlide();
                   }}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-xs z-20"
                   aria-label="Previous slide"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   type="button"
@@ -357,11 +358,30 @@ export const Home: React.FC = () => {
                     e.stopPropagation();
                     nextSlide();
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-xs z-20"
                   aria-label="Next slide"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-5 h-5" />
                 </button>
+
+                {/* Carousel Pagination Dots */}
+                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/40 backdrop-blur-xs z-20">
+                  {banners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentSlide(idx);
+                      }}
+                      className={cn(
+                        'h-1.5 rounded-full transition-all cursor-pointer',
+                        currentSlide === idx ? 'w-5 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
+                      )}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -385,12 +405,12 @@ export const Home: React.FC = () => {
       {/* ========================================================= */}
       {/* 2. 4 CORE PRACTICE ACTION CARDS                           */}
       {/* ========================================================= */}
-      <section className="grid grid-cols-4 gap-2 sm:gap-3.5">
+      <section className="grid grid-cols-4 gap-2.5 sm:gap-4">
         {coreActions.map((card, idx) => (
           <Link
             key={idx}
             to={card.route}
-            className={`relative aspect-[221/224] rounded-2xl sm:rounded-2xl overflow-hidden ${card.shadow} hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 group block`}
+            className={`relative aspect-[221/224] rounded-2xl sm:rounded-3xl overflow-hidden ${card.shadow} hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] transition-all duration-200 group block`}
           >
             <img
               src={card.image}
@@ -494,12 +514,12 @@ export const Home: React.FC = () => {
             <Link
               key={idx}
               to={exam.route}
-              className="relative aspect-[3/2] rounded-2xl overflow-hidden shadow-[0_4px_10px_rgba(11,31,91,0.10)] hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 group block bg-slate-200 dark:bg-slate-800"
+              className="relative aspect-[3/2] rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_4px_10px_rgba(11,31,91,0.08)] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] transition-all duration-200 group block bg-slate-200 dark:bg-slate-800"
             >
               <img
                 src={exam.image}
                 alt={exam.title}
-                className="w-full h-full object-fill"
+                className="w-full h-full object-fill group-hover:scale-105 transition-transform duration-300"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
@@ -536,7 +556,7 @@ export const Home: React.FC = () => {
             <Link
               key={idx}
               to={series.route}
-              className="relative min-w-[240px] sm:min-w-0 p-4 rounded-2xl border border-white/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex flex-col justify-between overflow-hidden group"
+              className="relative min-w-[240px] sm:min-w-0 p-4 rounded-2xl border border-white/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 active:scale-[0.99] flex flex-col justify-between overflow-hidden group"
             >
               {/* Background monument image */}
               <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
@@ -724,9 +744,9 @@ export const Home: React.FC = () => {
       {/* ========================================================= */}
       {/* 8. TODAY'S INFO & MOTIVATIONAL QUOTE                      */}
       {/* ========================================================= */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-stretch">
         {/* Today's Info */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#F1F6FE] dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="h-full p-4 sm:p-5 rounded-2xl bg-[#F1F6FE] dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
               <img
@@ -768,7 +788,7 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Motivational Quote */}
-        <div className="relative p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#FFF6F8] to-[#FDECEF] dark:from-slate-900 dark:to-slate-800 border border-[#FCDCE8] dark:border-slate-800 shadow-xs flex flex-col justify-between overflow-hidden">
+        <div className="h-full relative p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#FFF6F8] to-[#FDECEF] dark:from-slate-900 dark:to-slate-800 border border-[#FCDCE8] dark:border-slate-800 shadow-xs flex flex-col justify-between overflow-hidden">
           <img
             src="/images/quote_mountain_summit.png"
             alt=""
