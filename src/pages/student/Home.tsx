@@ -20,17 +20,15 @@ import {
 } from 'lucide-react';
 import type { PopularExamCard } from '@/types';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
-import { ExamSelectorModal } from '@/components/student/ExamSelectorModal';
 
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
-  const { selectedExam, setSelectedExam } = useExam();
+  const { selectedExam } = useExam();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Modal states
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
   // Hero banner state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -295,38 +293,10 @@ export const Home: React.FC = () => {
     return `${day} ${months[now.getMonth()]} ${now.getFullYear()}`;
   }, []);
 
-  const firstName = user?.fullName?.split(' ')[0] || 'Aspirant';
-
   return (
     <div className="space-y-4 sm:space-y-4.5 select-none pb-10 max-w-6xl mx-auto">
       {/* ========================================================================= */}
-      {/* 1. SLIM CANDIDATE BAR (Compact, single-line, non-bulky)                   */}
-      {/* ========================================================================= */}
-      <div className="px-3.5 py-2 sm:py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm">👋</span>
-          <span className="text-xs sm:text-sm font-bold text-[#0B1F5B] dark:text-white truncate">
-            Hi, <span className="text-[#0877FF] font-extrabold">{firstName}</span>
-          </span>
-          <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-          <span className="text-xs text-[#5B6B86] dark:text-slate-400 font-medium hidden sm:inline truncate">
-            Targeting: <strong className="text-slate-800 dark:text-slate-200">{selectedExam?.title || 'West Bengal Exams'}</strong>
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsExamModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F1F5FC] dark:bg-slate-800 hover:bg-[#E0EFFE] text-[#0877FF] text-xs font-bold transition-colors cursor-pointer shrink-0"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Change Target</span>
-          <ChevronRight className="w-3 h-3" />
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. HERO BANNER (Compact, letterbox aspect ratio, no oversized block)      */}
+      {/* HERO BANNER (Compact, letterbox aspect ratio)                             */}
       {/* ========================================================================= */}
       <section className="relative w-full rounded-2xl overflow-hidden shadow-2xs border border-slate-200/80 dark:border-slate-800 bg-[#D9EEFF] dark:bg-slate-900 group select-none">
         <div
@@ -899,17 +869,6 @@ export const Home: React.FC = () => {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onComplete={() => setIsOnboardingOpen(false)}
-      />
-
-      {/* Primary Target Exam Selector Modal */}
-      <ExamSelectorModal
-        isOpen={isExamModalOpen}
-        onClose={() => setIsExamModalOpen(false)}
-        mode="choose"
-        onExamSelected={(exam) => {
-          setSelectedExam(exam);
-          setIsExamModalOpen(false);
-        }}
       />
     </div>
   );
