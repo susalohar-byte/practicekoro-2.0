@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { StudentSidebar } from './StudentSidebar';
 import { StudentNavbar } from './StudentNavbar';
 import { BottomNav } from './BottomNav';
@@ -7,10 +7,12 @@ import { useMaintenance } from '@/context/MaintenanceContext';
 import { useAuth } from '@/context/AuthContext';
 import { MaintenanceScreen } from '@/components/common/MaintenanceScreen';
 import { MandatoryDistrictModal } from '@/components/student/MandatoryDistrictModal';
+import { cn } from '@/lib/utils';
 
 export const AppLayout: React.FC = () => {
   const { isMaintenanceMode, loading: maintLoading } = useMaintenance();
   const { isAdmin } = useAuth();
+  const location = useLocation();
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -38,6 +40,11 @@ export const AppLayout: React.FC = () => {
     return <MaintenanceScreen />;
   }
 
+  const isHome =
+    location.pathname === '/' ||
+    location.pathname === '/dashboard' ||
+    location.pathname === '/home';
+
   return (
     <div className="min-h-screen flex bg-[#F1F5FC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#0877FF]/20 selection:text-[#0877FF]">
       {/* 1. App Left Sidebar Navigation (Desktop sticky, Mobile drawer) */}
@@ -48,15 +55,25 @@ export const AppLayout: React.FC = () => {
         onToggleCollapse={handleToggleCollapse}
       />
 
-      {/* 2. Main Content Column: Minimal Top Header + Responsive Page Content + Mobile Bottom Nav */}
+      {/* 2. Main Content Column */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        <StudentNavbar
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
-          onToggleCollapse={handleToggleCollapse}
-          isSidebarCollapsed={isSidebarCollapsed}
-        />
+        {/* Only show StudentNavbar on subpages, as Home dashboard has its own 1:1 App Brand Header */}
+        {!isHome && (
+          <StudentNavbar
+            onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+            onToggleCollapse={handleToggleCollapse}
+            isSidebarCollapsed={isSidebarCollapsed}
+          />
+        )}
 
-        <main className="flex-1 w-full max-w-6xl xl:max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12 transition-all duration-200">
+        <main
+          className={cn(
+            'flex-1 w-full px-3.5 sm:px-6 py-3.5 sm:py-5 pb-28 lg:pb-12 transition-all duration-200',
+            isHome
+              ? 'max-w-[680px] xl:max-w-[720px] mx-auto'
+              : 'max-w-6xl xl:max-w-7xl mx-auto lg:px-8'
+          )}
+        >
           <Outlet
             context={{
               onToggleMobileSidebar: () => setIsMobileSidebarOpen(true),
