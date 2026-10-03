@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useExam } from '@/context/ExamContext';
-import { ExamSelectorModal } from '@/components/student/ExamSelectorModal';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
 import { cn, isStudentNavActive } from '@/lib/utils';
 import {
@@ -49,10 +47,8 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isPro, isAdmin, logout } = useAuth();
-  const { selectedExam, setSelectedExam } = useExam();
 
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
   // 1. PRIMARY APP NAVIGATION
   const primaryNavItems: NavItem[] = [
@@ -88,9 +84,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
   };
 
   const avatarSrc = user?.avatarUrl || '/images/student_avatar_hd.png';
-  const examInitials = selectedExam?.title
-    ? selectedExam.title.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'WBP'
-    : 'WBP';
 
   return (
     <>
@@ -186,49 +179,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
         {/* CENTER SCROLLABLE BODY */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-3 px-2.5 space-y-4 no-scrollbar">
-          {/* Target Exam Goal Card */}
-          {!isCollapsed ? (
-            <div
-              onClick={() => setIsExamModalOpen(true)}
-              className="p-2.5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-white to-blue-50/40 dark:from-slate-800/80 dark:via-slate-900 dark:to-slate-800/50 border border-blue-100/90 dark:border-blue-900/40 shadow-2xs flex items-center justify-between group hover:border-[#0877FF]/40 transition-all cursor-pointer"
-              title="Click to switch your target exam"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#0877FF] to-[#0B1F5B] text-white flex items-center justify-center font-black text-[11px] shadow-xs shrink-0 tracking-tight">
-                  {examInitials}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] uppercase font-bold text-[#64748B] dark:text-slate-400 tracking-wider">
-                      Target Exam
-                    </span>
-                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                  </div>
-                  <p className="text-xs font-black text-[#0B1F5B] dark:text-white truncate group-hover:text-[#0877FF] transition-colors leading-tight">
-                    {selectedExam?.title || 'WBP Constable'}
-                  </p>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-[#0877FF] dark:text-blue-400 px-1.5 py-0.5 rounded-md hover:bg-blue-100/60 dark:hover:bg-blue-950/60 transition-colors shrink-0">
-                Change
-              </span>
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => setIsExamModalOpen(true)}
-                className="group relative w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 flex items-center justify-center text-[#0877FF] font-black text-[11px] hover:border-[#0877FF] transition-colors cursor-pointer"
-                aria-label={`Target Exam: ${selectedExam?.title || 'WBP Constable'}`}
-              >
-                {examInitials}
-                <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center border border-slate-700">
-                  Target: {selectedExam?.title || 'WBP Constable'} (Click to change)
-                </span>
-              </button>
-            </div>
-          )}
-
           {/* 1. Main Navigation Section */}
           <div className="space-y-1">
             {!isCollapsed && (
@@ -625,17 +575,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
           </div>
         </div>
       </aside>
-
-      {/* Target Exam Switcher Modal */}
-      <ExamSelectorModal
-        isOpen={isExamModalOpen}
-        onClose={() => setIsExamModalOpen(false)}
-        mode="flow"
-        onExamSelected={(exam) => {
-          setSelectedExam(exam);
-          setIsExamModalOpen(false);
-        }}
-      />
 
       {/* Support Modal */}
       <StudentSupportModal
