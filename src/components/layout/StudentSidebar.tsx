@@ -73,7 +73,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
   // 2. QUICK ACCESS & REVISION
   const secondaryNavItems: NavItem[] = [
     { label: 'Saved Questions', path: '/saved-questions', icon: Bookmark },
-    { label: 'Leaderboard', path: '/rank', icon: Trophy, badge: 'Top 100' },
+    { label: 'Rank', path: '/rank', icon: Trophy, badge: 'Top 100' },
     { label: 'Help & Support', path: '/support', icon: HelpCircle },
   ];
 
