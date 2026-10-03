@@ -16,6 +16,7 @@ import { Navbar } from '@/pages/landing/sections/Navbar';
 import { Footer } from '@/pages/landing/sections/Footer';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { supabaseRuntime } from '@/lib/supabase';
 
 export const ContactUs: React.FC = () => {
   const [name, setName] = useState('');
@@ -24,20 +25,38 @@ export const ContactUs: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError(null);
 
-    // Simulate inquiry intake
-    setTimeout(() => {
+    try {
+      const { error } = await supabaseRuntime.from('support_tickets').insert({
+        user_id: null,
+        student_name: name.trim(),
+        student_email: email.trim(),
+        subject: subject.trim(),
+        issue: message.trim(),
+        category: 'Other',
+        priority: 'medium',
+        status: 'open',
+        assigned_to: null,
+        resolution_notes: null,
+      });
+      if (error) throw error;
       setIsSubmitting(false);
       setSubmitted(true);
       setName('');
       setEmail('');
       setSubject('');
       setMessage('');
-    }, 600);
+    } catch (error) {
+      console.error('Contact inquiry submission failed:', error);
+      setSubmitError('Your message could not be sent. Please retry or email support directly.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -216,6 +235,14 @@ export const ContactUs: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {submitError && (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+                    >
+                      {submitError}
+                    </div>
+                  )}
                   <div>
                     <label
                       htmlFor="contact-name"

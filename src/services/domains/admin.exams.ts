@@ -381,7 +381,9 @@ export async function getPopularExams(): Promise<PopularExamCard[]> {
             if (typeof localStorage !== 'undefined') {
               localStorage.setItem('pk_popular_exams_config', JSON.stringify(parsed));
             }
-          } catch (_) {}
+          } catch {
+            // Browser storage is an optional cache.
+          }
           return parsed;
         }
       }
@@ -399,7 +401,9 @@ export async function getPopularExams(): Promise<PopularExamCard[]> {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     }
-  } catch (_) {}
+  } catch {
+    // Ignore malformed or unavailable browser cache.
+  }
 
   return DEFAULT_POPULAR_EXAMS;
 }
@@ -409,7 +413,9 @@ export async function savePopularExams(cards: PopularExamCard[]): Promise<Popula
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('pk_popular_exams_config', JSON.stringify(cards));
     }
-  } catch (_) {}
+  } catch {
+    // Browser storage is an optional cache.
+  }
 
   if (isSupabaseConfigured) {
     try {

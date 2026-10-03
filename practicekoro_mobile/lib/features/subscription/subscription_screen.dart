@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
@@ -14,35 +13,10 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  late Razorpay _razorpay;
-  int _selectedPlanIndex = 2; // 0: 1 Month (₹99), 1: 6 Months (₹199), 2: 1 Year (₹299)
+  int _selectedPlanIndex = 0;
   bool _isProcessing = false;
 
-  // Coupon Code State
-  final TextEditingController _couponController = TextEditingController();
-  String? _appliedCouponCode;
-  int _discountAmount = 0;
-  String? _couponError;
-
   final List<Map<String, dynamic>> _plans = [
-    {
-      'id': 'plan_1_month',
-      'title': '1 Month Pass',
-      'duration': '30 Days',
-      'price': 99,
-      'originalPrice': 199,
-      'discount': '50% OFF',
-      'badge': null,
-    },
-    {
-      'id': 'plan_6_month',
-      'title': '6 Months Pass',
-      'duration': '180 Days',
-      'price': 199,
-      'originalPrice': 499,
-      'discount': '60% OFF',
-      'badge': 'Great Value',
-    },
     {
       'id': 'pro_1_year',
       'title': '1 Year Pro Pass',
@@ -63,230 +37,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     'Seamless access on both Mobile App & Website',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _initRazorpay();
-  }
-
-  void _initRazorpay() {
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    _couponController.dispose();
-    super.dispose();
-  }
-
-  int get _basePlanPrice => _plans[_selectedPlanIndex]['price'] as int;
-
-  int get _finalPayablePrice {
-    final net = _basePlanPrice - _discountAmount;
-    return net > 0 ? net : 1; // Minimum ₹1 for gateway validation
-  }
-
-  void _applyCoupon() {
-    final code = _couponController.text.trim().toUpperCase();
-    if (code.isEmpty) {
-      setState(() => _couponError = 'Please enter a coupon code');
-      return;
-    }
-
-    int discount = 0;
-    final basePrice = _basePlanPrice;
-
-    if (code == 'PRACTICE50') {
-      discount = (basePrice * 0.50).round();
-    } else if (code == 'WELCOME100') {
-      discount = basePrice > 100 ? 100 : (basePrice * 0.50).round();
-    } else if (code == 'PRO20') {
-      discount = (basePrice * 0.20).round();
-    } else if (code == 'SUSANTA') {
-      discount = (basePrice * 0.40).round();
-    } else {
-      setState(() {
-        _couponError = 'Invalid coupon code. Try PRACTICE50 or WELCOME100.';
-      });
-      return;
-    }
-
-    setState(() {
-      _appliedCouponCode = code;
-      _discountAmount = discount;
-      _couponError = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF10B981),
-        content: Text('🎉 Coupon $code applied! You saved ₹$discount!'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _removeCoupon() {
-    setState(() {
-      _appliedCouponCode = null;
-      _discountAmount = 0;
-      _couponController.clear();
-      _couponError = null;
-    });
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    setState(() => _isProcessing = false);
-
-    final selectedPlan = _plans[_selectedPlanIndex];
-    final int days = selectedPlan['id'] == 'pro_1_year'
-        ? 365
-        : selectedPlan['id'] == 'plan_6_month'
-            ? 180
-            : 30;
-
-    final expiryDate = DateTime.now().add(Duration(days: days));
-    await LocalStorageService.setProUser(true, expiresAt: expiryDate);
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF10B981), Color(0xFF059669)],
-                ),
-              ),
-              child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Payment Successful!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.navy),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your ${selectedPlan['title']} is now active! All premium mock tests and solutions are unlocked.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            if (_appliedCouponCode != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Coupon applied: $_appliedCouponCode (Saved ₹$_discountAmount)',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Payment ID: ${response.paymentId ?? "CONFIRMED"}',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.go('/home');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Start Practicing', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    setState(() => _isProcessing = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFFEF4444),
-        content: Text(
-          response.message?.isNotEmpty == true
-              ? 'Payment failed: ${response.message}'
-              : 'Payment cancelled or could not be completed.',
-        ),
-        action: SnackBarAction(
-          label: 'Retry UPI',
-          textColor: Colors.white,
-          onPressed: _openWebCheckout,
-        ),
-      ),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('External Wallet selected: ${response.walletName}')),
-    );
-  }
-
-  void _startPayment() {
-    final selectedPlan = _plans[_selectedPlanIndex];
-    final int payableAmount = _finalPayablePrice;
-
+  Future<void> _startPayment() async {
     setState(() => _isProcessing = true);
-
-    final options = {
-      'key': AppConstants.razorpayKeyId,
-      'amount': payableAmount * 100, // Amount in paise (discounted)
-      'name': 'PracticeKoro',
-      'description': '${selectedPlan['title']} (${selectedPlan['duration']})',
-      'currency': 'INR',
-      'prefill': {
-        'contact': AppConstants.supportPhone.replaceAll('+', ''),
-        'email': 'student@practicekoro.in',
-      },
-      'theme': {
-        'color': '#0158FC',
-      },
-      'retry': {
-        'enabled': true,
-        'max_count': 3,
-      },
-      'send_sms_hash': true,
-      'external': {
-        'wallets': ['paytm'],
-      },
-    };
-
     try {
-      _razorpay.open(options);
-    } catch (e) {
-      setState(() => _isProcessing = false);
-      _openWebCheckout();
+      // Checkout is intentionally handled by the web application, which
+      // creates a server-authoritative Razorpay order and verifies the
+      // signature before activating a subscription. The mobile client must
+      // never trust a local payment callback to unlock Pro access.
+      await _openWebCheckout();
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -412,7 +172,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 3 Plan Selection Cards
+                  // Single universal plan
                   ...List.generate(_plans.length, (idx) {
                     final plan = _plans[idx];
                     final isSelected = _selectedPlanIndex == idx;
@@ -424,10 +184,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         onTap: () {
                           setState(() {
                             _selectedPlanIndex = idx;
-                            // Recalculate coupon if applied
-                            if (_appliedCouponCode != null) {
-                              _applyCoupon();
-                            }
                           });
                         },
                         borderRadius: BorderRadius.circular(16),
@@ -541,157 +297,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
                   const SizedBox(height: 16),
 
-                  // ===============================
-                  // COUPON CODE APPLICATION CARD
-                  // ===============================
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _appliedCouponCode != null
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFE2E8F0),
-                        width: _appliedCouponCode != null ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.local_offer_rounded,
-                              color: _appliedCouponCode != null
-                                  ? const Color(0xFF10B981)
-                                  : AppColors.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Have a Coupon Code?',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.navy,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        if (_appliedCouponCode == null) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  ),
-                                  child: TextField(
-                                    controller: _couponController,
-                                    textCapitalization: TextCapitalization.characters,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Enter code (e.g. PRACTICE50)',
-                                      hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              ElevatedButton(
-                                onPressed: _applyCoupon,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  elevation: 0,
-                                ),
-                                child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          if (_couponError != null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              _couponError!,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          // Quick coupon pills
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                _buildQuickCouponChip('PRACTICE50 (50% OFF)'),
-                                const SizedBox(width: 6),
-                                _buildQuickCouponChip('WELCOME100 (₹100 OFF)'),
-                                const SizedBox(width: 6),
-                                _buildQuickCouponChip('PRO20 (20% OFF)'),
-                              ],
-                            ),
-                          ),
-                        ] else ...[
-                          // Coupon Applied Success Box
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFA7F3D0)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 22),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Coupon "$_appliedCouponCode" Applied!',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF065F46),
-                                        ),
-                                      ),
-                                      Text(
-                                        'You saved ₹$_discountAmount on this plan',
-                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF047857)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: _removeCoupon,
-                                  child: const Text(
-                                    'Remove',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFFEF4444),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
                   // Features Checklist Card
                   Container(
                     padding: const EdgeInsets.all(18),
@@ -788,24 +393,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            '₹$_finalPayablePrice',
+                            '₹$_basePlanPrice',
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
                               color: AppColors.navy,
                             ),
                           ),
-                          if (_discountAmount > 0) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '₹$_basePlanPrice',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF94A3B8),
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
-                          ],
                           const SizedBox(width: 4),
                           Text(
                             '(${selectedPlan['duration']})',
@@ -837,11 +431,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               children: [
                                 const Icon(Icons.flash_on_rounded, size: 18),
                                 const SizedBox(width: 6),
-                                Text(
-                                  _discountAmount > 0
-                                      ? 'Pay ₹$_finalPayablePrice (Razorpay)'
-                                      : 'Pay with Razorpay / UPI',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                const Text(
+                                  'Continue to Secure Checkout',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                               ],
                             ),
@@ -856,25 +448,4 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildQuickCouponChip(String text) {
-    final code = text.split(' ')[0];
-    return GestureDetector(
-      onTap: () {
-        _couponController.text = code;
-        _applyCoupon();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFBFDBFE)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
-        ),
-      ),
-    );
-  }
 }

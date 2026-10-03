@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/navigation/main_scaffold.dart';
 import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
@@ -23,6 +24,35 @@ import '../../data/models/attempt_model.dart';
 
 final appRouter = GoRouter(
   initialLocation: kIsWeb ? '/home' : '/splash',
+  redirect: (context, state) {
+    User? currentUser;
+    try {
+      currentUser = Supabase.instance.client.auth.currentUser;
+    } catch (_) {
+      currentUser = null;
+    }
+
+    final location = state.matchedLocation;
+    final requiresAuthentication =
+        location.startsWith('/live-test/') ||
+        location.startsWith('/result/') ||
+        location.startsWith('/analysis/') ||
+        location.startsWith('/solutions/') ||
+        location == '/results' ||
+        location == '/profile' ||
+        location == '/saved-questions' ||
+        location == '/settings' ||
+        location == '/support';
+
+    if (requiresAuthentication && currentUser == null) {
+      final redirect = Uri.encodeComponent(state.uri.toString());
+      return '/login?redirect=$redirect';
+    }
+    if (location == '/login' && currentUser != null) {
+      return '/home';
+    }
+    return null;
+  },
   routes: [
     GoRoute(path: '/', redirect: (context, state) => '/home'),
     // 1. Splash Screen

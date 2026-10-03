@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Profile } from './Profile';
 
 vi.mock('@/context/AuthContext', () => ({
@@ -78,47 +78,40 @@ describe('Student Support Intake Integration', () => {
     vi.clearAllMocks();
   });
 
-  it('renders Help & Support Desk in Profile page and opens ticket modal when clicked', async () => {
+  it('renders Help & Support in Profile and opens the support desk', async () => {
     render(
-      <MemoryRouter>
-        <Profile />
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/support" element={<div>PracticeKoro Support Desk</div>} />
+        </Routes>
       </MemoryRouter>
     );
 
-    // Verify presence of Help & Support Desk actions (redesigned Bengali-first copy)
-    expect(screen.getByText('Support & Help Desk')).toBeInTheDocument();
-    expect(
-      screen.getByText('সাহায্য ও সাপোর্ট: Raise tickets & report issues')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('সাপোর্ট ও অভিযোগ ডেস্ক (Direct Support Desk)')
-    ).toBeInTheDocument();
-
-    // Click "টিকেট তৈরি করুন" (Create Ticket)
-    const createBtn = screen.getByRole('button', { name: 'টিকেট তৈরি করুন' });
-    fireEvent.click(createBtn);
-
-    // Verify modal appears
+    expect(screen.getByText('Help & Support')).toBeInTheDocument();
+    expect(screen.getByText('Get help and contact us')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Help & Support'));
     await waitFor(() => {
-      expect(screen.getByText('Student Support & Help')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Submit Ticket/i })).toBeInTheDocument();
+      expect(screen.getByText('PracticeKoro Support Desk')).toBeInTheDocument();
     });
   });
 
-  it('opens ticket history tab directly when clicking "Ticket History" in Profile', async () => {
+  it('exposes the support action as an accessible button', async () => {
     render(
-      <MemoryRouter>
-        <Profile />
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/support" element={<div>PracticeKoro Support Desk</div>} />
+        </Routes>
       </MemoryRouter>
     );
 
-    const historyBtn = screen.getByRole('button', { name: 'টিকেট হিস্ট্রি' });
-    fireEvent.click(historyBtn);
-
+    const supportAction = screen.getByRole('button', { name: /help & support/i });
+    supportAction.focus();
+    expect(supportAction).toHaveFocus();
+    fireEvent.click(supportAction);
     await waitFor(() => {
-      expect(screen.getByText('Student Support & Help')).toBeInTheDocument();
-      expect(screen.getByText('WBCS Mock 02 question clarification')).toBeInTheDocument();
-      expect(screen.getByText('OPEN')).toBeInTheDocument();
+      expect(screen.getByText('PracticeKoro Support Desk')).toBeInTheDocument();
     });
   });
 });

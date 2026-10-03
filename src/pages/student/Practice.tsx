@@ -964,10 +964,11 @@ export const Practice: React.FC = () => {
                     {filteredSubjects.map((sub) => {
                       const Icon = sub.icon;
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={sub.id}
                           onClick={() => handleTabChange('topics')}
-                          className="h-16 px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:border-[#0877FF]/40 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
+                          className="w-full h-16 px-3 py-2 text-left rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:border-[#0877FF]/40 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             {/* Icon or Symbol Box */}
@@ -996,7 +997,7 @@ export const Practice: React.FC = () => {
                           </div>
 
                           <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
-                        </div>
+                        </button>
                       );
                     })}
                   </div>

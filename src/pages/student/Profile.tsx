@@ -569,9 +569,10 @@ export const Profile: React.FC = () => {
 
             <div className="bg-white dark:bg-slate-900 rounded-[16px] border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] overflow-hidden divide-y divide-[#F1F5FC] dark:divide-slate-800">
               {/* Help & Support */}
-              <div
+              <button
+                type="button"
                 onClick={() => navigate('/support')}
-                className="flex items-center justify-between p-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                className="w-full text-left flex items-center justify-between p-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/60 flex items-center justify-center shrink-0">
@@ -587,7 +588,7 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all" />
-              </div>
+              </button>
 
               {/* Send Feedback */}
               <div

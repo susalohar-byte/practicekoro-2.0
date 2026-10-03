@@ -41,6 +41,7 @@ vi.mock('@/context/ThemeContext', () => ({
 }));
 
 vi.mock('@/services/api', () => ({
+  DEFAULT_POPULAR_EXAMS: [],
   api: {
     getAllAdminExams: vi.fn(),
     getExamCategories: vi.fn(),
@@ -54,6 +55,8 @@ vi.mock('@/services/api', () => ({
     createAdminExam: vi.fn(),
     updateAdminExam: vi.fn(),
     deleteAdminExam: vi.fn(),
+    getPopularExams: vi.fn(),
+    savePopularExams: vi.fn(),
     getAllAdminQuestions: vi.fn(),
     getAllAdminSubjects: vi.fn(),
     getAllAdminChapters: vi.fn(),
@@ -95,9 +98,11 @@ describe('AdminExams Category Management Updates', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     (api.getAllAdminExams as ReturnType<typeof vi.fn>).mockResolvedValue(mockExams);
     (api.getAllAdminTests as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (api.getExamCategories as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategories);
+    (api.getPopularExams as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (api.deleteExamCategory as ReturnType<typeof vi.fn>).mockResolvedValue(true);
     (api.reorderExamCategories as ReturnType<typeof vi.fn>).mockResolvedValue(true);
     (api.updateExam as ReturnType<typeof vi.fn>).mockResolvedValue(mockExams[0]);
@@ -313,9 +318,11 @@ describe('AdminExams Drag & Drop Reordering Execution', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     (api.getAllAdminExams as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (api.getAllAdminTests as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (api.getExamCategories as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategories);
+    (api.getPopularExams as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (api.reorderExamCategories as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   });
 

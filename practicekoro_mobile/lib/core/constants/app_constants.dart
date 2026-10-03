@@ -15,12 +15,6 @@ class AppConstants {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByeWNhbmJueHVpaHhoc2thbGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMTY1NTgsImV4cCI6MjEwNDg5MjU1OH0.HOzUGuRqD0Y9qWlGGhvHGenylTJ2Sky_G7E3PEO0EIw',
   );
 
-  // Payment Gateway (Razorpay Live)
-  static const String razorpayKeyId = String.fromEnvironment(
-    'RAZORPAY_KEY_ID',
-    defaultValue: 'rzp_live_TdoDuJhIn8jWT5',
-  );
-
   // Support & Website
   static const String websiteUrl = 'https://practicekoro.online';
   static const String supportPhone = '+919547771118';

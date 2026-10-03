@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -7,6 +7,16 @@ import { TermsAndConditions } from './TermsAndConditions';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { RefundPolicy } from './RefundPolicy';
 import { ContactUs } from './ContactUs';
+
+const insertContactInquiry = vi.fn().mockResolvedValue({ error: null });
+
+vi.mock('@/lib/supabase', () => ({
+  supabaseRuntime: {
+    from: vi.fn(() => ({
+      insert: insertContactInquiry,
+    })),
+  },
+}));
 
 // Mock AuthContext
 vi.mock('@/context/AuthContext', () => ({
@@ -95,8 +105,6 @@ describe('Legal & Compliance Pages (Razorpay & Indian Statutory Compliance)', ()
 
   describe('ContactUs Component', () => {
     it('renders merchant information, operational hours, and handles form submission', async () => {
-      vi.useFakeTimers();
-
       renderWithProviders(<ContactUs />);
 
       expect(
@@ -120,15 +128,18 @@ describe('Legal & Compliance Pages (Razorpay & Indian Statutory Compliance)', ()
 
       fireEvent.click(submitBtn);
 
-      // Fast-forward simulated network timeout
-      act(() => {
-        vi.advanceTimersByTime(800);
+      await waitFor(() => {
+        expect(insertContactInquiry).toHaveBeenCalledWith(
+          expect.objectContaining({
+            student_name: 'Arindam Ghosh',
+            student_email: 'arindam@example.com',
+            subject: 'Payment verification query',
+          })
+        );
       });
 
       expect(screen.getByText(/Message Sent Successfully!/i)).toBeInTheDocument();
       expect(screen.getByText(/Thank you for contacting PracticeKoro/i)).toBeInTheDocument();
-
-      vi.useRealTimers();
     });
   });
 });

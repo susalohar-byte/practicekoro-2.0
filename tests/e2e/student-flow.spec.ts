@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Student navigation', () => {
   test('bottom nav shows exactly the canonical items', async ({ page }) => {
     await page.goto('/exams');
-    for (const item of ['Home', 'Exams', 'Practice', 'Results', 'Profile']) {
+    for (const item of ['Home', 'Test Series', 'Practice', 'Results', 'Profile']) {
       await expect(page.getByText(item, { exact: true }).first()).toBeVisible();
     }
     // Guard against regression: "Tests"/"My Tests" must never be primary nav

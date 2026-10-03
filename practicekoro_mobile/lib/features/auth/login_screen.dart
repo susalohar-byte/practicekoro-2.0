@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/components/pk_button.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
@@ -16,9 +18,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController(text: 'student@practicekoro.com');
-  final _passwordController = TextEditingController(text: 'student123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -28,21 +31,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    setState(() => _isLoading = true);
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Enter your email and password.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     final authRepo = ref.read(authRepositoryProvider);
 
     try {
-      await authRepo.signInWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final response = await authRepo.signInWithEmail(
+        email: email,
+        password: password,
       );
-    } catch (_) {
-      // Gracefully continue in demo/offline mode
+      if (response?.session == null || response?.user == null) {
+        throw StateError('Authentication service is unavailable.');
+      }
+      if (mounted) {
+        final destination = GoRouterState.of(context).uri.queryParameters['redirect'];
+        final isSafeInternalPath =
+            destination?.startsWith('/') == true &&
+            destination?.startsWith('//') == false;
+        context.go(isSafeInternalPath ? destination! : '/home');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Sign-in failed. Check your credentials and internet connection.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.go('/home');
+  Future<void> _openWebAuth(String path) async {
+    final uri = Uri.parse('${AppConstants.websiteUrl}$path');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+      setState(() => _errorMessage = 'Could not open the secure account page.');
     }
   }
 
@@ -113,6 +145,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   obscureText: true,
                 ),
 
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => _openWebAuth('/forgot-password'),
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 24),
 
                 // Primary Sign in button
@@ -142,9 +197,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: AppTypography.bodySmall(color: AppColors.secondaryText),
                     ),
                     InkWell(
-                      onTap: () => context.go('/home'),
+                      onTap: () => _openWebAuth('/register'),
                       child: Text(
-                        'Explore Free Tests',
+                        'Create an account',
                         style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
                           fontWeight: FontWeight.bold,
                         ),

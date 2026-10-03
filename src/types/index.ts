@@ -282,6 +282,8 @@ export interface LiveTest {
   examTitle?: string;
   testTitle?: string;
   testSeriesTitle?: string;
+  logo?: string;
+  examLogo?: string;
   userParticipant?: LiveTestParticipant | null;
 }
 

@@ -8,6 +8,7 @@ import { adminCommerceApi } from '@/services/domains/adminCommerce';
 import { adminApi } from '@/services/domains/admin';
 import * as auditLogDomain from '@/services/domains/auditLog';
 import { liveRevisionApi } from '@/services/domains/liveRevision';
+import { studentHomeApi } from '@/services/domains/studentHome';
 
 export const api = {
   ...catalogApi,
@@ -16,6 +17,7 @@ export const api = {
   ...adminApi,
   ...auditLogDomain,
   ...liveRevisionApi,
+  ...studentHomeApi,
 };
 
 export type { Exam, Subject, Chapter, TestSeries, MockTest, Question, PopularExamCard } from '@/types';

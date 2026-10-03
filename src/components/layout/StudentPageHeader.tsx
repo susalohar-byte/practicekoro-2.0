@@ -33,7 +33,11 @@ export const StudentPageHeader: React.FC<StudentPageHeaderProps> = ({
             <Link className="pk-header-action" to="/test-series" aria-label="Search tests">
               <Search className="h-5 w-5" />
             </Link>
-            <Link className="pk-header-action pk-notification-action" to="/notifications" aria-label="Notifications">
+            <Link
+              className="pk-header-action pk-notification-action"
+              to="/settings"
+              aria-label="Notifications"
+            >
               <Bell className="h-5 w-5" />
               <span aria-hidden="true">3</span>
             </Link>

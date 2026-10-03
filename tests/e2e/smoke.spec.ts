@@ -10,8 +10,14 @@ test.describe('Landing page', () => {
   test('renders hero headline and dual CTAs', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Login', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Get Started', exact: true })).toBeVisible();
+    const loginButton = page.getByRole('button', { name: 'Login', exact: true });
+    if (!(await loginButton.isVisible().catch(() => false))) {
+      await page.getByRole('button', { name: 'Open menu' }).click();
+    }
+    await expect(loginButton).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Get Started', exact: true }).first()
+    ).toBeVisible();
   });
 
   test('exam catalog section filters by search query', async ({ page }) => {
@@ -20,13 +26,12 @@ test.describe('Landing page', () => {
     await expect(search).toBeVisible();
 
     await search.fill('WBP');
-    const firstCardTitle = page.locator('section:has(#pricing) h3').first();
     // WBP Constable must survive the filter; Railway/SSC GD must not be visible
     await expect(page.getByText('WBP Constable', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('Railway (RRB)')).toHaveCount(0);
 
     await search.fill('zzz-no-match');
-    await expect(firstCardTitle).toHaveCount(0);
+    await expect(page.getByText('No exams found', { exact: true })).toBeVisible();
   });
 });
 
@@ -68,7 +73,9 @@ test.describe('Routing guards', () => {
   });
 });
 
-test('student can discover a topic test and open the runner in demo mode', async ({ page }) => {
+test('student can discover a topic test and must authenticate before opening the runner', async ({
+  page,
+}) => {
   // The one-click demo buttons were removed from the login page (559124d).
   // Seed the demo session the same way AuthContext's demo login did, then navigate.
   await page.addInitScript(() => {
@@ -84,6 +91,7 @@ test('student can discover a topic test and open the runner in demo mode', async
       createdAt: '2025-01-10T10:00:00Z',
     };
     localStorage.setItem('practicekoro_user', JSON.stringify(demoUser));
+    localStorage.setItem('practicekoro_selected_exam', 'wbp-constable');
     // Premium tests only render the "Start Test Now" CTA for entitled users
     // (see useSubscription/hasAccessToTest), so seed an active Pro pass too.
     localStorage.setItem('practicekoro_is_pro', 'true');
@@ -92,7 +100,7 @@ test('student can discover a topic test and open the runner in demo mode', async
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.goto('/practice');
   await page
-    .getByRole('button', { name: /Topic Tests/i })
+    .getByRole('button', { name: /See All/i })
     .first()
     .click();
   await page
@@ -104,7 +112,7 @@ test('student can discover a topic test and open the runner in demo mode', async
     .first()
     .click();
   await page
-    .getByRole('button', { name: /View Test/i })
+    .getByRole('button', { name: /Start Test/i })
     .first()
     .click();
   await expect(page).toHaveURL(/\/exams\/test-indus-01$/);
@@ -112,6 +120,5 @@ test('student can discover a topic test and open the runner in demo mode', async
     .getByRole('button', { name: /Start Test Now/i })
     .first()
     .click();
-  await expect(page).toHaveURL(/\/exams\/test-indus-01\/runner\?attemptId=/);
-  await expect(page.getByText(/Question 1/i).first()).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
 });
