@@ -220,6 +220,7 @@ export const catalogApi = {
         name: item.name,
         slug: item.slug,
         description: item.description ?? undefined,
+        iconName: (item as any).icon_name || (item as any).iconName || undefined,
         orderIndex: item.order_index,
         isActive: item.is_active,
       }));
@@ -245,6 +246,7 @@ export const catalogApi = {
         name: item.name,
         slug: item.slug,
         description: item.description ?? undefined,
+        iconName: (item as any).icon_name || (item as any).iconName || undefined,
         parentId: item.parent_id ?? undefined,
         orderIndex: item.order_index,
         isActive: item.is_active,

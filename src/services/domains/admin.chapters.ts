@@ -48,6 +48,7 @@ export async function getAllAdminChapters(subjectId?: string): Promise<Chapter[]
             description: item.description ?? undefined,
             orderIndex: item.order_index,
             isActive: item.is_active,
+            iconName: (item as any).icon_name || (item as any).iconName || undefined,
             parentId: (item as any).parent_id ?? undefined,
             testsCount,
             updatedAt: (item as any).updated_at ?? undefined,
@@ -90,6 +91,7 @@ export async function getChapterById(id: string): Promise<Chapter | null> {
           description: row.description ?? undefined,
           orderIndex: row.order_index,
           isActive: row.is_active,
+          iconName: (row as any).icon_name || (row as any).iconName || undefined,
           parentId: (row as any).parent_id ?? undefined,
           testsCount,
         };
@@ -137,6 +139,7 @@ export async function createChapter(chapterData: Omit<Chapter, 'id'>): Promise<C
           name: chapterData.name,
           slug,
           description: chapterData.description || null,
+          icon_name: chapterData.iconName || null,
           order_index: chapterData.orderIndex || 0,
           is_active: chapterData.isActive ?? true,
           parent_id: chapterData.parentId || null,
@@ -151,6 +154,7 @@ export async function createChapter(chapterData: Omit<Chapter, 'id'>): Promise<C
           name: data.name,
           slug: data.slug,
           description: data.description ?? undefined,
+          iconName: (data as any).icon_name || chapterData.iconName || undefined,
           orderIndex: data.order_index,
           isActive: data.is_active,
           parentId: (data as any).parent_id ?? undefined,
@@ -203,6 +207,7 @@ export async function updateChapter(id: string, updates: Partial<Chapter>): Prom
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.slug !== undefined) payload.slug = updates.slug;
       if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.iconName !== undefined) payload.icon_name = updates.iconName || null;
       if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
       if (updates.parentId !== undefined) payload.parent_id = updates.parentId || null;
@@ -222,6 +227,7 @@ export async function updateChapter(id: string, updates: Partial<Chapter>): Prom
           name: data.name,
           slug: data.slug,
           description: data.description ?? undefined,
+          iconName: (data as any).icon_name || updates.iconName || undefined,
           orderIndex: data.order_index,
           isActive: data.is_active,
           parentId: (data as any).parent_id ?? undefined,
@@ -253,10 +259,37 @@ export async function deleteChapter(id: string): Promise<boolean> {
   return true;
 }
 
+export async function uploadTopicIcon(file: File, topicId: string = 'custom'): Promise<string> {
+  if (isSupabaseConfigured) {
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const safeId = topicId.replace(/[^a-zA-Z0-9_-]/g, '-');
+      const path = `topic-icons/${safeId}/icon-${Date.now()}.${extension}`;
+      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+      if (!error && data) {
+        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+      }
+    } catch {
+      // Fallback to data URL
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const adminChaptersApi = {
   getAllAdminChapters,
   getChapterById,
   createChapter,
   updateChapter,
   deleteChapter,
+  uploadTopicIcon,
 };

@@ -20,6 +20,7 @@ import 'package:practicekoro_mobile/features/navigation/main_scaffold.dart';
 import 'package:practicekoro_mobile/features/exams/exams_catalog_screen.dart';
 import 'package:practicekoro_mobile/features/practice/practice_screen.dart';
 import 'package:practicekoro_mobile/features/onboarding/splash_screen.dart';
+import 'package:practicekoro_mobile/features/profile/profile_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -152,10 +153,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Results'), findsOneWidget);
-      expect(find.text('Track your performance and improve'), findsOneWidget);
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('All Tests'), findsOneWidget);
+      expect(find.text('Rankings'), findsOneWidget);
       expect(find.text('Total Performance'), findsOneWidget);
-      expect(find.text('Recent Tests'), findsOneWidget);
-      expect(find.text('Test Series Results'), findsOneWidget);
     });
 
     testWidgets('LeaderboardScreen renders test series rankings and header without dummy data', (tester) async {
@@ -359,6 +360,42 @@ void main() {
       expect(find.text('Profile'), findsWidgets);
     });
 
+    testWidgets('MainScaffold shows mascot only when Practice tab is selected and animates on tap', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: MainScaffold(initialIndex: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // On Home: Mascot image is NOT rendered
+      expect(find.image(const AssetImage('assets/images/mascot_with_crown_tight.png')), findsNothing);
+
+      // Tap on Practice tab
+      await tester.tap(find.text('Practice'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      // Mascot image is now rendered!
+      expect(find.image(const AssetImage('assets/images/mascot_with_crown_tight.png')), findsOneWidget);
+
+      // Tap on Test Series tab
+      await tester.tap(find.text('Test Series'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      // Mascot image is hidden again
+      expect(find.image(const AssetImage('assets/images/mascot_with_crown_tight.png')), findsNothing);
+    });
+
     testWidgets('ExamsCatalogScreen renders clean search bar and filter dropdown', (tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
@@ -468,6 +505,58 @@ void main() {
       // Verify Test Series cards
       expect(find.text('WBP Constable'), findsWidgets);
       expect(find.text('Railway (NTPC)'), findsWidgets);
+    });
+
+    testWidgets('ProfileScreen renders Playful Gen-Z profile page matching reference across all breakpoints', (tester) async {
+      for (final width in [320.0, 360.0, 375.0, 390.0, 414.0, 430.0]) {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1.0;
+
+        await tester.pumpWidget(
+          const ProviderScope(
+            child: MaterialApp(
+              home: ProfileScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify Top Header
+        expect(find.text('Profile'), findsOneWidget);
+        expect(find.textContaining('Manage your account'), findsOneWidget);
+
+        // 2. Verify Profile Card & Edit Profile Button
+        expect(find.text('Edit Profile'), findsOneWidget);
+        expect(find.text('District'), findsOneWidget);
+        expect(find.text('State'), findsOneWidget);
+        expect(find.text('Joined'), findsOneWidget);
+
+        // 3. Verify Current Plan Card
+        expect(find.text('Current Plan'), findsOneWidget);
+
+        // 4. Verify 3 Quick Action Cards
+        expect(find.text('My Subscriptions'), findsOneWidget);
+        expect(find.text('Payment History'), findsOneWidget);
+        expect(find.text('Coupons'), findsOneWidget);
+
+        // 5. Verify Learning Stats
+        expect(find.text('My Learning Stats'), findsOneWidget);
+        expect(find.text('Tests Attempted'), findsOneWidget);
+        expect(find.text('Average Accuracy'), findsOneWidget);
+        expect(find.text('Total Study Time'), findsOneWidget);
+        expect(find.text('Day Streak'), findsOneWidget);
+
+        // 6. Verify Settings Items
+        expect(find.text('My Exam Preferences'), findsOneWidget);
+        expect(find.text('Notifications'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('Help & Support'), findsOneWidget);
+        expect(find.text('About PracticeKoro'), findsOneWidget);
+
+        // 7. Verify Motivational Banner
+        expect(find.textContaining('Keep Learning'), findsOneWidget);
+      }
+      tester.view.resetPhysicalSize();
     });
   });
 }

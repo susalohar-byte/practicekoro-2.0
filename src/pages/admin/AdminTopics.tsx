@@ -79,6 +79,33 @@ export const TopicIconBadge: React.FC<{
   iconName?: string;
   className?: string;
 }> = ({ name, iconName, className = 'w-8 h-8' }) => {
+  // 0. If custom uploaded icon or URL is set, render image
+  if (
+    iconName &&
+    (iconName.startsWith('data:') ||
+      iconName.startsWith('/') ||
+      iconName.startsWith('http') ||
+      iconName.startsWith('blob:'))
+  ) {
+    return (
+      <div
+        className={cn(
+          'relative rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs',
+          className
+        )}
+      >
+        <img
+          src={iconName}
+          alt={name}
+          className="w-full h-full object-contain rounded-lg"
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = 'none';
+          }}
+        />
+      </div>
+    );
+  }
+
   const norm = name.toLowerCase();
 
   // 1. Heat & Temperature -> Red / Coral Thermometer
@@ -459,7 +486,9 @@ export const AdminTopics: React.FC = () => {
     orderIndex: 1,
     statusLabel: 'Published' as 'Published' | 'Draft',
     description: '',
+    iconName: '',
   });
+  const [isUploadingTopicIcon, setIsUploadingTopicIcon] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -515,6 +544,7 @@ export const AdminTopics: React.FC = () => {
               orderIndex: ch.orderIndex || merged[idx].orderIndex,
               isActive: isAct,
               statusLabel: stLabel,
+              iconName: ch.iconName || merged[idx].iconName,
               descriptionBengali: ch.description || merged[idx].descriptionBengali,
             };
           } else {
@@ -529,7 +559,7 @@ export const AdminTopics: React.FC = () => {
               statusLabel: stLabel,
               isActive: isAct,
               orderIndex: ch.orderIndex || merged.length + 1,
-              iconName: 'Layers',
+              iconName: ch.iconName || 'Layers',
               totalAttempts: 5200,
               avgScoreFormatted: '64%',
               descriptionBengali: ch.description || 'অধ্যায় ভিত্তিক গুরুত্বপূর্ণ টেস্ট ও প্রশ্নাবলি।',
@@ -544,9 +574,11 @@ export const AdminTopics: React.FC = () => {
         });
       }
 
-      // Read topic status overrides from localStorage for ultimate reliability
+      // Read topic status & icon overrides from localStorage for ultimate reliability
       try {
         const storedOverrides = localStorage.getItem('pk_admin_topic_status_overrides');
+        const storedIconOverrides = localStorage.getItem('pk_admin_topic_icon_overrides');
+        const iconOverrides: Record<string, string> = storedIconOverrides ? JSON.parse(storedIconOverrides) : {};
         if (storedOverrides) {
           const overrides: Record<string, { statusLabel: 'Published' | 'Draft'; isActive: boolean }> = JSON.parse(storedOverrides);
           merged.forEach((item, index) => {
@@ -560,8 +592,19 @@ export const AdminTopics: React.FC = () => {
             }
           });
         }
+        if (Object.keys(iconOverrides).length > 0) {
+          merged.forEach((item, index) => {
+            const customIcon = iconOverrides[item.id] || iconOverrides[item.slug] || iconOverrides[item.name.toLowerCase()];
+            if (customIcon !== undefined) {
+              merged[index] = {
+                ...merged[index],
+                iconName: customIcon,
+              };
+            }
+          });
+        }
       } catch (e) {
-        console.error('Failed to parse topic status overrides:', e);
+        console.error('Failed to parse topic overrides:', e);
       }
 
       setTopicsList(merged);
@@ -718,6 +761,7 @@ export const AdminTopics: React.FC = () => {
       orderIndex: topicsList.length + 1,
       statusLabel: 'Published',
       description: '',
+      iconName: '',
     });
     setFormError('');
     setIsCreateModalOpen(true);
@@ -732,6 +776,7 @@ export const AdminTopics: React.FC = () => {
       orderIndex: t.orderIndex,
       statusLabel: t.statusLabel,
       description: t.descriptionBengali || '',
+      iconName: t.iconName || '',
     });
     setFormError('');
     setSelectedTopic(t);
@@ -750,6 +795,7 @@ export const AdminTopics: React.FC = () => {
       setIsSubmitting(true);
       setFormError('');
       const isPublishedStatus = formData.statusLabel === 'Published';
+      const cleanIcon = formData.iconName.trim();
 
       if (isEditModalOpen && selectedTopic) {
         await api.updateChapter(selectedTopic.id, {
@@ -759,6 +805,7 @@ export const AdminTopics: React.FC = () => {
           subjectId: formData.subjectId,
           orderIndex: formData.orderIndex,
           isActive: isPublishedStatus,
+          iconName: cleanIcon,
         }).catch(() => null);
 
         // Persist status overrides in localStorage
@@ -768,6 +815,12 @@ export const AdminTopics: React.FC = () => {
           curOverrides[formData.slug.trim()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
           curOverrides[formData.name.trim().toLowerCase()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
           localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
+
+          const curIconOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_icon_overrides') || '{}');
+          curIconOverrides[selectedTopic.id] = cleanIcon;
+          curIconOverrides[formData.slug.trim()] = cleanIcon;
+          curIconOverrides[formData.name.trim().toLowerCase()] = cleanIcon;
+          localStorage.setItem('pk_admin_topic_icon_overrides', JSON.stringify(curIconOverrides));
         } catch {}
 
         setTopicsList((prev) =>
@@ -782,6 +835,7 @@ export const AdminTopics: React.FC = () => {
                   orderIndex: formData.orderIndex,
                   statusLabel: formData.statusLabel,
                   isActive: isPublishedStatus,
+                  iconName: cleanIcon || t.iconName || 'Layers',
                   descriptionBengali: formData.description.trim(),
                   updatedAtFormatted: 'Just now',
                 }
@@ -800,6 +854,7 @@ export const AdminTopics: React.FC = () => {
                 orderIndex: formData.orderIndex,
                 statusLabel: formData.statusLabel,
                 isActive: isPublishedStatus,
+                iconName: cleanIcon || prev.iconName || 'Layers',
                 descriptionBengali: formData.description.trim(),
                 updatedAtFormatted: 'Just now',
               }
@@ -819,6 +874,7 @@ export const AdminTopics: React.FC = () => {
           subjectId: formData.subjectId,
           orderIndex: formData.orderIndex,
           isActive: isPublishedStatus,
+          iconName: cleanIcon || 'Layers',
         }).catch(() => null);
 
         // Persist status overrides in localStorage
@@ -828,6 +884,12 @@ export const AdminTopics: React.FC = () => {
           curOverrides[formData.slug.trim()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
           curOverrides[formData.name.trim().toLowerCase()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
           localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
+
+          const curIconOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_icon_overrides') || '{}');
+          curIconOverrides[createdId] = cleanIcon;
+          curIconOverrides[formData.slug.trim()] = cleanIcon;
+          curIconOverrides[formData.name.trim().toLowerCase()] = cleanIcon;
+          localStorage.setItem('pk_admin_topic_icon_overrides', JSON.stringify(curIconOverrides));
         } catch {}
 
         const newTopic: EnrichedTopicRow = {
@@ -841,7 +903,7 @@ export const AdminTopics: React.FC = () => {
           statusLabel: formData.statusLabel,
           isActive: isPublishedStatus,
           orderIndex: formData.orderIndex,
-          iconName: 'Layers',
+          iconName: cleanIcon || 'Layers',
           totalAttempts: 0,
           avgScoreFormatted: '0%',
           descriptionBengali: formData.description.trim() || 'নতুন তৈরি করা অধ্যায়।',
@@ -2352,6 +2414,97 @@ export const AdminTopics: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:outline-none focus:border-[#026BFC] resize-none"
                 />
+              </div>
+
+              {/* Topic Icon Field */}
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
+                      Topic Icon
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Upload a custom PNG, JPG, WebP, or SVG icon
+                    </span>
+                  </div>
+                  {formData.iconName && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, iconName: '' }))}
+                      className="text-[11px] font-medium text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                      title="Remove icon"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove Icon
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Live Icon Preview */}
+                  <TopicIconBadge
+                    name={formData.name || 'Topic Icon'}
+                    iconName={formData.iconName}
+                    className="w-10 h-10 shadow-xs"
+                  />
+
+                  {/* Upload & Change Controls */}
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                          isUploadingTopicIcon
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                        )}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploadingTopicIcon ? 'Uploading...' : formData.iconName ? 'Change Icon' : 'Upload Icon'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingTopicIcon}
+                          className="hidden"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setIsUploadingTopicIcon(true);
+                              const uploadedUrl = await api.uploadTopicIcon(file, selectedTopic?.id || 'new');
+                              setFormData((prev) => ({ ...prev, iconName: uploadedUrl }));
+                            } catch (err) {
+                              alert('Failed to upload icon: ' + getErrorMessage(err, 'Error'));
+                            } finally {
+                              setIsUploadingTopicIcon(false);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {formData.iconName && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, iconName: '' }))}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold text-xs border border-slate-200 dark:border-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
+                      )}
+
+                      <span className="text-[11px] text-slate-400">or icon URL:</span>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="https://... or data:image/..."
+                      value={formData.iconName}
+                      onChange={(e) => setFormData({ ...formData, iconName: e.target.value })}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[11px] font-mono text-slate-700 dark:text-slate-300 placeholder:font-sans"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Buttons */}

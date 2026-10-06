@@ -224,6 +224,7 @@ export interface Chapter {
   name: string;
   slug: string;
   description?: string;
+  iconName?: string;
   parentId?: string;
   orderIndex: number;
   isActive: boolean;

@@ -591,13 +591,28 @@ export const TopicTests: React.FC = () => {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
                             isSelected
                               ? 'bg-[#0158FC] text-white shadow-xs'
                               : `${theme.bgColor} ${theme.color} border ${theme.borderColor}`
                           }`}
                         >
-                          <span className="text-[11px] font-black">{index + 1}</span>
+                          {topic.iconName &&
+                          (topic.iconName.startsWith('http') ||
+                            topic.iconName.startsWith('data:') ||
+                            topic.iconName.startsWith('/') ||
+                            topic.iconName.startsWith('blob:')) ? (
+                            <img
+                              src={topic.iconName}
+                              alt={topic.name}
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <span className="text-[11px] font-black">{index + 1}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <h4
@@ -850,9 +865,24 @@ export const TopicTests: React.FC = () => {
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${theme.bgColor} ${theme.color} border ${theme.borderColor}`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${theme.bgColor} ${theme.color} border ${theme.borderColor}`}
                       >
-                        <span className="text-xs font-black">{index + 1}</span>
+                        {topic.iconName &&
+                        (topic.iconName.startsWith('http') ||
+                          topic.iconName.startsWith('data:') ||
+                          topic.iconName.startsWith('/') ||
+                          topic.iconName.startsWith('blob:')) ? (
+                          <img
+                            src={topic.iconName}
+                            alt={topic.name}
+                            className="w-full h-full object-contain p-1"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="text-xs font-black">{index + 1}</span>
+                        )}
                       </div>
                       <span className="text-[11px] font-bold text-slate-400">
                         Topic {index + 1}

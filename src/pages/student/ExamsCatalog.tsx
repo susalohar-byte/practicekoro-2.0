@@ -74,6 +74,17 @@ function enrichExam(exam: Exam): EnrichedExam {
     bgColor = 'bg-[#FFF8ED] dark:bg-amber-950/40';
   }
 
+  // If a custom logo/icon was uploaded or configured by Admin, prioritize it
+  if (
+    exam.iconName &&
+    (exam.iconName.startsWith('http') ||
+      exam.iconName.startsWith('data:') ||
+      exam.iconName.startsWith('/') ||
+      exam.iconName.startsWith('blob:'))
+  ) {
+    emblem = exam.iconName;
+  }
+
   // 2. Badges (aligned with reference design & significance)
   let badge: 'Popular' | 'Trending' | 'New' | undefined = undefined;
   if (id.includes('group-d') || title.includes('group d')) {

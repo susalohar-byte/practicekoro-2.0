@@ -652,18 +652,30 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
 }
 
 /** Upload Exam/Test Logo for Live Test to Supabase Storage */
-export async function uploadLiveTestLogo(file: File, liveTestId: string): Promise<string> {
-  if (!isSupabaseConfigured) throw new Error('Connect to the Admin Panel database before uploading images.');
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
-  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-  const safeId = liveTestId.replace(/[^a-zA-Z0-9_-]/g, '-');
-  const path = `live-tests/${safeId}/logo-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-  const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
+export async function uploadLiveTestLogo(file: File, liveTestId: string = 'custom'): Promise<string> {
+  if (isSupabaseConfigured) {
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const safeId = liveTestId.replace(/[^a-zA-Z0-9_-]/g, '-');
+      const path = `live-tests/${safeId}/logo-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (!error && data) {
+        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+      }
+    } catch {
+      // Fallback to data URL
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  if (error) throw new Error(`Logo upload failed: ${error.message}`);
-  return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
 }
 
 /** Cancel a live test */

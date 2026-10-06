@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/widgets/pk_bottom_spacing.dart';
 import '../home/home_screen.dart';
 import '../exams/exams_catalog_screen.dart';
@@ -38,8 +39,11 @@ class _NavItemData {
   });
 }
 
-class _MainScaffoldState extends State<MainScaffold> {
+class _MainScaffoldState extends State<MainScaffold>
+    with TickerProviderStateMixin {
   late int _currentIndex;
+  late AnimationController _practiceAnimController;
+  late CurvedAnimation _practiceCurvedAnimation;
 
   static const List<_NavItemData> _navItems = [
     _NavItemData(
@@ -68,13 +72,48 @@ class _MainScaffoldState extends State<MainScaffold> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+
+    // Animation controller for Practice active state (mascot rising & cradle curvature)
+    _practiceAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      reverseDuration: const Duration(milliseconds: 240),
+      value: _currentIndex == 2 ? 1.0 : 0.0,
+    );
+
+    _practiceCurvedAnimation = CurvedAnimation(
+      parent: _practiceAnimController,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant MainScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex &&
+        widget.initialIndex != _currentIndex) {
+      _onTabSelected(widget.initialIndex);
+    }
+  }
+
+  @override
+  void dispose() {
+    _practiceAnimController.dispose();
+    super.dispose();
   }
 
   void _onTabSelected(int index) {
     if (_currentIndex != index) {
+      HapticFeedback.lightImpact();
       setState(() {
         _currentIndex = index;
       });
+      if (index == 2) {
+        _practiceAnimController.forward();
+      } else {
+        _practiceAnimController.reverse();
+      }
     }
   }
 
@@ -127,7 +166,7 @@ class _MainScaffoldState extends State<MainScaffold> {
                   final labelFontSize = isSmall ? 9.5 : 10.5;
 
                   return SizedBox(
-                    height: pillHeight + 24.0, // Extra headroom so floating mascot never clips
+                    height: pillHeight + 26.0, // Extra headroom so floating mascot never clips
                     child: Stack(
                       clipBehavior: Clip.none,
                       alignment: Alignment.bottomCenter,
@@ -152,45 +191,42 @@ class _MainScaffoldState extends State<MainScaffold> {
                           ),
                         ),
 
-                        // ── White Navigation Pill Container with Warm Ambient Glow ──
-                        Container(
-                          height: pillHeight,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(pillHeight / 2),
-                            border: Border.all(
-                              color: const Color(0xFFF2ECE1),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              // Warm ambient yellow glow
-                              BoxShadow(
-                                color: const Color(0xFFFFD84D).withValues(alpha: 0.38),
-                                blurRadius: 32,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 8),
-                              ),
-                              // Soft card shadow
-                              BoxShadow(
-                                color: const Color(0xFF0F172A).withValues(alpha: 0.06),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                        // ── Playful Ambient Confetti Specks / Particles around Navbar ──
+                        const Positioned.fill(
+                          child: CustomPaint(
+                            painter: _AmbientParticlesPainter(),
                           ),
+                        ),
+
+                        // ── White Navigation Pill Container with Animated Center Cradle & Warm Glow ──
+                        AnimatedBuilder(
+                          animation: _practiceCurvedAnimation,
+                          builder: (context, child) {
+                            return CustomPaint(
+                              painter: _NavBarCradlePainter(
+                                cradleProgress: _practiceCurvedAnimation.value,
+                              ),
+                              child: SizedBox(
+                                height: pillHeight,
+                                width: double.infinity,
+                                child: child,
+                              ),
+                            );
+                          },
                           child: Row(
                             children: List.generate(_navItems.length, (idx) {
                               final item = _navItems[idx];
                               final isSelected = _currentIndex == idx;
 
-                              // Center item: Practice is floating
+                              // Center item: Practice (animates into mascot ONLY when selected)
                               if (item.type == _PKNavType.practice) {
                                 return Expanded(
                                   child: _buildPracticeCenterItem(
                                     isSelected: isSelected,
                                     mascotSize: mascotSize,
                                     isSmall: isSmall,
+                                    iconSize: iconSize,
+                                    labelFontSize: labelFontSize,
                                     onTap: () => _onTabSelected(idx),
                                   ),
                                 );
@@ -230,28 +266,31 @@ class _MainScaffoldState extends State<MainScaffold> {
     required double labelFontSize,
     required VoidCallback onTap,
   }) {
-    return Semantics(
-      label: item.label,
-      button: true,
-      selected: isSelected,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          height: double.infinity,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Icon Area with Soft Yellow Circular Blob for Active Item
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (isSelected)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
+    return _PKSquishyTab(
+      semanticLabel: item.label,
+      isSelected: isSelected,
+      onTap: onTap,
+      child: SizedBox(
+        height: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon Area with Animated Soft Yellow Circular Blob for Active Item
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Animated Yellow Blob (scales & fades in when active)
+                  AnimatedScale(
+                    scale: isSelected ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      opacity: isSelected ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 160),
+                      child: Container(
                         width: 36,
                         height: 36,
                         decoration: const BoxDecoration(
@@ -259,32 +298,51 @@ class _MainScaffoldState extends State<MainScaffold> {
                           color: Color(0xFFFFF082),
                         ),
                       ),
-                    _buildIconWidget(item.type, isSelected, iconSize),
-                  ],
-                ),
+                    ),
+                  ),
+
+                  // Animated Icon Pop on Selection
+                  AnimatedScale(
+                    scale: isSelected ? 1.08 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutBack,
+                    child: _buildIconWidget(item.type, isSelected, iconSize),
+                  ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 1),
+            const SizedBox(height: 1),
 
-              // Item Label
-              FittedBox(
-                fit: BoxFit.scaleDown,
+            // Item Label
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 150),
+                style: TextStyle(
+                  fontSize: labelFontSize,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                  color: const Color(0xFF0B132B),
+                  letterSpacing: -0.2,
+                  fontFamily: 'Roboto',
+                ),
                 child: Text(
                   item.label,
                   maxLines: 1,
-                  style: TextStyle(
-                    fontSize: labelFontSize,
-                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                    color: const Color(0xFF0B132B),
-                    letterSpacing: -0.2,
-                  ),
                 ),
               ),
+            ),
 
-              // Small Active Dot Indicator
-              if (isSelected) ...[
-                const SizedBox(height: 2),
-                Container(
+            const SizedBox(height: 1.5),
+
+            // Animated Active Dot Indicator (pops in with spring scale)
+            SizedBox(
+              height: 5.0,
+              child: AnimatedScale(
+                scale: isSelected ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutBack,
+                child: Container(
                   width: 4.5,
                   height: 4.5,
                   decoration: const BoxDecoration(
@@ -292,129 +350,189 @@ class _MainScaffoldState extends State<MainScaffold> {
                     color: Color(0xFFFFD84D),
                   ),
                 ),
-              ] else
-                const SizedBox(height: 6.5), // Balance height so items align perfectly
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ── Center Floating Practice Item ──
+  // ── Center Practice Item (Animates into Floating Mascot ONLY when Selected!) ──
   Widget _buildPracticeCenterItem({
     required bool isSelected,
     required double mascotSize,
     required bool isSmall,
+    required double iconSize,
+    required double labelFontSize,
     required VoidCallback onTap,
   }) {
-    return Semantics(
-      label: 'Practice',
-      button: true,
-      selected: isSelected,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: OverflowBox(
-          maxHeight: 110,
-          alignment: Alignment.bottomCenter,
-          child: Transform.translate(
-            offset: Offset(0, isSmall ? -18.0 : -22.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return _PKSquishyTab(
+      semanticLabel: 'Practice',
+      isSelected: isSelected,
+      onTap: onTap,
+      child: AnimatedBuilder(
+        animation: _practiceCurvedAnimation,
+        builder: (context, _) {
+          final progress = _practiceCurvedAnimation.value;
+
+          return SizedBox(
+            height: double.infinity,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
-                // Circular Mascot Button
-                Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    // Elevated Circular Container with Mascot
-                    Container(
-                      width: mascotSize,
-                      height: mascotSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD84D).withValues(alpha: 0.50),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 6),
+                // ── 1. INACTIVE STATE: Clean Flat Icon & Label (visible when progress < 1) ──
+                if (progress < 0.99)
+                  Opacity(
+                    opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                    child: Transform.scale(
+                      scale: (1.0 - progress * 0.3).clamp(0.0, 1.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Center(
+                              child: CustomPaint(
+                                size: Size(iconSize, iconSize),
+                                painter: const _PracticeIconPainter(isActive: false),
+                              ),
+                            ),
                           ),
-                          BoxShadow(
-                            color: const Color(0xFF0F172A).withValues(alpha: 0.12),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                          const SizedBox(height: 1),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Practice',
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: labelFontSize,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0B132B),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
                           ),
+                          const SizedBox(height: 6.5), // Balances baseline perfectly with other inactive tabs
                         ],
                       ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/mascot_with_crown_tight.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            // Fallback to existing student avatar inside yellow circle
-                            return Container(
-                              color: const Color(0xFFFFDE31),
-                              padding: const EdgeInsets.all(4),
-                              child: Image.asset(
-                                'assets/images/student_avatar.png',
-                                fit: BoxFit.contain,
+                    ),
+                  ),
+
+                // ── 2. ACTIVE STATE: Mascot Springs Up Above Navbar (visible when progress > 0) ──
+                if (progress > 0.01)
+                  Positioned(
+                    top: isSmall ? -28.0 : -34.0,
+                    child: Opacity(
+                      opacity: (progress * 1.4).clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: progress,
+                        alignment: Alignment.bottomCenter,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Circular Mascot Frame with Crown and Sparkles
+                            Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.center,
+                              children: [
+                                // Circular Mascot Container with Warm Gold Glow
+                                Container(
+                                  width: mascotSize,
+                                  height: mascotSize,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFFFD84D).withValues(alpha: 0.55),
+                                        blurRadius: 18,
+                                        spreadRadius: 2,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                      BoxShadow(
+                                        color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: Image.asset(
+                                      'assets/images/mascot_with_crown_tight.png',
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: const Color(0xFFFFDE31),
+                                          padding: const EdgeInsets.all(4),
+                                          child: Image.asset(
+                                            'assets/images/student_avatar.png',
+                                            fit: BoxFit.contain,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+
+                                // Sparkle Star on bottom-left of mascot circle with spring pop
+                                Positioned(
+                                  left: -7,
+                                  bottom: 4,
+                                  child: Transform.scale(
+                                    scale: (progress * 1.15).clamp(0.0, 1.0),
+                                    child: Transform.rotate(
+                                      angle: -0.15 + 0.25 * progress,
+                                      child: const CustomPaint(
+                                        size: Size(13, 13),
+                                        painter: _SparkleStarPainter(),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 3),
+
+                            // Yellow Organic Pill for "Practice" Label
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFDE31),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFF0B132B),
+                                  width: 1.4,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x22000000),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 1.5),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
+                              child: Text(
+                                'Practice',
+                                style: TextStyle(
+                                  fontSize: isSmall ? 9.5 : 10.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF0B132B),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-
-                    // Tiny Sparkle Star on bottom-left of mascot circle
-                    Positioned(
-                      left: -6,
-                      bottom: 4,
-                      child: const CustomPaint(
-                        size: Size(12, 12),
-                        painter: _SparkleStarPainter(),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 3),
-
-                // Yellow Pill for "Practice" Label
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFDE31),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF0B132B)
-                          : const Color(0x66EAB308),
-                      width: isSelected ? 1.4 : 1.0,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x18000000),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
                   ),
-                  child: Text(
-                    'Practice',
-                    style: TextStyle(
-                      fontSize: isSmall ? 9.5 : 10.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0B132B),
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ),
               ],
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -443,9 +561,188 @@ class _MainScaffoldState extends State<MainScaffold> {
           painter: _UserIconPainter(isActive: isSelected),
         );
       case _PKNavType.practice:
-        return const SizedBox.shrink();
+        return CustomPaint(
+          size: Size(size, size),
+          painter: _PracticeIconPainter(isActive: isSelected),
+        );
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERACTIVE TACTILE SPRING BUTTON (Squishes on tap down, pops on release)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PKSquishyTab extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final String semanticLabel;
+  final bool isSelected;
+
+  const _PKSquishyTab({
+    required this.child,
+    required this.onTap,
+    required this.semanticLabel,
+    required this.isSelected,
+  });
+
+  @override
+  State<_PKSquishyTab> createState() => _PKSquishyTabState();
+}
+
+class _PKSquishyTabState extends State<_PKSquishyTab>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 180),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.91).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeOutQuad,
+        reverseCurve: Curves.easeOutBack,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _scaleController.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _scaleController.reverse();
+    widget.onTap();
+  }
+
+  void _onTapCancel() {
+    _scaleController.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: widget.semanticLabel,
+      button: true,
+      selected: widget.isSelected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) => Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANIMATED NAVBAR CRADLE PAINTER (Curved scallop supporting mascot when active)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NavBarCradlePainter extends CustomPainter {
+  final double cradleProgress; // 0.0 when inactive, 1.0 when Practice active
+
+  const _NavBarCradlePainter({required this.cradleProgress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final radius = h / 2;
+    final centerX = w / 2;
+
+    // Cradle elevation geometry
+    final cradleHalfWidth = 46.0;
+    final cradleElevation = 14.0 * cradleProgress;
+
+    final path = Path();
+    path.moveTo(radius, 0);
+
+    if (cradleElevation > 0.05) {
+      // Top edge with smooth curved cradle peak in center
+      path.lineTo(centerX - cradleHalfWidth, 0);
+      path.cubicTo(
+        centerX - cradleHalfWidth * 0.52, 0,
+        centerX - cradleHalfWidth * 0.42, -cradleElevation,
+        centerX, -cradleElevation,
+      );
+      path.cubicTo(
+        centerX + cradleHalfWidth * 0.42, -cradleElevation,
+        centerX + cradleHalfWidth * 0.52, 0,
+        centerX + cradleHalfWidth, 0,
+      );
+      path.lineTo(w - radius, 0);
+    } else {
+      path.lineTo(w - radius, 0);
+    }
+
+    // Right rounded cap
+    path.arcToPoint(Offset(w, radius), radius: Radius.circular(radius));
+    path.arcToPoint(Offset(w - radius, h), radius: Radius.circular(radius));
+
+    // Bottom edge
+    path.lineTo(radius, h);
+
+    // Left rounded cap
+    path.arcToPoint(Offset(0, radius), radius: Radius.circular(radius));
+    path.arcToPoint(Offset(radius, 0), radius: Radius.circular(radius));
+    path.close();
+
+    // 1. Warm ambient yellow glow behind navbar
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFFD84D).withValues(alpha: 0.38)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28);
+    canvas.save();
+    canvas.translate(0, 6);
+    canvas.drawPath(path, glowPaint);
+    canvas.restore();
+
+    // 2. Soft subtle card drop shadow
+    final shadowPaint = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.06)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    canvas.save();
+    canvas.translate(0, 3);
+    canvas.drawPath(path, shadowPaint);
+    canvas.restore();
+
+    // 3. Crisp white fill
+    final fillPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
+
+    // 4. Clean subtle border stroke
+    final borderPaint = Paint()
+      ..color = const Color(0xFFF2ECE1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavBarCradlePainter oldDelegate) =>
+      oldDelegate.cradleProgress != cradleProgress;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -629,7 +926,55 @@ class _TestPaperIconPainter extends CustomPainter {
       oldDelegate.isActive != isActive;
 }
 
-/// 3. Trophy Icon: Friendly Trophy Cup with Light Blue Fill & Navy Outline
+/// 3. Practice Target Icon for Inactive Practice Tab
+class _PracticeIconPainter extends CustomPainter {
+  final bool isActive;
+
+  const _PracticeIconPainter({required this.isActive});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 24.0;
+    canvas.save();
+    canvas.scale(scale);
+
+    const navy = Color(0xFF0B132B);
+    const yellow = Color(0xFFFFD84D);
+
+    final strokePaint = Paint()
+      ..color = navy
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Outer Target Ring
+    canvas.drawCircle(const Offset(12.0, 12.0), 9.2, strokePaint);
+
+    // Inner Target Ring
+    if (isActive) {
+      final fillPaint = Paint()
+        ..color = yellow
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(const Offset(12.0, 12.0), 5.2, fillPaint);
+    }
+    canvas.drawCircle(const Offset(12.0, 12.0), 5.2, strokePaint);
+
+    // Center Bullseye Dot
+    final centerDotPaint = Paint()
+      ..color = navy
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(12.0, 12.0), 2.2, centerDotPaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _PracticeIconPainter oldDelegate) =>
+      oldDelegate.isActive != isActive;
+}
+
+/// 4. Trophy Icon: Friendly Trophy Cup with Light Blue Fill & Navy Outline
 class _TrophyIconPainter extends CustomPainter {
   final bool isActive;
 
@@ -695,7 +1040,7 @@ class _TrophyIconPainter extends CustomPainter {
       oldDelegate.isActive != isActive;
 }
 
-/// 4. Profile User Icon: Clean rounded outline with navy stroke
+/// 5. Profile User Icon: Clean rounded outline with navy stroke
 class _UserIconPainter extends CustomPainter {
   final bool isActive;
 
@@ -743,7 +1088,7 @@ class _UserIconPainter extends CustomPainter {
       oldDelegate.isActive != isActive;
 }
 
-/// 5. Outer Orange Sunburst Doodle Rays (\ | / or / | \)
+/// 6. Outer Orange Sunburst Doodle Rays (\ | / or / | \)
 class _SunburstDoodlePainter extends CustomPainter {
   final bool isLeft;
 
@@ -780,7 +1125,7 @@ class _SunburstDoodlePainter extends CustomPainter {
       oldDelegate.isLeft != isLeft;
 }
 
-/// 6. Playful 4-Point Sparkle Star Doodle
+/// 7. Playful 4-Point Sparkle Star Doodle
 class _SparkleStarPainter extends CustomPainter {
   const _SparkleStarPainter();
 
@@ -807,4 +1152,40 @@ class _SparkleStarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SparkleStarPainter oldDelegate) => false;
+}
+
+/// 8. Ambient Confetti Specks / Particles around Navbar
+class _AmbientParticlesPainter extends CustomPainter {
+  const _AmbientParticlesPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final amber = const Color(0xFFFFD84D).withValues(alpha: 0.85);
+    final darkAmber = const Color(0xFFF59E0B).withValues(alpha: 0.70);
+
+    final dotPaint = Paint()..style = PaintingStyle.fill;
+
+    // Small dot near Home (top-left)
+    dotPaint.color = amber;
+    canvas.drawCircle(Offset(size.width * 0.12, -2.5), 2.5, dotPaint);
+
+    // Tiny speck below Home
+    dotPaint.color = darkAmber;
+    canvas.drawCircle(Offset(size.width * 0.14, size.height + 5.0), 1.8, dotPaint);
+
+    // Sparkle speck near center-left
+    dotPaint.color = amber;
+    canvas.drawCircle(Offset(size.width * 0.38, size.height + 3.0), 2.2, dotPaint);
+
+    // Small dot near Results (top-right)
+    dotPaint.color = amber;
+    canvas.drawCircle(Offset(size.width * 0.82, -3.5), 2.4, dotPaint);
+
+    // Tiny speck near Profile
+    dotPaint.color = darkAmber;
+    canvas.drawCircle(Offset(size.width * 0.90, -7.0), 2.0, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AmbientParticlesPainter oldDelegate) => false;
 }

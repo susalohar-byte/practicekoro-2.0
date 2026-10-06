@@ -279,12 +279,28 @@ export const LiveTest: React.FC = () => {
               )}
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{test.title}</h2>
-            {test.instructions && (
-              <p className="mt-2 max-w-2xl text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-                {test.instructions}
-              </p>
-            )}
+            <div className="flex items-start gap-3.5">
+              {(test.logo || test.examLogo) && (
+                <div className="w-12 h-12 rounded-xl bg-white/10 p-1.5 border border-white/20 shrink-0 flex items-center justify-center">
+                  <img
+                    src={test.logo || test.examLogo}
+                    alt={test.title}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{test.title}</h2>
+                {test.instructions && (
+                  <p className="mt-1.5 max-w-2xl text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+                    {test.instructions}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Test Metadata Grid */}
@@ -538,11 +554,27 @@ export const LiveTest: React.FC = () => {
                         })}
                       </span>
                     </div>
-                    <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-1">
-                      {item.title}
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-500">
-                      {item.durationMinutes}m • {item.totalQuestions} Qs • {item.totalMarks} Marks
+                    <div className="flex items-center gap-2.5">
+                      {(item.logo || item.examLogo) && (
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-850 p-1 shrink-0 flex items-center justify-center border border-slate-200 dark:border-slate-800">
+                          <img
+                            src={item.logo || item.examLogo}
+                            alt={item.title}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-1">
+                          {item.title}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-slate-500">
+                          {item.durationMinutes}m • {item.totalQuestions} Qs • {item.totalMarks} Marks
+                        </div>
+                      </div>
                     </div>
                   </button>
                 );

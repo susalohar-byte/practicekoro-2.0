@@ -23,7 +23,6 @@ import {
   TrendingUp,
   Upload,
   Camera,
-  RotateCcw,
 } from 'lucide-react';
 import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
 import type { Exam, MockTest, Subject, TestSeries } from '@/types';
@@ -1207,11 +1206,10 @@ export const AdminExams: React.FC = () => {
         formTitle
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '');
-
-      const finalIcon = formIconName.trim() || (editingExam ? editingExam.iconName || 'Shield' : 'Shield');
+      const finalIcon = formIconName.trim() || 'Shield';
 
       if (editingExam) {
+        saveExamLogoCache(editingExam.id, formIconName.trim());
         const nextStatusLabel: 'Published' | 'Draft' = formIsActive ? 'Published' : 'Draft';
         saveExamOverrideCache(editingExam.id, {
           title: formTitle.trim(),
@@ -2682,7 +2680,7 @@ export const AdminExams: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
-                      Exam Logo / Emblem
+                      Exam Icon / Logo
                     </label>
                     <span className="text-[11px] text-slate-400">
                       Upload a custom PNG, JPG, WebP, or SVG logo, or pick a preset emblem
@@ -2693,10 +2691,10 @@ export const AdminExams: React.FC = () => {
                       type="button"
                       onClick={() => setFormIconName('')}
                       className="text-[11px] font-medium text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
-                      title="Reset to default icon"
+                      title="Remove icon"
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset to Default
+                      <Trash2 className="w-3 h-3" />
+                      Remove Icon
                     </button>
                   )}
                 </div>
@@ -2725,7 +2723,7 @@ export const AdminExams: React.FC = () => {
                         )}
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        {isUploadingLogo ? 'Uploading...' : 'Upload Logo Image'}
+                        {isUploadingLogo ? 'Uploading...' : formIconName ? 'Change Icon' : 'Upload Icon'}
                         <input
                           id="exam-modal-logo-file-input"
                           type="file"
@@ -2747,6 +2745,17 @@ export const AdminExams: React.FC = () => {
                           }}
                         />
                       </label>
+
+                      {formIconName && (
+                        <button
+                          type="button"
+                          onClick={() => setFormIconName('')}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold text-xs border border-slate-200 dark:border-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
+                      )}
 
                       <span className="text-[11px] text-slate-400">or image URL:</span>
                     </div>

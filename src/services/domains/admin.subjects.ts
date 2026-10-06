@@ -202,10 +202,37 @@ export async function deleteSubject(id: string): Promise<boolean> {
   return true;
 }
 
+export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'): Promise<string> {
+  if (isSupabaseConfigured) {
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const safeId = subjectId.replace(/[^a-zA-Z0-9_-]/g, '-');
+      const path = `subject-icons/${safeId}/icon-${Date.now()}.${extension}`;
+      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+      if (!error && data) {
+        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+      }
+    } catch {
+      // Fallback to data URL
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const adminSubjectsApi = {
   getAllAdminSubjects,
   getSubjectById,
   createSubject,
   updateSubject,
   deleteSubject,
+  uploadSubjectIcon,
 };

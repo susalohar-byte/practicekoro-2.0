@@ -707,6 +707,13 @@ export const Practice: React.FC = () => {
               const theme = subjectThemes[index % subjectThemes.length];
               const normalized = subject.name.toLowerCase();
               const symbol = normalized.includes('bengali') ? 'অ' : normalized.includes('english') ? 'A' : undefined;
+              const iconUrl =
+                subject.iconName &&
+                (subject.iconName.startsWith('http') ||
+                  subject.iconName.startsWith('data:') ||
+                  subject.iconName.startsWith('/'))
+                  ? subject.iconName
+                  : undefined;
               return {
                 id: subject.id,
                 title: subject.name,
@@ -714,6 +721,7 @@ export const Practice: React.FC = () => {
                 iconBg: theme[0],
                 iconColor: theme[1],
                 icon: symbol ? undefined : theme[2],
+                iconUrl,
                 symbol,
                 symbolBg: normalized.includes('bengali')
                   ? 'bg-[#EA580C] text-white'
@@ -921,7 +929,16 @@ export const Practice: React.FC = () => {
                             <div
                               className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${sub.iconBg} ${sub.iconColor}`}
                             >
-                              {sub.symbol ? (
+                              {sub.iconUrl ? (
+                                <img
+                                  src={sub.iconUrl}
+                                  alt={sub.title}
+                                  className="w-5 h-5 object-contain rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : sub.symbol ? (
                                 <span
                                   className={`w-5 h-5 rounded flex items-center justify-center font-bold text-xs ${sub.symbolBg}`}
                                 >
