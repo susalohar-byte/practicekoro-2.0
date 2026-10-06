@@ -1,491 +1,754 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 import {
   Search,
   ArrowRight,
+  ArrowLeft,
   X,
-  FileText,
-  BookOpen,
-  HelpCircle,
-  ChevronRight,
   Filter,
+  ChevronDown,
+  Layers,
+  FileText,
+  FileCheck,
+  RotateCcw,
+  Lock,
+  Crown,
 } from 'lucide-react';
-import type { TestSeries } from '@/types';
+import type { TestSeries, Exam } from '@/types';
 
-const FILTERS = [
-  'All Exams',
-  'State Exams',
-  'Central Exams',
-  'Teaching',
-  'Railway',
-  'Police',
+// Canonical fallback data when database is initializing or offline
+const CANONICAL_SERIES_FALLBACK: TestSeries[] = [
+  {
+    id: 'wbp-constable',
+    examId: 'wbp-constable',
+    title: 'WBP Constable',
+    slug: 'wbp-constable',
+    description: 'Complete Test Series',
+    examTitle: 'WBP Constable',
+    isPremium: false,
+    isPopular: true,
+    fullMockCount: 12,
+    topicTestCount: 48,
+    pyqTestCount: 15,
+    testCount: 75,
+    orderIndex: 1,
+    isActive: true,
+  },
+  {
+    id: 'railway-ntpc',
+    examId: 'railway-ntpc',
+    title: 'Railway (NTPC)',
+    slug: 'railway-ntpc',
+    description: 'Complete Test Series',
+    examTitle: 'Railway NTPC',
+    isPremium: true,
+    isPopular: true,
+    fullMockCount: 15,
+    topicTestCount: 60,
+    pyqTestCount: 25,
+    testCount: 100,
+    orderIndex: 2,
+    isActive: true,
+  },
+  {
+    id: 'ssc-mts',
+    examId: 'ssc-mts',
+    title: 'SSC MTS',
+    slug: 'ssc-mts',
+    description: 'Complete Test Series',
+    examTitle: 'SSC MTS',
+    isPremium: true,
+    isPopular: false,
+    fullMockCount: 8,
+    topicTestCount: 28,
+    pyqTestCount: 10,
+    testCount: 46,
+    orderIndex: 3,
+    isActive: true,
+  },
+  {
+    id: 'wbssc-group-c',
+    examId: 'wbssc-group-c',
+    title: 'WBSSC Group C',
+    slug: 'wbssc-group-c',
+    description: 'Complete Test Series',
+    examTitle: 'WBSSC Group C',
+    isPremium: true,
+    isPopular: false,
+    fullMockCount: 10,
+    topicTestCount: 32,
+    pyqTestCount: 12,
+    testCount: 54,
+    orderIndex: 4,
+    isActive: true,
+  },
+  {
+    id: 'icds',
+    examId: 'icds',
+    title: 'ICDS',
+    slug: 'icds',
+    description: 'Complete Test Series',
+    examTitle: 'ICDS Supervisor',
+    isPremium: false,
+    isPopular: false,
+    fullMockCount: 8,
+    topicTestCount: 20,
+    pyqTestCount: 10,
+    testCount: 38,
+    orderIndex: 5,
+    isActive: true,
+  },
+  {
+    id: 'food-si',
+    examId: 'food-si',
+    title: 'Food SI',
+    slug: 'food-si',
+    description: 'Complete Test Series',
+    examTitle: 'Food SI',
+    isPremium: true,
+    isPopular: false,
+    fullMockCount: 10,
+    topicTestCount: 32,
+    pyqTestCount: 14,
+    testCount: 56,
+    orderIndex: 6,
+    isActive: true,
+  },
 ];
 
-// Emblem and gradient mapping based on series data
-function getSeriesVisuals(series: TestSeries): {
-  emblem: string;
+interface CardTheme {
   gradient: string;
-  category: string;
-  fullMocks: number;
-  topicTests: number;
-  pyqs: number;
-} {
-  const title = (series.title || '').toLowerCase();
-  const exam = (series.examTitle || '').toLowerCase();
-  const cat = (series.examCategory || '').toLowerCase();
-  const combined = `${title} ${exam} ${cat}`;
+  border: string;
+  arrowBg: string;
+  emblem: string;
+  badge?: {
+    text: string;
+    bg: string;
+    textColor: string;
+    icon: string;
+  };
+}
 
-  const total = series.testsCount ?? series.testCount ?? 20;
-  const fullMocks = Math.max(5, Math.round(total * 0.5));
-  const topicTests = Math.max(3, Math.round(total * 0.3));
-  const pyqs = Math.max(2, total - fullMocks - topicTests);
+function resolveCardTheme(title: string, examTitle?: string): CardTheme {
+  const combined = `${title} ${examTitle || ''}`.toLowerCase();
 
   if (combined.includes('wbp') || combined.includes('police') || combined.includes('constable')) {
-    if (combined.includes('kp') || combined.includes('kolkata')) {
-      return {
-        emblem: '/images/exams/emblem_series_kp.png',
-        gradient: 'from-[#EDE9FE] to-[#DDD6FE]',
-        category: 'Police',
-        fullMocks,
-        topicTests,
-        pyqs,
-      };
-    }
     return {
-      emblem: '/images/exams/emblem_series_wbp.png',
-      gradient: 'from-[#FFF7E6] to-[#FDE8C4]',
-      category: 'Police',
-      fullMocks,
-      topicTests,
-      pyqs,
-    };
-  }
-  if (combined.includes('ssc') || combined.includes('cgl') || combined.includes('gd')) {
-    return {
-      emblem: '/images/exams/emblem_series_ssc.png',
-      gradient: 'from-[#FEE2E2] to-[#FECACA]',
-      category: 'Central Exams',
-      fullMocks,
-      topicTests,
-      pyqs,
-    };
-  }
-  if (combined.includes('rail') || combined.includes('ntpc') || combined.includes('group d')) {
-    return {
-      emblem: '/images/exams/emblem_railway.png',
       gradient: 'from-[#EFF6FF] to-[#DBEAFE]',
-      category: 'Railway',
-      fullMocks,
-      topicTests,
-      pyqs,
+      border: 'border-[#BFDBFE]',
+      arrowBg: 'bg-[#1E293B]',
+      emblem: '/images/exams/emblem_series_wbp.png',
+      badge: {
+        text: 'Most Popular',
+        bg: 'bg-[#FFEDD5]',
+        textColor: 'text-[#C2410C]',
+        icon: '👑',
+      },
     };
   }
-  if (combined.includes('tet') || combined.includes('teach') || combined.includes('primary')) {
+  if (combined.includes('railway') || combined.includes('ntpc') || combined.includes('rrb')) {
     return {
-      emblem: '/images/exams/emblem_tet.png',
-      gradient: 'from-[#FEF3C7] to-[#FDE68A]',
-      category: 'Teaching',
-      fullMocks,
-      topicTests,
-      pyqs,
+      gradient: 'from-[#FFF1F2] to-[#FFE4E6]',
+      border: 'border-[#FECDD3]',
+      arrowBg: 'bg-[#E11D48]',
+      emblem: '/images/exams/logo_railway.png',
+      badge: {
+        text: 'Trending Now',
+        bg: 'bg-[#FFE4E6]',
+        textColor: 'text-[#E11D48]',
+        icon: '⚡',
+      },
     };
   }
-  if (combined.includes('wbssc') || combined.includes('slst')) {
+  if (combined.includes('ssc') || combined.includes('mts') || combined.includes('cgl')) {
     return {
-      emblem: '/images/exams/emblem_wbssc.png',
+      gradient: 'from-[#FEF9C3] to-[#FEF3C7]',
+      border: 'border-[#FDE68A]',
+      arrowBg: 'bg-[#1E293B]',
+      emblem: '/images/exams/emblem_series_ssc.png',
+    };
+  }
+  if (
+    combined.includes('group c') ||
+    combined.includes('group-c') ||
+    combined.includes('group d') ||
+    combined.includes('group-d') ||
+    combined.includes('wbssc')
+  ) {
+    return {
       gradient: 'from-[#ECFDF5] to-[#D1FAE5]',
-      category: 'State Exams',
-      fullMocks,
-      topicTests,
-      pyqs,
+      border: 'border-[#A7F3D0]',
+      arrowBg: 'bg-[#10B981]',
+      emblem: '/images/exams/emblem_wbssc.png',
+    };
+  }
+  if (combined.includes('icds') || combined.includes('anganwadi')) {
+    return {
+      gradient: 'from-[#FDF2F8] to-[#FCE7F3]',
+      border: 'border-[#FBCFE8]',
+      arrowBg: 'bg-[#EC4899]',
+      emblem: '/images/exams/emblem_tet.png',
+    };
+  }
+  if (combined.includes('food') || combined.includes('si') || combined.includes('psc') || combined.includes('wbpsc')) {
+    return {
+      gradient: 'from-[#F5F3FF] to-[#EDE9FE]',
+      border: 'border-[#DDD6FE]',
+      arrowBg: 'bg-[#7C3AED]',
+      emblem: '/images/exams/emblem_wbpsc.png',
     };
   }
 
   return {
-    emblem: series.iconUrl || '/images/exams/emblem_wbp.png',
-    gradient: 'from-[#EFF6FF] to-[#DBEAFE]',
-    category: 'State Exams',
-    fullMocks,
-    topicTests,
-    pyqs,
+    gradient: 'from-[#F0FDF4] to-[#DCFCE7]',
+    border: 'border-[#BBF7D0]',
+    arrowBg: 'bg-[#026BFC]',
+    emblem: '/images/exams/emblem_series_wbp.png',
   };
 }
 
 export const TestSeriesCatalog: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isPro, isAdmin } = useAuth();
+
   const [seriesList, setSeriesList] = useState<TestSeries[]>([]);
+  const [examsList, setExamsList] = useState<{ id: string; title: string; slug: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSort, setSelectedSort] = useState<'Popular' | 'Most Tests' | 'A-Z'>('Popular');
+  const [selectedSort, setSelectedSort] = useState<'Most Popular' | 'Newest' | 'Most Tests' | 'A–Z'>('Most Popular');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Read initial exam filter from URL query
+  const examParam = searchParams.get('exam') || '';
+  const [selectedExamSlug, setSelectedExamSlug] = useState<string>(examParam);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadTestSeries() {
-      try {
-        setLoading(true);
-        const data = await api.getStudentTestSeries();
-        if (mounted) {
-          setSeriesList(data);
-        }
-      } catch (err) {
-        console.error('Failed to load test series:', err);
-      } finally {
-        if (mounted) setLoading(false);
+    if (examParam !== selectedExamSlug) {
+      setSelectedExamSlug(examParam);
+    }
+  }, [examParam]);
+
+  // Click outside listener for dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setIsFilterDropdownOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortDropdownOpen(false);
       }
     }
-    loadTestSeries();
-    return () => {
-      mounted = false;
-    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedFilter = FILTERS[selectedFilterIndex];
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [seriesData, examsData] = await Promise.all([
+        api.getStudentTestSeries().catch(() => []),
+        api.getExams().catch(() => []),
+      ]);
 
-  // Filter series based on category pill and search query
+      if (seriesData && seriesData.length > 0) {
+        setSeriesList(seriesData);
+      } else {
+        setSeriesList(CANONICAL_SERIES_FALLBACK);
+      }
+
+      if (examsData && examsData.length > 0) {
+        setExamsList(
+          examsData.map((e: Exam) => ({
+            id: e.id,
+            title: e.title,
+            slug: e.slug || e.id,
+          }))
+        );
+      } else {
+        setExamsList([
+          { id: 'wbp-constable', title: 'WBP Constable', slug: 'wbp-constable' },
+          { id: 'railway-ntpc', title: 'Railway (NTPC)', slug: 'railway-ntpc' },
+          { id: 'ssc-mts', title: 'SSC MTS', slug: 'ssc-mts' },
+          { id: 'wbssc-group-c', title: 'WBSSC Group C', slug: 'wbssc-group-c' },
+          { id: 'wbssc-group-d', title: 'WBSSC Group D', slug: 'wbssc-group-d' },
+          { id: 'icds', title: 'ICDS', slug: 'icds' },
+          { id: 'food-si', title: 'Food SI', slug: 'food-si' },
+        ]);
+      }
+    } catch (err: any) {
+      console.error('Failed to load test series catalog:', err);
+      setSeriesList(CANONICAL_SERIES_FALLBACK);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    const unsubscribe = api.subscribeToStudentCatalogUpdates(loadData);
+    return () => unsubscribe();
+  }, []);
+
+  // Filter series based on selected exam and search query
   const filteredList = useMemo(() => {
     return seriesList.filter((series) => {
-      const { category } = getSeriesVisuals(series);
-      const matchesCategory =
-        selectedFilterIndex === 0 ||
-        (selectedFilter === 'State Exams' &&
-          (category === 'State Exams' || category === 'Teaching')) ||
-        (selectedFilter === 'Central Exams' && category === 'Central Exams') ||
-        (selectedFilter === 'Railway' && category === 'Railway') ||
-        (selectedFilter === 'Police' && category === 'Police') ||
-        (selectedFilter === 'Teaching' && category === 'Teaching');
+      // 1. Exam filter
+      if (selectedExamSlug) {
+        const slug = selectedExamSlug.toLowerCase().replace(/_/g, '-').trim();
+        const sId = (series.id || '').toLowerCase();
+        const sSlug = (series.slug || '').toLowerCase();
+        const sExamId = (series.examId || '').toLowerCase();
+        const title = (series.title || '').toLowerCase();
+        const examTitle = (series.examTitle || '').toLowerCase();
 
-      const query = searchQuery.trim().toLowerCase();
-      const matchesQuery =
-        query === '' ||
-        series.title.toLowerCase().includes(query) ||
-        (series.examTitle || '').toLowerCase().includes(query) ||
-        (series.description || '').toLowerCase().includes(query) ||
-        category.toLowerCase().includes(query);
+        let matchesExam = sId === slug || sSlug === slug || sExamId === slug;
+        if (!matchesExam) {
+          if (slug.includes('wbp') && (sId.includes('wbp') || title.includes('wbp') || examTitle.includes('wbp') || title.includes('police'))) matchesExam = true;
+          if (slug.includes('ssc') && (sId.includes('ssc') || title.includes('ssc') || examTitle.includes('ssc'))) matchesExam = true;
+          if ((slug.includes('railway') || slug.includes('ntpc')) && (sId.includes('railway') || sId.includes('ntpc') || title.includes('railway') || title.includes('ntpc'))) matchesExam = true;
+          if (slug.includes('icds') && (sId.includes('icds') || title.includes('icds') || examTitle.includes('icds'))) matchesExam = true;
+          if (slug.includes('food') && (sId.includes('food') || title.includes('food') || examTitle.includes('food'))) matchesExam = true;
+        }
+        if (!matchesExam) return false;
+      }
 
-      return matchesCategory && matchesQuery;
+      // 2. Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const title = (series.title || '').toLowerCase();
+        const desc = (series.description || '').toLowerCase();
+        const exam = (series.examTitle || '').toLowerCase();
+        return title.includes(q) || desc.includes(q) || exam.includes(q);
+      }
+
+      return true;
     });
-  }, [seriesList, selectedFilterIndex, selectedFilter, searchQuery]);
+  }, [seriesList, selectedExamSlug, searchQuery]);
 
-  // Sort list
+  // Sort series
   const sortedList = useMemo(() => {
     const list = [...filteredList];
-    if (selectedSort === 'Most Tests') {
-      list.sort(
-        (a, b) => (b.testsCount ?? b.testCount ?? 0) - (a.testsCount ?? a.testCount ?? 0)
-      );
-    } else if (selectedSort === 'A-Z') {
+    if (selectedSort === 'Most Popular') {
+      list.sort((a, b) => {
+        const aPop = a.isPopular ? 1 : 0;
+        const bPop = b.isPopular ? 1 : 0;
+        if (aPop !== bPop) return bPop - aPop;
+        const aCount = (a.fullMockCount ?? 12) + (a.topicTestCount ?? 48) + (a.pyqTestCount ?? 15);
+        const bCount = (b.fullMockCount ?? 12) + (b.topicTestCount ?? 48) + (b.pyqTestCount ?? 15);
+        return bCount - aCount;
+      });
+    } else if (selectedSort === 'Newest') {
+      list.sort((a, b) => (b.orderIndex ?? 0) - (a.orderIndex ?? 0));
+    } else if (selectedSort === 'Most Tests') {
+      list.sort((a, b) => {
+        const aCount = (a.fullMockCount ?? 12) + (a.topicTestCount ?? 48) + (a.pyqTestCount ?? 15);
+        const bCount = (b.fullMockCount ?? 12) + (b.topicTestCount ?? 48) + (b.pyqTestCount ?? 15);
+        return bCount - aCount;
+      });
+    } else if (selectedSort === 'A–Z') {
       list.sort((a, b) => a.title.localeCompare(b.title));
     }
     return list;
   }, [filteredList, selectedSort]);
 
-  // 3 Popular Test Series for the top carousel
-  const popularSeries = [
-    {
-      id: 'wbp_constable_2026',
-      title: 'WBP Constable',
-      subtitle: 'Test Series 2026',
-      badge: '🔥 Bestseller',
-      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
-      bgImage: '/images/series_wbp_bg.png',
-      emblem: '/images/exams/emblem_series_wbp.png',
-    },
-    {
-      id: 'kp_constable_2026',
-      title: 'KP Constable',
-      subtitle: 'Test Series 2026',
-      badge: '⭐ Most Popular',
-      badgeBg: 'bg-[#FEF3C7] text-[#B45309]',
-      bgImage: '/images/series_kp_bg.png',
-      emblem: '/images/exams/emblem_series_kp.png',
-    },
-    {
-      id: 'ssc_gd_2026',
-      title: 'SSC GD',
-      subtitle: 'Test Series 2026',
-      badge: '🔥 Bestseller',
-      badgeBg: 'bg-[#FFEDD5] text-[#C2410C]',
-      bgImage: '/images/series_ssc_bg.png',
-      emblem: '/images/exams/emblem_series_ssc.png',
-    },
-  ];
+  const handleCardClick = (series: TestSeries) => {
+    const isPaid = series.isPremium;
+    if (isPaid && !isPro && !isAdmin) {
+      // User does not have active subscription for paid series -> show paywall
+      navigate('/subscription');
+    } else {
+      // Allowed access -> open Test Series detail directly
+      navigate(`/test-series/${series.id}`);
+    }
+  };
+
+  const handleSelectExam = (slug: string, title?: string) => {
+    setSelectedExamSlug(slug);
+    setIsFilterDropdownOpen(false);
+    if (slug) {
+      setSearchParams({ exam: slug, ...(title ? { title } : {}) });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const selectedExamTitle = useMemo(() => {
+    if (!selectedExamSlug) return 'All Exams';
+    const found = examsList.find((e) => e.slug === selectedExamSlug || e.id === selectedExamSlug);
+    return found ? found.title : selectedExamSlug.replace(/-/g, ' ');
+  }, [selectedExamSlug, examsList]);
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* ── 1. PAGE HEADER (TITLE, SUBTITLE & CATEGORY PILLS) ── */}
-      <div>
-        <h1 className="text-2xl sm:text-[28px] font-black text-[#07194A] dark:text-white tracking-tight leading-tight">
-          Test Series
-        </h1>
-        <p className="text-xs sm:text-[13px] text-[#52648A] dark:text-slate-400 font-medium mt-1">
-          Choose the right test series and boost your preparation
-        </p>
+    <div className="max-w-5xl mx-auto px-3.5 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5">
+      {/* ── 1. TOP NAVIGATION ── */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 transition-all cursor-pointer shrink-0"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
 
-        {/* Category Filter Pills (App-style horizontal scroll) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-3.5 scrollbar-none">
-          {FILTERS.map((filter, idx) => {
-            const isSelected = selectedFilterIndex === idx;
-            return (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setSelectedFilterIndex(idx)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#0066FF] text-white shadow-sm shadow-blue-500/25'
-                    : 'bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#0066FF]/40'
-                }`}
-              >
-                {filter}
-              </button>
-            );
-          })}
+        {/* Centered Title with Gen-Z Sparkles & Subtitle */}
+        <div className="text-center flex-1 min-w-0">
+          <div className="inline-flex items-center gap-1.5">
+            <span className="text-sm">✨</span>
+            <h1 className="text-xl sm:text-2xl font-black text-[#0B132B] dark:text-white tracking-tight">
+              Test Series
+            </h1>
+            <span className="text-sm">✨</span>
+          </div>
+          <p className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-tight">
+            Practice Today, Be Exam Ready !
+          </p>
         </div>
+
+        {/* Search Icon Trigger */}
+        <button
+          onClick={() => searchInputRef.current?.focus()}
+          className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 transition-all cursor-pointer shrink-0"
+          aria-label="Search"
+        >
+          <Search className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* ── 2. SEARCH & FILTER SECTION (App PKSearchFilterBar) ── */}
-      <div className="space-y-2">
-        <div className="relative flex items-center bg-white dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-800 rounded-2xl shadow-2xs px-3.5 py-2.5">
-          <Search className="w-4 h-4 text-[#0066FF] shrink-0 mr-2.5" />
+      {/* ── 2. SEARCH + ALL EXAMS FILTER CONTROL ── */}
+      <div className="flex items-center gap-2.5">
+        {/* Search Input Field */}
+        <div className="relative flex-1 flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-3.5 py-2 sm:py-2.5 shadow-2xs focus-within:border-[#026BFC] transition-colors">
+          <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search test series (e.g. WBP, SSC, TET...)"
-            className="w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none"
+            placeholder="Search test series..."
+            className="w-full bg-transparent border-none text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden"
           />
           {searchQuery && (
             <button
-              type="button"
               onClick={() => setSearchQuery('')}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              aria-label="Clear search"
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Search feedback pill */}
-        {searchQuery.trim() && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-[#0066FF] font-bold">
-              <span>Results for "{searchQuery}"</span>
-              <span className="text-[#07194A] dark:text-white">({filteredList.length})</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="text-xs font-bold text-red-500 hover:underline"
-            >
-              Clear
-            </button>
-          </div>
-        )}
+        {/* "All Exams ⌄" Dropdown Control */}
+        <div className="relative" ref={filterDropdownRef}>
+          <button
+            onClick={() => setIsFilterDropdownOpen((prev) => !prev)}
+            className={`h-10 sm:h-11 px-3 sm:px-4 rounded-full border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+              selectedExamSlug
+                ? 'bg-[#EFF6FF] border-[#026BFC] text-[#026BFC] dark:bg-blue-950/60'
+                : 'bg-[#F1F5F9] dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span className="max-w-[85px] sm:max-w-[130px] truncate">{selectedExamTitle}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isFilterDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Filter Dropdown Menu */}
+          {isFilterDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Filter by Exam</span>
+                {selectedExamSlug && (
+                  <button
+                    onClick={() => handleSelectExam('')}
+                    className="text-[11px] font-bold text-[#026BFC] hover:underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-60 overflow-y-auto py-1">
+                <button
+                  onClick={() => handleSelectExam('')}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${
+                    !selectedExamSlug ? 'text-[#026BFC] bg-blue-50/60 dark:bg-blue-950/40' : 'text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span>All Exams</span>
+                  {!selectedExamSlug && <span className="text-[#026BFC]">✓</span>}
+                </button>
+
+                {examsList.map((exam) => {
+                  const isSelected = selectedExamSlug === exam.slug || selectedExamSlug === exam.id;
+                  return (
+                    <button
+                      key={exam.id}
+                      onClick={() => handleSelectExam(exam.slug, exam.title)}
+                      className={`w-full px-3.5 py-2 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${
+                        isSelected ? 'text-[#026BFC] bg-blue-50/60 dark:bg-blue-950/40' : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="truncate">{exam.title}</span>
+                      {isSelected && <span className="text-[#026BFC]">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── 3. POPULAR TEST SERIES CAROUSEL ── */}
-      {selectedFilterIndex === 0 && !searchQuery.trim() && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🔥</span>
-              <h2 className="text-base sm:text-lg font-black text-[#07194A] dark:text-white tracking-tight">
-                Popular Test Series
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                document.getElementById('all-test-series')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="text-xs sm:text-sm font-bold text-[#0066FF] hover:underline flex items-center gap-1"
-            >
-              <span>See All</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible">
-            {popularSeries.map((series, idx) => (
-              <div
-                key={idx}
-                onClick={() => {
-                  const match = seriesList.find((s) =>
-                    s.title.toLowerCase().includes(series.title.toLowerCase())
-                  );
-                  if (match) {
-                    navigate(`/test-series/${match.slug || match.id}`);
-                  }
-                }}
-                className="relative min-w-[240px] sm:min-w-0 p-4 rounded-2xl border border-white/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex flex-col justify-between overflow-hidden group cursor-pointer"
-              >
-                <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
-                  <img src={series.bgImage} alt="" className="w-full h-full object-cover" />
-                </div>
-
-                <div className="relative z-10 flex items-start justify-between mb-3">
+      {/* ── 3. GEN-Z MOTIVATIONAL HERO BANNER ── */}
+      <section className="relative overflow-hidden rounded-2xl border border-amber-200 dark:border-amber-900/50 shadow-2xs">
+        <img
+          src="/images/exams/test_series_hero_banner.png"
+          alt="Small Tests Big Results - Practice • Analyze • Improve"
+          className="w-full h-auto object-cover block"
+          onError={(e) => {
+            // High quality fallback container if image asset fails to load
+            const target = e.currentTarget;
+            target.style.display = 'none';
+            if (target.parentElement) {
+              target.parentElement.innerHTML = `
+                <div class="p-4 sm:p-5 bg-gradient-to-r from-amber-50 via-amber-100/60 to-amber-50 dark:from-amber-950/30 dark:via-amber-900/20 dark:to-slate-900 flex items-center justify-between">
                   <div>
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold mb-1.5 ${series.badgeBg}`}
-                    >
-                      {series.badge}
-                    </span>
-                    <h4 className="text-base font-black text-[#0B1F5B] dark:text-white leading-tight">
-                      {series.title}
-                    </h4>
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
-                      {series.subtitle}
-                    </p>
+                    <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">Small 👑 Tests Big Results</h2>
+                    <p class="text-xs font-bold text-slate-600 dark:text-slate-300 mt-1">✦ Practice • Analyze • Improve</p>
+                    <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Your Dream Government Job is Closer!</p>
                   </div>
-                  <img src={series.emblem} alt="" className="w-12 h-12 object-contain shrink-0" />
+                  <div class="w-12 h-12 rounded-full bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-amber-500 font-bold text-xl">
+                    📚
+                  </div>
+                </div>
+              `;
+            }
+          }}
+        />
+      </section>
+
+      {/* ── 4. TEST SERIES HEADER & WORKING SORT ── */}
+      <div className="flex items-center justify-between gap-3 pt-1">
+        {/* Dynamic Count */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xl sm:text-2xl font-black text-[#026BFC] tracking-tight">
+            {sortedList.length}
+          </span>
+          <span className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white tracking-tight">
+            Test Series
+          </span>
+        </div>
+
+        {/* Sort Dropdown */}
+        <div className="relative" ref={sortDropdownRef}>
+          <button
+            onClick={() => setIsSortDropdownOpen((prev) => !prev)}
+            className="px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <span className="text-slate-400">⇅</span>
+            <span>{selectedSort}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isSortDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150">
+              {(['Most Popular', 'Newest', 'Most Tests', 'A–Z'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    setSelectedSort(opt);
+                    setIsSortDropdownOpen(false);
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-bold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                    selectedSort === opt ? 'text-[#026BFC] bg-blue-50/60 dark:bg-blue-950/40' : 'text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span>{opt}</span>
+                  {selectedSort === opt && <span className="text-[#026BFC]">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 5. RESPONSIVE 2-COLUMN GRID (MOBILE) / 3-4 COLUMNS (DESKTOP) ── */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs animate-pulse space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded" />
+                <div className="w-9 h-9 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+              </div>
+              <div className="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="w-full h-8 bg-slate-100 dark:bg-slate-800/60 rounded-lg" />
+              <div className="flex items-center justify-between pt-1">
+                <div className="w-12 h-5 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                <div className="w-7 h-7 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : sortedList.length === 0 ? (
+        <div className="py-12 sm:py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+            <Search className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white">No test series found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto">
+            Try another exam or search term.
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedExamSlug('');
+              setSearchParams({});
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#026BFC] hover:bg-[#0256CA] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Clear Filters</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {sortedList.map((series) => {
+            const theme = resolveCardTheme(series.title, series.examTitle);
+            const isPaid = series.isPremium;
+            const fullMocks = series.fullMockCount ?? 12;
+            const topicTests = series.topicTestCount ?? 48;
+            const pyqs = series.pyqTestCount ?? 15;
+
+            return (
+              <div
+                key={series.id}
+                onClick={() => handleCardClick(series)}
+                className={`p-2.5 sm:p-3.5 rounded-2xl bg-gradient-to-br ${theme.gradient} dark:from-slate-900 dark:to-slate-850 border ${theme.border} dark:border-slate-800 shadow-2xs hover:-translate-y-1 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col justify-between group active:scale-[0.98] select-none`}
+              >
+                {/* Top Section */}
+                <div>
+                  <div className="flex items-start justify-between gap-1.5">
+                    {/* Badge */}
+                    {theme.badge ? (
+                      <span
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] sm:text-[9.5px] font-black ${theme.badge.bg} ${theme.badge.textColor}`}
+                      >
+                        <span>{theme.badge.icon}</span>
+                        <span>{theme.badge.text}</span>
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+
+                    {/* Emblem */}
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/80 dark:bg-slate-800/80 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                      <img
+                        src={theme.emblem}
+                        alt={series.title}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = '/logo-icon.png';
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Title & Subtitle */}
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white mt-1.5 sm:mt-2 truncate tracking-tight group-hover:text-[#026BFC] transition-colors">
+                    {series.title}
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                    {series.description || 'Complete Test Series'}
+                  </p>
                 </div>
 
-                <div className="relative z-10 flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800">
-                  <span className="text-xs font-bold text-[#0066FF] group-hover:underline">
-                    Explore Series
-                  </span>
-                  <div className="w-6 h-6 rounded-full bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center text-[#0066FF]">
+                {/* Middle: 3 Statistics Columns */}
+                <div className="mt-2.5 p-1.5 sm:p-2 rounded-xl bg-white/60 dark:bg-slate-800/50 backdrop-blur-xs border border-white/60 dark:border-slate-700/50 flex items-center justify-between text-center">
+                  {/* Full Mocks */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-center gap-1">
+                      <FileText className="w-3 h-3 text-[#026BFC] shrink-0" />
+                      <span className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white leading-none">
+                        {fullMocks}
+                      </span>
+                    </div>
+                    <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-500 dark:text-slate-400 block leading-tight mt-0.5">
+                      Full Mocks
+                    </span>
+                  </div>
+
+                  <div className="w-px h-5 bg-slate-300/60 dark:bg-slate-700/60" />
+
+                  {/* Topic Tests */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-center gap-1">
+                      <Layers className="w-3 h-3 text-[#10B981] shrink-0" />
+                      <span className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white leading-none">
+                        {topicTests}
+                      </span>
+                    </div>
+                    <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-500 dark:text-slate-400 block leading-tight mt-0.5">
+                      Topic Tests
+                    </span>
+                  </div>
+
+                  <div className="w-px h-5 bg-slate-300/60 dark:bg-slate-700/60" />
+
+                  {/* Official PYQs */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-center gap-1">
+                      <FileCheck className="w-3 h-3 text-[#8B5CF6] shrink-0" />
+                      <span className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white leading-none">
+                        {pyqs}
+                      </span>
+                    </div>
+                    <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-500 dark:text-slate-400 block leading-tight mt-0.5">
+                      Official PYQs
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Row: Status Badge (Free/Paid ONLY) + Arrow Action Button */}
+                <div className="mt-2.5 pt-1.5 flex items-center justify-between">
+                  {/* Status Badge: ONLY Free or Paid */}
+                  {!isPaid ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black bg-[#D1FAE5] text-[#059669] border border-emerald-200">
+                      <Crown className="w-2.5 h-2.5" />
+                      <span>Free</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black bg-[#FEF3C7] text-[#D97706] border border-amber-200">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Paid</span>
+                    </span>
+                  )}
+
+                  {/* Circular Arrow Button */}
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${theme.arrowBg} text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0`}
+                  >
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── 4. ALL TEST SERIES LIST (App TestSeriesCard) ── */}
-      <section id="all-test-series" className="space-y-3 pt-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-black text-[#07194A] dark:text-white tracking-tight">
-              All Test Series
-            </h2>
-            <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-slate-800 text-[#0066FF] text-xs font-bold">
-              {sortedList.length}
-            </span>
-          </div>
-
-          {/* Sort Selector */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedSort}
-              onChange={(e) => setSelectedSort(e.target.value as any)}
-              className="bg-transparent text-[#0066FF] font-bold outline-none cursor-pointer"
-            >
-              <option value="Popular">Popular</option>
-              <option value="Most Tests">Most Tests</option>
-              <option value="A-Z">A-Z</option>
-            </select>
-          </div>
+            );
+          })}
         </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-28 rounded-2xl bg-white dark:bg-slate-900 border border-[#E8EEF7] dark:border-slate-800 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : sortedList.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
-            <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
-              No test series found matching your criteria.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedFilterIndex(0);
-                setSearchQuery('');
-              }}
-              className="mt-3 px-4 py-1.5 rounded-full bg-[#0066FF] text-white text-xs font-bold"
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {sortedList.map((series) => {
-              const { emblem, gradient, fullMocks, topicTests, pyqs } = getSeriesVisuals(series);
-              return (
-                <div
-                  key={series.id}
-                  onClick={() => navigate(`/test-series/${series.slug || series.id}`)}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-[#E8EEF7] dark:border-slate-800 p-3.5 sm:p-4 shadow-[0_3px_10px_rgba(7,25,74,0.035)] hover:shadow-lg hover:-translate-y-0.5 hover:border-[#0066FF]/50 transition-all duration-200 cursor-pointer flex items-center gap-3 sm:gap-4 group"
-                >
-                  {/* Square Exam Emblem Icon with soft gradient (66px) */}
-                  <div
-                    className={`w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-xl bg-gradient-to-br ${gradient} p-2 flex items-center justify-center shrink-0 border border-white dark:border-slate-700 shadow-2xs`}
-                  >
-                    <img
-                      src={emblem}
-                      alt=""
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = '/logo-icon.png';
-                      }}
-                    />
-                  </div>
-
-                  {/* Content Column */}
-                  <div className="min-w-0 flex-1">
-                    {/* Top Row: Title + Full Syllabus Badge */}
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm sm:text-[15px] font-extrabold text-[#07194A] dark:text-white truncate group-hover:text-[#0066FF] transition-colors">
-                        {series.title}
-                      </h3>
-                      <span className="shrink-0 px-2 py-0.5 rounded-md bg-[#EFF6FF] dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-[#0066FF] text-[10px] font-bold">
-                        Full Syllabus
-                      </span>
-                    </div>
-
-                    {/* Subtitle */}
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-                      {series.description || 'Latest pattern • Chapter-wise & full length mock tests'}
-                    </p>
-
-                    {/* Bottom Row: 3 Stat Chips + View Button */}
-                    <div className="flex items-center justify-between gap-2 mt-2.5 pt-1">
-                      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EEF5FF] dark:bg-blue-950/40 text-[#0066FF] dark:text-blue-400 text-[10.5px] font-bold shrink-0">
-                          <FileText className="w-3 h-3" />
-                          <span>{fullMocks} Full Mock</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EDF8F2] dark:bg-emerald-950/40 text-[#10B981] dark:text-emerald-400 text-[10.5px] font-bold shrink-0">
-                          <BookOpen className="w-3 h-3" />
-                          <span>{topicTests} Topic</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] dark:bg-amber-950/40 text-[#F59E0B] dark:text-amber-400 text-[10.5px] font-bold shrink-0">
-                          <HelpCircle className="w-3 h-3" />
-                          <span>{pyqs} PYQ</span>
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/test-series/${series.slug || series.id}`);
-                        }}
-                        className="shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#0066FF] hover:bg-[#0066FF] hover:text-white dark:hover:bg-[#0066FF] dark:hover:text-white text-xs font-bold transition-colors"
-                      >
-                        <span>View</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      )}
     </div>
   );
 };

@@ -34,13 +34,17 @@ function parseJsonObject(value: unknown): Record<string, unknown> | null {
 
 export async function getAppLeaderboard(
   scope: 'all_india' | 'west_bengal' | 'district' = 'all_india',
-  district?: string
+  district?: string,
+  examName?: string,
+  from?: string
 ): Promise<AppLeaderboardRow[]> {
   if (!isSupabaseConfigured) return [];
 
   const { data, error } = await supabase.rpc('get_app_leaderboard', {
     p_scope: scope,
     p_district: district ?? null,
+    p_exam_name: examName ?? null,
+    p_from: from ?? null,
   });
   if (error) {
     console.warn('Could not load app leaderboard:', error.message);

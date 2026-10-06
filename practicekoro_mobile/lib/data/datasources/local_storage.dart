@@ -131,4 +131,69 @@ class LocalStorageService {
   static Future<void> saveUserId(String id) async {
     await _prefs?.setString('pk_user_id', id);
   }
+
+  static Future<void> saveUserName(String name) async {
+    await _prefs?.setString('pk_user_name', name);
+  }
+
+  static String getUserName() {
+    return _prefs?.getString('pk_user_name') ?? 'Candidate';
+  }
+
+  static Future<void> saveUserEmail(String email) async {
+    await _prefs?.setString('pk_user_email', email);
+  }
+
+  static String? getUserEmail() {
+    return _prefs?.getString('pk_user_email');
+  }
+
+  static Future<void> saveUserPhone(String phone) async {
+    await _prefs?.setString('pk_user_phone', phone);
+  }
+
+  static String? getUserPhone() {
+    return _prefs?.getString('pk_user_phone');
+  }
+
+  static Future<void> saveUserDistrict(String district) async {
+    await _prefs?.setString('pk_user_district', district);
+  }
+
+  static String? getUserDistrict() {
+    return _prefs?.getString('pk_user_district');
+  }
+
+  static Future<void> saveUserCategory(String category) async {
+    await _prefs?.setString('pk_user_category', category);
+  }
+
+  static String getUserCategory() {
+    return _prefs?.getString('pk_user_category') ?? 'GEN';
+  }
+
+  static Future<void> saveUserGender(String gender) async {
+    await _prefs?.setString('pk_user_gender', gender);
+  }
+
+  static String getUserGender() {
+    return _prefs?.getString('pk_user_gender') ?? 'NOT_SPECIFIED';
+  }
+
+  static bool isLoggedIn() {
+    final uid = getUserId();
+    return uid != null && uid.isNotEmpty;
+  }
+
+  static Future<void> clearUserSession() async {
+    await _prefs?.remove('pk_user_id');
+    await _prefs?.remove('pk_user_email');
+    await _prefs?.remove('pk_user_name');
+    await _prefs?.remove('pk_user_phone');
+    await _prefs?.remove('pk_user_district');
+    await _prefs?.remove('pk_user_category');
+    await _prefs?.remove('pk_user_gender');
+    await _prefs?.remove(AppConstants.prefsIsProUserKey);
+    await _prefs?.remove(AppConstants.prefsProExpiresAtKey);
+  }
 }

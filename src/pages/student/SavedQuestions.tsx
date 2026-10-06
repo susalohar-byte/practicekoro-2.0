@@ -308,7 +308,7 @@ export const SavedQuestions: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="max-w-xl">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0f172a] dark:text-white tracking-tight">
-              Saved <span className="text-[#1e60f2]">Questions</span>
+              Saved <span className="text-[#026BFC]">Questions</span>
             </h1>
             <p className="mt-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               Your bookmarked questions for focused revision.
@@ -335,7 +335,7 @@ export const SavedQuestions: React.FC = () => {
             onClick={() => setSelectedSubject('all')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
               selectedSubject === 'all'
-                ? 'bg-[#1e60f2] text-white shadow-blue-500/20'
+                ? 'bg-[#026BFC] text-white shadow-blue-500/20'
                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
@@ -358,7 +358,7 @@ export const SavedQuestions: React.FC = () => {
                 onClick={() => setSelectedSubject(sub.name)}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
                   isActive
-                    ? 'bg-[#1e60f2] text-white font-bold shadow-blue-500/20'
+                    ? 'bg-[#026BFC] text-white font-bold shadow-blue-500/20'
                     : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
@@ -382,7 +382,7 @@ export const SavedQuestions: React.FC = () => {
                     checked={allFilteredSelected}
                     onChange={toggleSelectAll}
                     disabled={filteredItems.length === 0}
-                    className="h-4 w-4 rounded border-slate-300 text-[#1e60f2] focus:ring-blue-500 cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-[#026BFC] focus:ring-blue-500 cursor-pointer"
                   />
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                     {selectedIds.length} selected
@@ -397,7 +397,7 @@ export const SavedQuestions: React.FC = () => {
                         const first = items.find((i) => selectedIds.includes(i.id));
                         if (first) handleStartPractice(first);
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1e60f2] border border-blue-200 text-xs font-bold flex items-center gap-1 hover:bg-blue-100"
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#026BFC] border border-blue-200 text-xs font-bold flex items-center gap-1 hover:bg-blue-100"
                     >
                       <Play className="w-3 h-3 fill-current" />
                       <span>Practice Selected</span>
@@ -424,7 +424,7 @@ export const SavedQuestions: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search saved questions..."
-                    className="w-full text-xs font-semibold pl-8.5 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#1e60f2]"
+                    className="w-full text-xs font-semibold pl-8.5 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#026BFC]"
                   />
                 </div>
 
@@ -456,7 +456,7 @@ export const SavedQuestions: React.FC = () => {
                           }}
                           className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 ${
                             sortBy === opt.id
-                              ? 'text-[#1e60f2] font-bold'
+                              ? 'text-[#026BFC] font-bold'
                               : 'text-slate-600 dark:text-slate-400'
                           }`}
                         >
@@ -497,7 +497,7 @@ export const SavedQuestions: React.FC = () => {
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleSelect(item.id)}
-                        className="h-4.5 w-4.5 rounded border-slate-300 text-[#1e60f2] focus:ring-blue-500 mt-1 cursor-pointer shrink-0"
+                        className="h-4.5 w-4.5 rounded border-slate-300 text-[#026BFC] focus:ring-blue-500 mt-1 cursor-pointer shrink-0"
                       />
 
                       {/* 2. Subject Icon Box */}
@@ -550,7 +550,7 @@ export const SavedQuestions: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(item)}
-                            className="p-1 rounded-md text-[#1e60f2] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-[#026BFC] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                             title="Remove from saved"
                           >
                             <Bookmark className="w-4 h-4 fill-current" />
@@ -594,7 +594,7 @@ export const SavedQuestions: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStartPractice(item)}
-                          className="px-3.5 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#1e60f2] dark:text-blue-400 border border-blue-200/80 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#026BFC] dark:text-blue-400 border border-blue-200/80 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                         >
                           <Play className="w-3 h-3 fill-current" />
                           <span>Practice Now</span>
@@ -617,7 +617,7 @@ export const SavedQuestions: React.FC = () => {
 
               {/* Bookmark Icon & Count */}
               <div className="flex items-center gap-3.5 pt-1">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#1e60f2] border border-blue-100 dark:border-blue-900/50 flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#026BFC] border border-blue-100 dark:border-blue-900/50 flex items-center justify-center shrink-0">
                   <Bookmark className="w-6 h-6 fill-current" />
                 </div>
                 <div>
@@ -647,7 +647,7 @@ export const SavedQuestions: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedSubject('all')}
-                  className="text-xs font-bold text-[#1e60f2] hover:text-blue-700 cursor-pointer"
+                  className="text-xs font-bold text-[#026BFC] hover:text-blue-700 cursor-pointer"
                 >
                   View All
                 </button>
@@ -676,7 +676,7 @@ export const SavedQuestions: React.FC = () => {
                         >
                           <Icon className="w-3.5 h-3.5" />
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 group-hover:text-[#1e60f2] transition-colors">
+                        <span className="font-bold text-slate-700 dark:text-slate-300 group-hover:text-[#026BFC] transition-colors">
                           {s.name}
                         </span>
                       </div>
@@ -708,7 +708,7 @@ export const SavedQuestions: React.FC = () => {
                   }}
                   className="w-full text-left flex items-start gap-3 p-2 -mx-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#1e60f2] flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#026BFC] flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50">
                     <Play className="w-4 h-4 fill-current" />
                   </div>
                   <div>
@@ -786,7 +786,7 @@ export const SavedQuestions: React.FC = () => {
             {/* CARD 4: "Motivation & Target" */}
             <div className="bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900 dark:to-slate-850 rounded-3xl p-5 sm:p-6 border border-blue-100/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4 relative overflow-hidden">
               <div className="space-y-1 z-10 max-w-[70%]">
-                <span className="text-[#1e60f2] text-3xl font-serif font-black leading-none block">
+                <span className="text-[#026BFC] text-3xl font-serif font-black leading-none block">
                   &ldquo;
                 </span>
                 <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug italic">
@@ -818,7 +818,7 @@ export const SavedQuestions: React.FC = () => {
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#1e60f2]">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#026BFC]">
                   {practiceItem.subjectName}
                 </span>
                 <span className="text-xs text-slate-400">• Practice Mode</span>
@@ -866,7 +866,7 @@ export const SavedQuestions: React.FC = () => {
                         'border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200';
                     }
                   } else if (isSelected) {
-                    optClass = 'border-[#1e60f2] bg-blue-50/50 dark:bg-blue-950/40 ring-1 ring-blue-500';
+                    optClass = 'border-[#026BFC] bg-blue-50/50 dark:bg-blue-950/40 ring-1 ring-blue-500';
                   }
 
                   return (
@@ -898,7 +898,7 @@ export const SavedQuestions: React.FC = () => {
               {practiceAnswerChecked &&
                 (practiceItem.question.explanationBengali || practiceItem.question.explanation) && (
                   <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-xs space-y-1">
-                    <p className="font-bold text-[#1e60f2] flex items-center gap-1">
+                    <p className="font-bold text-[#026BFC] flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>{!isBilingualEnabled ? 'শর্ট নোটস' : 'Explanation / শর্ট নোটস'}</span>
                     </p>
@@ -924,7 +924,7 @@ export const SavedQuestions: React.FC = () => {
                   type="button"
                   disabled={!practiceSelectedOption}
                   onClick={() => setPracticeAnswerChecked(true)}
-                  className="px-5 py-2 rounded-xl bg-[#1e60f2] hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-40"
+                  className="px-5 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-40"
                 >
                   Check Answer
                 </button>
@@ -932,7 +932,7 @@ export const SavedQuestions: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleNextPractice}
-                  className="px-5 py-2 rounded-xl bg-[#1e60f2] hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5"
                 >
                   <span>Next Question</span>
                   <ArrowRight className="w-4 h-4" />

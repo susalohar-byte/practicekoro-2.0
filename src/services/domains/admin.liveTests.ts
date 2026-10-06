@@ -25,11 +25,11 @@ function getStoredLiveTests(): LiveTest[] {
   if (typeof window === 'undefined') return [...localLiveTests];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) return [...localLiveTests];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...localLiveTests];
   } catch {
-    return [];
+    return [...localLiveTests];
   }
 }
 
@@ -81,7 +81,9 @@ export function deriveLiveTestStatus(
   durationMinutes: number
 ): LiveTest['status'] {
   if (status === 'cancelled') return 'cancelled';
+  if (status === 'draft') return 'draft';
   if (status === 'ended' || status === 'completed') return 'ended';
+  if (status === 'live') return 'live';
   const now = Date.now();
   const start = new Date(startAtStr).getTime();
   if (isNaN(start)) return 'upcoming';
@@ -224,6 +226,22 @@ function enrichLiveTest(lt: any, sourceTest?: MockTest | null): LiveTest {
     scheduledEndTime: endAt,
     scheduledStartAt: startAt,
     scheduledEndAt: endAt,
+    logo:
+      lt.logo ||
+      lt.examLogo ||
+      lt.exam_logo ||
+      exam?.iconName ||
+      (exam as any)?.icon_name ||
+      test?.iconUrl ||
+      undefined,
+    examLogo:
+      lt.logo ||
+      lt.examLogo ||
+      lt.exam_logo ||
+      exam?.iconName ||
+      (exam as any)?.icon_name ||
+      test?.iconUrl ||
+      undefined,
   };
 }
 
@@ -410,7 +428,13 @@ export async function getLiveTests(examId?: string): Promise<LiveTest[]> {
 
 export async function getActiveLiveTest(): Promise<LiveTest | null> {
   const all = await getLiveTests();
-  const valid = all.filter((lt) => lt.status !== 'cancelled');
+  const valid = all.filter(
+    (lt) =>
+      lt.isPublished !== false &&
+      lt.status !== 'cancelled' &&
+      lt.test?.isActive === true &&
+      lt.test.status === 'published'
+  );
   if (valid.length === 0) return null;
 
   // 1. Check for tests that are LIVE NOW
@@ -450,6 +474,12 @@ export interface ScheduleLiveTestInput {
   rankingEnabled?: boolean;
   subscriptionRequired?: boolean;
   title?: string;
+  logo?: string;
+  examLogo?: string;
+  totalQuestions?: number;
+  durationMinutes?: number;
+  totalMarks?: number;
+  negativeMarking?: number;
 }
 
 /** Schedule an existing test as a Live Test event */
@@ -476,6 +506,8 @@ export async function scheduleLiveTest(input: ScheduleLiveTestInput): Promise<Li
   const sourceTestsMap = await fetchSourceTestsMap([input.testId]);
   const sourceTest = sourceTestsMap.get(input.testId) || null;
 
+  const resolvedLogo = input.logo?.trim() || input.examLogo?.trim() || undefined;
+
   const newLiveTest: LiveTest = enrichLiveTest(
     {
       id,
@@ -496,6 +528,12 @@ export async function scheduleLiveTest(input: ScheduleLiveTestInput): Promise<Li
       participantsCount: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      logo: resolvedLogo,
+      examLogo: resolvedLogo,
+      totalQuestions: input.totalQuestions,
+      totalMarks: input.totalMarks,
+      durationMinutes: input.durationMinutes,
+      negativeMarking: input.negativeMarking,
     },
     sourceTest
   );
@@ -524,6 +562,8 @@ export async function scheduleLiveTest(input: ScheduleLiveTestInput): Promise<Li
         negative_marking: newLiveTest.negativeMarking,
         instructions: newLiveTest.instructions,
         is_published: true,
+        logo: newLiveTest.logo,
+        exam_logo: newLiveTest.examLogo,
       };
 
       await supabase.from('live_tests').upsert(payload, { onConflict: 'id' });
@@ -572,6 +612,19 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
       const payload: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
+      if (updates.title !== undefined) {
+        payload.title = updates.title;
+      }
+      if (updates.logo !== undefined || updates.examLogo !== undefined) {
+        payload.logo = updates.logo || updates.examLogo;
+        payload.exam_logo = updates.logo || updates.examLogo;
+      }
+      if (updates.totalQuestions !== undefined) {
+        payload.total_questions = updates.totalQuestions;
+      }
+      if (updates.durationMinutes !== undefined) {
+        payload.duration_minutes = updates.durationMinutes;
+      }
       if (updates.startAt) {
         payload.start_at = updates.startAt;
         payload.scheduled_start_time = updates.startAt;
@@ -596,6 +649,21 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
   }
 
   return updatedItem;
+}
+
+/** Upload Exam/Test Logo for Live Test to Supabase Storage */
+export async function uploadLiveTestLogo(file: File, liveTestId: string): Promise<string> {
+  if (!isSupabaseConfigured) throw new Error('Connect to the Admin Panel database before uploading images.');
+  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const safeId = liveTestId.replace(/[^a-zA-Z0-9_-]/g, '-');
+  const path = `live-tests/${safeId}/logo-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+  const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+  if (error) throw new Error(`Logo upload failed: ${error.message}`);
+  return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
 }
 
 /** Cancel a live test */
@@ -1161,4 +1229,5 @@ export const adminLiveTestsApi = {
   recordLiveTestSubmission,
   getLiveTestLeaderboard,
   subscribeToLiveTestUpdates,
+  uploadLiveTestLogo,
 };

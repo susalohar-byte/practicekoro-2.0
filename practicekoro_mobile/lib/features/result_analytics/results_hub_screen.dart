@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/models/attempt_model.dart';
+import '../../data/repositories/catalog_repository.dart';
 import '../../core/widgets/pk_bottom_spacing.dart';
 import '../../data/datasources/local_storage.dart';
 
@@ -48,7 +50,7 @@ class _RecentTestResultData {
   final String title;
   final String testSeriesTitle;
   final String testSeriesId;
-  final int testSeriesRank;
+  final int? testSeriesRank;
   final String type;
   final String questionsCount;
   final String date;
@@ -115,7 +117,8 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
   int _selectedFilterIndex = 0;
   String _selectedTimeRange = 'Last 3 Months';
   String _selectedMetric = 'Marks';
-  int _selectedRankLocationIndex = 0; // 0: West Bengal Rank, 1: My District Rank
+  int _selectedRankLocationIndex =
+      0; // 0: West Bengal Rank, 1: My District Rank
   int _selectedRankSeriesIndex = 0;
 
   static const List<String> _filters = [
@@ -126,177 +129,214 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
     'Live Tests',
   ];
 
-  static const List<_SubjectPerformanceData> _subjectData = [
-    _SubjectPerformanceData(
-      title: 'General Knowledge',
-      scored: 18,
-      total: 25,
-      percentage: 72,
-      iconBg: Color(0xFFEBF3FF),
-      iconColor: Color(0xFF2563EB),
-      icon: Icons.article_rounded,
-      progressColor: Color(0xFF10B981),
-      badgeBg: Color(0xFFECFDF5),
-      badgeTextColor: Color(0xFF10B981),
-    ),
-    _SubjectPerformanceData(
-      title: 'Mathematics',
-      scored: 20,
-      total: 30,
-      percentage: 67,
-      iconBg: Color(0xFFE6F8EE),
-      iconColor: Color(0xFF16A34A),
-      icon: Icons.calculate_rounded,
-      progressColor: Color(0xFF0877FF),
-      badgeBg: Color(0xFFEFF6FF),
-      badgeTextColor: Color(0xFF0877FF),
-    ),
-    _SubjectPerformanceData(
-      title: 'Reasoning',
-      scored: 12,
-      total: 20,
-      percentage: 60,
-      iconBg: Color(0xFFFFE4E6),
-      iconColor: Color(0xFFE11D48),
-      icon: Icons.hub_rounded,
-      progressColor: Color(0xFFEF4444),
-      badgeBg: Color(0xFFFFF1F2),
-      badgeTextColor: Color(0xFFEF4444),
-    ),
-    _SubjectPerformanceData(
-      title: 'English',
-      scored: 16,
-      total: 20,
-      percentage: 80,
-      iconBg: Color(0xFFF3E8FF),
-      iconColor: Color(0xFF9333EA),
-      symbol: 'A',
-      symbolBg: Color(0xFF9333EA),
-      progressColor: Color(0xFF10B981),
-      badgeBg: Color(0xFFECFDF5),
-      badgeTextColor: Color(0xFF10B981),
-    ),
-    _SubjectPerformanceData(
-      title: 'General Science',
-      scored: 6,
-      total: 15,
-      percentage: 40,
-      iconBg: Color(0xFFFEF3C7),
-      iconColor: Color(0xFFD97706),
-      icon: Icons.science_outlined,
-      progressColor: Color(0xFF0877FF),
-      badgeBg: Color(0xFFEFF6FF),
-      badgeTextColor: Color(0xFF0877FF),
-    ),
-  ];
+  List<TestAttemptModel> _studentAttempts = const [];
+  List<_SubjectPerformanceData> _subjectData = const [];
+  List<_SeriesResultData> _seriesResults = const [];
+  Map<String, Map<String, dynamic>> _seriesRankings = const {};
+  Map<String, int> _attemptRanks = const {};
+  bool _loadingResults = true;
 
-  static const List<_RecentTestResultData> _fallbackRecentTests = [
-    _RecentTestResultData(
-      id: 'wbp_mock_01',
-      title: 'WBP Constable Mock Test 01',
-      testSeriesTitle: 'WBP Constable Test Series 2026',
-      testSeriesId: 'wbp-constable',
-      testSeriesRank: 18,
-      type: 'Full Length Test',
-      questionsCount: '100 Questions',
-      date: '28 Sep 2026',
-      percentage: 72,
-      scored: 72,
-      total: 100,
-      correctCount: 74,
-      wrongCount: 16,
-      skippedCount: 10,
-      timeSpent: '52m 14s',
-      emblemType: 'wbssc_red',
-      scoreBg: Color(0xFFECFDF5),
-      scoreColor: Color(0xFF10B981),
-    ),
-    _RecentTestResultData(
-      id: 'kp_mock_02',
-      title: 'KP Constable Mock Test 02',
-      testSeriesTitle: 'KP Constable Test Series 2026',
-      testSeriesId: 'kp-constable',
-      testSeriesRank: 24,
-      type: 'Full Length Test',
-      questionsCount: '100 Questions',
-      date: '25 Sep 2026',
-      percentage: 65,
-      scored: 65,
-      total: 100,
-      correctCount: 68,
-      wrongCount: 20,
-      skippedCount: 12,
-      timeSpent: '48m 30s',
-      emblemType: 'kp_crest',
-      scoreBg: Color(0xFFEFF6FF),
-      scoreColor: Color(0xFF0877FF),
-    ),
-    _RecentTestResultData(
-      id: 'ssc_gd_mock_01',
-      title: 'SSC GD Mock Test 01',
-      testSeriesTitle: 'SSC GD Test Series 2026',
-      testSeriesId: 'ssc-gd',
-      testSeriesRank: 42,
-      type: 'Full Length Test',
-      questionsCount: '80 Questions',
-      date: '20 Sep 2026',
-      percentage: 58,
-      scored: 58,
-      total: 80,
-      correctCount: 52,
-      wrongCount: 18,
-      skippedCount: 10,
-      timeSpent: '41m 10s',
-      emblemType: 'ssc_red',
-      scoreBg: Color(0xFFFFF1F2),
-      scoreColor: Color(0xFFEF4444),
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentResults();
+  }
+
+  Future<void> _loadStudentResults() async {
+    final repository = CatalogRepository();
+    try {
+      final attempts = await repository.getStudentCompletedAttempts();
+      final attemptedSeriesIds = attempts
+          .map((attempt) => attempt.testSeriesId)
+          .whereType<String>()
+          .toSet();
+      final series = await repository.getTestSeries();
+      final visibleSeries = series.where(
+        (item) => attemptedSeriesIds.contains(item.id),
+      );
+      final seriesResults = <_SeriesResultData>[];
+      final subjectsByName = <String, Map<String, num>>{};
+      final rankings = <String, Map<String, dynamic>>{};
+      final attemptRanks = <String, int>{};
+      for (final item in visibleSeries) {
+        try {
+          final report = await repository.getSeriesAnalytics(item.id);
+          final total = (report['totalTests'] as num?)?.toInt() ?? 0;
+          final completed = (report['testsAttempted'] as num?)?.toInt() ?? 0;
+          seriesResults.add(
+            _SeriesResultData(
+              id: item.id,
+              title: item.title,
+              totalTests: total,
+              completedTests: completed,
+              status: completed >= total && total > 0
+                  ? 'Completed'
+                  : 'In Progress',
+              isCompleted: completed >= total && total > 0,
+              avgScore: (report['averageScorePercent'] as num?)?.round() ?? 0,
+              emblemType: 'wbssc_red',
+              scoreBg: const Color(0xFFEFF6FF),
+              scoreColor: const Color(0xFF0877FF),
+            ),
+          );
+          for (final value
+              in (report['subjects'] as List<dynamic>? ?? const [])) {
+            if (value is! Map) continue;
+            final subject = Map<String, dynamic>.from(value);
+            final name = subject['subjectName']?.toString() ?? '';
+            if (name.isEmpty) continue;
+            final aggregate = subjectsByName.putIfAbsent(
+              name,
+              () => {'questions': 0, 'correct': 0},
+            );
+            aggregate['questions'] =
+                (aggregate['questions'] ?? 0) +
+                ((subject['questionsAttempted'] as num?) ?? 0);
+            aggregate['correct'] =
+                (aggregate['correct'] ?? 0) +
+                ((subject['correctCount'] as num?) ?? 0);
+          }
+        } catch (_) {
+          // A series without analytics remains absent rather than showing sample data.
+        }
+        final matchingAttempts = attempts
+            .where((attempt) => attempt.testSeriesId == item.id)
+            .toList();
+        final latest = matchingAttempts.isEmpty ? null : matchingAttempts.first;
+        if (latest != null) {
+          try {
+            final result = await repository.getAttemptRankings(latest.id);
+            if (result != null) {
+              rankings[item.id] = result;
+              final seriesRank = result['testSeries'];
+              if (seriesRank is Map) {
+                final rank = (seriesRank['rank'] as num?)?.toInt();
+                if (rank != null) attemptRanks[latest.id] = rank;
+                final idx = seriesResults.indexWhere(
+                  (entry) => entry.id == item.id,
+                );
+                if (idx >= 0) {
+                  seriesResults[idx] = _SeriesResultData(
+                    id: item.id,
+                    title: seriesResults[idx].title,
+                    totalTests: seriesResults[idx].totalTests,
+                    completedTests: seriesResults[idx].completedTests,
+                    status: seriesResults[idx].status,
+                    isCompleted: seriesResults[idx].isCompleted,
+                    avgScore: seriesResults[idx].avgScore,
+                    emblemType: seriesResults[idx].emblemType,
+                    scoreBg: seriesResults[idx].scoreBg,
+                    scoreColor: seriesResults[idx].scoreColor,
+                  );
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      final subjects = subjectsByName.entries.map((entry) {
+        final questions = entry.value['questions']?.toInt() ?? 0;
+        final correct = entry.value['correct']?.toInt() ?? 0;
+        final percent = questions == 0
+            ? 0
+            : (correct * 100 / questions).round();
+        final palette = [
+          const Color(0xFF2563EB),
+          const Color(0xFF16A34A),
+          const Color(0xFFE11D48),
+          const Color(0xFF9333EA),
+          const Color(0xFFD97706),
+        ];
+        final color =
+            palette[subjectsByName.keys.toList().indexOf(entry.key) %
+                palette.length];
+        final lower = entry.key.toLowerCase();
+        IconData? icon;
+        String? symbol;
+        Color? symbolBg;
+        if (lower.contains('math')) {
+          icon = Icons.calculate_rounded;
+        } else if (lower.contains('english')) {
+          symbol = 'A';
+          symbolBg = const Color(0xFF9333EA);
+        } else if (lower.contains('bengali') || lower.contains('beng')) {
+          symbol = 'অ';
+          symbolBg = const Color(0xFFEA580C);
+        } else if (lower.contains('reasoning') || lower.contains('logic')) {
+          icon = Icons.hub_rounded;
+        } else if (lower.contains('science') || lower.contains('evs')) {
+          icon = Icons.science_outlined;
+        } else {
+          icon = Icons.menu_book_rounded;
+        }
+
+        return _SubjectPerformanceData(
+          title: entry.key,
+          scored: correct,
+          total: questions,
+          percentage: percent,
+          iconBg: color.withValues(alpha: 0.10),
+          iconColor: color,
+          icon: icon,
+          symbol: symbol,
+          symbolBg: symbolBg,
+          progressColor: percent >= 65
+              ? const Color(0xFF10B981)
+              : const Color(0xFF0877FF),
+          badgeBg: const Color(0xFFEFF6FF),
+          badgeTextColor: const Color(0xFF0877FF),
+        );
+      }).toList();
+      if (!mounted) return;
+      setState(() {
+        _studentAttempts = attempts;
+        _seriesResults = seriesResults;
+        _subjectData = subjects;
+        _seriesRankings = rankings;
+        _attemptRanks = attemptRanks;
+        _loadingResults = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingResults = false);
+    }
+  }
 
   List<_RecentTestResultData> get _recentTests {
-    final attempts = LocalStorageService.getAttempts();
+    final attempts = _filteredAttempts;
     if (attempts.isNotEmpty) {
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return attempts.map((a) {
-        final sId = a.testSeriesId ??
-            (a.testTitle.toLowerCase().contains('kp')
-                ? 'kp-constable'
-                : a.testTitle.toLowerCase().contains('ssc')
-                    ? 'ssc-gd'
-                    : a.testTitle.toLowerCase().contains('clerk')
-                        ? 'wbpsc-clerkship'
-                        : a.testTitle.toLowerCase().contains('tet')
-                            ? 'wbtet-primary'
-                            : 'wbp-constable');
-        final sTitle = a.testSeriesTitle ??
-            (sId == 'kp-constable'
-                ? 'KP Constable Test Series 2026'
-                : sId == 'ssc-gd'
-                    ? 'SSC GD Test Series 2026'
-                    : sId == 'wbpsc-clerkship'
-                        ? 'WBPSC Clerkship Test Series 2026'
-                        : sId == 'wbtet-primary'
-                            ? 'WBTET Primary Test Series 2026'
-                            : 'WBP Constable Test Series 2026');
+        final sId = a.testSeriesId ?? '';
+        final sTitle = a.testSeriesTitle ?? '';
         final emblem = sId.contains('kp')
             ? 'kp_crest'
             : sId.contains('ssc')
-                ? 'ssc_red'
-                : 'wbssc_red';
+            ? 'ssc_red'
+            : 'wbssc_red';
         final pct = a.percentage.round();
         final scoreColor = pct >= 70
             ? const Color(0xFF10B981)
             : pct >= 50
-                ? const Color(0xFF0877FF)
-                : const Color(0xFFEF4444);
+            ? const Color(0xFF0877FF)
+            : const Color(0xFFEF4444);
         final scoreBg = pct >= 70
             ? const Color(0xFFECFDF5)
             : pct >= 50
-                ? const Color(0xFFEFF6FF)
-                : const Color(0xFFFFF1F2);
+            ? const Color(0xFFEFF6FF)
+            : const Color(0xFFFFF1F2);
         final mins = a.timeSpentSeconds ~/ 60;
         final secs = a.timeSpentSeconds % 60;
 
@@ -305,7 +345,7 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
           title: a.testTitle,
           testSeriesTitle: sTitle,
           testSeriesId: sId,
-          testSeriesRank: a.testSeriesRank ?? 18,
+          testSeriesRank: _attemptRanks[a.id] ?? a.testSeriesRank,
           type: 'Full Length Test',
           questionsCount: '${a.totalQuestions} Questions',
           date:
@@ -323,35 +363,23 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
         );
       }).toList();
     }
-    return _fallbackRecentTests;
+    return const [];
   }
 
-  static const List<_SeriesResultData> _seriesResults = [
-    _SeriesResultData(
-      id: 'wbp_constable_2026',
-      title: 'WBP Constable Test Series 2026',
-      totalTests: 12,
-      completedTests: 8,
-      status: 'In Progress',
-      isCompleted: false,
-      avgScore: 68,
-      emblemType: 'wbssc_red',
-      scoreBg: Color(0xFFEFF6FF),
-      scoreColor: Color(0xFF0877FF),
-    ),
-    _SeriesResultData(
-      id: 'kp_constable_2026',
-      title: 'KP Constable Test Series 2026',
-      totalTests: 10,
-      completedTests: 10,
-      status: 'Completed',
-      isCompleted: true,
-      avgScore: 74,
-      emblemType: 'kp_crest',
-      scoreBg: Color(0xFFECFDF5),
-      scoreColor: Color(0xFF10B981),
-    ),
-  ];
+  List<TestAttemptModel> get _filteredAttempts {
+    final now = DateTime.now();
+    final cutoff = switch (_selectedTimeRange) {
+      'Last 30 Days' => now.subtract(const Duration(days: 30)),
+      'Last 3 Months' => DateTime(now.year, now.month - 3),
+      'Last 6 Months' => DateTime(now.year, now.month - 6),
+      _ => null,
+    };
+    return cutoff == null
+        ? _studentAttempts
+        : _studentAttempts
+              .where((attempt) => !attempt.completedAt.isBefore(cutoff))
+              .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -382,6 +410,11 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                 color: Color(0xFF64748B),
               ),
             ),
+            if (_loadingResults)
+              const LinearProgressIndicator(
+                minHeight: 2,
+                color: Color(0xFF0877FF),
+              ),
             const SizedBox(height: 14),
 
             // ── 2. FILTER PILLS (Overview | Mock Tests | Test Series...) ──
@@ -402,7 +435,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0877FF) : Colors.white,
+                        color: isSelected
+                            ? const Color(0xFF0877FF)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
@@ -412,7 +447,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         boxShadow: [
                           if (isSelected)
                             BoxShadow(
-                              color: const Color(0xFF0877FF).withValues(alpha: 0.25),
+                              color: const Color(
+                                0xFF0877FF,
+                              ).withValues(alpha: 0.25),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -423,8 +460,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         _filters[idx],
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? Colors.white : const Color(0xFF475569),
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF475569),
                         ),
                       ),
                     ),
@@ -439,7 +480,10 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
             const SizedBox(height: 20),
 
             // ── 3.1 TEST SERIES RANK SECTION ──
-            _buildTestSeriesRankSection(context),
+            if (_seriesResults.any(
+              (series) => _seriesRankings.containsKey(series.id),
+            ))
+              _buildTestSeriesRankSection(context),
             const SizedBox(height: 20),
 
             // ── 4. SUBJECT-WISE PERFORMANCE CARD ──
@@ -483,10 +527,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ..._recentTests.map((test) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildRecentTestCard(context, test),
-                )),
+            ..._recentTests.map(
+              (test) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildRecentTestCard(context, test),
+              ),
+            ),
             const SizedBox(height: 18),
 
             // ── 6. TEST SERIES RESULTS SECTION ──
@@ -553,6 +599,153 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
   // TOTAL PERFORMANCE CARD
   // ==========================================
   Widget _buildTotalPerformanceCard(BuildContext context) {
+    final attempts = _filteredAttempts;
+    final correct = attempts.fold<int>(
+      0,
+      (sum, attempt) => sum + attempt.correctCount,
+    );
+    final wrong = attempts.fold<int>(
+      0,
+      (sum, attempt) => sum + attempt.wrongCount,
+    );
+    final skipped = attempts.fold<int>(
+      0,
+      (sum, attempt) => sum + attempt.skippedCount,
+    );
+    final totalQuestions = attempts.fold<int>(
+      0,
+      (sum, attempt) => sum + attempt.totalQuestions,
+    );
+    final seconds = attempts.fold<int>(
+      0,
+      (sum, attempt) => sum + attempt.timeSpentSeconds,
+    );
+    final accuracy = correct + wrong == 0 ? 0.0 : correct / (correct + wrong);
+    final split = (attempts.length / 2).ceil();
+    final recentAverage = attempts.isEmpty
+        ? 0.0
+        : attempts
+                  .take(split)
+                  .fold<double>(0, (sum, attempt) => sum + attempt.percentage) /
+              split;
+    final olderAttempts = attempts.skip(split).toList();
+    final olderAverage = olderAttempts.isEmpty
+        ? recentAverage
+        : olderAttempts.fold<double>(
+                0,
+                (sum, attempt) => sum + attempt.percentage,
+              ) /
+              olderAttempts.length;
+    final improvement = (recentAverage - olderAverage).round();
+    final accuracyChart = SizedBox(
+      width: 90,
+      height: 90,
+      child: CustomPaint(
+        painter: _DonutChartPainter(
+          percentage: accuracy,
+          strokeWidth: 9,
+          progressColor: const Color(0xFF0877FF),
+          backgroundColor: const Color(0xFFE2ECF8),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${(accuracy * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0B1F5B),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const Text(
+                'Overall\nAccuracy',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final performanceStats = <Widget>[
+      _buildStatTile(
+        icon: Icons.check_circle_rounded,
+        iconColor: const Color(0xFF10B981),
+        value: '$correct',
+        label: 'Correct',
+        bgColor: const Color(0xFFECFDF5),
+        labelColor: const Color(0xFF059669),
+      ),
+      _buildStatTile(
+        icon: Icons.cancel_rounded,
+        iconColor: const Color(0xFFEF4444),
+        value: '$wrong',
+        label: 'Wrong',
+        bgColor: const Color(0xFFFFF1F2),
+        labelColor: const Color(0xFFDC2626),
+      ),
+      _buildStatTile(
+        icon: Icons.remove_circle_rounded,
+        iconColor: const Color(0xFF64748B),
+        value: '$skipped',
+        label: 'Skipped',
+        bgColor: const Color(0xFFF1F5F9),
+        labelColor: const Color(0xFF64748B),
+      ),
+      _buildStatTile(
+        icon: Icons.access_time_filled_rounded,
+        iconColor: const Color(0xFF0877FF),
+        value: '${seconds ~/ 3600}h',
+        label: 'Time Spent',
+        bgColor: const Color(0xFFEFF6FF),
+        labelColor: const Color(0xFF0877FF),
+      ),
+    ];
+    final bottomMetrics = <Widget>[
+      _buildBottomSummaryItem(
+        icon: Icons.bar_chart_rounded,
+        iconBg: const Color(0xFFEFF6FF),
+        iconColor: const Color(0xFF0877FF),
+        value: '${attempts.length}',
+        label: 'Total Tests',
+      ),
+      _buildBottomSummaryItem(
+        icon: Icons.description_outlined,
+        iconBg: const Color(0xFFEFF6FF),
+        iconColor: const Color(0xFF0877FF),
+        value: '$totalQuestions',
+        label: 'Total Questions',
+      ),
+      GestureDetector(
+        onTap: () => context.push('/rank'),
+        behavior: HitTestBehavior.opaque,
+        child: _buildBottomSummaryItem(
+          icon: Icons.emoji_events_rounded,
+          iconBg: const Color(0xFFFEF3C7),
+          iconColor: const Color(0xFFF59E0B),
+          value: _seriesRankings.isEmpty
+              ? '—'
+              : '#${_seriesRankings.values.first['westBengal']?['rank'] ?? '—'}',
+          label: 'Your Rank',
+        ),
+      ),
+      _buildBottomSummaryItem(
+        icon: Icons.trending_up_rounded,
+        iconBg: const Color(0xFFECFDF5),
+        iconColor: const Color(0xFF10B981),
+        value: '${improvement >= 0 ? '+' : ''}$improvement%',
+        label: 'Improvement',
+        valueColor: const Color(0xFF10B981),
+      ),
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -571,44 +764,42 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header: Title & Subtitle + Date Filter Dropdown
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Performance',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0B1F5B),
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final heading = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Total Performance',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0B1F5B),
+                      letterSpacing: -0.3,
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Based on 25 tests across all exams',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF64748B),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Based on ${attempts.length} completed tests',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
+                  ),
+                ],
+              );
+              final timeFilter = GestureDetector(
                 onTap: () => _showTimeRangePicker(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -640,160 +831,95 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                     ],
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth < 350) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    heading,
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: timeFilter),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: 8),
+                  timeFilter,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 
-          // Accuracy Donut Ring + 4 Colored Stat Badges
-          Row(
-            children: [
-              // 72% Accuracy Donut Ring
-              SizedBox(
-                width: 90,
-                height: 90,
-                child: CustomPaint(
-                  painter: _DonutChartPainter(
-                    percentage: 0.72,
-                    strokeWidth: 9,
-                    progressColor: const Color(0xFF0877FF),
-                    backgroundColor: const Color(0xFFE2ECF8),
-                  ),
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '72%',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0B1F5B),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          'Overall\nAccuracy',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // 4 Stat Tiles in a 4-column row
-              Expanded(
-                child: Row(
+          // Compact phones stack the chart and use a readable two-column stat grid.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 430) {
+                final tileWidth = (constraints.maxWidth - 8) / 2;
+                return Column(
                   children: [
-                    // Correct
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.check_circle_rounded,
-                        iconColor: const Color(0xFF10B981),
-                        value: '1,254',
-                        label: 'Correct',
-                        bgColor: const Color(0xFFECFDF5),
-                        labelColor: const Color(0xFF059669),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Wrong
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.cancel_rounded,
-                        iconColor: const Color(0xFFEF4444),
-                        value: '356',
-                        label: 'Wrong',
-                        bgColor: const Color(0xFFFFF1F2),
-                        labelColor: const Color(0xFFDC2626),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Skipped
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.remove_circle_rounded,
-                        iconColor: const Color(0xFF64748B),
-                        value: '190',
-                        label: 'Skipped',
-                        bgColor: const Color(0xFFF1F5F9),
-                        labelColor: const Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Time Spent
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.access_time_filled_rounded,
-                        iconColor: const Color(0xFF0877FF),
-                        value: '42h',
-                        label: 'Time Spent',
-                        bgColor: const Color(0xFFEFF6FF),
-                        labelColor: const Color(0xFF0877FF),
-                      ),
+                    Center(child: accuracyChart),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: performanceStats
+                          .map(
+                            (tile) => SizedBox(width: tileWidth, child: tile),
+                          )
+                          .toList(),
                     ),
                   ],
-                ),
-              ),
-            ],
+                );
+              }
+              return Row(
+                children: [
+                  accuracyChart,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      children: performanceStats
+                          .map(
+                            (tile) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: tile,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFEDF2F7)),
           const SizedBox(height: 14),
 
           // Bottom Metric Row (Total Tests | Total Questions | Rank | Improvement)
-          Row(
-            children: [
-              Expanded(
-                child: _buildBottomSummaryItem(
-                  icon: Icons.bar_chart_rounded,
-                  iconBg: const Color(0xFFEFF6FF),
-                  iconColor: const Color(0xFF0877FF),
-                  value: '25',
-                  label: 'Total Tests',
-                ),
-              ),
-              Expanded(
-                child: _buildBottomSummaryItem(
-                  icon: Icons.description_outlined,
-                  iconBg: const Color(0xFFEFF6FF),
-                  iconColor: const Color(0xFF0877FF),
-                  value: '2,480',
-                  label: 'Total Questions',
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => context.push('/rank'),
-                  behavior: HitTestBehavior.opaque,
-                  child: _buildBottomSummaryItem(
-                    icon: Icons.emoji_events_rounded,
-                    iconBg: const Color(0xFFFEF3C7),
-                    iconColor: const Color(0xFFF59E0B),
-                    value: '#18',
-                    label: 'Your Rank',
-                  ),
-                ),
-              ),
-              Expanded(
-                child: _buildBottomSummaryItem(
-                  icon: Icons.trending_up_rounded,
-                  iconBg: const Color(0xFFECFDF5),
-                  iconColor: const Color(0xFF10B981),
-                  value: '+18%',
-                  label: 'Improvement',
-                  valueColor: const Color(0xFF10B981),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 430) {
+                final itemWidth = (constraints.maxWidth - 8) / 2;
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: bottomMetrics
+                      .map((item) => SizedBox(width: itemWidth, child: item))
+                      .toList(),
+                );
+              }
+              return Row(
+                children: bottomMetrics
+                    .map((item) => Expanded(child: item))
+                    .toList(),
+              );
+            },
           ),
         ],
       ),
@@ -805,17 +931,24 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
   // ==========================================
   Widget _buildTestSeriesRankSection(BuildContext context) {
     final userDistrict = LocalStorageService.getLeaderboardDistrict();
-    final activeSeries = _seriesResults[_selectedRankSeriesIndex.clamp(0, _seriesResults.length - 1)];
+    final activeSeries =
+        _seriesResults[_selectedRankSeriesIndex.clamp(
+          0,
+          _seriesResults.length - 1,
+        )];
     final isStateRank = _selectedRankLocationIndex == 0;
-
-    // Series-specific dynamic rank values
-    final stateRank = _selectedRankSeriesIndex == 0 ? 18 : 24;
-    final stateTotal = _selectedRankSeriesIndex == 0 ? 1250 : 980;
-    final districtRank = _selectedRankSeriesIndex == 0 ? 5 : 8;
-    final districtTotal = _selectedRankSeriesIndex == 0 ? 180 : 140;
-
-    final currentRank = isStateRank ? stateRank : districtRank;
-    final currentTotal = isStateRank ? stateTotal : districtTotal;
+    final ranking =
+        _seriesRankings[activeSeries.id] ?? const <String, dynamic>{};
+    final state = ranking['westBengal'] is Map
+        ? Map<String, dynamic>.from(ranking['westBengal'] as Map)
+        : const <String, dynamic>{};
+    final district = ranking['district'] is Map
+        ? Map<String, dynamic>.from(ranking['district'] as Map)
+        : const <String, dynamic>{};
+    final rankData = isStateRank ? state : district;
+    final currentRank = (rankData['rank'] as num?)?.toInt();
+    final currentTotal = (rankData['participants'] as num?)?.toInt() ?? 0;
+    if (currentRank == null) return const SizedBox.shrink();
     final currentScopeLabel = isStateRank ? 'West Bengal' : userDistrict;
 
     return Container(
@@ -894,7 +1027,10 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(20),
@@ -934,15 +1070,23 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                 final isSelected = _selectedRankSeriesIndex == entry.key;
                 final item = entry.value;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedRankSeriesIndex = entry.key),
+                  onTap: () =>
+                      setState(() => _selectedRankSeriesIndex = entry.key),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF0B1F5B) : const Color(0xFFF8FAFC),
+                      color: isSelected
+                          ? const Color(0xFF0B1F5B)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF0B1F5B) : const Color(0xFFE2E8F0),
+                        color: isSelected
+                            ? const Color(0xFF0B1F5B)
+                            : const Color(0xFFE2E8F0),
                       ),
                     ),
                     child: Row(
@@ -951,15 +1095,21 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         Icon(
                           Icons.verified_rounded,
                           size: 11,
-                          color: isSelected ? const Color(0xFFFCD34D) : const Color(0xFF94A3B8),
+                          color: isSelected
+                              ? const Color(0xFFFCD34D)
+                              : const Color(0xFF94A3B8),
                         ),
                         const SizedBox(width: 5),
                         Text(
                           item.title.replaceAll(' Test Series', ''),
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? Colors.white : const Color(0xFF475569),
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF475569),
                           ),
                         ),
                       ],
@@ -1003,8 +1153,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         'West Bengal Rank',
                         style: TextStyle(
                           fontSize: 11.5,
-                          fontWeight: isStateRank ? FontWeight.w800 : FontWeight.w600,
-                          color: isStateRank ? const Color(0xFF0B1F5B) : const Color(0xFF64748B),
+                          fontWeight: isStateRank
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: isStateRank
+                              ? const Color(0xFF0B1F5B)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -1035,8 +1189,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11.5,
-                          fontWeight: !isStateRank ? FontWeight.w800 : FontWeight.w600,
-                          color: !isStateRank ? const Color(0xFF0B1F5B) : const Color(0xFF64748B),
+                          fontWeight: !isStateRank
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: !isStateRank
+                              ? const Color(0xFF0B1F5B)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -1060,7 +1218,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isStateRank ? const Color(0xFFBFDBFE) : const Color(0xFFA7F3D0),
+                color: isStateRank
+                    ? const Color(0xFFBFDBFE)
+                    : const Color(0xFFA7F3D0),
               ),
             ),
             child: Row(
@@ -1072,9 +1232,14 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: isStateRank ? const Color(0xFF0877FF) : const Color(0xFF10B981),
+                              color: isStateRank
+                                  ? const Color(0xFF0877FF)
+                                  : const Color(0xFF10B981),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1096,7 +1261,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: isStateRank ? const Color(0xFF1E3A8A) : const Color(0xFF065F46),
+                                color: isStateRank
+                                    ? const Color(0xFF1E3A8A)
+                                    : const Color(0xFF065F46),
                               ),
                             ),
                           ),
@@ -1108,7 +1275,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: isStateRank ? const Color(0xFF0B1F5B) : const Color(0xFF064E3B),
+                          color: isStateRank
+                              ? const Color(0xFF0B1F5B)
+                              : const Color(0xFF064E3B),
                           letterSpacing: -0.6,
                         ),
                       ),
@@ -1118,19 +1287,26 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: isStateRank ? const Color(0xFF3B82F6) : const Color(0xFF059669),
+                          color: isStateRank
+                              ? const Color(0xFF3B82F6)
+                              : const Color(0xFF059669),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isStateRank ? const Color(0xFFBFDBFE) : const Color(0xFFA7F3D0),
+                      color: isStateRank
+                          ? const Color(0xFFBFDBFE)
+                          : const Color(0xFFA7F3D0),
                     ),
                   ),
                   child: Column(
@@ -1141,7 +1317,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
-                          color: isStateRank ? const Color(0xFF0877FF) : const Color(0xFF10B981),
+                          color: isStateRank
+                              ? const Color(0xFF0877FF)
+                              : const Color(0xFF10B981),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1202,10 +1380,18 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 2),
                   child: Center(
-                    child: Text('• • •', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                    child: Text(
+                      '• • •',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    ),
                   ),
                 ),
-                _buildLeaderboardPreviewRow(currentRank, 'You (Susanta Lohar)', '${activeSeries.avgScore}.0', true),
+                _buildLeaderboardPreviewRow(
+                  currentRank,
+                  'You',
+                  '${activeSeries.avgScore}.0',
+                  true,
+                ),
               ],
             ),
           ),
@@ -1256,7 +1442,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
     );
   }
 
-  Widget _buildLeaderboardPreviewRow(int rank, String name, String score, bool isUser) {
+  Widget _buildLeaderboardPreviewRow(
+    int rank,
+    String name,
+    String score,
+    bool isUser,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
@@ -1273,7 +1464,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isUser ? FontWeight.w900 : FontWeight.w700,
-                color: isUser ? const Color(0xFF0877FF) : const Color(0xFF64748B),
+                color: isUser
+                    ? const Color(0xFF0877FF)
+                    : const Color(0xFF64748B),
               ),
             ),
           ),
@@ -1285,7 +1478,9 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: isUser ? FontWeight.w800 : FontWeight.w600,
-                color: isUser ? const Color(0xFF0877FF) : const Color(0xFF1E293B),
+                color: isUser
+                    ? const Color(0xFF0877FF)
+                    : const Color(0xFF1E293B),
               ),
             ),
           ),
@@ -1435,11 +1630,16 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedMetric = _selectedMetric == 'Marks' ? 'Percentage' : 'Marks';
+                    _selectedMetric = _selectedMetric == 'Marks'
+                        ? 'Percentage'
+                        : 'Marks';
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1470,16 +1670,21 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
           const SizedBox(height: 14),
 
           // Subject Rows
-          ..._subjectData.map((sub) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: _buildSubjectPerformanceRow(context, sub),
-              )),
+          ..._subjectData.map(
+            (sub) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _buildSubjectPerformanceRow(context, sub),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSubjectPerformanceRow(BuildContext context, _SubjectPerformanceData sub) {
+  Widget _buildSubjectPerformanceRow(
+    BuildContext context,
+    _SubjectPerformanceData sub,
+  ) {
     final progress = (sub.scored / sub.total).clamp(0.0, 1.0);
     return Row(
       children: [
@@ -1512,7 +1717,7 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                   ),
                 )
               : Icon(
-                  sub.icon,
+                  sub.icon ?? Icons.menu_book_rounded,
                   size: 17,
                   color: sub.iconColor,
                 ),
@@ -1605,7 +1810,10 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
   // ==========================================
   // RECENT TEST CARD
   // ==========================================
-  Widget _buildRecentTestCard(BuildContext context, _RecentTestResultData item) {
+  Widget _buildRecentTestCard(
+    BuildContext context,
+    _RecentTestResultData item,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -1684,8 +1892,10 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
 
                 // Right score badge + Chevron
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: item.scoreBg,
                     borderRadius: BorderRadius.circular(10),
@@ -1745,59 +1955,63 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
               ),
               const Spacer(),
               // Clickable Test Series Rank
-              GestureDetector(
-                onTap: () {
-                  context.push(
-                    '/rank?seriesId=${Uri.encodeComponent(item.testSeriesId)}&seriesTitle=${Uri.encodeComponent(item.testSeriesTitle)}',
-                  );
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+              if (item.testSeriesRank != null && item.testSeriesId.isNotEmpty)
+                GestureDetector(
+                  onTap: () {
+                    context.push(
+                      '/rank?seriesId=${Uri.encodeComponent(item.testSeriesId)}&seriesTitle=${Uri.encodeComponent(item.testSeriesTitle)}',
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFFF59E0B,
+                          ).withValues(alpha: 0.12),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.emoji_events_rounded,
-                        size: 12,
-                        color: Color(0xFFB45309),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Series Rank: #${item.testSeriesRank}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w900,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.emoji_events_rounded,
+                          size: 12,
+                          color: Color(0xFFB45309),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Series Rank: #${item.testSeriesRank}',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF92400E),
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 8,
                           color: Color(0xFF92400E),
                         ),
-                      ),
-                      const SizedBox(width: 3),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 8,
-                        color: Color(0xFF92400E),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],
@@ -2072,7 +2286,12 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final ranges = ['Last 30 Days', 'Last 3 Months', 'Last 6 Months', 'All Time'];
+        final ranges = [
+          'Last 30 Days',
+          'Last 3 Months',
+          'Last 6 Months',
+          'All Time',
+        ];
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -2096,11 +2315,16 @@ class _ResultsHubScreenState extends State<ResultsHubScreen> {
                       range,
                       style: TextStyle(
                         fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
-                        color: isSel ? const Color(0xFF0877FF) : const Color(0xFF0B1F5B),
+                        color: isSel
+                            ? const Color(0xFF0877FF)
+                            : const Color(0xFF0B1F5B),
                       ),
                     ),
                     trailing: isSel
-                        ? const Icon(Icons.check_rounded, color: Color(0xFF0877FF))
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: Color(0xFF0877FF),
+                          )
                         : null,
                     onTap: () {
                       setState(() => _selectedTimeRange = range);

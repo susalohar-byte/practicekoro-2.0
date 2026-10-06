@@ -1004,7 +1004,7 @@ export const AdminTestQuestions: React.FC = () => {
             {activeTab === 'assigned' && (
               <Button
                 size="sm"
-                className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#0066FF] hover:to-[#0047C7] text-white text-xs font-bold shadow-lg shadow-[#0075FF]/30 hover:scale-[1.02] transition-transform"
+                className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#026BFC] hover:to-[#0047C7] text-white text-xs font-bold shadow-lg shadow-[#0075FF]/30 hover:scale-[1.02] transition-transform"
                 leftIcon={<Save className="w-4 h-4" />}
                 onClick={handleSaveAssigned}
                 disabled={isSaving}
@@ -1359,7 +1359,7 @@ export const AdminTestQuestions: React.FC = () => {
 
                 <Button
                   size="sm"
-                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#0066FF] hover:to-[#0047C7] text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-md shadow-[#0075FF]/25 border border-[#0075FF]/40"
+                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#026BFC] hover:to-[#0047C7] text-white text-xs font-black px-3.5 py-1.5 rounded-xl shadow-md shadow-[#0075FF]/25 border border-[#0075FF]/40"
                   onClick={() => handleSelectRange(rangeFrom, rangeTo)}
                   disabled={eligibleBankQuestions.length === 0}
                   title={`Select questions from #${rangeFrom} to #${rangeTo}`}
@@ -1709,7 +1709,7 @@ export const AdminTestQuestions: React.FC = () => {
 
                 <Button
                   size="sm"
-                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#0066FF] hover:to-[#0047C7] text-white text-xs font-black shadow-lg shadow-[#0075FF]/40 border border-[#0075FF]/60 px-4 py-1.5 rounded-full hover:scale-105 transition-transform"
+                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#026BFC] hover:to-[#0047C7] text-white text-xs font-black shadow-lg shadow-[#0075FF]/40 border border-[#0075FF]/60 px-4 py-1.5 rounded-full hover:scale-105 transition-transform"
                   onClick={handleAddSelectedQuestions}
                   disabled={isSaving}
                   leftIcon={<Plus className="w-4 h-4" />}
@@ -1939,7 +1939,7 @@ export const AdminTestQuestions: React.FC = () => {
                 </div>
                 <Button
                   size="sm"
-                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#0066FF] hover:to-[#0047C7] text-white text-xs font-bold shadow-md shadow-[#0075FF]/30"
+                  className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#026BFC] hover:to-[#0047C7] text-white text-xs font-bold shadow-md shadow-[#0075FF]/30"
                   leftIcon={<Save className="w-4 h-4" />}
                   onClick={handleSaveAssigned}
                   disabled={isSaving}
@@ -2057,7 +2057,7 @@ export const AdminTestQuestions: React.FC = () => {
                 disabled={
                   isImportingBulk || !parsedBulkResult || parsedBulkResult.valid.length === 0
                 }
-                className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#0066FF] hover:to-[#0047C7] text-white text-xs font-bold shadow-md shadow-[#0075FF]/30 disabled:opacity-50"
+                className="bg-gradient-to-r from-[#0075FF] to-[#0052E0] hover:from-[#026BFC] hover:to-[#0047C7] text-white text-xs font-bold shadow-md shadow-[#0075FF]/30 disabled:opacity-50"
               >
                 {isImportingBulk
                   ? 'Importing...'

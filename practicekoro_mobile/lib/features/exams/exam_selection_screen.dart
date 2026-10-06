@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
+import '../../data/repositories/catalog_repository.dart';
 
 class ExamSelectionScreen extends StatefulWidget {
   final bool isProfileChange;
@@ -15,121 +15,113 @@ class ExamSelectionScreen extends StatefulWidget {
 class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
   int _selectedCategoryIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-  final List<String> _categories = [
-    'All',
-    'WB Police (WBP / KP)',
-    'WBPSC (Clerkship / WBCS)',
-    'Teaching (TET / SLST)',
-    'SSC & Central Govt.',
-    'Railways (RRB)',
-  ];
+  List<String> _categories = ['West Bengal', 'Central', 'Teaching', 'Others'];
+  String _selectedExamId = '';
+  List<Map<String, dynamic>> _exams = const [];
+  bool _loadingExams = true;
 
-  String _selectedExamId = 'wbp-constable';
+  IconData _examIcon(String title, String category) {
+    final t = title.toLowerCase();
+    if (t.contains('wbp') || t.contains('kp') || t.contains('police')) {
+      return Icons.shield_rounded;
+    }
+    if (t.contains('ssc') || t.contains('gd')) {
+      return Icons.military_tech_rounded;
+    }
+    if (t.contains('tet') || t.contains('teach')) {
+      return Icons.school_rounded;
+    }
+    if (t.contains('rail') || t.contains('alp') || t.contains('ntpc')) {
+      return Icons.train_rounded;
+    }
+    if (t.contains('psc') || t.contains('wbpsc')) {
+      return Icons.account_balance_rounded;
+    }
+    if (t.contains('panchayat')) {
+      return Icons.cottage_rounded;
+    }
+    return Icons.menu_book_rounded;
+  }
 
-  final List<Map<String, dynamic>> _exams = [
-    {
-      'id': 'wbp-constable',
-      'title': 'WBP Constable',
-      'subtitle': 'West Bengal Police Constable Prelims & Mains',
-      'category': 'WB Police (WBP / KP)',
-      'emblem': 'assets/images/exams/emblem_wbp.png',
-      'fallbackIcon': Icons.shield_rounded,
-      'color': const Color(0xFFEF4444),
-    },
-    {
-      'id': 'kp-police-si',
-      'title': 'Kolkata Police SI',
-      'subtitle': 'Kolkata Police Sub-Inspector & Sergeant',
-      'category': 'WB Police (WBP / KP)',
-      'emblem': 'assets/images/exams/emblem_wbp.png',
-      'fallbackIcon': Icons.local_police_rounded,
-      'color': const Color(0xFF1E3A8A),
-    },
-    {
-      'id': 'wbpsc-clerkship',
-      'title': 'WBPSC Clerkship',
-      'subtitle': 'Public Service Commission Clerkship',
-      'category': 'WBPSC (Clerkship / WBCS)',
-      'emblem': 'assets/images/exams/emblem_wbpsc.png',
-      'fallbackIcon': Icons.stars_rounded,
-      'color': const Color(0xFFF59E0B),
-    },
-    {
-      'id': 'wbcs-prelims',
-      'title': 'WBCS Executive Prelims',
-      'subtitle': 'West Bengal Civil Service Examination',
-      'category': 'WBPSC (Clerkship / WBCS)',
-      'emblem': 'assets/images/exams/emblem_wbpsc.png',
-      'fallbackIcon': Icons.account_balance_rounded,
-      'color': const Color(0xFFD97706),
-    },
-    {
-      'id': 'wbssc-group-d',
-      'title': 'WBSSC Group D',
-      'subtitle': 'School Service Commission Group D',
-      'category': 'Teaching (TET / SLST)',
-      'emblem': 'assets/images/exams/emblem_wbssc.png',
-      'fallbackIcon': Icons.school_rounded,
-      'color': const Color(0xFFF97316),
-    },
-    {
-      'id': 'primary-tet',
-      'title': 'Primary TET',
-      'subtitle': 'West Bengal Primary Teacher Eligibility Test',
-      'category': 'Teaching (TET / SLST)',
-      'emblem': 'assets/images/exams/emblem_tet.png',
-      'fallbackIcon': Icons.menu_book_rounded,
-      'color': const Color(0xFF8B5CF6),
-    },
-    {
-      'id': 'ssc-gd',
-      'title': 'SSC GD Constable',
-      'subtitle': 'Staff Selection Commission GD',
-      'category': 'SSC & Central Govt.',
-      'emblem': 'assets/images/exams/emblem_ssc.png',
-      'fallbackIcon': Icons.military_tech_rounded,
-      'color': AppColors.primary,
-    },
-    {
-      'id': 'ssc-cgl',
-      'title': 'SSC CGL',
-      'subtitle': 'Staff Selection Combined Graduate Level',
-      'category': 'SSC & Central Govt.',
-      'emblem': 'assets/images/exams/emblem_ssc.png',
-      'fallbackIcon': Icons.work_rounded,
-      'color': const Color(0xFF2563EB),
-    },
-    {
-      'id': 'railway-group-d',
-      'title': 'Railway Group D',
-      'subtitle': 'Railway Recruitment Board Group D',
-      'category': 'Railways (RRB)',
-      'emblem': 'assets/images/exams/emblem_railway.png',
-      'fallbackIcon': Icons.train_rounded,
-      'color': const Color(0xFF0F172A),
-    },
-    {
-      'id': 'railway-ntpc',
-      'title': 'Railway NTPC',
-      'subtitle': 'RRB Non-Technical Popular Categories',
-      'category': 'Railways (RRB)',
-      'emblem': 'assets/images/exams/emblem_railway.png',
-      'fallbackIcon': Icons.directions_railway_rounded,
-      'color': const Color(0xFF334155),
-    },
-  ];
+  Color _examColor(String title, String category) {
+    final t = title.toLowerCase();
+    if (t.contains('wbp')) return const Color(0xFFDC2626); // WBP Red
+    if (t.contains('kp')) return const Color(0xFF2563EB); // KP Blue
+    if (t.contains('ssc')) return const Color(0xFFEA580C); // SSC Orange
+    if (t.contains('tet')) return const Color(0xFF16A34A); // TET Green
+    if (t.contains('rail')) return const Color(0xFF7C3AED); // Railway Purple
+    if (t.contains('psc')) return const Color(0xFF0D9488); // PSC Teal
+    if (t.contains('panchayat')) return const Color(0xFFD97706); // Panchayat Amber
+    return const Color(0xFF026BFC);
+  }
+
+  String _bengaliSubtitle(String title, String defaultSub) {
+    final t = title.toLowerCase();
+    if (t.contains('wbp')) return 'পশ্চিমবঙ্গ পুলিশ';
+    if (t.contains('kp')) return 'কলকাতা পুলিশ';
+    if (t.contains('ssc')) return 'কেন্দ্রীয় বাহিনী';
+    if (t.contains('tet')) return 'শিক্ষক নিয়োগ';
+    if (t.contains('rail')) return 'রেলওয়ে';
+    if (t.contains('psc')) return 'রাজ্য সরকারি';
+    if (t.contains('panchayat')) return 'পঞ্চায়েত';
+    return defaultSub.isNotEmpty ? defaultSub : 'সরকারি পরীক্ষা প্রস্তুতি';
+  }
+
+  Future<void> _loadExams() async {
+    try {
+      final rows = await CatalogRepository().getExams();
+      final exams = rows.map((exam) {
+        return <String, dynamic>{
+          'id': exam.id,
+          'title': exam.title,
+          'subtitle': _bengaliSubtitle(exam.title, exam.description ?? ''),
+          'category': exam.category,
+          'imageUrl': exam.bannerUrl,
+          'fallbackIcon': _examIcon(exam.title, exam.category),
+          'color': _examColor(exam.title, exam.category),
+        };
+      }).toList();
+
+      if (!mounted) return;
+
+      // Extract unique categories, ensuring reference categories come first
+      final dynamicCats = exams.map((e) => e['category'] as String).toSet();
+      final defaultTabs = ['West Bengal', 'Central', 'Teaching', 'Others'];
+      final combined = <String>[];
+      for (final cat in defaultTabs) {
+        if (dynamicCats.contains(cat) || combined.length < 4) {
+          combined.add(cat);
+        }
+      }
+      for (final cat in dynamicCats) {
+        if (!combined.contains(cat)) combined.add(cat);
+      }
+
+      final saved = LocalStorageService.getTargetExam();
+      Map<String, dynamic>? chosen;
+      for (final exam in exams) {
+        if (exam['id'] == saved || exam['title'] == saved) {
+          chosen = exam;
+          break;
+        }
+      }
+
+      setState(() {
+        _exams = exams;
+        _categories = combined.isNotEmpty ? combined : ['All', 'West Bengal', 'Central', 'Teaching'];
+        _selectedCategoryIndex = 0;
+        _selectedExamId = chosen?['id'] as String? ?? (exams.isEmpty ? '' : exams.first['id'] as String);
+        _loadingExams = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingExams = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    final saved = LocalStorageService.getTargetExam();
-    if (saved != null && saved.isNotEmpty) {
-      final match = _exams.firstWhere(
-        (e) => e['title'] == saved || e['id'] == saved,
-        orElse: () => _exams[0],
-      );
-      _selectedExamId = match['id'] as String;
-    }
+    _loadExams();
   }
 
   @override
@@ -138,12 +130,12 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
     super.dispose();
   }
 
-  Future<void> _onContinue() async {
-    final selected = _exams.firstWhere((e) => e['id'] == _selectedExamId);
-    await LocalStorageService.saveTargetExam(selected['title'] as String);
+  Future<void> _selectExam(Map<String, dynamic> exam) async {
+    setState(() => _selectedExamId = exam['id'] as String);
+    await LocalStorageService.saveTargetExam(exam['title'] as String);
     await LocalStorageService.setOnboardingCompleted(true);
     if (!mounted) return;
-    if (widget.isProfileChange) {
+    if (widget.isProfileChange && context.canPop()) {
       context.pop();
     } else {
       context.go('/home');
@@ -152,274 +144,263 @@ class _ExamSelectionScreenState extends State<ExamSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedCat = _categories[_selectedCategoryIndex];
+    final selectedCat = _categories.isEmpty
+        ? 'West Bengal'
+        : _categories[_selectedCategoryIndex.clamp(0, _categories.length - 1)];
     final query = _searchController.text.trim().toLowerCase();
 
     final filteredExams = _exams.where((exam) {
-      final matchesCategory = selectedCat == 'All' || exam['category'] == selectedCat;
+      final cat = (exam['category'] as String? ?? '').toLowerCase();
+      final sel = selectedCat.toLowerCase();
+      final matchesCategory = selectedCat == 'All' ||
+          cat.contains(sel) ||
+          (sel.contains('bengal') && (cat.contains('wb') || cat.contains('state') || cat.contains('police') || cat.contains('psc'))) ||
+          (sel.contains('central') && (cat.contains('ssc') || cat.contains('central') || cat.contains('rail'))) ||
+          (sel.contains('teach') && (cat.contains('tet') || cat.contains('teach') || cat.contains('school')));
+
       final matchesQuery = query.isEmpty ||
           (exam['title'] as String).toLowerCase().contains(query) ||
-          (exam['subtitle'] as String).toLowerCase().contains(query);
-      return matchesCategory && matchesQuery;
+          ((exam['subtitle'] as String?) ?? '').toLowerCase().contains(query);
+      return (query.isNotEmpty || matchesCategory) && matchesQuery;
     }).toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar
+            // Top Navigation Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: Image.asset(
-                      'assets/images/logo-circle.png',
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
-                    ),
+                  IconButton(
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/home');
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    color: const Color(0xFF051A43),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   const Text(
-                    'PracticeKoro',
+                    'পরীক্ষা নির্বাচন',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.navy,
+                      color: Color(0xFF051A43),
                       letterSpacing: -0.3,
                     ),
                   ),
-                  const Spacer(),
-                  const Text(
-                    'Target Exam',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
                 ],
               ),
             ),
 
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  const SizedBox(height: 8),
-
-                  // Heading
-                  const Text(
-                    'Select Your\nTarget Exam',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.navy,
-                      letterSpacing: -0.5,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Choose your exam to get personalized\ncontent and test series.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF64748B),
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Search Bar
-                  Container(
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (val) => setState(() {}),
-                      decoration: const InputDecoration(
-                        hintText: 'Search exams...',
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF94A3B8),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search_rounded,
-                          color: Color(0xFF94A3B8),
-                          size: 20,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Category Pills
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(_categories.length, (idx) {
-                        final isSel = _selectedCategoryIndex == idx;
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedCategoryIndex = idx),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: isSel ? AppColors.primary : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _categories[idx],
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w600,
-                                color: isSel ? Colors.white : const Color(0xFF475569),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Exam List Cards
-                  ...filteredExams.map((exam) {
-                    final isSelected = exam['id'] == _selectedExamId;
-
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedExamId = exam['id'] as String),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFF0F6FF) : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-                            width: isSelected ? 1.8 : 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            // Emblem
-                            Container(
-                              width: 44,
-                              height: 44,
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFF1F5F9)),
-                              ),
-                              child: Image.asset(
-                                exam['emblem'] as String,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) => Icon(
-                                  exam['fallbackIcon'] as IconData,
-                                  color: exam['color'] as Color,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Title & Subtitle
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    exam['title'] as String,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-                                      color: isSelected ? AppColors.primary : AppColors.navy,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    exam['subtitle'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Selection Radio Indicator
-                            Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isSelected ? AppColors.primary : Colors.transparent,
-                                border: Border.all(
-                                  color: isSelected ? AppColors.primary : const Color(0xFFCBD5E1),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                  : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                  const SizedBox(height: 12),
-                ],
+            // Subtitle
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+              child: Text(
+                'আপনার প্রস্তুতি পরীক্ষাটি নির্বাচন করুন',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
               ),
             ),
+            const SizedBox(height: 14),
 
-            // Fixed Bottom Continue Button
+            // Search Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _onContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() {}),
+                  style: const TextStyle(fontSize: 13.5, color: Color(0xFF0F172A)),
+                  decoration: InputDecoration(
+                    hintText: 'পরীক্ষার নাম দিয়ে খুঁজুন...',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
                     ),
-                  ),
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF94A3B8),
+                      size: 20,
                     ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                            child: const Icon(
+                              Icons.cancel_rounded,
+                              color: Color(0xFF94A3B8),
+                              size: 18,
+                            ),
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 14),
+
+            // Category Tabs
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: List.generate(_categories.length, (idx) {
+                  final isSel = _selectedCategoryIndex == idx;
+                  final title = _categories[idx];
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedCategoryIndex = idx),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isSel ? const Color(0xFF026BFC) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w600,
+                          color: isSel ? Colors.white : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Exam List
+            Expanded(
+              child: _loadingExams
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF026BFC)))
+                  : filteredExams.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'কোনো পরীক্ষা পাওয়া যায়নি',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                          itemCount: filteredExams.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final exam = filteredExams[index];
+                            final color = exam['color'] as Color;
+                            final icon = exam['fallbackIcon'] as IconData;
+                            final isSelected = exam['id'] == _selectedExamId;
+
+                            return InkWell(
+                              onTap: () => _selectExam(exam),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF026BFC) : const Color(0xFFE2E8F0),
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.02),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Circular Exam Icon Badge
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: color.withValues(alpha: 0.25),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Icon(
+                                          icon,
+                                          color: color,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+
+                                    // Title & Bengali Subtitle
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            exam['title'] as String,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF051A43),
+                                              letterSpacing: -0.2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            exam['subtitle'] as String,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Indicator
+                                    Icon(
+                                      isSelected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
+                                      color: isSelected ? const Color(0xFF026BFC) : const Color(0xFF94A3B8),
+                                      size: 22,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
           ],
         ),

@@ -134,13 +134,13 @@ export const TestSolutions: React.FC = () => {
         </p>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs (Stitch rounded-full pills — Reference Screen 9) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200">
         <button
           onClick={() => setFilter('all')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'all'
-              ? 'bg-slate-900 text-white'
+              ? 'bg-[#026BFC] text-white shadow-xs'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -149,9 +149,9 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('wrong')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'wrong'
-              ? 'bg-rose-600 text-white'
+              ? 'bg-rose-600 text-white shadow-xs'
               : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
           }`}
         >
@@ -160,9 +160,9 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('correct')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'correct'
-              ? 'bg-emerald-600 text-white'
+              ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
           }`}
         >
@@ -171,9 +171,9 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('skipped')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'skipped'
-              ? 'bg-slate-600 text-white'
+              ? 'bg-slate-600 text-white shadow-xs'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -191,13 +191,13 @@ export const TestSolutions: React.FC = () => {
             <Card key={sol.id} className="p-6 border-slate-200 space-y-4">
               {/* Question Header */}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200/80 dark:border-slate-700">
                     Q {sol.questionOrder}
                   </span>
 
                   {sol.subjectName && (
-                    <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-md">
                       {sol.subjectName}
                     </span>
                   )}
@@ -210,9 +210,9 @@ export const TestSolutions: React.FC = () => {
                   {isWrong && (
                     <Badge
                       variant="warning"
-                      className="bg-rose-50 text-rose-700 border-rose-200 gap-1"
+                      className="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 gap-1"
                     >
-                      <XCircle className="w-3.5 h-3.5 text-rose-600" /> Incorrect (
+                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Incorrect (
                       {sol.marksAwarded})
                     </Badge>
                   )}
@@ -221,14 +221,9 @@ export const TestSolutions: React.FC = () => {
                       <MinusCircle className="w-3.5 h-3.5 text-slate-400" /> Skipped (0)
                     </Badge>
                   )}
-                  {sol.subjectName && (
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-                      {sol.subjectName}
-                    </span>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => handleReportQuestion(sol, idx)}
@@ -274,14 +269,14 @@ export const TestSolutions: React.FC = () => {
                   const isAnswer = sol.correctOption === opt;
                   const isUserChoice = sol.selectedOption === opt;
 
-                  let style = 'bg-white border-slate-200 text-slate-700';
+                  let style = 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200';
 
                   if (isAnswer) {
                     style =
-                      'bg-emerald-50/80 border-emerald-400 text-emerald-950 font-bold ring-1 ring-emerald-400';
+                      'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 font-bold ring-1 ring-emerald-400 dark:ring-emerald-600';
                   } else if (isUserChoice && !sol.isCorrect) {
                     style =
-                      'bg-rose-50/80 border-rose-400 text-rose-950 font-bold ring-1 ring-rose-400';
+                      'bg-rose-50/80 dark:bg-rose-950/40 border-rose-400 dark:border-rose-600 text-rose-950 dark:text-rose-200 font-bold ring-1 ring-rose-400 dark:ring-rose-600';
                   }
 
                   return (
@@ -290,19 +285,19 @@ export const TestSolutions: React.FC = () => {
                       className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${style}`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-white border border-current flex items-center justify-center font-bold text-[10px] shrink-0">
+                        <span className="w-5 h-5 rounded-full bg-white dark:bg-slate-800 border border-current flex items-center justify-center font-bold text-[10px] shrink-0">
                           {opt}
                         </span>
                         <span><MathText>{optText}</MathText></span>
                       </div>
 
                       {isAnswer && (
-                        <span className="text-[10px] uppercase font-bold text-emerald-700 px-2 py-0.5 rounded bg-emerald-100 shrink-0">
+                        <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 shrink-0">
                           Correct
                         </span>
                       )}
                       {isUserChoice && !sol.isCorrect && (
-                        <span className="text-[10px] uppercase font-bold text-rose-700 px-2 py-0.5 rounded bg-rose-100 shrink-0">
+                        <span className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 shrink-0">
                           Your Choice
                         </span>
                       )}

@@ -5,13 +5,14 @@ import {
   Palette,
   Sparkles,
   Upload,
-  Calendar,
   ArrowRight,
   Shield,
   Layers,
   Eye,
+  Calendar,
 } from 'lucide-react';
 import type { Exam, PopularExamCard } from '@/types';
+import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
 
 export const PRESET_GRADIENTS = [
@@ -19,7 +20,7 @@ export const PRESET_GRADIENTS = [
     name: 'WBP Royal Blue',
     start: '#0084FF',
     end: '#0048C6',
-    arrow: '#0066FF',
+    arrow: '#026BFC',
     badge: 'from-[#0084FF] to-[#0048C6]',
   },
   {
@@ -59,60 +60,6 @@ export const PRESET_GRADIENTS = [
   },
 ];
 
-export const PRESET_BACKGROUNDS = [
-  {
-    name: 'Victoria Memorial + Officer (Blue)',
-    url: '/images/exam_wbp_bg.png',
-  },
-  {
-    name: 'Kolkata Skyline + Officer (Violet)',
-    url: '/images/exam_kp_bg.png',
-  },
-  {
-    name: 'Red Fort + Soldier (Amber)',
-    url: '/images/exam_ssc_bg.png',
-  },
-  {
-    name: 'Misty Memorial (Soft Blue)',
-    url: '/images/series_wbp_bg.png',
-  },
-  {
-    name: 'Misty Memorial (Soft Violet)',
-    url: '/images/series_kp_bg.png',
-  },
-  {
-    name: 'Misty Memorial (Soft Amber)',
-    url: '/images/series_ssc_bg.png',
-  },
-];
-
-export const PRESET_EMBLEMS = [
-  {
-    name: 'WBP Shield Crest',
-    url: '/images/exams/emblem_wbp.png',
-  },
-  {
-    name: 'KP Star Shield Badge',
-    url: '/images/exams/emblem_series_kp.png',
-  },
-  {
-    name: 'SSC Official Crest',
-    url: '/images/exams/emblem_ssc.png',
-  },
-  {
-    name: 'Railways RRB Emblem',
-    url: '/images/exams/emblem_railway.png',
-  },
-  {
-    name: 'WBPSC Coin Seal',
-    url: '/images/exams/emblem_wbpsc_coin.png',
-  },
-  {
-    name: 'WB Primary TET Seal',
-    url: '/images/exams/emblem_wbtet_seal.png',
-  },
-];
-
 interface PopularExamEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -133,11 +80,14 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
   const [cardBadge, setCardBadge] = useState(card?.cardBadge || card?.testsCount || '100+ Tests');
   const [cardGradientStart, setCardGradientStart] = useState(card?.cardGradientStart || '#0084FF');
   const [cardGradientEnd, setCardGradientEnd] = useState(card?.cardGradientEnd || '#0048C6');
-  const [cardArrowColor, setCardArrowColor] = useState(card?.cardArrowColor || '#0066FF');
-  const [cardBgImage, setCardBgImage] = useState(card?.cardBgImage || '/images/exam_wbp_bg.png');
-  const [cardEmblemUrl, setCardEmblemUrl] = useState(card?.cardEmblemUrl || '/images/exams/emblem_wbp.png');
+  const [cardArrowColor, setCardArrowColor] = useState(card?.cardArrowColor || '#026BFC');
+  const [cardBgImage, setCardBgImage] = useState(card?.cardBgImage || '');
+  const [cardEmblemUrl, setCardEmblemUrl] = useState(card?.cardEmblemUrl || '');
   const [route, setRoute] = useState(card?.route || '/test-series');
   const [isActive, setIsActive] = useState(card?.isActive !== false);
+  const [examId, setExamId] = useState(card?.examId || '');
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -148,24 +98,36 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
       setCardBadge(card.cardBadge || card.testsCount || '100+ Tests');
       setCardGradientStart(card.cardGradientStart || '#0084FF');
       setCardGradientEnd(card.cardGradientEnd || '#0048C6');
-      setCardArrowColor(card.cardArrowColor || '#0066FF');
-      setCardBgImage(card.cardBgImage || '/images/exam_wbp_bg.png');
-      setCardEmblemUrl(card.cardEmblemUrl || '/images/exams/emblem_wbp.png');
+      setCardArrowColor(card.cardArrowColor || '#026BFC');
+      setCardBgImage(card.cardBgImage || '');
+      setCardEmblemUrl(card.cardEmblemUrl || '');
       setRoute(card.route || '/test-series');
       setIsActive(card.isActive !== false);
+      setExamId(card.examId || '');
+      setBackgroundFile(null);
+      setLogoFile(null);
       setError('');
     }
   }, [card]);
 
   if (!isOpen) return null;
 
-  const handleSelectExistingExam = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSelectExistingExam = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const examId = e.target.value;
     if (!examId) return;
     const found = existingExams.find((ex) => ex.id === examId);
     if (found) {
+      setExamId(found.id);
       setTitle(found.title);
       setRoute(`/exams/${found.slug || found.id}`);
+      try {
+        const count = await api.getPublishedExamTestCount(found.id);
+        const label = count > 0 ? `${count}+ Tests` : '0 Tests';
+        setTestsCount(label);
+        setCardBadge(label);
+      } catch (countError) {
+        setError(countError instanceof Error ? countError.message : 'Could not calculate available tests.');
+      }
     }
   };
 
@@ -178,26 +140,16 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
   const handleBgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setCardBgImage(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      setBackgroundFile(file);
+      setCardBgImage(URL.createObjectURL(file));
     }
   };
 
   const handleEmblemFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setCardEmblemUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      setLogoFile(file);
+      setCardEmblemUrl(URL.createObjectURL(file));
     }
   };
 
@@ -210,16 +162,22 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
     try {
       setIsSaving(true);
       setError('');
+      const id = card?.id || `popular-${Date.now()}`;
+      const [uploadedBackground, uploadedLogo] = await Promise.all([
+        backgroundFile ? api.uploadPopularExamImage(backgroundFile, id, 'background') : cardBgImage,
+        logoFile ? api.uploadPopularExamImage(logoFile, id, 'logo') : cardEmblemUrl,
+      ]);
       await onSave({
-        id: card?.id || `popular-${Date.now()}`,
+        id,
+        examId: examId || undefined,
         title: title.trim(),
         testsCount: testsCount.trim() || '100+ Tests',
         cardBadge: (cardBadge.trim() || testsCount.trim()) || '100+ Tests',
         cardGradientStart,
         cardGradientEnd,
         cardArrowColor,
-        cardBgImage,
-        cardEmblemUrl,
+        cardBgImage: uploadedBackground,
+        cardEmblemUrl: uploadedLogo,
         orderIndex: card?.orderIndex || 1,
         route: route.trim() || '/test-series',
         isActive,
@@ -275,45 +233,69 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
             <span className="text-[11px] text-slate-400">Updates live as you type or pick colors</span>
           </div>
 
-          <div className="max-w-[280px] sm:max-w-[320px] mx-auto py-2">
+          <div className="max-w-[320px] sm:max-w-[340px] mx-auto py-2">
             <div
-              className="relative aspect-[3/2] w-full rounded-[20px] overflow-hidden shadow-xl group block select-none"
+              className="relative aspect-[1.55] w-full rounded-[24px] overflow-hidden group block select-none"
               style={{
                 background: `linear-gradient(135deg, ${cardGradientStart || '#0084FF'}, ${cardGradientEnd || '#0048C6'})`,
+                boxShadow: `0 16px 32px -4px ${cardGradientStart || '#0084FF'}66, 0 6px 16px -2px ${cardGradientEnd || '#0048C6'}44`,
               }}
             >
               {cardBgImage && (
                 <img
                   src={cardBgImage}
                   alt=""
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               )}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/16 via-white/5 to-transparent pointer-events-none" />
-              {cardEmblemUrl && (
-                <div className="absolute top-[33%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-15 h-15 flex items-center justify-center pointer-events-none">
-                  <img
-                    src={cardEmblemUrl}
-                    alt={title}
-                    className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]"
-                  />
+              {/* Saturated fade gradient from transparent top to rich bottom color */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: `linear-gradient(180deg, transparent 0%, transparent 28%, ${cardGradientStart || '#0084FF'}99 62%, ${cardGradientEnd || '#0048C6'}fa 100%)`,
+                }}
+              />
+
+              {/* Upper-Center Glowing Circular Emblem Badge */}
+              <div className="absolute top-3.5 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+                <div className="relative w-13 h-13 rounded-full flex items-center justify-center p-1.5 backdrop-blur-xs border-2 border-white/50 bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.45)] group-hover:scale-105 transition-transform duration-300">
+                  {cardEmblemUrl ? (
+                    <img
+                      src={cardEmblemUrl}
+                      alt={title}
+                      className="w-full h-full object-contain filter drop-shadow-md"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full rounded-full flex items-center justify-center text-white"
+                      style={{ backgroundColor: cardGradientStart || '#026BFC' }}
+                    >
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="absolute inset-0 p-3.5 flex flex-col justify-end text-white pointer-events-none">
-                <h3 className="text-base font-black tracking-tight text-white text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] leading-tight mb-2">
+              </div>
+
+              {/* Exam Title (Left-aligned above bottom row) */}
+              <div className="absolute left-5 right-5 bottom-12 pointer-events-none">
+                <h3 className="text-base sm:text-lg font-black tracking-tight leading-tight text-white truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
                   {title || 'Exam Title'}
                 </h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                    <Calendar className="w-3.5 h-3.5 text-white" />
-                    <span>{cardBadge || testsCount || '100+ Tests'}</span>
-                  </div>
-                  <div
-                    className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-md pointer-events-auto"
-                    style={{ color: cardArrowColor || '#0066FF' }}
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
+              </div>
+
+              {/* Card Bottom Row: Outline Calendar + Test Count on Left, Circular White Arrow on Right */}
+              <div className="absolute left-5 right-5 bottom-3.5 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-1.5 text-white">
+                  <Calendar className="w-4 h-4 text-white/95 shrink-0 stroke-[2.2]" />
+                  <span className="text-xs font-bold tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                    {cardBadge || testsCount || '100+ Tests'}
+                  </span>
+                </div>
+                <div
+                  className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-lg shadow-black/25 group-hover:scale-110 active:scale-95 transition-all duration-200 shrink-0 pointer-events-auto"
+                  style={{ color: cardArrowColor || cardGradientStart || '#026BFC' }}
+                >
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </div>
               </div>
             </div>
@@ -358,19 +340,16 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Tests Badge Count (HTML Text) *
+                Available Tests (calculated)
               </label>
               <input
                 type="text"
                 value={cardBadge}
-                onChange={(e) => {
-                  setCardBadge(e.target.value);
-                  setTestsCount(e.target.value);
-                }}
-                placeholder="e.g. 120+ Tests"
-                required
+                readOnly
+                placeholder="Calculated from published tests"
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
               />
+              <p className="mt-1 text-[10px] text-slate-400">Automatically counts active, published tests linked to the selected exam.</p>
             </div>
           </div>
 
@@ -381,7 +360,7 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
                 <Palette className="w-3.5 h-3.5 text-indigo-500" />
                 <span>Card Gradient & Button Colors</span>
               </label>
-              <span className="text-[11px] text-slate-400">Click a preset or customize hex</span>
+              <span className="text-[11px] text-slate-400">Customize the card colors</span>
             </div>
 
             {/* 1-Click Gradient Presets */}
@@ -484,44 +463,9 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
               </label>
             </div>
 
-            {/* Presets */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PRESET_BACKGROUNDS.map((bg) => (
-                <button
-                  key={bg.name}
-                  type="button"
-                  onClick={() => setCardBgImage(bg.url)}
-                  className={cn(
-                    'p-1.5 rounded-xl border text-left flex items-center gap-2 transition-all',
-                    cardBgImage === bg.url
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
-                  )}
-                >
-                  <img
-                    src={bg.url}
-                    alt=""
-                    className="w-9 h-6 object-cover rounded-lg shrink-0 border border-black/10"
-                  />
-                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate">
-                    {bg.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <label className="block text-[11px] text-slate-400 mb-1">
-                Background Image URL (Public path or uploaded data URL)
-              </label>
-              <input
-                type="text"
-                value={cardBgImage}
-                onChange={(e) => setCardBgImage(e.target.value)}
-                placeholder="/images/exam_wbp_bg.png"
-                className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-900 dark:text-white"
-              />
-            </div>
+            <p className="text-[11px] text-slate-400">
+              Uploaded image is stored in shared storage and used by both student apps.
+            </p>
           </div>
 
           {/* Center Emblem / Crest */}
@@ -529,11 +473,11 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Center Emblem / Badge</span>
+                <span>Exam Logo</span>
               </label>
               <label className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline">
                 <Upload className="w-3 h-3" />
-                <span>Upload Custom Emblem</span>
+                <span>Upload Logo</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -543,44 +487,9 @@ export const PopularExamEditModal: React.FC<PopularExamEditModalProps> = ({
               </label>
             </div>
 
-            {/* Presets */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PRESET_EMBLEMS.map((emblem) => (
-                <button
-                  key={emblem.name}
-                  type="button"
-                  onClick={() => setCardEmblemUrl(emblem.url)}
-                  className={cn(
-                    'p-1.5 rounded-xl border text-left flex items-center gap-2 transition-all',
-                    cardEmblemUrl === emblem.url
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
-                  )}
-                >
-                  <img
-                    src={emblem.url}
-                    alt=""
-                    className="w-6 h-6 object-contain shrink-0"
-                  />
-                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate">
-                    {emblem.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <label className="block text-[11px] text-slate-400 mb-1">
-                Emblem Image URL (Public path or uploaded data URL)
-              </label>
-              <input
-                type="text"
-                value={cardEmblemUrl}
-                onChange={(e) => setCardEmblemUrl(e.target.value)}
-                placeholder="/images/exams/emblem_wbp.png"
-                className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-900 dark:text-white"
-              />
-            </div>
+            <p className="text-[11px] text-slate-400">
+              The logo is a separate upload from the background image and preserves its aspect ratio.
+            </p>
           </div>
 
           {/* Route & Visibility */}

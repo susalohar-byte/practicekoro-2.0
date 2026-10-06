@@ -234,18 +234,18 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                 <button
                   type="button"
                   onClick={onToggleMobileSidebar}
-                  className="p-2 rounded-xl text-[#0B1F5B] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-2 rounded-xl text-[#051A43] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   aria-label="Open navigation menu"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
 
                 <Link to="/dashboard" className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-[10px] bg-[#0877FF] flex items-center justify-center text-white font-black text-lg shadow-xs">
+                  <div className="w-8 h-8 rounded-[10px] bg-[#026BFC] flex items-center justify-center text-white font-black text-lg shadow-xs">
                     P
                   </div>
-                  <span className="text-lg font-black tracking-tight text-[#0B1F5B] dark:text-white">
-                    Practice<span className="text-[#0877FF]">Koro</span>
+                  <span className="text-lg font-black tracking-tight text-[#051A43] dark:text-white">
+                    Practice<span className="text-[#026BFC]">Koro</span>
                   </span>
                 </Link>
               </div>
@@ -255,7 +255,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                 <button
                   type="button"
                   onClick={onToggleCollapse}
-                  className="hidden lg:flex p-2 rounded-xl text-[#64748B] hover:text-[#0877FF] hover:bg-[#F1F5FC] dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                  className="hidden lg:flex p-2 rounded-xl text-[#64748B] hover:text-[#026BFC] hover:bg-[#F1F5FC] dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
                   title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                   aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 >
@@ -282,7 +282,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                       }}
                       onFocus={() => setIsSearchOpen(true)}
                       placeholder="Search tests, exams, topics... (⌘K)"
-                      className="w-full pl-9 pr-8 py-2 rounded-full bg-[#F1F5FC] dark:bg-slate-800/80 border border-[#E2ECF8] dark:border-slate-700/80 text-xs font-semibold text-[#0B1F5B] dark:text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#0877FF] focus:bg-white dark:focus:bg-slate-800 transition-all shadow-2xs"
+                      className="w-full pl-9 pr-8 py-2 rounded-full bg-[#F1F5FC] dark:bg-slate-800/80 border border-[#E2ECF8] dark:border-slate-700/80 text-xs font-semibold text-[#051A43] dark:text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#026BFC] focus:bg-white dark:focus:bg-slate-800 transition-all shadow-2xs"
                     />
                     {searchQuery ? (
                       <button
@@ -316,11 +316,11 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                             >
                               <div>
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-bold text-[#0B1F5B] dark:text-white group-hover:text-[#0877FF] transition-colors">
+                                  <span className="text-xs font-bold text-[#051A43] dark:text-white group-hover:text-[#026BFC] transition-colors">
                                     {item.title}
                                   </span>
                                   {item.badge && (
-                                    <span className="px-1.5 py-0.2 rounded-md bg-[#EFF5FF] text-[#0877FF] text-[9px] font-extrabold">
+                                    <span className="px-1.5 py-0.2 rounded-md bg-[#EFF5FF] text-[#026BFC] text-[9px] font-extrabold">
                                       {item.badge}
                                     </span>
                                   )}
@@ -329,7 +329,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                                   {item.subtitle}
                                 </p>
                               </div>
-                              <ArrowRight className="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#0877FF] group-hover:translate-x-0.5 transition-all" />
+                              <ArrowRight className="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#026BFC] group-hover:translate-x-0.5 transition-all" />
                             </div>
                           ))
                         )}
@@ -359,25 +359,25 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                       setIsSearchOpen((prev) => !prev);
                       setTimeout(() => searchInputRef.current?.focus(), 50);
                     }}
-                    className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#0B1F5B] dark:text-slate-200 shadow-2xs hover:border-[#0877FF]/50 transition-all cursor-pointer"
+                    className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer"
                     title="Search"
                     aria-label="Search"
                   >
-                    <Search className="w-4 h-4 text-[#0B1F5B] dark:text-slate-200" />
+                    <Search className="w-4 h-4 text-[#051A43] dark:text-slate-200" />
                   </button>
 
                   {/* Mobile Search Modal Dropdown */}
                   {isSearchOpen && (
                     <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#0877FF]" />
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#026BFC]" />
                         <input
                           ref={searchInputRef}
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search mock tests, exams, subjects..."
-                          className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#F8FAFC] dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-700 text-xs font-semibold text-[#0B1F5B] dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#0877FF]"
+                          className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#F8FAFC] dark:bg-slate-900 border border-[#E2ECF8] dark:border-slate-700 text-xs font-semibold text-[#051A43] dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#026BFC]"
                         />
                         {searchQuery && (
                           <button
@@ -398,7 +398,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                             className="p-2 hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 rounded-xl cursor-pointer transition-colors flex items-center justify-between"
                           >
                             <div>
-                              <p className="text-xs font-bold text-[#0B1F5B] dark:text-white">
+                              <p className="text-xs font-bold text-[#051A43] dark:text-white">
                                 {item.title}
                               </p>
                               <p className="text-[11px] text-[#64748B] dark:text-slate-400">
@@ -421,7 +421,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                   'hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs select-none',
                   isPro
                     ? 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#D97706] border border-[#FDE68A] dark:border-amber-800'
-                    : 'bg-gradient-to-r from-[#0877FF] to-[#0158FC] text-white hover:brightness-105 shadow-blue-500/20'
+                    : 'bg-gradient-to-r from-[#026BFC] to-[#0158FC] text-white hover:brightness-105 shadow-blue-500/20'
                 )}
               >
                 <Crown className={cn('w-3.5 h-3.5', isPro ? 'fill-[#D97706] text-[#D97706]' : 'text-amber-300 fill-amber-300')} />
@@ -433,11 +433,11 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#0B1F5B] dark:text-slate-200 shadow-2xs hover:border-[#0877FF]/50 transition-all cursor-pointer relative"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer relative"
                   title="Notifications"
                   aria-label="Notifications"
                 >
-                  <Bell className="w-4 h-4 text-[#0B1F5B] dark:text-slate-200" />
+                  <Bell className="w-4 h-4 text-[#051A43] dark:text-slate-200" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#EF4444] text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
                       {unreadCount}
@@ -450,8 +450,8 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                   <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-[#0877FF]" />
-                        <h3 className="text-sm font-black text-[#0B1F5B] dark:text-white">
+                        <Bell className="w-4 h-4 text-[#026BFC]" />
+                        <h3 className="text-sm font-black text-[#051A43] dark:text-white">
                           Notifications
                         </h3>
                         {unreadCount > 0 && (
@@ -463,7 +463,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                       <button
                         type="button"
                         onClick={markAllAsRead}
-                        className="text-xs text-[#0877FF] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                        className="text-xs text-[#026BFC] hover:underline font-bold flex items-center gap-1 cursor-pointer"
                       >
                         <Check className="w-3 h-3" />
                         <span>Mark all read</span>
@@ -525,7 +525,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-2 p-0.5 sm:px-2 sm:py-1 rounded-full border border-[#E2ECF8] dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#0877FF]/50 transition-all cursor-pointer shadow-2xs group"
+                  className="flex items-center gap-2 p-0.5 sm:px-2 sm:py-1 rounded-full border border-[#E2ECF8] dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#026BFC]/50 transition-all cursor-pointer shadow-2xs group"
                 >
                   <div className="relative shrink-0">
                     <img
@@ -540,7 +540,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                   </div>
 
                   <div className="hidden lg:block text-left pr-1">
-                    <p className="text-xs font-bold text-[#0B1F5B] dark:text-white truncate max-w-[100px] leading-tight">
+                    <p className="text-xs font-bold text-[#051A43] dark:text-white truncate max-w-[100px] leading-tight">
                       {user?.fullName?.split(' ')[0] || 'Candidate'}
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-none mt-0.5">
@@ -574,7 +574,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                           }}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-[#0B1F5B] dark:text-white truncate">
+                          <p className="text-xs font-bold text-[#051A43] dark:text-white truncate">
                             {user?.fullName || 'Candidate'}
                           </p>
                           <p className="text-[11px] text-slate-400 truncate mt-0.5">

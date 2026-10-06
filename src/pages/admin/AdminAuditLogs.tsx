@@ -1,604 +1,1338 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '@/services/api';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  History,
-  Search,
+  FileText,
+  UserPlus,
+  Database,
+  ShieldAlert,
   Download,
-  RefreshCw,
-  Shield,
-  Trash2,
-  PlusCircle,
-  Edit3,
-  CreditCard,
-  Settings as SettingsIcon,
-  HelpCircle,
-  Tag,
-  Users,
-  Eye,
+  Calendar,
+  Search,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
   X,
   Copy,
   Check,
-  Sparkles,
+  Filter,
 } from 'lucide-react';
-import type { AdminAuditLog, AdminRole } from '@/types';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
+
+// ============================================================================
+// DATA MODELS & TYPES
+// ============================================================================
+
+export type AuditSeverity = 'Info' | 'Warning' | 'High';
+
+export interface AuditLogItem {
+  id: string;
+  num: number;
+  date: string;
+  time: string;
+  adminName: string;
+  adminEmail: string;
+  avatarType: 'photo' | 'initials';
+  avatarSrc?: string;
+  avatarInitials?: string;
+  avatarBgColor?: string;
+  avatarTextColor?: string;
+  action: 'Created' | 'Updated' | 'Deleted' | 'Login' | 'Viewed' | 'Refunded' | 'Changed';
+  resource:
+    | 'Question'
+    | 'Test Series'
+    | 'Mock Test'
+    | 'Coupon'
+    | 'Subscription'
+    | 'System'
+    | 'Student'
+    | 'Payment'
+    | 'Settings'
+    | 'Subject'
+    | 'Banner';
+  details: string;
+  fullDetails?: string;
+  resourceId?: string;
+  ipAddress: string;
+  browser?: string;
+  device?: string;
+  location?: string;
+  severity: AuditSeverity;
+  jsonData?: Record<string, any>;
+}
+
+// Initial 12 audit log records strictly matching screenshot media_1791202483715.jpg
+const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
+  {
+    id: 'log-1',
+    num: 1,
+    date: '30 Sep 2026',
+    time: '10:42:15 AM',
+    adminName: 'Susanta Lohar',
+    adminEmail: 'susanta@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    action: 'Created',
+    resource: 'Question',
+    details: 'Added new question in In...',
+    fullDetails: 'Added new question in Indus Valley Civilization with options, explanation and short notes.',
+    resourceId: 'QST-10485',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Mac (macOS 14.6)',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'create',
+      resource: 'question',
+      resource_id: 'QST-10485',
+      exam_id: 12,
+      subject_id: 34,
+      topic_id: 78,
+    },
+  },
+  {
+    id: 'log-2',
+    num: 2,
+    date: '30 Sep 2026',
+    time: '09:18:33 AM',
+    adminName: 'Puja Namata',
+    adminEmail: 'puja@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    action: 'Updated',
+    resource: 'Test Series',
+    details: 'Updated test series "WBP ...',
+    fullDetails: 'Updated test series "WBP Constable 2026 Mega Pack" questions list and duration.',
+    resourceId: 'TS-902',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Windows 11',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'update',
+      resource: 'test_series',
+      series_id: 'TS-902',
+      updated_fields: ['total_tests', 'is_published'],
+    },
+  },
+  {
+    id: 'log-3',
+    num: 3,
+    date: '29 Sep 2026',
+    time: '06:45:12 PM',
+    adminName: 'Rohit Kumar',
+    adminEmail: 'rohit@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    action: 'Deleted',
+    resource: 'Mock Test',
+    details: 'Deleted mock test "WBP ...',
+    fullDetails: 'Deleted mock test "WBP SI Preliminary Mock 5 (Deprecated)".',
+    resourceId: 'MT-404',
+    ipAddress: '49.36.112.84',
+    browser: 'Safari 17.5',
+    device: 'MacBook Air (M2)',
+    location: 'Howrah, West Bengal, India',
+    severity: 'Warning',
+    jsonData: {
+      action: 'delete',
+      resource: 'mock_test',
+      test_id: 'MT-404',
+      status: 'archived',
+    },
+  },
+  {
+    id: 'log-4',
+    num: 4,
+    date: '29 Sep 2026',
+    time: '04:12:08 PM',
+    adminName: 'Sneha Khatun',
+    adminEmail: 'sneha@example.com',
+    avatarType: 'initials',
+    avatarInitials: 'SK',
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    action: 'Created',
+    resource: 'Coupon',
+    details: 'Created coupon "DIWALI50"',
+    fullDetails: 'Created promotional discount coupon "DIWALI50" with 50% discount and 500 max usage.',
+    resourceId: 'CPN-DIWALI50',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Windows 10',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'create',
+      resource: 'coupon',
+      coupon_code: 'DIWALI50',
+      discount_percent: 50,
+      max_uses: 500,
+    },
+  },
+  {
+    id: 'log-5',
+    num: 5,
+    date: '29 Sep 2026',
+    time: '12:33:45 PM',
+    adminName: 'Arijit Pal',
+    adminEmail: 'arijit@example.com',
+    avatarType: 'initials',
+    avatarInitials: 'AP',
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    action: 'Updated',
+    resource: 'Subscription',
+    details: 'Updated plan "Pro Plan" ...',
+    fullDetails: 'Updated plan "Pro Plan" price from ₹149 to ₹99 with 6 months validity.',
+    resourceId: 'PLN-PRO-6M',
+    ipAddress: '103.78.212.6',
+    browser: 'Firefox 130.0',
+    device: 'Ubuntu Linux 24.04',
+    location: 'Durgapur, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'update',
+      resource: 'subscription_plan',
+      plan_id: 'PLN-PRO-6M',
+      old_price: 149,
+      new_price: 99,
+    },
+  },
+  {
+    id: 'log-6',
+    num: 6,
+    date: '29 Sep 2026',
+    time: '11:20:01 AM',
+    adminName: 'Moumita Das',
+    adminEmail: 'moumita@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    action: 'Login',
+    resource: 'System',
+    details: 'Admin logged in',
+    fullDetails: 'Admin user authenticated successfully via OTP MFA.',
+    resourceId: 'AUTH-SESSION-889',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Mac (macOS 14.6)',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'login',
+      resource: 'system',
+      auth_method: 'email_password_otp',
+      session_id: 'sess_9918a7',
+    },
+  },
+  {
+    id: 'log-7',
+    num: 7,
+    date: '28 Sep 2026',
+    time: '08:56:30 PM',
+    adminName: 'Subhankar Bera',
+    adminEmail: 'subhankar@example.com',
+    avatarType: 'initials',
+    avatarInitials: 'SB',
+    avatarBgColor: 'bg-amber-100',
+    avatarTextColor: 'text-amber-700',
+    action: 'Updated',
+    resource: 'Student',
+    details: 'Updated student profile (I...',
+    fullDetails: 'Updated student profile (ID: STU-8492) email verification flag and district preference.',
+    resourceId: 'STU-8492',
+    ipAddress: '49.36.112.84',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Windows 11',
+    location: 'Burdwan, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'update',
+      resource: 'student',
+      student_id: 'STU-8492',
+      updated_fields: ['email_verified', 'district'],
+    },
+  },
+  {
+    id: 'log-8',
+    num: 8,
+    date: '28 Sep 2026',
+    time: '05:14:22 PM',
+    adminName: 'Rohit Kumar',
+    adminEmail: 'rohit@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    action: 'Viewed',
+    resource: 'Payment',
+    details: 'Viewed payment details',
+    fullDetails: 'Viewed payment details and transaction ledger for receipt #pay_2F9kLmX8vP6QeH.',
+    resourceId: 'PAY-88219',
+    ipAddress: '103.78.212.6',
+    browser: 'Safari 17.5',
+    device: 'MacBook Air',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'view',
+      resource: 'payment',
+      payment_id: 'pay_2F9kLmX8vP6QeH',
+    },
+  },
+  {
+    id: 'log-9',
+    num: 9,
+    date: '28 Sep 2026',
+    time: '03:08:11 PM',
+    adminName: 'Puja Namata',
+    adminEmail: 'puja@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    action: 'Refunded',
+    resource: 'Payment',
+    details: 'Processed refund for TXN...',
+    fullDetails: 'Processed refund for TXN_987165 (₹99.00) to customer bank account via Razorpay.',
+    resourceId: 'RFND-10492',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Mac (macOS 14.6)',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Warning',
+    jsonData: {
+      action: 'refund',
+      resource: 'payment',
+      transaction_id: 'TXN_987165',
+      amount_refunded: 99.0,
+      gateway: 'razorpay',
+    },
+  },
+  {
+    id: 'log-10',
+    num: 10,
+    date: '28 Sep 2026',
+    time: '12:45:09 PM',
+    adminName: 'Rohha Khatun',
+    adminEmail: 'rohha@example.com',
+    avatarType: 'initials',
+    avatarInitials: 'SK',
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    action: 'Changed',
+    resource: 'Settings',
+    details: 'Updated platform settings',
+    fullDetails: 'Updated platform settings: Maintenance mode configuration, payment gateway toggle.',
+    resourceId: 'SYS-CONF-GLOBAL',
+    ipAddress: '49.36.112.84',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Windows 11',
+    location: 'Howrah, West Bengal, India',
+    severity: 'High',
+    jsonData: {
+      action: 'change',
+      resource: 'settings',
+      section: 'payment_gateway',
+      maintenance_mode: false,
+    },
+  },
+  {
+    id: 'log-11',
+    num: 11,
+    date: '27 Sep 2026',
+    time: '10:32:50 AM',
+    adminName: 'Susanta Lohar',
+    adminEmail: 'susanta@example.com',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    action: 'Created',
+    resource: 'Subject',
+    details: 'Added new subject "Indus ...',
+    fullDetails: 'Added new subject "Ancient History & Indus Civilization" under West Bengal Police Exams.',
+    resourceId: 'SUB-HIST-01',
+    ipAddress: '117.247.32.91',
+    browser: 'Chrome 128.0.6613.120',
+    device: 'Mac (macOS 14.6)',
+    location: 'Kolkata, West Bengal, India',
+    severity: 'Info',
+    jsonData: {
+      action: 'create',
+      resource: 'subject',
+      subject_id: 'SUB-HIST-01',
+      title: 'Ancient History & Indus Civilization',
+    },
+  },
+  {
+    id: 'log-12',
+    num: 12,
+    date: '27 Sep 2026',
+    time: '09:10:05 AM',
+    adminName: 'Admin Test',
+    adminEmail: 'admintest@example.com',
+    avatarType: 'initials',
+    avatarInitials: 'AT',
+    avatarBgColor: 'bg-emerald-100',
+    avatarTextColor: 'text-emerald-700',
+    action: 'Deleted',
+    resource: 'Banner',
+    details: 'Deleted banner "WBP Ba...',
+    fullDetails: 'Deleted promotional homepage banner "WBP Banner Autumn 2026".',
+    resourceId: 'BNR-AUTUMN-26',
+    ipAddress: '103.78.212.6',
+    browser: 'Firefox 130.0',
+    device: 'Ubuntu Linux 24.04',
+    location: 'Siliguri, West Bengal, India',
+    severity: 'High',
+    jsonData: {
+      action: 'delete',
+      resource: 'banner',
+      banner_id: 'BNR-AUTUMN-26',
+    },
+  },
+];
+
+// Resource Badge Helper
+const getResourceBadge = (res: AuditLogItem['resource']) => {
+  switch (res) {
+    case 'Question':
+      return 'bg-[#DBEAFE] text-[#1D4ED8] border border-blue-200/70';
+    case 'Test Series':
+    case 'Subscription':
+    case 'Subject':
+      return 'bg-[#EDE9FE] text-[#7C3AED] border border-purple-200/70';
+    case 'Mock Test':
+    case 'Banner':
+      return 'bg-[#FEE2E2] text-[#DC2626] border border-rose-200/70';
+    case 'Coupon':
+    case 'Student':
+      return 'bg-[#DCFCE7] text-[#15803D] border border-emerald-200/70';
+    case 'Payment':
+      return 'bg-[#FEF3C7] text-[#B45309] border border-amber-200/70';
+    case 'System':
+    case 'Settings':
+    default:
+      return 'bg-slate-100 text-slate-600 border border-slate-200/70';
+  }
+};
+
+// Severity Badge Helper
+const getSeverityBadge = (sev: AuditSeverity) => {
+  switch (sev) {
+    case 'Info':
+      return 'bg-[#DBEAFE] text-[#1D4ED8] border border-blue-200/70';
+    case 'Warning':
+      return 'bg-[#FEF3C7] text-[#B45309] border border-amber-200/70';
+    case 'High':
+      return 'bg-[#FEE2E2] text-[#DC2626] border border-rose-200/70';
+  }
+};
+
+// ============================================================================
+// MAIN COMPONENT: ADMIN AUDIT LOGS
+// ============================================================================
 
 export const AdminAuditLogs: React.FC = () => {
-  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [logsList, setLogsList] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
 
-  // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAction, setSelectedAction] = useState('all');
-  const [selectedEntity, setSelectedEntity] = useState('all');
-  const [adminEmailFilter, setAdminEmailFilter] = useState('');
+  // Selected Log (Defaults to Row 1 Susanta Lohar matching screenshot)
+  const [selectedLogId, setSelectedLogId] = useState<string>('log-1');
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
 
-  // Selected Log for Details Modal
-  const [selectedLog, setSelectedLog] = useState<AdminAuditLog | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  const loadAuditLogs = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await api.getAdminAuditLogs({
-        action: selectedAction,
-        entityType: selectedEntity,
-        adminEmail: adminEmailFilter,
-        search: searchTerm,
-        limit: 100,
-      });
-      setLogs(res.logs);
-      setTotalCount(res.total);
-    } catch (err) {
-      console.error('Failed to load audit logs:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedAction, selectedEntity, adminEmailFilter, searchTerm]);
-
+  // Fetch real audit logs on mount
   useEffect(() => {
-    loadAuditLogs();
-  }, [loadAuditLogs]);
+    let isMounted = true;
+    api
+      .getAdminAuditLogs({ limit: 100 })
+      .then(({ logs }) => {
+        if (!isMounted || !logs || logs.length === 0) return;
+        const mapped: AuditLogItem[] = logs.map((log, idx) => {
+          const dt = new Date(log.createdAt);
+          const dateStr = dt.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          });
+          const timeStr = dt.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          });
 
-  // Statistics
-  const stats = useMemo(() => {
-    const deletions = logs.filter(
-      (l) => l.action.includes('DELETE') || l.action.includes('REVOKE')
-    ).length;
-    const subscriptions = logs.filter((l) => l.entityType === 'subscription').length;
-    const contentEdits = logs.filter(
-      (l) => l.entityType === 'question' || l.entityType === 'test'
-    ).length;
-    return {
-      total: totalCount || logs.length,
-      deletions,
-      subscriptions,
-      contentEdits,
+          const actionFormatted: AuditLogItem['action'] =
+            log.action.toLowerCase().includes('create') || log.action.toLowerCase().includes('add')
+              ? 'Created'
+              : log.action.toLowerCase().includes('delete') || log.action.toLowerCase().includes('revoke')
+              ? 'Deleted'
+              : log.action.toLowerCase().includes('refund')
+              ? 'Refunded'
+              : log.action.toLowerCase().includes('view')
+              ? 'Viewed'
+              : log.action.toLowerCase().includes('login')
+              ? 'Login'
+              : log.action.toLowerCase().includes('change')
+              ? 'Changed'
+              : 'Updated';
+
+          const resourceFormatted: AuditLogItem['resource'] =
+            log.entityType === 'question'
+              ? 'Question'
+              : log.entityType === 'test_series'
+              ? 'Test Series'
+              : log.entityType === 'test'
+              ? 'Mock Test'
+              : log.entityType === 'coupon'
+              ? 'Coupon'
+              : log.entityType === 'subscription'
+              ? 'Subscription'
+              : log.entityType === 'user' || log.entityType === 'student'
+              ? 'Student'
+              : log.entityType === 'payment'
+              ? 'Payment'
+              : log.entityType === 'settings'
+              ? 'Settings'
+              : log.entityType === 'subject'
+              ? 'Subject'
+              : log.entityType === 'banner'
+              ? 'Banner'
+              : 'System';
+
+          const initials = (log.adminName || log.adminEmail || 'AD')
+            .split(' ')
+            .map((s) => s[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+
+          return {
+            id: log.id,
+            num: idx + 1,
+            date: dateStr,
+            time: timeStr,
+            adminName: log.adminName || 'Admin',
+            adminEmail: log.adminEmail || '',
+            avatarType: 'initials',
+            avatarInitials: initials,
+            avatarBgColor: 'bg-blue-100',
+            avatarTextColor: 'text-blue-600',
+            action: actionFormatted,
+            resource: resourceFormatted,
+            details: log.entityName ? `${log.action} ${log.entityName}`.slice(0, 30) + '...' : log.action,
+            fullDetails: log.entityName ? `${log.action}: ${log.entityName}` : JSON.stringify(log.details || {}),
+            resourceId: log.entityId,
+            ipAddress: log.ipAddress || '127.0.0.1',
+            severity: log.action.toLowerCase().includes('delete') ? 'Warning' : 'Info',
+            jsonData: {
+              id: log.id,
+              action: log.action,
+              entityType: log.entityType,
+              entityId: log.entityId,
+              details: log.details,
+              adminRole: log.adminRole,
+            },
+          };
+        });
+
+        setLogsList(mapped);
+        if (mapped.length > 0) {
+          setSelectedLogId(mapped[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn('[AdminAuditLogs] Failed to fetch real logs:', err);
+      });
+
+    return () => {
+      isMounted = false;
     };
-  }, [logs, totalCount]);
+  }, []);
 
-  const handleExportCsv = () => {
-    api.exportAuditLogsToCsv(logs);
+  // Checkbox selections in table
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Filter toolbar states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterAdmin, setFilterAdmin] = useState('All Admins');
+  const [filterAction, setFilterAction] = useState('All Actions');
+  const [filterResource, setFilterResource] = useState('All Resources');
+  const [filterSeverity, setFilterSeverity] = useState('All Levels');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(12);
+
+  // Dropdown menus
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isCopiedJson, setIsCopiedJson] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleCopyDetails = (details: any) => {
-    navigator.clipboard.writeText(JSON.stringify(details, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClick = () => setActiveMenuId(null);
+    if (activeMenuId !== null) {
+      window.addEventListener('click', handleClick);
+    }
+    return () => window.removeEventListener('click', handleClick);
+  }, [activeMenuId]);
+
+  // Selected audit log record
+  const selectedLog = useMemo(() => {
+    return logsList.find((l) => l.id === selectedLogId) || logsList[0];
+  }, [logsList, selectedLogId]);
+
+  // Filtered rows
+  const filteredLogs = useMemo(() => {
+    return logsList.filter((log) => {
+      if (filterAdmin !== 'All Admins' && log.adminName !== filterAdmin) return false;
+      if (filterAction !== 'All Actions' && log.action !== filterAction) return false;
+      if (filterResource !== 'All Resources' && log.resource !== filterResource) return false;
+      if (filterSeverity !== 'All Levels' && log.severity !== filterSeverity) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matches =
+          log.adminName.toLowerCase().includes(q) ||
+          log.action.toLowerCase().includes(q) ||
+          log.resource.toLowerCase().includes(q) ||
+          log.details.toLowerCase().includes(q) ||
+          log.ipAddress.includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [logsList, filterAdmin, filterAction, filterResource, filterSeverity, searchQuery]);
+
+  // Checkbox handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredLogs.map((l) => l.id));
+    } else {
+      setSelectedIds([]);
+    }
   };
 
-  const getActionBadge = (action: string) => {
-    const isDelete =
-      action.includes('DELETE') || action.includes('REVOKE') || action.includes('CANCEL');
-    const isCreate =
-      action.includes('CREATE') || action.includes('IMPORT') || action.includes('ASSIGN');
-    const isUpdate = action.includes('UPDATE') || action.includes('EDIT');
-    const isGrant = action.includes('GRANT');
-
-    if (isDelete) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-          <Trash2 className="w-3 h-3" />
-          {action}
-        </span>
-      );
-    }
-
-    if (isGrant) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-          <CreditCard className="w-3 h-3" />
-          {action}
-        </span>
-      );
-    }
-
-    if (isCreate) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-          <PlusCircle className="w-3 h-3" />
-          {action}
-        </span>
-      );
-    }
-
-    if (isUpdate) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-          <Edit3 className="w-3 h-3" />
-          {action}
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
-        {action}
-      </span>
+  const handleToggleRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
-  const getEntityIcon = (entityType: string) => {
-    switch (entityType) {
-      case 'test':
-        return <History className="w-3.5 h-3.5 text-indigo-500" />;
-      case 'question':
-        return <Edit3 className="w-3.5 h-3.5 text-sky-500" />;
-      case 'subscription':
-        return <CreditCard className="w-3.5 h-3.5 text-purple-500" />;
-      case 'coupon':
-        return <Tag className="w-3.5 h-3.5 text-emerald-500" />;
-      case 'settings':
-        return <SettingsIcon className="w-3.5 h-3.5 text-amber-500" />;
-      case 'support_ticket':
-        return <HelpCircle className="w-3.5 h-3.5 text-blue-500" />;
-      case 'staff':
-        return <Users className="w-3.5 h-3.5 text-pink-500" />;
-      default:
-        return <Shield className="w-3.5 h-3.5 text-slate-400" />;
+  // Export CSV
+  const handleExportLogs = () => {
+    const headers = ['Date', 'Time', 'Admin', 'Email', 'Action', 'Resource', 'Details', 'IP Address', 'Severity'];
+    const rows = filteredLogs.map((l) => [
+      l.date,
+      l.time,
+      l.adminName,
+      l.adminEmail,
+      l.action,
+      l.resource,
+      `"${l.fullDetails || l.details}"`,
+      l.ipAddress,
+      l.severity,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `practicekoro_audit_logs_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Exported audit logs successfully.');
+  };
+
+  // Copy JSON details
+  const handleCopyJson = () => {
+    if (selectedLog.jsonData) {
+      navigator.clipboard.writeText(JSON.stringify(selectedLog.jsonData, null, 2));
+      setIsCopiedJson(true);
+      showToast('Copied JSON data to clipboard.');
+      setTimeout(() => setIsCopiedJson(false), 2000);
     }
   };
 
-  const getRoleBadge = (role: AdminRole) => {
-    switch (role) {
-      case 'super_admin':
-        return (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400">
-            Super Admin
-          </span>
-        );
-      case 'content_writer':
-        return (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400">
-            Content Writer
-          </span>
-        );
-      case 'support_agent':
-        return (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            Support
-          </span>
-        );
-      default:
-        return null;
-    }
+  // Reset Filters
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setFilterAdmin('All Admins');
+    setFilterAction('All Actions');
+    setFilterResource('All Resources');
+    setFilterSeverity('All Levels');
+    showToast('Audit log filters reset.');
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 1. HEADER & TOP CONTROLS                                             */}
+      {/* ==================================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-purple-500/25">
-              <History className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Admin Audit Trail (অ্যাক্টিভিটি হিস্ট্রি)
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tamper-evident audit log tracking all test deletions, question updates, manual
-                grants, and settings.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Audit Logs</h1>
+          <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
+            Track and monitor all important activities performed by admins across the platform.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3 shrink-0 self-start">
           <button
-            onClick={loadAuditLogs}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            title="Refresh Logs"
-          >
-            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-          </button>
-          <button
-            onClick={handleExportCsv}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-all shadow-xs cursor-pointer"
+            onClick={handleExportLogs}
+            className="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Export to CSV (Excel Ready)</span>
+            <span>Export Logs</span>
+          </button>
+
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-medium text-slate-600">01 Sep 2026 → 30 Sep 2026</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+          </div>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 2. FOUR SUMMARY METRICS CARDS                                       */}
+      {/* ==================================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Logs */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Total Logs</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">2,548</span>
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                ↑ 28%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+          </div>
+        </div>
+
+        {/* Card 2: Active Admins */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+            <UserPlus className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Active Admins</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">8</span>
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                ↑ 14%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">performed actions</span>
+          </div>
+        </div>
+
+        {/* Card 3: Most Active Area */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#DBEAFE] text-[#2563EB] flex items-center justify-center shrink-0">
+            <Database className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Most Active Area</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">Questions</span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">682 actions</span>
+          </div>
+        </div>
+
+        {/* Card 4: Critical Actions */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Critical Actions</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">12</span>
+              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                ↓ 60%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">require attention</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 3. FILTER TOOLBAR                                                   */}
+      {/* ==================================================================== */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex flex-wrap items-end gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by admin name, action, resource..."
+            className="w-full border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Admin */}
+        <div className="relative min-w-[130px]">
+          <label className="text-[11px] font-medium text-slate-400 block mb-1">Admin</label>
+          <div className="relative">
+            <select
+              value={filterAdmin}
+              onChange={(e) => setFilterAdmin(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+            >
+              <option value="All Admins">All Admins</option>
+              <option value="Susanta Lohar">Susanta Lohar</option>
+              <option value="Puja Namata">Puja Namata</option>
+              <option value="Rohit Kumar">Rohit Kumar</option>
+              <option value="Sneha Khatun">Sneha Khatun</option>
+              <option value="Arijit Pal">Arijit Pal</option>
+              <option value="Moumita Das">Moumita Das</option>
+              <option value="Subhankar Bera">Subhankar Bera</option>
+              <option value="Admin Test">Admin Test</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Action */}
+        <div className="relative min-w-[130px]">
+          <label className="text-[11px] font-medium text-slate-400 block mb-1">Action</label>
+          <div className="relative">
+            <select
+              value={filterAction}
+              onChange={(e) => setFilterAction(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+            >
+              <option value="All Actions">All Actions</option>
+              <option value="Created">Created</option>
+              <option value="Updated">Updated</option>
+              <option value="Deleted">Deleted</option>
+              <option value="Login">Login</option>
+              <option value="Viewed">Viewed</option>
+              <option value="Refunded">Refunded</option>
+              <option value="Changed">Changed</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Resource */}
+        <div className="relative min-w-[130px]">
+          <label className="text-[11px] font-medium text-slate-400 block mb-1">Resource</label>
+          <div className="relative">
+            <select
+              value={filterResource}
+              onChange={(e) => setFilterResource(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+            >
+              <option value="All Resources">All Resources</option>
+              <option value="Question">Question</option>
+              <option value="Test Series">Test Series</option>
+              <option value="Mock Test">Mock Test</option>
+              <option value="Coupon">Coupon</option>
+              <option value="Subscription">Subscription</option>
+              <option value="System">System</option>
+              <option value="Student">Student</option>
+              <option value="Payment">Payment</option>
+              <option value="Settings">Settings</option>
+              <option value="Subject">Subject</option>
+              <option value="Banner">Banner</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Severity */}
+        <div className="relative min-w-[120px]">
+          <label className="text-[11px] font-medium text-slate-400 block mb-1">Severity</label>
+          <div className="relative">
+            <select
+              value={filterSeverity}
+              onChange={(e) => setFilterSeverity(e.target.value)}
+              className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+            >
+              <option value="All Levels">All Levels</option>
+              <option value="Info">Info</option>
+              <option value="Warning">Warning</option>
+              <option value="High">High</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Filter and Reset Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => showToast('Applied audit log filters.')}
+            className="bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2.5 rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filter</span>
+          </button>
+          <button
+            onClick={handleResetFilters}
+            className="text-[#2563EB] hover:underline font-semibold text-xs px-2.5 py-2.5 cursor-pointer"
+          >
+            Reset
           </button>
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs across Settings, Banners, Staff, Audit Logs */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <Link
-          to="/admin/settings"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+      {/* ==================================================================== */}
+      {/* 4. SPLIT LAYOUT (TABLE 8 COLS, DETAILS DOCKED PANEL 4 COLS)          */}
+      {/* ==================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: AUDIT LOGS TABLE */}
+        <div
+          className={cn(
+            'transition-all duration-300 space-y-4',
+            isDetailsPanelOpen ? 'lg:col-span-8' : 'lg:col-span-12'
+          )}
         >
-          <SettingsIcon className="w-4 h-4 text-slate-500" />
-          <span>General & Gateway</span>
-        </Link>
-        <Link
-          to="/admin/banners"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Hero Banners</span>
-        </Link>
-        <Link
-          to="/admin/staff"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <Users className="w-4 h-4 text-indigo-500" />
-          <span>Team & Staff</span>
-        </Link>
-        <Link
-          to="/admin/audit-logs"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all bg-pk-primary text-white shadow-xs"
-        >
-          <History className="w-4 h-4" />
-          <span>Audit Logs</span>
-        </Link>
-      </div>
-
-      {/* Metrics Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Total Logged Events
-            </span>
-            <History className="w-4 h-4 text-slate-400" />
-          </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{stats.total}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Recorded audit entries</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-              Destructive Actions
-            </span>
-            <Trash2 className="w-4 h-4 text-rose-500" />
-          </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {stats.deletions}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Deletions & cancellations</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-              Subscription Grants
-            </span>
-            <CreditCard className="w-4 h-4 text-purple-500" />
-          </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {stats.subscriptions}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Manual Pro grants & extensions</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-sky-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-              Content Changes
-            </span>
-            <Edit3 className="w-4 h-4 text-sky-500" />
-          </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {stats.contentEdits}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Question & test modifications</p>
-        </div>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Keyword search */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search target or admin..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-pk-primary"
-            />
-          </div>
-
-          {/* Action Filter */}
-          <div>
-            <select
-              value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-pk-primary"
-            >
-              <option value="all">All Action Types</option>
-              <option value="TEST_DELETE">TEST_DELETE (মক টেস্ট মোছা)</option>
-              <option value="TEST_CREATE">TEST_CREATE (টেস্ট তৈরি)</option>
-              <option value="TEST_UPDATE">TEST_UPDATE (টেস্ট এডিট)</option>
-              <option value="QUESTION_CREATE">QUESTION_CREATE (প্রশ্ন তৈরি)</option>
-              <option value="QUESTION_UPDATE">QUESTION_UPDATE (প্রশ্ন এডিট)</option>
-              <option value="QUESTION_DELETE">QUESTION_DELETE (প্রশ্ন মোছা)</option>
-              <option value="QUESTION_BULK_IMPORT">QUESTION_BULK_IMPORT (বাল্ক আপলোড)</option>
-              <option value="SUBSCRIPTION_MANUAL_GRANT">
-                SUBSCRIPTION_MANUAL_GRANT (ম্যানুয়াল প্রো)
-              </option>
-              <option value="SUBSCRIPTION_CANCEL">SUBSCRIPTION_CANCEL (সাবস্ক্রিপশন বাতিল)</option>
-              <option value="COUPON_CREATE">COUPON_CREATE (কুপন তৈরি)</option>
-              <option value="COUPON_DELETE">COUPON_DELETE (কুপন মোছা)</option>
-              <option value="SETTINGS_UPDATE">SETTINGS_UPDATE (সেটিংস পরিবর্তন)</option>
-              <option value="SUPPORT_TICKET_UPDATE">SUPPORT_TICKET_UPDATE (টিকিট সমাধান)</option>
-              <option value="STAFF_ROLE_UPDATE">STAFF_ROLE_UPDATE (স্টাফ রোল পরিবর্তন)</option>
-              <option value="STAFF_ROLE_ASSIGN">STAFF_ROLE_ASSIGN (স্টাফ নিয়োগ)</option>
-            </select>
-          </div>
-
-          {/* Entity Type Filter */}
-          <div>
-            <select
-              value={selectedEntity}
-              onChange={(e) => setSelectedEntity(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-pk-primary"
-            >
-              <option value="all">All Entity Types</option>
-              <option value="test">Mock Tests</option>
-              <option value="question">Questions</option>
-              <option value="subscription">Subscriptions / Pro</option>
-              <option value="coupon">Coupons</option>
-              <option value="settings">Platform Settings</option>
-              <option value="support_ticket">Support Tickets</option>
-              <option value="staff">Staff Members</option>
-            </select>
-          </div>
-
-          {/* Admin Email Filter */}
-          <div>
-            <input
-              type="text"
-              value={adminEmailFilter}
-              onChange={(e) => setAdminEmailFilter(e.target.value)}
-              placeholder="Filter by admin email..."
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-pk-primary"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Logs Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="p-12 flex flex-col items-center justify-center">
-            <div className="w-8 h-8 rounded-full border-2 border-pk-primary border-t-transparent animate-spin mb-3" />
-            <p className="text-xs text-slate-400">Loading audit trail...</p>
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="p-12 text-center">
-            <History className="w-10 h-10 text-slate-400 mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              No audit records found
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Try resetting search filters or performing an admin action.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-900/75 text-slate-500 dark:text-slate-400 font-semibold">
-                  <th className="py-3 px-4">Timestamp (IST)</th>
-                  <th className="py-3 px-4">Admin Responsible</th>
-                  <th className="py-3 px-4">Action</th>
-                  <th className="py-3 px-4">Target Entity</th>
-                  <th className="py-3 px-4 hidden md:table-cell">Details Summary</th>
-                  <th className="py-3 px-4 text-right">Inspect</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                  >
-                    {/* Timestamp */}
-                    <td className="py-3.5 px-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 font-mono">
-                      <div>
-                        {new Date(log.createdAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        {new Date(log.createdAt).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </div>
-                    </td>
-
-                    {/* Admin Responsible */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-slate-900 dark:text-white truncate">
-                              {log.adminName || 'Admin'}
-                            </span>
-                            {getRoleBadge(log.adminRole)}
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono truncate">
-                            {log.adminEmail}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Action Badge */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">{getActionBadge(log.action)}</td>
-
-                    {/* Target Entity */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                        {getEntityIcon(log.entityType)}
-                        <span
-                          className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]"
-                          title={log.entityName || log.entityId}
-                        >
-                          {log.entityName || log.entityId || log.entityType}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-                        {log.entityType}
-                      </span>
-                    </td>
-
-                    {/* Details Summary */}
-                    <td className="py-3.5 px-4 hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate font-mono">
-                      {log.details && Object.keys(log.details).length > 0
-                        ? Object.entries(log.details)
-                            .slice(0, 2)
-                            .map(
-                              ([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`
-                            )
-                            .join('; ')
-                        : '—'}
-                    </td>
-
-                    {/* Inspect Button */}
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedLog(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-                        title="View Change Parameters"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Details</span>
-                      </button>
-                    </td>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
+                    <th className="py-3 px-3 w-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedIds.length > 0 &&
+                          selectedIds.length === filteredLogs.length
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                    </th>
+                    <th className="py-3 px-2 w-8 text-center">#</th>
+                    <th className="py-3 px-3">Date & Time</th>
+                    <th className="py-3 px-3">Admin</th>
+                    <th className="py-3 px-3">Action</th>
+                    <th className="py-3 px-3">Resource</th>
+                    <th className="py-3 px-3">Details</th>
+                    <th className="py-3 px-3">IP Address</th>
+                    <th className="py-3 px-3">Severity</th>
+                    <th className="py-3 px-3 text-center">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100/70 text-xs">
+                  {filteredLogs.slice(0, 12).map((row) => {
+                    const isSelected = selectedLogId === row.id;
+                    const isChecked = selectedIds.includes(row.id);
 
-      {/* Inspect Log Details Modal */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35">
-          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
-                  <History className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    Audit Event Payload
-                  </h3>
-                  <p className="text-xs text-slate-400 font-mono">{selectedLog.id}</p>
+                    return (
+                      <tr
+                        key={row.id}
+                        onClick={() => {
+                          setSelectedLogId(row.id);
+                          setIsDetailsPanelOpen(true);
+                        }}
+                        className={cn(
+                          'transition-colors cursor-pointer group',
+                          isSelected
+                            ? 'bg-blue-50/50 hover:bg-blue-50/70'
+                            : 'hover:bg-slate-50/60'
+                        )}
+                      >
+                        {/* Checkbox */}
+                        <td
+                          className="py-3 px-3 text-center"
+                          onClick={(e) => handleToggleRow(row.id, e)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* # */}
+                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                          {row.num}
+                        </td>
+
+                        {/* Date & Time */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className="font-normal text-slate-800 block">{row.date}</span>
+                          <span className="text-[11px] text-slate-400 block mt-0.5">{row.time}</span>
+                        </td>
+
+                        {/* Admin */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {row.avatarType === 'photo' && row.avatarSrc ? (
+                              <img
+                                src={row.avatarSrc}
+                                alt={row.adminName}
+                                className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-100"
+                              />
+                            ) : (
+                              <div
+                                className={cn(
+                                  'w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0',
+                                  row.avatarBgColor || 'bg-blue-100',
+                                  row.avatarTextColor || 'text-blue-600'
+                                )}
+                              >
+                                {row.avatarInitials}
+                              </div>
+                            )}
+                            <span className="font-medium text-slate-900">{row.adminName}</span>
+                          </div>
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-3 px-3 text-slate-700 font-medium whitespace-nowrap">
+                          {row.action}
+                        </td>
+
+                        {/* Resource */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'inline-block px-2 py-0.5 rounded text-[11px] font-medium',
+                              getResourceBadge(row.resource)
+                            )}
+                          >
+                            {row.resource}
+                          </span>
+                        </td>
+
+                        {/* Details */}
+                        <td className="py-3 px-3 text-slate-600 truncate max-w-[150px]">
+                          {row.details}
+                        </td>
+
+                        {/* IP Address */}
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                          {row.ipAddress}
+                        </td>
+
+                        {/* Severity */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'inline-block px-2.5 py-0.5 rounded text-[11px] font-medium',
+                              getSeverityBadge(row.severity)
+                            )}
+                          >
+                            {row.severity}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td
+                          className="py-3 px-3 text-center relative"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                              }}
+                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {activeMenuId === row.id && (
+                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                  onClick={() => {
+                                    setSelectedLogId(row.id);
+                                    setIsDetailsPanelOpen(true);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>View Details</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(row.id);
+                                    showToast('Copied Log ID.');
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Copy Log ID</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer / Pagination */}
+            <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+              <div>
+                Showing 1–{Math.min(filteredLogs.length, 12)} of 2,548 logs
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2563EB] text-white font-medium shadow-2xs"
+                >
+                  1
+                </button>
+                <button
+                  onClick={() => setCurrentPage(2)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                >
+                  2
+                </button>
+                <button
+                  onClick={() => setCurrentPage(3)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                >
+                  3
+                </button>
+                <button
+                  onClick={() => setCurrentPage(4)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                >
+                  4
+                </button>
+                <button
+                  onClick={() => setCurrentPage(5)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                >
+                  5
+                </button>
+                <span className="px-1 text-slate-400">...</span>
+                <button
+                  onClick={() => setCurrentPage(213)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                >
+                  213
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="relative ml-2">
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                    className="appearance-none border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 bg-white pr-6 cursor-pointer focus:outline-none"
+                  >
+                    <option value={12}>12 / page</option>
+                    <option value={24}>24 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: LOG DETAILS DOCKED PANEL */}
+        {isDetailsPanelOpen && selectedLog && (
+          <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-900">Log Details</h2>
               <button
-                onClick={() => setSelectedLog(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => setIsDetailsPanelOpen(false)}
+                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              {/* Event Metadata */}
-              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-xs">
-                <div>
-                  <span className="text-slate-400 block mb-0.5">Admin</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    {selectedLog.adminName} ({selectedLog.adminRole})
+            {/* Action Banner Card */}
+            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">
+                    {selectedLog.resource} {selectedLog.action}
                   </span>
-                  <span className="block text-[11px] text-slate-500 font-mono">
-                    {selectedLog.adminEmail}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-0.5">Action Executed</span>
-                  <div>{getActionBadge(selectedLog.action)}</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-0.5">Target Entity</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    {selectedLog.entityName || selectedLog.entityId || 'N/A'}
-                  </span>
-                  <span className="block text-[11px] text-slate-400 uppercase font-semibold">
-                    {selectedLog.entityType} (ID: {selectedLog.entityId || 'N/A'})
+                  <span
+                    className={cn(
+                      'px-2 py-0.2 rounded text-[10px] font-semibold',
+                      getSeverityBadge(selectedLog.severity)
+                    )}
+                  >
+                    {selectedLog.severity}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block mb-0.5">Timestamp (IST)</span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">
-                    {new Date(selectedLog.createdAt).toLocaleString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                    })}
-                  </span>
+                <span className="text-[11px] text-slate-400 block mt-0.5">
+                  {selectedLog.date}, {selectedLog.time}
+                </span>
+              </div>
+            </div>
+
+            {/* Key-Value Breakdown */}
+            <div className="space-y-2 text-xs">
+              {/* Admin */}
+              <div className="flex items-start justify-between py-1.5 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Admin</span>
+                <div className="flex items-center gap-2 text-right">
+                  {selectedLog.avatarType === 'photo' && selectedLog.avatarSrc ? (
+                    <img
+                      src={selectedLog.avatarSrc}
+                      alt={selectedLog.adminName}
+                      className="w-5 h-5 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0',
+                        selectedLog.avatarBgColor || 'bg-blue-100',
+                        selectedLog.avatarTextColor || 'text-blue-600'
+                      )}
+                    >
+                      {selectedLog.avatarInitials}
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-semibold text-slate-900 block leading-tight">
+                      {selectedLog.adminName}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {selectedLog.adminEmail}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Raw JSON Parameters */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Operation Parameters & Diff
-                  </span>
-                  <button
-                    onClick={() => handleCopyDetails(selectedLog.details)}
-                    className="flex items-center gap-1 text-[11px] text-pk-primary hover:underline font-semibold cursor-pointer"
-                  >
-                    {copied ? (
-                      <Check className="w-3 h-3 text-emerald-500" />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
-                    <span>{copied ? 'Copied!' : 'Copy JSON'}</span>
-                  </button>
-                </div>
-                <pre className="p-4 bg-slate-950 text-slate-200 rounded-2xl text-xs font-mono overflow-x-auto max-h-60 border border-slate-800">
-                  {JSON.stringify(selectedLog.details || {}, null, 2)}
+              {/* Action */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Action</span>
+                <span className="font-medium text-slate-800">{selectedLog.action}</span>
+              </div>
+
+              {/* Resource */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Resource</span>
+                <span className="font-medium text-slate-800">{selectedLog.resource}</span>
+              </div>
+
+              {/* Resource ID */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Resource ID</span>
+                <span className="font-mono text-slate-700">{selectedLog.resourceId || 'QST-10485'}</span>
+              </div>
+
+              {/* Details */}
+              <div className="py-1 border-b border-slate-50 space-y-1">
+                <span className="text-slate-400 font-normal block">Details</span>
+                <p className="font-normal text-slate-700 text-xs leading-relaxed">
+                  {selectedLog.fullDetails || selectedLog.details}
+                </p>
+              </div>
+
+              {/* IP Address */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">IP Address</span>
+                <span className="font-mono text-slate-700">{selectedLog.ipAddress}</span>
+              </div>
+
+              {/* Browser */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Browser</span>
+                <span className="font-medium text-slate-800">{selectedLog.browser || 'Chrome 128.0.6613.120'}</span>
+              </div>
+
+              {/* Device */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Device</span>
+                <span className="font-medium text-slate-800">{selectedLog.device || 'Mac (macOS 14.6)'}</span>
+              </div>
+
+              {/* Location */}
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-normal">Location</span>
+                <span className="font-medium text-slate-800">{selectedLog.location || 'Kolkata, West Bengal, India'}</span>
+              </div>
+
+              {/* Severity */}
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400 font-normal">Severity</span>
+                <span
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[10px] font-semibold',
+                    getSeverityBadge(selectedLog.severity)
+                  )}
+                >
+                  {selectedLog.severity}
+                </span>
+              </div>
+            </div>
+
+            {/* Additional Data (JSON) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-xs">Additional Data (JSON)</span>
+                <button
+                  onClick={handleCopyJson}
+                  className="text-slate-400 hover:text-slate-700 p-1 rounded transition-colors cursor-pointer"
+                  title="Copy JSON"
+                >
+                  {isCopiedJson ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100/80 text-[11px] font-mono text-slate-700 overflow-x-auto">
+                <pre className="text-slate-800 leading-relaxed">
+                  {JSON.stringify(selectedLog.jsonData || { action: 'view' }, null, 2)}
                 </pre>
               </div>
             </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

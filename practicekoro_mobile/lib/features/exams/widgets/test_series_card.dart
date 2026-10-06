@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/exam_assets.dart';
 
 /// Data representation of an individual Test Series for the catalog card.
 class TestSeriesItemData {
@@ -64,6 +65,10 @@ class TestSeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
+    final iconSize = isCompact ? 54.0 : 66.0;
+
     return GestureDetector(
       onTap: () => _handleView(context),
       behavior: HitTestBehavior.opaque,
@@ -83,13 +88,13 @@ class TestSeriesCard extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 9 : 11, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Left: Square Exam Emblem Icon (prominent, square, ~66px)
-            _ExamIcon(item: item, size: 66),
-            const SizedBox(width: 12),
+            _ExamIcon(item: item, size: iconSize),
+            SizedBox(width: isCompact ? 9 : 12),
 
             // Right: Content Column
             Expanded(
@@ -155,7 +160,7 @@ class TestSeriesCard extends StatelessWidget {
                                     iconColor: const Color(0xFF0066FF),
                                     bgColor: const Color(0xFFEEF5FF),
                                     count: item.fullMockCount,
-                                    label: 'Full Mock Tests',
+                                    label: 'Full Mock',
                                   ),
                                   const SizedBox(width: 5),
                                   _StatBoxItem(
@@ -163,7 +168,7 @@ class TestSeriesCard extends StatelessWidget {
                                     iconColor: const Color(0xFF10B981),
                                     bgColor: const Color(0xFFEDF8F2),
                                     count: item.topicTestCount,
-                                    label: 'Topic Tests',
+                                    label: 'Topic',
                                   ),
                                   const SizedBox(width: 5),
                                   _StatBoxItem(
@@ -171,7 +176,7 @@ class TestSeriesCard extends StatelessWidget {
                                     iconColor: const Color(0xFFF59E0B),
                                     bgColor: const Color(0xFFFFF7ED),
                                     count: item.pyqTestCount,
-                                    label: 'PYQ Tests',
+                                    label: 'PYQ',
                                   ),
                                 ],
                               ),
@@ -249,13 +254,19 @@ class _ExamIcon extends StatelessWidget {
             // Centered Logo / Emblem
             Padding(
               padding: EdgeInsets.all(size * 0.1),
-              child: item.assetPath != null
-                  ? Image.asset(
-                      item.assetPath!,
+              child: Builder(
+                builder: (_) {
+                  final asset = item.assetPath ?? ExamAssets.getEmblemAsset(item.title);
+                  if (asset != null) {
+                    return Image.asset(
+                      asset,
                       fit: BoxFit.contain,
                       errorBuilder: (_, _, _) => _buildFallbackVector(),
-                    )
-                  : _buildFallbackVector(),
+                    );
+                  }
+                  return _buildFallbackVector();
+                },
+              ),
             ),
           ],
         ),

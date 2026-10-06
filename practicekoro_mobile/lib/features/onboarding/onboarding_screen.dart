@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../data/datasources/local_storage.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -16,25 +15,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _slides = [
     {
-      'title': 'Practice Today\nPerform Tomorrow',
-      'subtitle': 'Mock Tests • Practice • PYQ\nfor Your Success',
-      'image': 'assets/images/student.png',
+      'title': 'সরকারি পরীক্ষার\nপ্রস্তুতি এখন\nআরও সহজ',
+      'subtitle': 'Mock Test • Practice • Analysis\nReal Exam Experience',
     },
     {
-      'title': 'Real Exam Experience\nBefore The Real Day',
-      'subtitle': 'Curated by WB toppers & experts\nwith detailed solutions',
-      'image': 'assets/images/student.png',
+      'title': 'সেরা মক টেস্ট ও\nরিয়েল এক্সাম ফিল',
+      'subtitle': 'WB ও কেন্দ্রীয় পরীক্ষার অনুরূপ প্রশ্ন\nও বিস্তারিত সমাধান',
     },
     {
-      'title': 'Track Your State Rank\n& Progress Faster',
-      'subtitle': 'Know where you stand among\nthousands of Bengal aspirants',
-      'image': 'assets/images/student.png',
+      'title': 'রাজ্যব্যাপী র‍্যাঙ্ক ও\nসঠিক অগ্রগতি ট্র্যাকিং',
+      'subtitle': 'হাজারো পরীক্ষার্থীর মধ্যে\nআপনার অবস্থান জানুন',
     },
   ];
 
   void _onGetStarted() {
     LocalStorageService.setOnboardingCompleted(true);
     context.go('/exam-selection');
+  }
+
+  void _onLogin() {
+    LocalStorageService.setOnboardingCompleted(true);
+    context.go('/login');
   }
 
   @override
@@ -49,59 +50,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             children: [
-              // Top Brand Header with Skip
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
-                        child: Image.asset(
-                          'assets/images/logo-circle.png',
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'PracticeKoro',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.navy,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: TextButton(
-                      onPressed: _onGetStarted,
-                      child: const Text(
-                        'Skip',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
+              const Spacer(flex: 1),
+
+              // Large Circular Icon Container from Reference
+              Container(
+                width: 108,
+                height: 108,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF026BFC),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF026BFC).withValues(alpha: 0.25),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.assignment_turned_in_rounded,
+                      size: 44,
+                      color: Colors.white,
                     ),
                   ),
-                ],
+                ),
               ),
+              const SizedBox(height: 20),
 
-              const SizedBox(height: 12),
+              // PracticeKoro Brand Name
+              const Text(
+                'PracticeKoro',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF051A43),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 28),
 
-              // Swipable Slides
-              Expanded(
+              // Swipable Text Slides
+              SizedBox(
+                height: 180,
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (idx) => setState(() => _currentPage = idx),
@@ -111,103 +112,81 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Title
                         Text(
                           slide['title']!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 24,
+                            fontSize: 26,
                             fontWeight: FontWeight.w900,
-                            color: AppColors.navy,
-                            letterSpacing: -0.5,
-                            height: 1.2,
+                            color: Color(0xFF051A43),
+                            letterSpacing: -0.4,
+                            height: 1.25,
                           ),
                         ),
-                        const SizedBox(height: 8),
-
-                        // Subtitle
+                        const SizedBox(height: 14),
                         Text(
                           slide['subtitle']!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF64748B),
-                            height: 1.4,
+                            height: 1.45,
                           ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // 3D Student Illustration (Responsive)
-                        Expanded(
-                          child: Center(
-                            child: Image.asset(
-                              slide['image']!,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                width: 180,
-                                height: 180,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryLight,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.school_rounded,
-                                  size: 80,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
                       ],
                     );
                   },
                 ),
               ),
 
-              // Carousel Indicators (Active capsule, inactive dots)
+              const SizedBox(height: 16),
+
+              // 3-Dot Carousel Indicator
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_slides.length, (idx) {
                   final isCurrent = idx == _currentPage;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: isCurrent ? 24 : 6,
-                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: isCurrent ? 22 : 7,
+                    height: 7,
                     decoration: BoxDecoration(
-                      color: isCurrent ? AppColors.primary : const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(3),
+                      color: isCurrent
+                          ? const Color(0xFF026BFC)
+                          : const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   );
                 }),
               ),
-              const SizedBox(height: 24),
 
-              // Full Width Get Started Button
+              const Spacer(flex: 2),
+
+              // Pill CTA Button: "চালু করি ->"
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
                   onPressed: _onGetStarted,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF026BFC),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(100),
                     ),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Get Started',
+                        'চালু করি',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
                         ),
                       ),
                       SizedBox(width: 8),
@@ -216,7 +195,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+
+              // Already have an account? Login
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Already have an account? ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _onLogin,
+                    child: const Text(
+                      'Login',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF026BFC),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
             ],
           ),
         ),

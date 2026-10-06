@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Download PracticeKoro Mobile App</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      text-align: center;
+    }
+    .logo-wrap {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 16px;
+      background: white;
+      border-radius: 22px;
+      padding: 12px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .tagline {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+    .badge-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+      padding: 6px 12px;
+      border-radius: 100px;
+    }
+    .btn-download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 16px 24px;
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, 0.45);
+      transition: all 0.2s ease;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .btn-download:hover, .btn-download:active {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.6);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+    .btn-web {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 14px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 100%;
+      margin-bottom: 24px;
+      transition: background 0.2s;
+    }
+    .btn-web:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .guide-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 16px;
+      text-align: left;
+    }
+    .guide-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f59e0b;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-list {
+      list-style: none;
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+    .guide-list li {
+      margin-bottom: 8px;
+      position: relative;
+      padding-left: 18px;
+    }
+    .guide-list li::before {
+      content: "•";
+      color: #3b82f6;
+      font-size: 16px;
+      position: absolute;
+      left: 4px;
+      top: -1px;
+    }
+    .guide-list strong {
+      color: #ffffff;
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-wrap">
+      <img src="/logo-icon.png" alt="PracticeKoro Logo" onerror="this.src='/favicon.png'">
+    </div>
+    <h1>PracticeKoro App</h1>
+    <p class="tagline">Official Android Release v2.0.3</p>
+
+    <div class="badge-row">
+      <span class="badge">70 MB</span>
+      <span class="badge">Android 7.0+ (Universal)</span>
+      <span class="badge">Signed & Verified</span>
+    </div>
+
+    <a href="/PracticeKoro.apk" class="btn-download" download="PracticeKoro.apk">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      Download Android APK
+    </a>
+
+    <a href="/app/" class="btn-web">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+      Open Web App in Browser
+    </a>
+
+    <div class="guide-box">
+      <div class="guide-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        Installation Help (If you see "Invalid File"):
+      </div>
+      <ul class="guide-list">
+        <li><strong>Uninstall Old App:</strong> If you already have an earlier version of PracticeKoro on your phone, uninstall it first to avoid certificate mismatch.</li>
+        <li><strong>Complete Download:</strong> Wait until the 69MB download completes before tapping to open.</li>
+        <li><strong>Play Protect Warning:</strong> If Google Play Protect asks "Unrecognized App", tap <strong>"More details"</strong> → <strong>"Install anyway"</strong>.</li>
+        <li><strong>Allow Unknown Sources:</strong> When Chrome asks for permission to install apps, enable "Allow from this source".</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">PracticeKoro 2.0 • WB Exam Preparation Platform</p>
+</body>
+</html>

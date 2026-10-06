@@ -1,6 +1,5 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
-  MOCK_EXAMS,
   MOCK_SUBJECTS,
   MOCK_CHAPTERS,
   MOCK_QUESTIONS,
@@ -31,8 +30,6 @@ import { resolveTestNegativeMarking } from '@/utils/negativeMarking';
 import {
   localAttemptsStore,
   localTests,
-  localTestSeries,
-  localExams,
 } from '@/services/domains/localStore';
 import type {
   AttemptRow,
@@ -57,8 +54,58 @@ type QuestionWithContext = QuestionRow & {
  */
 
 export const catalogApi = {
+  async getDailyContent(): Promise<Record<string, unknown>> {
+    if (!isSupabaseConfigured) return {};
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('id', 'daily_content')
+      .maybeSingle();
+    if (error) throw new Error(error.message || 'Failed to load daily student content');
+    if (!data?.value) return {};
+    const value = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  },
+
+  async getAppLeaderboard(
+    scope: 'all_india' | 'west_bengal' | 'district' = 'west_bengal',
+    district?: string,
+    examName?: string,
+    from?: string,
+  ) {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc('get_app_leaderboard', {
+      p_scope: scope,
+      p_district: district ?? null,
+      p_exam_name: examName ?? null,
+      p_from: from ?? null,
+    });
+    if (error) throw new Error(error.message || 'Failed to load leaderboard');
+    return (data || []) as Array<{
+      rank: number;
+      display_name: string;
+      average_percentage: number;
+      district: string | null;
+      tests_count: number;
+    }>;
+  },
+
+  subscribeToStudentCatalogUpdates(callback: () => void): () => void {
+    if (!isSupabaseConfigured) return () => {};
+    const channel = supabase
+      .channel('student-catalog-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'test_series' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tests' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chapters' }, callback)
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  },
+
   async getExams(): Promise<Exam[]> {
-    if (!isSupabaseConfigured) return MOCK_EXAMS;
+    if (!isSupabaseConfigured) return [];
     try {
       const [examsRes, testsRes, testExamsRes] = await Promise.all([
         supabase
@@ -126,11 +173,7 @@ export const catalogApi = {
   },
 
   async getSubjects(examId?: string): Promise<Subject[]> {
-    const fallback = () =>
-      (examId && MOCK_SUBJECTS[examId]
-        ? MOCK_SUBJECTS[examId]
-        : Object.values(MOCK_SUBJECTS).flat()) || [];
-    if (!isSupabaseConfigured) return fallback();
+    if (!isSupabaseConfigured) return [];
     try {
       let query = supabase
         .from('subjects')
@@ -161,7 +204,7 @@ export const catalogApi = {
   },
 
   async getChapters(subjectId: string): Promise<Chapter[]> {
-    if (!isSupabaseConfigured) return MOCK_CHAPTERS[subjectId] || [];
+    if (!isSupabaseConfigured) return [];
     try {
       const { data, error } = await supabase
         .from('chapters')
@@ -187,7 +230,7 @@ export const catalogApi = {
 
   async getAllChapters(): Promise<Chapter[]> {
     if (!isSupabaseConfigured) {
-      return Object.values(MOCK_CHAPTERS).flat();
+      return [];
     }
     try {
       const { data, error } = await supabase
@@ -266,13 +309,7 @@ export const catalogApi = {
 
   async getTests(chapterId?: string, examId?: string): Promise<MockTest[]> {
     if (!isSupabaseConfigured) {
-      return localTests.filter(
-        (t) =>
-          t.isActive &&
-          (t.status === 'published' || !t.status) &&
-          (!examId || t.examId === examId) &&
-          (!chapterId || t.chapterId === chapterId)
-      );
+      return [];
     }
     try {
       let assocTestIds: string[] = [];
@@ -349,18 +386,7 @@ export const catalogApi = {
     category?: 'full_mock' | 'pyq' | 'topic'
   ): Promise<MockTest[]> {
     if (category === 'topic') {
-      const fallback = () =>
-        localTests.filter(
-          (t) =>
-            t.isActive &&
-            (t.status === 'published' || !t.status) &&
-            (!t.examId || t.examId === examId) &&
-            (t.testType === 'topic' ||
-              t.testType === 'chapter_mock' ||
-              t.testType === 'subject_mock')
-        );
-
-      if (!isSupabaseConfigured) return fallback();
+      if (!isSupabaseConfigured) return [];
 
       try {
         let assocTestIds: string[] = [];
@@ -502,16 +528,7 @@ export const catalogApi = {
   },
 
   async getTestById(testId: string): Promise<MockTest | null> {
-    const mockFound = localTests.find((t) => t.id === testId);
-    if (!isSupabaseConfigured) {
-      if (mockFound && mockFound.testSeriesId && !mockFound.testSeriesTitle) {
-        const foundSeries = localTestSeries.find((s) => s.id === mockFound.testSeriesId);
-        if (foundSeries) {
-          return { ...mockFound, testSeriesTitle: foundSeries.title };
-        }
-      }
-      return mockFound || null;
-    }
+    if (!isSupabaseConfigured) return null;
 
     try {
       const { data, error } = await supabase
@@ -526,6 +543,8 @@ export const catalogApi = {
         `
         )
         .eq('id', testId)
+        .eq('is_active', true)
+        .eq('status', 'published')
         .maybeSingle();
       if (error || !data) return null;
       const row = data as any;
@@ -578,39 +597,11 @@ export const catalogApi = {
       return [];
     }
 
-    // Local / Demo Fallback: Sanitize MOCK_QUESTIONS without answers
-    const questions = MOCK_QUESTIONS[testId] || MOCK_QUESTIONS['test-indus-01'] || [];
-    const allSubjects = Object.values(MOCK_SUBJECTS).flat();
-    const allChapters = Object.values(MOCK_CHAPTERS).flat();
-
-    return questions.map((q, idx) => ({
-      id: q.id,
-      questionOrder: idx + 1,
-      questionText: q.questionText,
-      questionBengaliText: q.questionBengaliText,
-      imageUrl: q.imageUrl,
-      subjectId: q.subjectId,
-      subjectName:
-        q.subjectName ||
-        (q.subjectId ? allSubjects.find((s) => s.id === q.subjectId)?.name : undefined),
-      chapterId: q.chapterId,
-      chapterName:
-        q.chapterName ||
-        (q.chapterId ? allChapters.find((c) => c.id === q.chapterId)?.name : undefined),
-      optionA: q.optionA,
-      optionB: q.optionB,
-      optionC: q.optionC,
-      optionD: q.optionD,
-      marks: q.defaultMarks,
-      negativeMarks: q.defaultNegativeMarks,
-      difficulty: q.difficulty,
-    }));
+    return [];
   },
 
   async getTestQuestions(testId: string): Promise<Question[]> {
-    if (!isSupabaseConfigured) {
-      return MOCK_QUESTIONS[testId] || MOCK_QUESTIONS['test-indus-01'] || [];
-    }
+    if (!isSupabaseConfigured) return [];
     try {
       const { data, error } = await supabase
         .from('test_questions')
@@ -1505,35 +1496,7 @@ export const catalogApi = {
       // Ignore storage errors
     }
 
-    if (!isSupabaseConfigured) {
-      return localTestSeries
-        .filter((s) => s.isActive && (!examId || s.examId === examId))
-        .map((s) => {
-          const exam = localExams.find((e) => e.id === s.examId);
-          const sTests = localTests.filter(
-            (t) => t.testSeriesId === s.id && t.isActive && (t.status === 'published' || !t.status)
-          );
-          const count = sTests.length;
-          const fullMockCount = sTests.filter((t) => t.testType === 'full_mock').length;
-          const pyqTestCount = sTests.filter((t) => t.testType === 'pyq').length;
-          const topicTestCount = sTests.filter(
-            (t) =>
-              t.testType === 'topic' ||
-              t.testType === 'chapter_mock' ||
-              t.testType === 'subject_mock'
-          ).length;
-          return {
-            ...s,
-            iconUrl: s.iconUrl || cachedIcons[s.id] || undefined,
-            examTitle: exam?.title,
-            testCount: count,
-            testsCount: count,
-            fullMockCount,
-            topicTestCount,
-            pyqTestCount,
-          };
-        });
-    }
+    if (!isSupabaseConfigured) return [];
 
     try {
       let query = supabase
@@ -1580,6 +1543,7 @@ export const catalogApi = {
           isPremium: Boolean(item.is_premium),
           orderIndex: Number(item.order_index || 0),
           isActive: Boolean(item.is_active),
+          isPopular: Boolean(item.is_popular),
           createdAt: item.created_at,
           examTitle: item.exams?.title || undefined,
           examCategory: item.exams?.category || undefined,
@@ -1599,11 +1563,7 @@ export const catalogApi = {
    * Fetch active & published tests assigned to a specific test series for students.
    */
   async getSeriesTestsForStudent(seriesId: string): Promise<MockTest[]> {
-    if (!isSupabaseConfigured) {
-      return localTests.filter(
-        (t) => t.testSeriesId === seriesId && t.isActive && (t.status === 'published' || !t.status)
-      );
-    }
+    if (!isSupabaseConfigured) return [];
 
     try {
       const { data, error } = await supabase

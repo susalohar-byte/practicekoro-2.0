@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/widgets/pk_bottom_spacing.dart';
+import '../../core/constants/exam_assets.dart';
 import '../../data/models/test_model.dart';
 import '../../data/models/test_series_model.dart';
 import '../../data/repositories/catalog_repository.dart';
 
-/// Screen 2 & Screen 3: Test Series Details & Categorized Test List
-/// Faithful reproduction of the PracticeKoro Test Series Detail & Test Categories UI.
 class TestSeriesDetailScreen extends ConsumerStatefulWidget {
   final String seriesId;
 
@@ -23,11 +20,9 @@ class _TestSeriesDetailScreenState extends ConsumerState<TestSeriesDetailScreen>
   TestSeriesModel? _series;
   List<MockTestModel> _tests = [];
   bool _isLoading = true;
-  bool _isFavorite = false;
-  bool _isExpandedAbout = false;
-  int _selectedTabIndex = 0;
+  int _selectedTabIndex = 0; // 0: Tests, 1: About, 2: Subjects, 3: Syllabus
 
-  final List<String> _tabs = ['All Tests', 'Full Mock Tests', 'Topic Tests', 'PYQ'];
+  final List<String> _tabs = ['Tests', 'About', 'Subjects', 'Syllabus'];
 
   @override
   void initState() {
@@ -53,62 +48,21 @@ class _TestSeriesDetailScreenState extends ConsumerState<TestSeriesDetailScreen>
     }
   }
 
-  String _resolveEmblemAsset(String id, String? title) {
-    final lower = '${id.toLowerCase()} ${title?.toLowerCase() ?? ""}';
-    if (lower.contains('kp')) return 'assets/images/exams/emblem_series_kp.png';
-    if (lower.contains('ssc')) return 'assets/images/exams/emblem_series_ssc.png';
-    if (lower.contains('tet')) return 'assets/images/exams/emblem_wbtet_seal.png';
-    if (lower.contains('panchayat') || lower.contains('clerk') || lower.contains('wbpsc')) {
-      return 'assets/images/exams/emblem_wbpsc_coin.png';
-    }
-    return 'assets/images/exams/emblem_series_wbp.png';
+  String _getSeriesTitle() {
+    if (_series != null && _series!.title.isNotEmpty) return _series!.title;
+    final id = widget.seriesId.toLowerCase();
+    if (id.contains('wbp')) return 'WBP Constable';
+    if (id.contains('group-c')) return 'WBSSC Group C';
+    if (id.contains('group-d')) return 'WBSSC Group D';
+    if (id.contains('railway')) return 'Railway (NTPC)';
+    if (id.contains('icds')) return 'ICDS';
+    if (id.contains('food')) return 'Food SI';
+    return 'WBP Constable';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-
-    final series = _series ??
-        TestSeriesModel(
-          id: widget.seriesId,
-          examId: 'wbp-constable',
-          title: 'WBP Constable Test Series 2026',
-          slug: widget.seriesId,
-          description:
-              'Complete test series for WBP Constable 2026 with full mock tests, topic-wise tests and previous year questions. Designed as per latest syllabus and exam pattern.',
-        );
-
-    final fullMockTests = _tests.where((t) => t.testType == 'full_mock').toList();
-    final topicTests = _tests.where((t) => t.testType == 'topic' || t.testType == 'subject_mock' || t.testType == 'chapter_mock').toList();
-    final pyqTests = _tests.where((t) => t.testType == 'pyq').toList();
-
-    List<MockTestModel> currentTests;
-    switch (_selectedTabIndex) {
-      case 1:
-        currentTests = fullMockTests.isNotEmpty ? fullMockTests : _tests;
-        break;
-      case 2:
-        currentTests = topicTests.isNotEmpty ? topicTests : _tests;
-        break;
-      case 3:
-        currentTests = pyqTests.isNotEmpty ? pyqTests : _tests;
-        break;
-      case 0:
-      default:
-        currentTests = _tests;
-        break;
-    }
-
-    final fullMockCount = fullMockTests.isNotEmpty ? fullMockTests.length : 60;
-    final topicCount = topicTests.isNotEmpty ? topicTests.length : 40;
-    final pyqCount = pyqTests.isNotEmpty ? pyqTests.length : 20;
+    final title = _getSeriesTitle();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -117,377 +71,226 @@ class _TestSeriesDetailScreenState extends ConsumerState<TestSeriesDetailScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.navy),
-          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.of(context).canPop() ? Navigator.of(context).pop() : context.go('/test-series'),
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: _isFavorite ? const Color(0xFFEF4444) : AppColors.navy,
-              size: 22,
-            ),
+            icon: const Icon(Icons.share_outlined, color: Color(0xFF0F172A), size: 20),
             onPressed: () {
-              setState(() => _isFavorite = !_isFavorite);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_isFavorite ? 'Saved to Favorites' : 'Removed from Favorites'),
-                  duration: const Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
+                const SnackBar(content: Text('Series link copied to clipboard!')),
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.share_outlined, color: AppColors.navy, size: 21),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Test Series link copied to clipboard!'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: PKBottomSpacing.safeAreaEdgeInsets(context, horizontal: 16, top: 12),
-        children: [
-          // ── SCREEN 2: HERO CARD ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8EEF7)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF026BFC)))
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                // Top Row: Emblem + Title + Badges
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Emblem circle container
-                    Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: Padding(
-                          padding: const EdgeInsets.all(3),
-                          child: Image.asset(
-                            _resolveEmblemAsset(series.id, series.title),
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.shield_rounded, color: AppColors.primary, size: 30),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            series.title,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.navy,
-                              height: 1.25,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Badges Row
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF7ED),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFFFFEDD5)),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('🔥 ', style: TextStyle(fontSize: 10)),
-                                    Text(
-                                      'Bestseller',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFFC2410C),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFFDBEAFE)),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.language_rounded, size: 12, color: AppColors.primary),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Bengali & English',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
+                // 1. Header Card (Emblem, Title, Badges, 3 Stats)
+                _buildHeaderCard(title),
                 const SizedBox(height: 16),
-                const Divider(color: Color(0xFFF1F5F9), height: 1),
-                const SizedBox(height: 14),
 
-                // 3 Count metrics
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMetricTile(
-                        icon: Icons.description_outlined,
-                        iconColor: const Color(0xFF1D4ED8),
-                        iconBg: const Color(0xFFEFF6FF),
-                        count: '$fullMockCount',
-                        label: 'Full Mock Tests',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricTile(
-                        icon: Icons.edit_note_rounded,
-                        iconColor: const Color(0xFF16A34A),
-                        iconBg: const Color(0xFFF0FDF4),
-                        count: '$topicCount',
-                        label: 'Topic Tests',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricTile(
-                        icon: Icons.history_edu_rounded,
-                        iconColor: const Color(0xFFEA580C),
-                        iconBg: const Color(0xFFFFF7ED),
-                        count: '$pyqCount',
-                        label: 'PYQ Tests',
-                      ),
-                    ),
-                  ],
-                ),
+                // 2. Tabs: Tests | About | Subjects | Syllabus
+                _buildTabsBar(),
+                const SizedBox(height: 16),
+
+                // Tab Content
+                if (_selectedTabIndex == 0) ...[
+                  // 3. Full Mock Tests Section
+                  _buildFullMockTestsSection(title),
+                  const SizedBox(height: 16),
+
+                  // 4. Expandable Sub-sections (Subject Tests, Topic Tests, Official PYQs)
+                  _buildAccordionTile(
+                    icon: Icons.menu_book_rounded,
+                    title: 'Subject Tests',
+                    subtitle: '6 Subjects',
+                    onTap: () => context.push('/practice'),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildAccordionTile(
+                    icon: Icons.checklist_rounded,
+                    title: 'Topic Tests',
+                    subtitle: '48 Topics',
+                    onTap: () => context.push('/practice'),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildAccordionTile(
+                    icon: Icons.history_edu_rounded,
+                    title: 'Official PYQs',
+                    subtitle: '(2019 - 2024)',
+                    onTap: () => context.push('/test-details/test-wbp-001?title=Official+PYQ+2023'),
+                  ),
+                ] else if (_selectedTabIndex == 1) ...[
+                  _buildAboutSection(title),
+                ] else if (_selectedTabIndex == 2) ...[
+                  _buildSubjectsListSection(),
+                ] else ...[
+                  _buildSyllabusSection(title),
+                ],
+
+                const SizedBox(height: 32),
               ],
             ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ── ABOUT THIS TEST SERIES ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8EEF7)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'About This Test Series',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.navy,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  series.description ??
-                      'Complete test series for ${series.title} with full mock tests, topic-wise tests and previous year questions. Designed as per latest syllabus and exam pattern.',
-                  maxLines: _isExpandedAbout ? 10 : 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    height: 1.5,
-                    color: Color(0xFF475569),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => setState(() => _isExpandedAbout = !_isExpandedAbout),
-                  child: Text(
-                    _isExpandedAbout ? 'Read Less ∧' : 'Read More ∨',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Divider(color: Color(0xFFF1F5F9), height: 1),
-                const SizedBox(height: 12),
-                // Spec Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildSpecPill(Icons.description_outlined, '100 Questions'),
-                    _buildSpecPill(Icons.access_time_rounded, '60 Minutes'),
-                    _buildSpecPill(Icons.military_tech_outlined, '100 Marks'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ── SCREEN 3: TEST CATEGORIES TABS ──
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(_tabs.length, (index) {
-                final isSelected = _selectedTabIndex == index;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedTabIndex = index),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.25),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Text(
-                        _tabs[index],
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-                          color: isSelected ? Colors.white : const Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          // ── TEST LIST CARDS ──
-          if (currentTests.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(
-                child: Text(
-                  'No tests available in this category yet.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                ),
-              ),
-            )
-          else
-            ...List.generate(currentTests.length, (index) {
-              final test = currentTests[index];
-              return _buildTestCard(test, index + 1);
-            }),
-
-          const SizedBox(height: 24),
-        ],
-      ),
     );
   }
 
-  Widget _buildMetricTile({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String count,
-    required String label,
-  }) {
+  // 1. Header Card (Screen 03)
+  Widget _buildHeaderCard(String title) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: iconBg,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            count,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: iconColor,
+          // Large Shield / Emblem Container
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFDC2626).withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Builder(
+              builder: (context) {
+                final emblem = ExamAssets.getEmblemAsset(title);
+                if (emblem != null) {
+                  return Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Image.asset(
+                      emblem,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(
+                          Icons.shield_rounded,
+                          color: Colors.white,
+                          size: 42,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return const Center(
+                  child: Icon(
+                    Icons.shield_rounded,
+                    color: Colors.white,
+                    size: 42,
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 12),
+          // Title
           Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            title,
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navy,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Complete Test Series',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Badges: PRO & Most Popular
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.workspace_premium_rounded, size: 14, color: Color(0xFFB45309)),
+                    SizedBox(width: 4),
+                    Text(
+                      'PRO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE9FE),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFDDD6FE)),
+                ),
+                child: const Text(
+                  'Most Popular',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6D28D9),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Stats Row: 12 Full Mocks | 48 Topic Tests | 15 Official PYQs
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildHeaderStat('12', 'Full Mocks'),
+                Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
+                _buildHeaderStat('48', 'Topic Tests'),
+                Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
+                _buildHeaderStat('15', 'Official PYQs'),
+              ],
             ),
           ),
         ],
@@ -495,128 +298,451 @@ class _TestSeriesDetailScreenState extends ConsumerState<TestSeriesDetailScreen>
     );
   }
 
-  Widget _buildSpecPill(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildHeaderStat(String value, String label) {
+    return Column(
       children: [
-        Icon(icon, size: 15, color: const Color(0xFF64748B)),
-        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 2),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF334155),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF64748B),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTestCard(MockTestModel test, int order) {
+  // 2. Tabs Bar (Tests, About, Subjects, Syllabus)
+  Widget _buildTabsBar() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(_tabs.length, (i) {
+          final active = i == _selectedTabIndex;
+          return InkWell(
+            onTap: () => setState(() => _selectedTabIndex = i),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: active ? const Color(0xFF026BFC) : Colors.transparent,
+                    width: 2.5,
+                  ),
+                ),
+              ),
+              child: Text(
+                _tabs[i],
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                  color: active ? const Color(0xFF026BFC) : const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // 3. Full Mock Tests Section (Screen 03)
+  Widget _buildFullMockTestsSection(String title) {
+    final mockList = _tests.isNotEmpty
+        ? _tests
+            .map((t) => {
+                  'id': t.id,
+                  'title': t.title,
+                  'sub':
+                      '${t.totalQuestions} Qs • ${t.durationMinutes} Mins • ${t.totalMarks} Marks',
+                  'isFree': !t.isPremium,
+                })
+            .toList()
+        : [
+            {
+              'id': 'test-wbp-001',
+              'title': 'Full Mock Test 01',
+              'sub': '85 Qs • 60 Mins • 85 Marks',
+              'isFree': true,
+            },
+      {
+        'id': 'test-wbp-002',
+        'title': 'Full Mock Test 02',
+        'sub': '85 Qs • 60 Mins • 85 Marks',
+        'isFree': false,
+      },
+      {
+        'id': 'test-wbp-003',
+        'title': 'Full Mock Test 03',
+        'sub': '85 Qs • 60 Mins • 85 Marks',
+        'isFree': false,
+      },
+      {
+        'id': 'test-wbp-004',
+        'title': 'Full Mock Test 04',
+        'sub': '85 Qs • 60 Mins • 85 Marks',
+        'isFree': false,
+      },
+      {
+        'id': 'test-wbp-005',
+        'title': 'Full Mock Test 05',
+        'sub': '85 Qs • 60 Mins • 85 Marks',
+        'isFree': false,
+      },
+      {
+        'id': 'test-wbp-006',
+        'title': 'Full Mock Test 06',
+        'sub': '85 Qs • 60 Mins • 85 Marks',
+        'isFree': false,
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Full Mock Tests',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            Text(
+              '${mockList.length} Tests',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...mockList.map((test) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildMockTestRow(test, title),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildMockTestRow(Map<String, dynamic> test, String seriesTitle) {
+    final isFree = test['isFree'] as bool;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEF7)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
-          // Circular number container
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFDBEAFE)),
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              '$order',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
-              ),
+            child: const Icon(
+              Icons.article_outlined,
+              color: Color(0xFF475569),
+              size: 20,
             ),
           ),
           const SizedBox(width: 12),
-          // Title & Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  test.title,
+                  test['title'] as String,
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.navy,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      '📄 ${test.totalQuestions} Q',
-                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                    ),
-                    const Text(' • ', style: TextStyle(fontSize: 10, color: Color(0xFFCBD5E1))),
-                    Text(
-                      '⏱️ ${test.durationMinutes} Min',
-                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                    ),
-                    const Text(' • ', style: TextStyle(fontSize: 10, color: Color(0xFFCBD5E1))),
-                    Text(
-                      '🎖️ ${test.totalMarks.toInt()} Marks',
-                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  test['sub'] as String,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          // "Start Test" CTA pill button
-          GestureDetector(
-            onTap: () {
-              context.push(
-                '/test-details/${test.id}?title=${Uri.encodeComponent(test.title)}&isPro=${test.isPremium}',
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          if (isFree)
+            ElevatedButton(
+              onPressed: () {
+                context.push(
+                  '/test-details/${test['id']}?title=${Uri.encodeComponent(test['title'] as String)}',
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF026BFC),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                minimumSize: const Size(0, 32),
               ),
               child: const Text(
-                'Start Test',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                'Start',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            )
+          else
+            InkWell(
+              onTap: () => context.push('/subscription'),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.workspace_premium_rounded, size: 13, color: Color(0xFFB45309)),
+                    SizedBox(width: 3),
+                    Text(
+                      'PRO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // 4. Accordion Section Tiles
+  Widget _buildAccordionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: const Color(0xFF026BFC), size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF94A3B8),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // About Tab
+  Widget _buildAboutSection(String title) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'About $title Test Series',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
           ),
+          const SizedBox(height: 10),
+          const Text(
+            'This complete test series is strictly based on the latest West Bengal examination pattern. Contains full-length mock tests, subject-wise practice, and verified previous years questions with comprehensive bilingual solutions.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildFeatureBullet('Real Exam Interface with strict timers'),
+          _buildFeatureBullet('Negative Marking (0.25) simulation'),
+          _buildFeatureBullet('Statewide Rank & District-wise performance benchmark'),
+          _buildFeatureBullet('Concise Short Notes & high-yield revision points'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureBullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Subjects Tab
+  Widget _buildSubjectsListSection() {
+    final subjects = [
+      {'name': 'General Knowledge', 'tests': '16 Tests', 'icon': Icons.public_rounded},
+      {'name': 'General Science', 'tests': '12 Tests', 'icon': Icons.science_rounded},
+      {'name': 'Mathematics', 'tests': '14 Tests', 'icon': Icons.calculate_rounded},
+      {'name': 'Reasoning', 'tests': '10 Tests', 'icon': Icons.psychology_rounded},
+      {'name': 'English', 'tests': '8 Tests', 'icon': Icons.translate_rounded},
+    ];
+
+    return Column(
+      children: subjects.map((s) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              Icon(s['icon'] as IconData, color: const Color(0xFF026BFC), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  s['name'] as String,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                ),
+              ),
+              Text(
+                s['tests'] as String,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      )).toList(),
+    );
+  }
+
+  // Syllabus Tab
+  Widget _buildSyllabusSection(String title) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Official Syllabus Overview',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 10),
+          _buildSyllabusItem('General Awareness & GK', '25 Marks • Current Affairs, Indian History, Geography, Polity'),
+          _buildSyllabusItem('Elementary Mathematics', '25 Marks • Arithmetic, Number System, Mensuration (10th Std)'),
+          _buildSyllabusItem('Reasoning & Logical Analysis', '25 Marks • Coding-Decoding, Series, Syllogism, Blood Relations'),
+          _buildSyllabusItem('English Language', '10 Marks • Vocabulary, Grammar, Idioms, Fill in the blanks'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSyllabusItem(String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+          const SizedBox(height: 2),
+          Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
         ],
       ),
     );

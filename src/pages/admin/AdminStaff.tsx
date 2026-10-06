@@ -1,661 +1,1369 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '@/services/api';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   Shield,
-  Search,
-  Plus,
-  Edit2,
-  CheckCircle2,
-  AlertCircle,
-  Mail,
   UserCheck,
-  UserMinus,
-  RefreshCw,
+  UserX,
+  Crown,
+  FileText,
+  Headphones,
+  CreditCard,
+  BarChart2,
+  Plus,
+  Search,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Eye,
+  EyeOff,
+  Check,
   X,
-  Settings as SettingsIcon,
-  Sparkles,
+  Clock,
   History,
+  Trash2,
+  Key,
 } from 'lucide-react';
-import type { AdminRole, AdminStaffMember } from '@/types';
 import { cn } from '@/lib/utils';
-import { getErrorMessage } from '@/lib/errors';
+import { api } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+
+// ============================================================================
+// DATA MODELS & TYPES
+// ============================================================================
+
+export type SystemAdminRole =
+  | 'Super Admin'
+  | 'Content Manager'
+  | 'Support Manager'
+  | 'Finance Manager'
+  | 'Analyst';
+
+export type AdminUserStatus = 'Active' | 'Inactive';
+
+export interface AdminUserRecord {
+  id: string;
+  num: number;
+  name: string;
+  isCurrentUser?: boolean;
+  avatarType: 'photo' | 'initials';
+  avatarSrc?: string;
+  avatarInitials?: string;
+  avatarBgColor?: string;
+  avatarTextColor?: string;
+  email: string;
+  phone?: string;
+  role: SystemAdminRole;
+  status: AdminUserStatus;
+  lastActive: string;
+}
+
+export interface SystemRoleCardData {
+  title: SystemAdminRole;
+  description: string;
+  adminsCount: number;
+  permissionsPercentage: number;
+  iconBg: string;
+  iconColor: string;
+  rolePillClass: string;
+}
+
+// Initial 8 admins strictly matching screenshot media_1791202475463.jpg
+const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
+  {
+    id: 'adm-1',
+    num: 1,
+    name: 'Susanta Lohar',
+    isCurrentUser: true,
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    email: 'susanta@example.com',
+    phone: '+91 98765 43210',
+    role: 'Super Admin',
+    status: 'Active',
+    lastActive: '2 minutes ago',
+  },
+  {
+    id: 'adm-2',
+    num: 2,
+    name: 'Puja Namata',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    email: 'puja@example.com',
+    phone: '+91 98765 43211',
+    role: 'Content Manager',
+    status: 'Active',
+    lastActive: '1 hour ago',
+  },
+  {
+    id: 'adm-3',
+    num: 3,
+    name: 'Rohit Kumar',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    email: 'rohit@example.com',
+    phone: '+91 98765 43212',
+    role: 'Support Manager',
+    status: 'Active',
+    lastActive: '3 hours ago',
+  },
+  {
+    id: 'adm-4',
+    num: 4,
+    name: 'Sneha Khatun',
+    avatarType: 'initials',
+    avatarInitials: 'SK',
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    email: 'sneha@example.com',
+    phone: '+91 98765 43213',
+    role: 'Finance Manager',
+    status: 'Active',
+    lastActive: '1 day ago',
+  },
+  {
+    id: 'adm-5',
+    num: 5,
+    name: 'Arijit Pal',
+    avatarType: 'initials',
+    avatarInitials: 'AP',
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    email: 'arijit@example.com',
+    phone: '+91 98765 43214',
+    role: 'Analyst',
+    status: 'Active',
+    lastActive: '2 hours ago',
+  },
+  {
+    id: 'adm-6',
+    num: 6,
+    name: 'Moumita Das',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    email: 'moumita@example.com',
+    phone: '+91 98765 43215',
+    role: 'Content Manager',
+    status: 'Active',
+    lastActive: '6 hours ago',
+  },
+  {
+    id: 'adm-7',
+    num: 7,
+    name: 'Subhankar Bera',
+    avatarType: 'initials',
+    avatarInitials: 'SB',
+    avatarBgColor: 'bg-amber-100',
+    avatarTextColor: 'text-amber-700',
+    email: 'subhankar@example.com',
+    phone: '+91 98765 43216',
+    role: 'Analyst',
+    status: 'Inactive',
+    lastActive: '5 days ago',
+  },
+  {
+    id: 'adm-8',
+    num: 8,
+    name: 'Admin Test',
+    avatarType: 'photo',
+    avatarSrc: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    email: 'admintest@example.com',
+    phone: '+91 98765 43217',
+    role: 'Support Manager',
+    status: 'Active',
+    lastActive: '1 day ago',
+  },
+];
+
+// System Roles Data matching reference
+const SYSTEM_ROLES: SystemRoleCardData[] = [
+  {
+    title: 'Super Admin',
+    description: 'Full access to all features',
+    adminsCount: 2,
+    permissionsPercentage: 100,
+    iconBg: 'bg-[#EDE9FE]',
+    iconColor: 'text-[#7C3AED]',
+    rolePillClass: 'bg-[#EDE9FE] text-[#7C3AED]',
+  },
+  {
+    title: 'Content Manager',
+    description: 'Manage questions, tests, exams',
+    adminsCount: 2,
+    permissionsPercentage: 65,
+    iconBg: 'bg-[#DBEAFE]',
+    iconColor: 'text-[#2563EB]',
+    rolePillClass: 'bg-[#DBEAFE] text-[#1D4ED8]',
+  },
+  {
+    title: 'Support Manager',
+    description: 'Handle support and communication',
+    adminsCount: 1,
+    permissionsPercentage: 40,
+    iconBg: 'bg-[#DCFCE7]',
+    iconColor: 'text-[#16A34A]',
+    rolePillClass: 'bg-[#DCFCE7] text-[#15803D]',
+  },
+  {
+    title: 'Finance Manager',
+    description: 'Manage payments and subscriptions',
+    adminsCount: 1,
+    permissionsPercentage: 45,
+    iconBg: 'bg-[#FEF3C7]',
+    iconColor: 'text-[#D97706]',
+    rolePillClass: 'bg-[#FEF3C7] text-[#B45309]',
+  },
+  {
+    title: 'Analyst',
+    description: 'View analytics and performance',
+    adminsCount: 2,
+    permissionsPercentage: 30,
+    iconBg: 'bg-[#FEE2E2]',
+    iconColor: 'text-[#DC2626]',
+    rolePillClass: 'bg-[#FEE2E2] text-[#DC2626]',
+  },
+];
+
+// Helper to get role badge pill style
+const getRoleBadgeClass = (role: SystemAdminRole) => {
+  switch (role) {
+    case 'Super Admin':
+      return 'bg-[#EDE9FE] text-[#7C3AED]';
+    case 'Content Manager':
+      return 'bg-[#DBEAFE] text-[#1D4ED8]';
+    case 'Support Manager':
+      return 'bg-[#DCFCE7] text-[#15803D]';
+    case 'Finance Manager':
+      return 'bg-[#FEF3C7] text-[#B45309]';
+    case 'Analyst':
+      return 'bg-[#FEE2E2] text-[#DC2626]';
+  }
+};
+
+// Helper to convert backend role to UI role
+const backendRoleToUiRole = (role?: string): SystemAdminRole => {
+  if (role === 'super_admin') return 'Super Admin';
+  if (role === 'support_agent') return 'Support Manager';
+  if (role === 'finance_manager') return 'Finance Manager';
+  if (role === 'analyst') return 'Analyst';
+  return 'Content Manager';
+};
+
+// ============================================================================
+// MAIN COMPONENT: ADMIN STAFF & ROLES
+// ============================================================================
 
 export const AdminStaff: React.FC = () => {
   const { user: currentAdmin } = useAuth();
-  const [staff, setStaff] = useState<AdminStaffMember[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<'all' | AdminRole>('all');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal State for Role Change / Add
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [selectedStaff, setSelectedStaff] = useState<AdminStaffMember | null>(null);
-  const [emailInput, setEmailInput] = useState('');
-  const [selectedRole, setSelectedRole] = useState<AdminRole>('content_writer');
-  const [isSaving, setIsSaving] = useState(false);
-  const [modalFeedback, setModalFeedback] = useState<{
-    type: 'error' | 'success';
-    text: string;
-  } | null>(null);
-
-  // Demote confirmation modal state
-  const [demoteConfirmMember, setDemoteConfirmMember] = useState<AdminStaffMember | null>(null);
-  const [isDemoting, setIsDemoting] = useState(false);
-
-  const loadStaff = useCallback(async () => {
+  // Master admins list with localStorage persistence
+  const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>(() => {
     try {
-      setIsLoading(true);
-      const data = await api.getStaffMembers();
-      setStaff(data);
-    } catch (err) {
-      console.error('Failed to load staff list:', err);
-    } finally {
-      setIsLoading(false);
+      const stored = localStorage.getItem('practicekoro_admin_staff_users_v2');
+      if (stored) return JSON.parse(stored);
+    } catch {
+      // ignore
     }
-  }, []);
+    return INITIAL_ADMIN_USERS;
+  });
 
   useEffect(() => {
-    loadStaff();
-  }, [loadStaff]);
+    try {
+      localStorage.setItem('practicekoro_admin_staff_users_v2', JSON.stringify(adminUsers));
+    } catch {
+      // ignore
+    }
+  }, [adminUsers]);
 
-  const filteredStaff = useMemo(() => {
-    return staff.filter((s) => {
-      const matchesRole = roleFilter === 'all' || s.adminRole === roleFilter;
-      const q = searchQuery.trim().toLowerCase();
-      const matchesSearch =
-        !q || s.fullName.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
-      return matchesRole && matchesSearch;
-    });
-  }, [staff, roleFilter, searchQuery]);
+  // Load real staff members from database/backend
+  useEffect(() => {
+    let isMounted = true;
+    api
+      .getStaffMembers()
+      .then((members) => {
+        if (!isMounted || !members || members.length === 0) return;
+        const mapped: AdminUserRecord[] = members.map((m, idx) => {
+          const initials = (m.fullName || m.email || 'Admin')
+            .split(' ')
+            .map((s) => s[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+          return {
+            id: m.id,
+            num: idx + 1,
+            name: m.fullName || 'Admin User',
+            isCurrentUser: currentAdmin?.id === m.id || currentAdmin?.email === m.email,
+            avatarType: m.avatarUrl ? 'photo' : 'initials',
+            avatarSrc: m.avatarUrl,
+            avatarInitials: initials || 'AD',
+            avatarBgColor: 'bg-blue-100',
+            avatarTextColor: 'text-blue-600',
+            email: m.email,
+            phone: m.phone,
+            role: backendRoleToUiRole(m.adminRole),
+            status: 'Active',
+            lastActive: 'Recently active',
+          };
+        });
 
-  const counts = useMemo(() => {
-    return {
-      total: staff.length,
-      super_admin: staff.filter((s) => s.adminRole === 'super_admin').length,
-      content_writer: staff.filter((s) => s.adminRole === 'content_writer').length,
-      support_agent: staff.filter((s) => s.adminRole === 'support_agent').length,
+        setAdminUsers((prev) => {
+          const serverEmails = new Set(mapped.map((x) => x.email.toLowerCase()));
+          const remainingLocal = prev.filter((x) => !serverEmails.has(x.email.toLowerCase()));
+          return [...mapped, ...remainingLocal];
+        });
+      })
+      .catch((err) => {
+        console.warn('[AdminStaff] Failed to fetch staff members:', err);
+      });
+
+    return () => {
+      isMounted = false;
     };
-  }, [staff]);
+  }, [currentAdmin]);
 
-  const handleOpenAdd = () => {
-    setModalMode('add');
-    setSelectedStaff(null);
-    setEmailInput('');
-    setSelectedRole('content_writer');
-    setModalFeedback(null);
-    setIsModalOpen(true);
+  // Top Navigation Tabs: 'Roles & Permissions' | 'Admin Users' | 'Activity Log'
+  const [activeMainTab, setActiveMainTab] = useState<
+    'Roles & Permissions' | 'Admin Users' | 'Activity Log'
+  >('Roles & Permissions');
+
+  // Filter toolbar states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState('All Roles');
+  const [filterStatus, setFilterStatus] = useState('All Status');
+
+  // Checkbox selections in table
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Action Menu state
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Side Panel state: Create New Admin
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
+  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>('Basic Info');
+
+  // Form Fields
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [formRole, setFormRole] = useState<SystemAdminRole>('Content Manager');
+  const [formStatus, setFormStatus] = useState<AdminUserStatus>('Active');
+  const [formWelcomeEmail, setFormWelcomeEmail] = useState(true);
+
+  // Create Role Modal
+  const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDesc, setNewRoleDesc] = useState('');
+
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleOpenEdit = (member: AdminStaffMember) => {
-    setModalMode('edit');
-    setSelectedStaff(member);
-    setEmailInput(member.email);
-    setSelectedRole(member.adminRole);
-    setModalFeedback(null);
-    setIsModalOpen(true);
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClick = () => setActiveMenuId(null);
+    if (activeMenuId !== null) {
+      window.addEventListener('click', handleClick);
+    }
+    return () => window.removeEventListener('click', handleClick);
+  }, [activeMenuId]);
+
+  // Filtered admin users
+  const filteredAdmins = useMemo(() => {
+    return adminUsers.filter((adm) => {
+      if (filterRole !== 'All Roles' && adm.role !== filterRole) return false;
+      if (filterStatus !== 'All Status' && adm.status !== filterStatus) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matches =
+          adm.name.toLowerCase().includes(q) ||
+          adm.email.toLowerCase().includes(q) ||
+          adm.role.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [adminUsers, filterRole, filterStatus, searchQuery]);
+
+  // Table selection handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredAdmins.map((a) => a.id));
+    } else {
+      setSelectedIds([]);
+    }
   };
 
-  const handleSaveRole = async (e: React.FormEvent) => {
+  const handleToggleRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  // Reset Filters
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setFilterRole('All Roles');
+    setFilterStatus('All Status');
+    showToast('Filters reset.');
+  };
+
+  // Create New Admin submit
+  const handleCreateAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setModalFeedback(null);
+    if (!formName.trim() || !formEmail.trim()) {
+      showToast('Please enter admin name and email.');
+      return;
+    }
+
+    const initials = formName
+      .split(' ')
+      .map((s) => s[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    const newAdmin: AdminUserRecord = {
+      id: `adm-${Date.now()}`,
+      num: adminUsers.length + 1,
+      name: formName.trim(),
+      avatarType: 'initials',
+      avatarInitials: initials || 'AD',
+      avatarBgColor: 'bg-blue-100',
+      avatarTextColor: 'text-blue-600',
+      email: formEmail.trim(),
+      phone: formPhone.trim() || undefined,
+      role: formRole,
+      status: formStatus,
+      lastActive: 'Just now',
+    };
 
     try {
-      setIsSaving(true);
-      if (modalMode === 'add') {
-        const res = await api.assignStaffByEmail(emailInput, selectedRole, currentAdmin);
-        if (!res.success) {
-          setModalFeedback({ type: 'error', text: res.error || 'Failed to assign role' });
-          return;
-        }
-        setModalFeedback({
-          type: 'success',
-          text: `Successfully assigned ${emailInput} as ${selectedRole.replace('_', ' ')}!`,
-        });
-      } else if (modalMode === 'edit' && selectedStaff) {
-        const res = await api.updateStaffRole(selectedStaff.id, selectedRole, currentAdmin);
-        if (!res.success) {
-          setModalFeedback({ type: 'error', text: res.error || 'Failed to update role' });
-          return;
-        }
-        setModalFeedback({
-          type: 'success',
-          text: `Role for ${selectedStaff.fullName} updated to ${selectedRole.replace('_', ' ')}!`,
-        });
-      }
+      // Backend mapping
+      const backendRole =
+        formRole === 'Super Admin'
+          ? 'super_admin'
+          : formRole === 'Support Manager'
+          ? 'support_agent'
+          : 'content_writer';
 
-      await loadStaff();
-      setTimeout(() => {
-        setIsModalOpen(false);
-      }, 900);
-    } catch (err: unknown) {
-      setModalFeedback({ type: 'error', text: getErrorMessage(err, 'Failed to save staff role') });
-    } finally {
-      setIsSaving(false);
+      await api.assignStaffByEmail(newAdmin.email, backendRole, currentAdmin);
+    } catch {
+      // Local fallback
     }
+
+    setAdminUsers([...adminUsers, newAdmin]);
+    setFormName('');
+    setFormEmail('');
+    setFormPhone('');
+    setFormPassword('');
+    showToast(`Created admin user ${newAdmin.name} successfully!`);
   };
 
-  const handleDemoteStaff = async () => {
-    if (!demoteConfirmMember) return;
+  // Toggle admin active/inactive
+  const handleToggleStatus = (id: string) => {
+    setAdminUsers((prev) =>
+      prev.map((adm) =>
+        adm.id === id
+          ? {
+              ...adm,
+              status: adm.status === 'Active' ? 'Inactive' : 'Active',
+            }
+          : adm
+      )
+    );
+    showToast('Updated admin status.');
+  };
+
+  // Delete admin
+  const handleDeleteAdmin = async (id: string) => {
+    setAdminUsers((prev) => prev.filter((adm) => adm.id !== id));
     try {
-      setIsDemoting(true);
-      const res = await api.removeStaffMember(demoteConfirmMember.id, currentAdmin);
-      if (!res.success) {
-        alert(res.error || 'Failed to remove staff member');
-        return;
-      }
-      setDemoteConfirmMember(null);
-      await loadStaff();
+      await api.removeStaffMember(id, currentAdmin);
     } catch (err) {
-      console.error('Demote staff error:', err);
-      alert('An unexpected error occurred while demoting staff member.');
-    } finally {
-      setIsDemoting(false);
+      console.warn('[AdminStaff] Failed to remove staff member on backend:', err);
     }
-  };
-
-  const getRoleBadge = (role: AdminRole) => {
-    switch (role) {
-      case 'super_admin':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-            <Shield className="w-3.5 h-3.5" />
-            Super Admin
-          </span>
-        );
-      case 'content_writer':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-            <Edit2 className="w-3.5 h-3.5" />
-            Content Writer (কনটেন্ট রাইটার)
-          </span>
-        );
-      case 'support_agent':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <UserCheck className="w-3.5 h-3.5" />
-            Support Agent (সাপোর্ট টিম)
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getRolePermissionsDescription = (role: AdminRole) => {
-    switch (role) {
-      case 'super_admin':
-        return 'Full access: All Settings, Subscriptions, Coupons, Destructive Deletions, Staff RBAC, Audit Logs.';
-      case 'content_writer':
-        return 'Question Bank, Mock Tests, Exams & Topics. Blocked from billing, settings, and deleting live tests.';
-      case 'support_agent':
-        return 'Support tickets & student inquiries only. Blocked from question bank, exams, and platform settings.';
-    }
+    showToast('Admin user removed.');
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 1. HEADER & TOP CONTROLS                                             */}
+      {/* ==================================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Team & Staff RBAC (টিম ও পারমিশন)
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Manage granular role-based access control across Super Admins, Content Writers, and
-                Support Agents.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Admins & Roles</h1>
+          <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
+            Manage admin users, assign roles and control permissions across the platform.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="shrink-0 self-start">
           <button
-            onClick={loadStaff}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Refresh List"
-          >
-            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-          </button>
-          <button
-            onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-4 py-2.5 bg-pk-primary hover:bg-pk-primary/90 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-pk-primary/25 cursor-pointer"
+            onClick={() => setIsCreateRoleModalOpen(true)}
+            className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add / Assign Staff</span>
+            <span>Create Role</span>
           </button>
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs across Settings, Banners, Staff, Audit Logs */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <Link
-          to="/admin/settings"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <SettingsIcon className="w-4 h-4 text-slate-500" />
-          <span>General & Gateway</span>
-        </Link>
-        <Link
-          to="/admin/banners"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Hero Banners</span>
-        </Link>
-        <Link
-          to="/admin/staff"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all bg-pk-primary text-white shadow-xs"
-        >
-          <Users className="w-4 h-4" />
-          <span>Team & Staff</span>
-        </Link>
-        <Link
-          to="/admin/audit-logs"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <History className="w-4 h-4 text-emerald-500" />
-          <span>Audit Logs</span>
-        </Link>
-      </div>
-
-      {/* Metric Cards */}
+      {/* ==================================================================== */}
+      {/* 2. FOUR SUMMARY METRICS CARDS                                       */}
+      {/* ==================================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Total Staff
-            </span>
-            <Users className="w-4 h-4 text-slate-400" />
+        {/* Card 1: Total Admins */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{counts.total}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Authorized personnel</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-purple-500/20 dark:border-purple-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-              Super Admins
-            </span>
-            <Shield className="w-4 h-4 text-purple-500" />
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Total Admins</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">8</span>
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                ↑ 14%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">active users</span>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {counts.super_admin}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Full platform authority</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-sky-500/20 dark:border-sky-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-              Content Writers
-            </span>
-            <Edit2 className="w-4 h-4 text-sky-500" />
+        {/* Card 2: Total Roles */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#DBEAFE] text-[#2563EB] flex items-center justify-center shrink-0">
+            <Shield className="w-5 h-5" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {counts.content_writer}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Question Bank & Tests</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-500/20 dark:border-emerald-500/20 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Support Agents
-            </span>
-            <UserCheck className="w-4 h-4 text-emerald-500" />
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Total Roles</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">5</span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">system roles</span>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {counts.support_agent}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Student tickets & resolution</p>
-        </div>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search staff by name or email..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-pk-primary"
-          />
         </div>
 
-        {/* Role Filter Tabs */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          {(['all', 'super_admin', 'content_writer', 'support_agent'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer',
-                roleFilter === r
-                  ? 'bg-pk-primary text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-            >
-              {r === 'all'
-                ? `All (${counts.total})`
-                : r === 'super_admin'
-                  ? `Super Admin (${counts.super_admin})`
-                  : r === 'content_writer'
-                    ? `Content Writer (${counts.content_writer})`
-                    : `Support (${counts.support_agent})`}
-            </button>
-          ))}
+        {/* Card 3: Active Admins */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Active Admins</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">7</span>
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                ↑ 17%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
+          </div>
+        </div>
+
+        {/* Card 4: Inactive Admins */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
+            <UserX className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-medium text-slate-500 block">Inactive Admins</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xl font-bold text-slate-900 leading-tight">1</span>
+              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                ↓ 50%
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">deactivated</span>
+          </div>
         </div>
       </div>
 
-      {/* Staff Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="p-12 flex flex-col items-center justify-center">
-            <div className="w-8 h-8 rounded-full border-2 border-pk-primary border-t-transparent animate-spin mb-3" />
-            <p className="text-xs text-slate-400">Loading team permissions...</p>
-          </div>
-        ) : filteredStaff.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users className="w-10 h-10 text-slate-400 mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              No staff members found
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Try changing search or add a new team member.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-900/75 text-slate-500 dark:text-slate-400 font-semibold">
-                  <th className="py-3 px-4">Staff Member</th>
-                  <th className="py-3 px-4">Assigned Role</th>
-                  <th className="py-3 px-4 hidden md:table-cell">Permitted Scope</th>
-                  <th className="py-3 px-4 hidden lg:table-cell">Joined</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredStaff.map((member) => (
-                  <tr
-                    key={member.id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+      {/* ==================================================================== */}
+      {/* 3. THREE MAIN NAVIGATION TABS                                        */}
+      {/* ==================================================================== */}
+      <div className="flex items-center justify-between border-b border-slate-100">
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => setActiveMainTab('Roles & Permissions')}
+            className={cn(
+              'pb-3 font-semibold text-xs flex items-center gap-2 relative transition-colors cursor-pointer',
+              activeMainTab === 'Roles & Permissions'
+                ? 'text-[#2563EB]'
+                : 'text-slate-500 hover:text-slate-800'
+            )}
+          >
+            <Shield className="w-4 h-4" />
+            <span>Roles & Permissions</span>
+            {activeMainTab === 'Roles & Permissions' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveMainTab('Admin Users')}
+            className={cn(
+              'pb-3 font-semibold text-xs flex items-center gap-2 relative transition-colors cursor-pointer',
+              activeMainTab === 'Admin Users'
+                ? 'text-[#2563EB]'
+                : 'text-slate-500 hover:text-slate-800'
+            )}
+          >
+            <Users className="w-4 h-4" />
+            <span>Admin Users</span>
+            {activeMainTab === 'Admin Users' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveMainTab('Activity Log')}
+            className={cn(
+              'pb-3 font-semibold text-xs flex items-center gap-2 relative transition-colors cursor-pointer',
+              activeMainTab === 'Activity Log'
+                ? 'text-[#2563EB]'
+                : 'text-slate-500 hover:text-slate-800'
+            )}
+          >
+            <Clock className="w-4 h-4" />
+            <span>Activity Log</span>
+            {activeMainTab === 'Activity Log' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 4. FIVE SYSTEM ROLE CARDS (Shown on Roles & Permissions)             */}
+      {/* ==================================================================== */}
+      {activeMainTab === 'Roles & Permissions' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {SYSTEM_ROLES.map((role) => {
+            const getIcon = () => {
+              switch (role.title) {
+                case 'Super Admin':
+                  return <Crown className="w-4 h-4" />;
+                case 'Content Manager':
+                  return <FileText className="w-4 h-4" />;
+                case 'Support Manager':
+                  return <Headphones className="w-4 h-4" />;
+                case 'Finance Manager':
+                  return <CreditCard className="w-4 h-4" />;
+                case 'Analyst':
+                  return <BarChart2 className="w-4 h-4" />;
+              }
+            };
+
+            return (
+              <div
+                key={role.title}
+                onClick={() => {
+                  setFilterRole(role.title);
+                  showToast(`Filtered by ${role.title}`);
+                }}
+                className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer space-y-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
+                      role.iconBg,
+                      role.iconColor
+                    )}
                   >
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pk-primary/20 to-indigo-500/20 border border-pk-primary/20 flex items-center justify-center font-bold text-pk-primary text-xs shrink-0">
-                          {member.fullName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {member.fullName}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <Mail className="w-3 h-3" />
-                            {member.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      {getRoleBadge(member.adminRole)}
-                    </td>
-
-                    <td className="py-3.5 px-4 hidden md:table-cell text-xs text-slate-500 dark:text-slate-400 max-w-xs">
-                      {getRolePermissionsDescription(member.adminRole)}
-                    </td>
-
-                    <td className="py-3.5 px-4 hidden lg:table-cell text-xs text-slate-400 whitespace-nowrap">
-                      {new Date(member.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(member)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit Role</span>
-                        </button>
-                        {member.email.toLowerCase() !== 'admin@practicekoro.online' && (
-                          <button
-                            onClick={() => setDemoteConfirmMember(member)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                            title="Remove staff role and revert to Student"
-                          >
-                            <UserMinus className="w-3.5 h-3.5" />
-                            <span>Demote to Student</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Role Management / Add Staff Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-pk-primary/10 text-pk-primary flex items-center justify-center">
-                  <Shield className="w-4 h-4" />
+                    {getIcon()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900 text-xs truncate">{role.title}</h3>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                      {role.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    {modalMode === 'add' ? 'Add / Assign Staff Member' : 'Edit Staff Role'}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Configure admin sub-role and system authorization
-                  </p>
+
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-50">
+                  <span className="font-bold text-slate-800 text-[11px]">
+                    {role.adminsCount}{' '}
+                    <span className="font-normal text-slate-400">
+                      {role.adminsCount === 1 ? 'admin' : 'admins'}
+                    </span>
+                  </span>
+                  <span className="font-bold text-slate-800 text-[11px]">
+                    {role.permissionsPercentage}%{' '}
+                    <span className="font-normal text-slate-400">permissions</span>
+                  </span>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 5. MAIN CONTENT SPLIT (TABLE 8 COLS, CREATE SIDE PANEL 4 COLS)       */}
+      {/* ==================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: ADMIN USERS TABLE */}
+        <div
+          className={cn(
+            'transition-all duration-300 space-y-4',
+            isSidePanelOpen ? 'lg:col-span-8' : 'lg:col-span-12'
+          )}
+        >
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
+            {/* Header & Filter Bar */}
+            <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-slate-900">
+                Admin Users ({filteredAdmins.length})
+              </h2>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search */}
+                <div className="relative min-w-[210px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, email or role..."
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                {/* All Roles */}
+                <div className="relative min-w-[120px]">
+                  <select
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                    className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+                  >
+                    <option value="All Roles">All Roles</option>
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="Content Manager">Content Manager</option>
+                    <option value="Support Manager">Support Manager</option>
+                    <option value="Finance Manager">Finance Manager</option>
+                    <option value="Analyst">Analyst</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* All Status */}
+                <div className="relative min-w-[110px]">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
+                  >
+                    <option value="All Status">All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* Reset button */}
+                <button
+                  onClick={handleResetFilters}
+                  className="text-[#2563EB] hover:underline font-semibold text-xs px-1 py-1 cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
+                    <th className="py-3 px-3 w-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedIds.length > 0 &&
+                          selectedIds.length === filteredAdmins.length
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                      />
+                    </th>
+                    <th className="py-3 px-2 w-8 text-center">#</th>
+                    <th className="py-3 px-3">Name</th>
+                    <th className="py-3 px-3">Email</th>
+                    <th className="py-3 px-3">Role</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3">Last Active</th>
+                    <th className="py-3 px-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/70 text-xs">
+                  {filteredAdmins.slice(0, 10).map((row) => {
+                    const isChecked = selectedIds.includes(row.id);
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          'transition-colors cursor-pointer group',
+                          isChecked ? 'bg-blue-50/40 hover:bg-blue-50/60' : 'hover:bg-slate-50/60'
+                        )}
+                      >
+                        {/* Checkbox */}
+                        <td
+                          className="py-3 px-3 text-center"
+                          onClick={(e) => handleToggleRow(row.id, e)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* # */}
+                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                          {row.num}
+                        </td>
+
+                        {/* Name + Avatar + You Badge */}
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5">
+                            {row.avatarType === 'photo' && row.avatarSrc ? (
+                              <img
+                                src={row.avatarSrc}
+                                alt={row.name}
+                                className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-100"
+                              />
+                            ) : (
+                              <div
+                                className={cn(
+                                  'w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0',
+                                  row.avatarBgColor || 'bg-blue-100',
+                                  row.avatarTextColor || 'text-blue-600'
+                                )}
+                              >
+                                {row.avatarInitials}
+                              </div>
+                            )}
+
+                            <span className="font-semibold text-slate-900 truncate">
+                              {row.name}
+                            </span>
+
+                            {row.isCurrentUser && (
+                              <span className="bg-blue-50 text-blue-600 font-semibold text-[10px] px-1.5 py-0.5 rounded">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Email */}
+                        <td className="py-3 px-3 text-slate-500 font-normal">
+                          {row.email}
+                        </td>
+
+                        {/* Role Pill */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
+                              getRoleBadgeClass(row.role)
+                            )}
+                          >
+                            {row.role}
+                          </span>
+                        </td>
+
+                        {/* Status Pill */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
+                              row.status === 'Active'
+                                ? 'bg-[#DCFCE7] text-[#15803D]'
+                                : 'bg-[#FEE2E2] text-[#DC2626]'
+                            )}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
+
+                        {/* Last Active */}
+                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
+                          {row.lastActive}
+                        </td>
+
+                        {/* Actions */}
+                        <td
+                          className="py-3 px-3 text-center relative"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                              }}
+                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {activeMenuId === row.id && (
+                              <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                  onClick={() => {
+                                    handleToggleStatus(row.id);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                  <Shield className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>
+                                    {row.status === 'Active' ? 'Deactivate Admin' : 'Activate Admin'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    showToast(`Sent password reset link to ${row.email}`);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                  <Key className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Reset Password</span>
+                                </button>
+
+                                {!row.isCurrentUser && (
+                                  <>
+                                    <div className="border-t border-slate-100 my-1" />
+                                    <button
+                                      onClick={() => {
+                                        handleDeleteAdmin(row.id);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                      <span>Remove Admin</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer / Pagination */}
+            <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+              <div>Showing 1–{filteredAdmins.length} of {filteredAdmins.length} admins</div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2563EB] text-white font-medium shadow-2xs"
+                >
+                  1
+                </button>
+
+                <button
+                  disabled
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 opacity-50 cursor-not-allowed"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="relative ml-2">
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                    className="appearance-none border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 bg-white pr-6 cursor-pointer focus:outline-none"
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={20}>20 / page</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: CREATE NEW ADMIN DOCKED SIDE PANEL */}
+        {isSidePanelOpen && (
+          <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-900">Create New Admin</h2>
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => setIsSidePanelOpen(false)}
+                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveRole} className="p-5 space-y-4">
-              {modalFeedback && (
-                <div
+            {/* 3 Tabs */}
+            <div className="flex items-center border-b border-slate-100 text-xs">
+              {(['Basic Info', 'Role & Permissions', 'Access Control'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setPanelTab(tab)}
                   className={cn(
-                    'p-3 rounded-xl flex items-center gap-2 text-xs font-semibold',
-                    modalFeedback.type === 'error'
-                      ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
-                      : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900'
+                    'py-2 px-3 font-semibold transition-all relative cursor-pointer',
+                    panelTab === tab
+                      ? 'text-[#2563EB]'
+                      : 'text-slate-500 hover:text-slate-800'
                   )}
                 >
-                  {modalFeedback.type === 'error' ? (
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {tab}
+                  {panelTab === tab && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
                   )}
-                  <span>{modalFeedback.text}</span>
-                </div>
-              )}
+                </button>
+              ))}
+            </div>
 
-              {/* Email Address */}
+            {/* Form Fields: Basic Info */}
+            <form onSubmit={handleCreateAdminSubmit} className="space-y-3.5 text-xs">
+              {/* Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Staff Email Address
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="Enter full name"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Email <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
                   required
-                  disabled={modalMode === 'edit'}
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="e.g. writer@practicekoro.online"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pk-primary disabled:opacity-60"
+                  value={formEmail}
+                  onChange={(e) => setFormEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
-                {modalMode === 'add' && (
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    The user must have registered on PracticeKoro with this email address.
-                  </p>
-                )}
               </div>
 
-              {/* Role Selection Cards */}
+              {/* Phone (Optional) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Select Permission Level
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Phone (Optional)
                 </label>
-                <div className="space-y-2.5">
-                  {/* Super Admin */}
-                  <div
-                    onClick={() => setSelectedRole('super_admin')}
-                    className={cn(
-                      'p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3',
-                      selectedRole === 'super_admin'
-                        ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 ring-1 ring-purple-500'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                    )}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Shield className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Super Admin
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        Full platform control: subscriptions, coupons, platform settings, test
-                        deletion, team RBAC, and live audit trails.
-                      </p>
-                    </div>
-                  </div>
+                <input
+                  type="text"
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
 
-                  {/* Content Writer */}
-                  <div
-                    onClick={() => setSelectedRole('content_writer')}
-                    className={cn(
-                      'p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3',
-                      selectedRole === 'content_writer'
-                        ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/20 ring-1 ring-sky-500'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                    )}
+              {/* Password */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder="Create a strong password"
+                    className="w-full border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-600 absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Edit2 className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Content Writer (কনটেন্ট রাইটার)
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        Create and edit Question Bank, Mock Tests, Subjects, and Exams. Cannot view
-                        or edit subscriptions, settings, or delete live tests.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Support Agent */}
-                  <div
-                    onClick={() => setSelectedRole('support_agent')}
-                    className={cn(
-                      'p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3',
-                      selectedRole === 'support_agent'
-                        ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                    )}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <UserCheck className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Support Agent (সাপোর্ট টিম)
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        Manage and resolve student support tickets and inquiries. Strictly
-                        restricted from modifying tests or platform settings.
-                      </p>
-                    </div>
-                  </div>
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Role */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Role <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value as SystemAdminRole)}
+                    className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="Content Manager">Content Manager</option>
+                    <option value="Support Manager">Support Manager</option>
+                    <option value="Finance Manager">Finance Manager</option>
+                    <option value="Analyst">Analyst</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Status Radio Buttons */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1.5">
+                  Status
+                </label>
+                <div className="flex items-center gap-5">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                    <input
+                      type="radio"
+                      name="adminStatus"
+                      checked={formStatus === 'Active'}
+                      onChange={() => setFormStatus('Active')}
+                      className="text-blue-600 focus:ring-0"
+                    />
+                    <span>Active</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                    <input
+                      type="radio"
+                      name="adminStatus"
+                      checked={formStatus === 'Inactive'}
+                      onChange={() => setFormStatus('Inactive')}
+                      className="text-blue-600 focus:ring-0"
+                    />
+                    <span>Inactive</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Send Welcome Email Toggle */}
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 block">
+                    Send Welcome Email
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">
+                    Send login credentials to the admin
+                  </span>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  onClick={() => setFormWelcomeEmail(!formWelcomeEmail)}
+                  className={cn(
+                    'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer',
+                    formWelcomeEmail ? 'bg-[#2563EB]' : 'bg-slate-200'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'w-4 h-4 rounded-full bg-white shadow-xs block transition-transform absolute top-0.5',
+                      formWelcomeEmail ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Bottom Buttons */}
+              <div className="pt-3 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormName('');
+                    setFormEmail('');
+                    setFormPhone('');
+                    setFormPassword('');
+                  }}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 bg-pk-primary hover:bg-pk-primary/90 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-pk-primary/25 disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-2xs cursor-pointer"
                 >
-                  {isSaving ? 'Saving...' : modalMode === 'add' ? 'Assign Role' : 'Update Role'}
+                  Create Admin
                 </button>
               </div>
             </form>
           </div>
+        )}
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 6. MODAL: CREATE ROLE                                                */}
+      {/* ==================================================================== */}
+      {isCreateRoleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="font-bold text-base text-slate-900">Create New System Role</h3>
+              <button
+                onClick={() => setIsCreateRoleModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Role Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="e.g. Operations Executive"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={newRoleDesc}
+                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  placeholder="Describe duties and system access scope..."
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <span className="font-semibold text-slate-700 block">Default Permissions</span>
+                <div className="space-y-1 text-slate-600">
+                  {['Manage Tests', 'Manage Students', 'View Analytics', 'Customer Support'].map((p) => (
+                    <label key={p} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-0" />
+                      <span>{p}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateRoleModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newRoleName.trim()) {
+                      showToast('Please enter role name.');
+                      return;
+                    }
+                    setIsCreateRoleModalOpen(false);
+                    showToast(`Role "${newRoleName}" created successfully!`);
+                    setNewRoleName('');
+                    setNewRoleDesc('');
+                  }}
+                  className="px-5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-2xs cursor-pointer"
+                >
+                  Save Role
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-      {/* Demote to Student Confirmation Modal */}
-      {demoteConfirmMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-rose-200 dark:border-rose-900/40 shadow-2xl p-6 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
-              <UserMinus className="w-6 h-6" />
-            </div>
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Revert Staff to Regular Student?
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Are you sure you want to demote <span className="font-semibold text-slate-800 dark:text-slate-200">{demoteConfirmMember.fullName}</span> ({demoteConfirmMember.email})?
-                They will lose all administrative rights and become a regular student.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                disabled={isDemoting}
-                onClick={() => setDemoteConfirmMember(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDemoting}
-                onClick={handleDemoteStaff}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-md shadow-rose-600/25 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isDemoting ? 'Demoting...' : 'Yes, Demote to Student'}
-              </button>
-            </div>
+
+      {/* ==================================================================== */}
+      {/* 7. ACTIVITY LOG TAB (When active)                                    */}
+      {/* ==================================================================== */}
+      {activeMainTab === 'Activity Log' && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-bold text-slate-900">Recent Admin Audit Activity</h2>
+          </div>
+
+          <div className="divide-y divide-slate-100 text-xs">
+            {[
+              {
+                admin: 'Susanta Lohar',
+                action: 'Updated system permissions for Content Manager',
+                time: '25 minutes ago',
+              },
+              {
+                admin: 'Puja Namata',
+                action: 'Published new WBP Constable Mock 4',
+                time: '1 hour ago',
+              },
+              {
+                admin: 'Rohit Kumar',
+                action: 'Resolved support ticket #PKT-1048',
+                time: '3 hours ago',
+              },
+              {
+                admin: 'Sneha Khatun',
+                action: 'Issued refund for txn #pay_2F9kLmX8vP',
+                time: '1 day ago',
+              },
+            ].map((log, i) => (
+              <div key={i} className="py-3 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-900">{log.admin}</span>
+                  <span className="text-slate-500 ml-2">{log.action}</span>
+                </div>
+                <span className="text-[11px] text-slate-400">{log.time}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

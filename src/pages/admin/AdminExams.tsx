@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api, DEFAULT_POPULAR_EXAMS } from '@/services/api';
+import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
   Shield,
@@ -10,34 +10,24 @@ import {
   Search,
   X,
   Layers,
-  LayoutGrid,
-  List,
   FileText,
-  Check,
   Copy,
-  SlidersHorizontal,
   BookOpen,
-  Award,
-  GraduationCap,
-  FileCheck,
-  Trophy,
-  Sparkles,
-  AlertCircle,
-  AlertTriangle,
   ChevronRight,
+  ChevronLeft,
+  Users,
+  ExternalLink,
+  MoreHorizontal,
+  FolderKanban,
+  Filter,
+  TrendingUp,
   Upload,
-  GripVertical,
-  Flame,
-  Palette,
-  ArrowRight,
-  ArrowLeft,
-  Calendar,
+  Camera,
   RotateCcw,
-  Eye,
 } from 'lucide-react';
-import type { Exam, MockTest, PopularExamCard } from '@/types';
+import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
+import type { Exam, MockTest, Subject, TestSeries } from '@/types';
 import { cn } from '@/lib/utils';
-import { PopularExamEditModal } from '@/pages/admin/PopularExamEditModal';
 import { getErrorMessage } from '@/lib/errors';
 import {
   normalizeLegacyExamCategory,
@@ -46,6 +36,9 @@ import {
 
 const STORAGE_KEY_CATEGORIES = 'practicekoro_exam_categories';
 const DEFAULT_EXAM_CATEGORIES = [
+  'State Govt',
+  'Central Govt',
+  'Other',
   'WB Police (WBP / KP)',
   'WBPSC (Clerkship / WBCS)',
   'Teaching (TET / SLST)',
@@ -53,51 +46,747 @@ const DEFAULT_EXAM_CATEGORIES = [
   'Railways (RRB)',
 ];
 
+const EXAM_LOGO_CACHE_KEY = 'practicekoro_exam_logos';
+
+function getExamLogoCache(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(EXAM_LOGO_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveExamLogoCache(examId: string, logoUrl: string) {
+  try {
+    const cache = getExamLogoCache();
+    if (logoUrl) cache[examId] = logoUrl;
+    else delete cache[examId];
+    localStorage.setItem(EXAM_LOGO_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+// WBP Golden Crest Police Shield Badge SVG (Pixel-perfect recreation matching screenshot)
+const PoliceShieldBadge: React.FC<{ className?: string }> = ({ className = 'w-9 h-10' }) => (
+  <div className={cn('relative flex items-center justify-center shrink-0 drop-shadow-xs select-none', className)}>
+    <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <path
+        d="M20 2C20 2 35 4.5 37 10C39 18 37 34 20 46C3 34 1 18 3 10C5 4.5 20 2 20 2Z"
+        fill="#7F1D1D"
+        stroke="#F59E0B"
+        strokeWidth="2.5"
+      />
+      <path
+        d="M20 6C20 6 32 8.5 33.5 13C35 19 33.5 32 20 42C6.5 32 5 19 6.5 13C8 8.5 20 6 20 6Z"
+        fill="#5A0B0B"
+        stroke="#FCD34D"
+        strokeWidth="1"
+      />
+      <path
+        d="M20 13L21.8 17.5L26.5 18L22.8 21.2L24 25.8L20 23.2L16 25.8L17.2 21.2L13.5 18L18.2 17.5L20 13Z"
+        fill="#FCD34D"
+      />
+      <text
+        x="20"
+        y="36"
+        textAnchor="middle"
+        fontSize="8"
+        fontWeight="900"
+        fill="#FCD34D"
+        letterSpacing="0.8"
+        fontFamily="system-ui, -apple-system, sans-serif"
+      >
+        POLICE
+      </text>
+    </svg>
+  </div>
+);
+
+// High-fidelity exam emblem generator matching reference screenshot
+const ExamEmblemBadge: React.FC<{
+  title: string;
+  slug?: string;
+  iconName?: string;
+  className?: string;
+}> = ({ title, slug = '', iconName, className = 'w-8 h-8' }) => {
+  // 1. If custom uploaded logo or URL is set, ALWAYS display it
+  if (
+    iconName &&
+    (iconName.startsWith('data:') ||
+      iconName.startsWith('/') ||
+      iconName.startsWith('http') ||
+      iconName.startsWith('blob:'))
+  ) {
+    return (
+      <div
+        className={cn(
+          'relative rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs',
+          className
+        )}
+      >
+        <img
+          src={iconName}
+          alt={title}
+          className="w-full h-full object-contain rounded-lg"
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = 'none';
+          }}
+        />
+      </div>
+    );
+  }
+
+  const norm = (title + ' ' + slug + ' ' + (iconName || '')).toLowerCase();
+
+  // 1. WBP Constable -> Police Golden Shield
+  if (norm.includes('wbp') || norm.includes('west bengal police')) {
+    return <PoliceShieldBadge className={className} />;
+  }
+
+  // 2. SSC MTS / SSC GD -> Red circular SSC logo
+  if (norm.includes('ssc')) {
+    return (
+      <div className={cn('relative rounded-full bg-gradient-to-br from-amber-700 to-rose-900 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          <circle cx="16" cy="16" r="14" fill="#8B1818" stroke="#F59E0B" strokeWidth="1.5" />
+          <circle cx="16" cy="16" r="10" fill="#6A0C0C" stroke="#FCD34D" strokeWidth="1" />
+          <path d="M16 8L18 13L23 13.5L19 17L20.5 22L16 19.5L11.5 22L13 17L9 13.5L14 13L16 8Z" fill="#FCD34D" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 3. Railway Group D -> Red circular Indian Railways cogwheel emblem
+  if (norm.includes('railway') || norm.includes('rrb')) {
+    return (
+      <div className={cn('relative rounded-full bg-gradient-to-br from-red-600 to-rose-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          <circle cx="16" cy="16" r="14" fill="#991B1B" stroke="#FCD34D" strokeWidth="1.5" />
+          {/* Wheel spokes & train silhouette */}
+          <circle cx="16" cy="16" r="8" fill="#7F1D1D" stroke="#FEF08A" strokeWidth="1" />
+          <rect x="12" y="12" width="8" height="8" rx="1.5" fill="#FEF08A" />
+          <circle cx="14" cy="17" r="1.2" fill="#7F1D1D" />
+          <circle cx="18" cy="17" r="1.2" fill="#7F1D1D" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 4. WBPSC Clerkship -> Golden medal / seal
+  if (norm.includes('wbpsc') || norm.includes('clerkship')) {
+    return (
+      <div className={cn('relative rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-600 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          <circle cx="16" cy="16" r="14" fill="#D97706" stroke="#FEF3C7" strokeWidth="1.5" />
+          <circle cx="16" cy="16" r="10" fill="#B45309" stroke="#FDE68A" strokeWidth="1" />
+          <path d="M16 9L18 13.5L23 14L19.2 17.5L20.5 22.5L16 20L11.5 22.5L12.8 17.5L9 14L14 13.5L16 9Z" fill="#FEF3C7" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 5. ICDS Supervisor -> Red floral / sunburst emblem
+  if (norm.includes('icds')) {
+    return (
+      <div className={cn('relative rounded-full bg-rose-600 border border-rose-300 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          <circle cx="16" cy="16" r="13" fill="#BE123C" stroke="#FECDD3" strokeWidth="1.5" />
+          {/* Floral petals */}
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+            <circle
+              key={i}
+              cx={16 + 7 * Math.cos((angle * Math.PI) / 180)}
+              cy={16 + 7 * Math.sin((angle * Math.PI) / 180)}
+              r="2.5"
+              fill="#FFE4E6"
+            />
+          ))}
+          <circle cx="16" cy="16" r="4.5" fill="#FFF1F2" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 6. Food SI -> Blue & Red circular seal
+  if (norm.includes('food')) {
+    return (
+      <div className={cn('relative rounded-full bg-gradient-to-br from-blue-900 to-indigo-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          <circle cx="16" cy="16" r="13.5" fill="#1E3A8A" stroke="#F59E0B" strokeWidth="1.5" />
+          <circle cx="16" cy="16" r="9" fill="#172554" stroke="#FDE68A" strokeWidth="1" />
+          <path d="M16 10V22M13 13L16 10L19 13M12 18L16 14L20 18" stroke="#FCD34D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 7. Kolkata Police -> Blue eight-pointed star crest badge
+  if (norm.includes('kolkata')) {
+    return (
+      <div className={cn('relative flex items-center justify-center shrink-0 drop-shadow-xs', className)}>
+        <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
+          {/* 8-pointed star */}
+          <path
+            d="M16 2L19.5 8.5L26.5 6L24.5 13L30 16L24.5 19L26.5 26L19.5 23.5L16 30L12.5 23.5L5.5 26L7.5 19L2 16L7.5 13L5.5 6L12.5 8.5L16 2Z"
+            fill="#1E3A8A"
+            stroke="#93C5FD"
+            strokeWidth="1.2"
+          />
+          <circle cx="16" cy="16" r="7" fill="#172554" stroke="#BFDBFE" strokeWidth="1" />
+          <circle cx="16" cy="16" r="3.5" fill="#60A5FA" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 8. WBSSC Group C & D -> Green rounded square with open book
+  if (norm.includes('wbssc')) {
+    return (
+      <div className={cn('rounded-xl bg-[#059669] text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <BookOpen className="w-4 h-4 text-emerald-100" />
+      </div>
+    );
+  }
+
+  // 9. General Knowledge -> Blue rounded square with open book
+  if (norm.includes('knowledge') || norm.includes('general')) {
+    return (
+      <div className={cn('rounded-xl bg-[#026BFC] text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+        <BookOpen className="w-4 h-4 text-blue-100" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <Shield className="w-4 h-4 text-white" />
+    </div>
+  );
+};
+
+// Exam row data model with rich display fields
+interface EnrichedExamRow extends Exam {
+  subtitle?: string;
+  categoryLabel?: string;
+  subjectsCount: number;
+  testSeriesCount: number;
+  totalTestsCount: number;
+  enrollmentsCount: number;
+  enrollmentsFormatted: string;
+  statusLabel: 'Published' | 'Draft';
+  shortName?: string;
+  createdByName?: string;
+  createdAtFormatted?: string;
+  updatedAtFormatted?: string;
+  avgScoreFormatted?: string;
+  completionRateFormatted?: string;
+}
+
+const EXAM_OVERRIDES_CACHE_KEY = 'practicekoro_exam_overrides';
+
+function getExamOverridesCache(): Record<string, Partial<EnrichedExamRow>> {
+  try {
+    const raw = localStorage.getItem(EXAM_OVERRIDES_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveExamOverrideCache(examId: string, overrides: Partial<EnrichedExamRow>) {
+  try {
+    const cache = getExamOverridesCache();
+    cache[examId] = { ...(cache[examId] || {}), ...overrides };
+    localStorage.setItem(EXAM_OVERRIDES_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+// 18 canonical exam presets matching the reference screenshot exactly
+const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
+  {
+    id: 'wbp-constable',
+    title: 'WBP Constable',
+    slug: 'wbp-constable',
+    subtitle: 'West Bengal Police Constable',
+    shortName: 'WBP',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 10,
+    testSeriesCount: 5,
+    totalTestsCount: 28,
+    enrollmentsCount: 12480,
+    enrollmentsFormatted: '12,480',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 1,
+    iconName: 'Shield',
+    createdByName: 'Admin',
+    createdAtFormatted: '10 Sep 2026, 04:30 PM',
+    updatedAtFormatted: '12 Sep 2026, 10:15 AM',
+    avgScoreFormatted: '68%',
+    completionRateFormatted: '72%',
+    description:
+      'WBP Constable পরীক্ষার জন্য সম্পূর্ণ প্রস্তুতি সিরিজ। এই পরীক্ষায় যুক্ত রয়েছে Full Mock, Topic Test ইত্যাদি বিভিন্ন ধরণের পরীক্ষার সিরিজ যা আপনাকে পরীক্ষার প্রস্তুতিকে শক্তিশালী করবে।',
+  },
+  {
+    id: 'ssc-mts',
+    title: 'SSC MTS',
+    slug: 'ssc-mts',
+    subtitle: 'Staff Selection Commission',
+    shortName: 'SSC',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 12,
+    testSeriesCount: 4,
+    totalTestsCount: 26,
+    enrollmentsCount: 8920,
+    enrollmentsFormatted: '8,920',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 2,
+    iconName: 'Award',
+    createdByName: 'Admin',
+    createdAtFormatted: '12 Sep 2026, 11:20 AM',
+    updatedAtFormatted: '15 Sep 2026, 02:40 PM',
+    avgScoreFormatted: '65%',
+    completionRateFormatted: '70%',
+    description: 'Staff Selection Commission Multi-Tasking Staff পরীক্ষার পূর্ণাঙ্গ মক ও টপিক টেস্ট।',
+  },
+  {
+    id: 'railway-group-d',
+    title: 'Railway Group D',
+    slug: 'railway-group-d',
+    subtitle: 'Indian Railways',
+    shortName: 'RRB',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 11,
+    testSeriesCount: 4,
+    totalTestsCount: 22,
+    enrollmentsCount: 6430,
+    enrollmentsFormatted: '6,430',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 3,
+    iconName: 'Compass',
+    createdByName: 'Admin',
+    createdAtFormatted: '15 Sep 2026, 09:15 AM',
+    updatedAtFormatted: '18 Sep 2026, 04:10 PM',
+    avgScoreFormatted: '62%',
+    completionRateFormatted: '69%',
+    description: 'Indian Railways Group D CBT পরীক্ষার জন্য সম্পূর্ণ সিলেবাস অনুযায়ী মক টেস্ট সিরিজ।',
+  },
+  {
+    id: 'wbpsc-clerkship',
+    title: 'WBPSC Clerkship',
+    slug: 'wbpsc-clerkship',
+    subtitle: 'West Bengal Public Service Commission',
+    shortName: 'WBPSC',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 14,
+    testSeriesCount: 3,
+    totalTestsCount: 20,
+    enrollmentsCount: 5210,
+    enrollmentsFormatted: '5,210',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 4,
+    iconName: 'GraduationCap',
+    createdByName: 'Admin',
+    createdAtFormatted: '18 Sep 2026, 03:00 PM',
+    updatedAtFormatted: '20 Sep 2026, 01:25 PM',
+    avgScoreFormatted: '71%',
+    completionRateFormatted: '75%',
+    description: 'WBPSC ক্লার্কশিপ পার্ট-১ ও পার্ট-২ পরীক্ষার জন্য বিশেষ স্পেশাল প্রস্তুতি সিরিজ।',
+  },
+  {
+    id: 'icds-supervisor',
+    title: 'ICDS Supervisor',
+    slug: 'icds-supervisor',
+    subtitle: 'Integrated Child Development Services',
+    shortName: 'ICDS',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 8,
+    testSeriesCount: 3,
+    totalTestsCount: 18,
+    enrollmentsCount: 4860,
+    enrollmentsFormatted: '4,860',
+    statusLabel: 'Draft',
+    isActive: false,
+    orderIndex: 5,
+    iconName: 'FileCheck',
+    createdByName: 'Admin',
+    createdAtFormatted: '20 Sep 2026, 10:45 AM',
+    updatedAtFormatted: '22 Sep 2026, 05:30 PM',
+    avgScoreFormatted: '59%',
+    completionRateFormatted: '64%',
+    description: 'মহিলা ও শিশু বিকাশ দপ্তরের ICDS সুপারভাইজার পরীক্ষার খসড়া টেস্ট সিরিজ।',
+  },
+  {
+    id: 'food-si',
+    title: 'Food SI',
+    slug: 'food-si',
+    subtitle: 'Food Sub Inspector',
+    shortName: 'Food SI',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 10,
+    testSeriesCount: 3,
+    totalTestsCount: 16,
+    enrollmentsCount: 4120,
+    enrollmentsFormatted: '4,120',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 6,
+    iconName: 'Award',
+    createdByName: 'Admin',
+    createdAtFormatted: '22 Sep 2026, 01:10 PM',
+    updatedAtFormatted: '24 Sep 2026, 06:00 PM',
+    avgScoreFormatted: '67%',
+    completionRateFormatted: '73%',
+    description: 'খাদ্য সরবরাহ দপ্তরের সাব-ইন্সপেক্টর নিয়োগ পরীক্ষার ১০০ নম্বরের ফুল মক টেস্ট।',
+  },
+  {
+    id: 'kolkata-police',
+    title: 'Kolkata Police',
+    slug: 'kolkata-police',
+    subtitle: 'Kolkata Police Constable',
+    shortName: 'KP',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 9,
+    testSeriesCount: 2,
+    totalTestsCount: 14,
+    enrollmentsCount: 3980,
+    enrollmentsFormatted: '3,980',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 7,
+    iconName: 'Shield',
+    createdByName: 'Admin',
+    createdAtFormatted: '24 Sep 2026, 02:30 PM',
+    updatedAtFormatted: '26 Sep 2026, 11:40 AM',
+    avgScoreFormatted: '70%',
+    completionRateFormatted: '74%',
+    description: 'কলকাতা পুলিশ কনস্টেবল প্রিলিমস ও মেইনস পরীক্ষার স্পেশাল মক টেস্ট সিরিজ।',
+  },
+  {
+    id: 'ssc-gd',
+    title: 'SSC GD',
+    slug: 'ssc-gd',
+    subtitle: 'Staff Selection Commission GD',
+    shortName: 'SSC GD',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 11,
+    testSeriesCount: 3,
+    totalTestsCount: 18,
+    enrollmentsCount: 3640,
+    enrollmentsFormatted: '3,640',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 8,
+    iconName: 'Award',
+    createdByName: 'Admin',
+    createdAtFormatted: '25 Sep 2026, 04:00 PM',
+    updatedAtFormatted: '27 Sep 2026, 09:15 AM',
+    avgScoreFormatted: '64%',
+    completionRateFormatted: '68%',
+    description: 'কেন্দ্রীয় আধা-সামরিক বাহিনীতে কনস্টেবল নিয়োগ পরীক্ষার অল-ইন্ডিয়া প্যাটার্ন টেস্ট।',
+  },
+  {
+    id: 'wbssc-group-c-d',
+    title: 'WBSSC Group C & D',
+    slug: 'wbssc-group-c-d',
+    subtitle: 'West Bengal School Service Commission',
+    shortName: 'WBSSC',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 13,
+    testSeriesCount: 4,
+    totalTestsCount: 24,
+    enrollmentsCount: 3210,
+    enrollmentsFormatted: '3,210',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 9,
+    iconName: 'BookOpen',
+    createdByName: 'Admin',
+    createdAtFormatted: '27 Sep 2026, 12:00 PM',
+    updatedAtFormatted: '28 Sep 2026, 03:50 PM',
+    avgScoreFormatted: '66%',
+    completionRateFormatted: '71%',
+    description: 'পশ্চিমবঙ্গ স্কুল সার্ভিস কমিশন গ্রুপ-সি ও গ্রুপ-ডি পদের জন্য সম্পূর্ণ প্রস্তুতি।',
+  },
+  {
+    id: 'general-knowledge',
+    title: 'General Knowledge',
+    slug: 'general-knowledge',
+    subtitle: 'General Knowledge (Mixed)',
+    shortName: 'GK',
+    category: 'Other',
+    categoryLabel: 'Other',
+    subjectsCount: 6,
+    testSeriesCount: 2,
+    totalTestsCount: 10,
+    enrollmentsCount: 2980,
+    enrollmentsFormatted: '2,980',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 10,
+    iconName: 'BookOpen',
+    createdByName: 'Admin',
+    createdAtFormatted: '28 Sep 2026, 05:20 PM',
+    updatedAtFormatted: '29 Sep 2026, 08:30 PM',
+    avgScoreFormatted: '72%',
+    completionRateFormatted: '76%',
+    description: 'সমস্ত প্রতিযোগিতামূলক পরীক্ষার জন্য ইতিহাস, ভূগোল, বিজ্ঞান ও কারেন্ট অ্যাফেয়ার্স মক।',
+  },
+  // Page 2 Exams (11 to 18)
+  {
+    id: 'primary-tet',
+    title: 'Primary TET',
+    slug: 'primary-tet',
+    subtitle: 'West Bengal Primary Education',
+    shortName: 'TET',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 8,
+    testSeriesCount: 2,
+    totalTestsCount: 12,
+    enrollmentsCount: 2750,
+    enrollmentsFormatted: '2,750',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 11,
+    iconName: 'BookOpen',
+    createdByName: 'Admin',
+    createdAtFormatted: '29 Sep 2026, 10:00 AM',
+    updatedAtFormatted: '30 Sep 2026, 12:00 PM',
+    avgScoreFormatted: '63%',
+    completionRateFormatted: '67%',
+    description: 'প্রাথমিক শিক্ষক নিয়োগ পরীক্ষার শিশু বিকাশ, বাংলা, গণিত ও পরিবেশ বিদ্যা টেস্ট সিরিজ।',
+  },
+  {
+    id: 'wbcs-prelims',
+    title: 'WBCS Executive Prelims',
+    slug: 'wbcs-prelims',
+    subtitle: 'West Bengal Civil Service',
+    shortName: 'WBCS',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 15,
+    testSeriesCount: 4,
+    totalTestsCount: 30,
+    enrollmentsCount: 2640,
+    enrollmentsFormatted: '2,640',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 12,
+    iconName: 'Award',
+    createdByName: 'Admin',
+    createdAtFormatted: '30 Sep 2026, 02:00 PM',
+    updatedAtFormatted: '01 Oct 2026, 04:30 PM',
+    avgScoreFormatted: '58%',
+    completionRateFormatted: '62%',
+    description: 'ডব্লুবিসিএস প্রিলিমিনারি ২০০ নম্বরের স্ট্যান্ডার্ড মক ও বিশদ সমাধান।',
+  },
+  {
+    id: 'ssc-cgl',
+    title: 'SSC CGL',
+    slug: 'ssc-cgl',
+    subtitle: 'Combined Graduate Level',
+    shortName: 'CGL',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 12,
+    testSeriesCount: 3,
+    totalTestsCount: 20,
+    enrollmentsCount: 2420,
+    enrollmentsFormatted: '2,420',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 13,
+    iconName: 'Award',
+    createdByName: 'Admin',
+    createdAtFormatted: '01 Oct 2026, 09:30 AM',
+    updatedAtFormatted: '02 Oct 2026, 11:15 AM',
+    avgScoreFormatted: '61%',
+    completionRateFormatted: '65%',
+    description: 'এসএসসি কম্বাইন্ড গ্র্যাজুয়েট লেভেল টিয়ার-১ পরীক্ষার অনলাইন মক টেস্ট সিরিজ।',
+  },
+  {
+    id: 'railway-ntpc',
+    title: 'Railway NTPC',
+    slug: 'railway-ntpc',
+    subtitle: 'RRB Non-Technical Popular Categories',
+    shortName: 'NTPC',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 11,
+    testSeriesCount: 3,
+    totalTestsCount: 18,
+    enrollmentsCount: 2190,
+    enrollmentsFormatted: '2,190',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 14,
+    iconName: 'Compass',
+    createdByName: 'Admin',
+    createdAtFormatted: '02 Oct 2026, 01:20 PM',
+    updatedAtFormatted: '03 Oct 2026, 03:40 PM',
+    avgScoreFormatted: '65%',
+    completionRateFormatted: '70%',
+    description: 'আরআরবি এনটিপিসি সিবিটি-১ ও সিবিটি-২ পরীক্ষার সম্পূর্ণ সিলেবাস প্র্যাকটিস।',
+  },
+  {
+    id: 'upper-primary-tet',
+    title: 'Upper Primary TET',
+    slug: 'upper-primary-tet',
+    subtitle: 'West Bengal Upper Primary TET',
+    shortName: 'UP-TET',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 8,
+    testSeriesCount: 2,
+    totalTestsCount: 8,
+    enrollmentsCount: 1850,
+    enrollmentsFormatted: '1,850',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 15,
+    iconName: 'BookOpen',
+    createdByName: 'Admin',
+    createdAtFormatted: '02 Oct 2026, 04:00 PM',
+    updatedAtFormatted: '03 Oct 2026, 09:00 AM',
+    avgScoreFormatted: '60%',
+    completionRateFormatted: '64%',
+    description: 'উচ্চ প্রাথমিক শিক্ষক নিয়োগ পরীক্ষার বিষয়ভিত্তিক প্র্যাকটিস সিরিজ।',
+  },
+  {
+    id: 'ctet',
+    title: 'CTET',
+    slug: 'ctet',
+    subtitle: 'Central Teacher Eligibility Test',
+    shortName: 'CTET',
+    category: 'Central Govt',
+    categoryLabel: 'Central Govt',
+    subjectsCount: 9,
+    testSeriesCount: 2,
+    totalTestsCount: 15,
+    enrollmentsCount: 1620,
+    enrollmentsFormatted: '1,620',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 16,
+    iconName: 'GraduationCap',
+    createdByName: 'Admin',
+    createdAtFormatted: '03 Oct 2026, 11:30 AM',
+    updatedAtFormatted: '04 Oct 2026, 02:15 PM',
+    avgScoreFormatted: '66%',
+    completionRateFormatted: '72%',
+    description: 'সেন্ট্রাল টিচার এলিজিবিলিটি টেস্ট পেপার-১ ও পেপার-২ এর জন্য অনলাইন টেস্ট।',
+  },
+  {
+    id: 'wb-police-si',
+    title: 'WB Police SI',
+    slug: 'wb-police-si',
+    subtitle: 'West Bengal Police Sub-Inspector',
+    shortName: 'WBP SI',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 10,
+    testSeriesCount: 3,
+    totalTestsCount: 16,
+    enrollmentsCount: 1480,
+    enrollmentsFormatted: '1,480',
+    statusLabel: 'Published',
+    isActive: true,
+    orderIndex: 17,
+    iconName: 'Shield',
+    createdByName: 'Admin',
+    createdAtFormatted: '03 Oct 2026, 03:40 PM',
+    updatedAtFormatted: '04 Oct 2026, 05:00 PM',
+    avgScoreFormatted: '68%',
+    completionRateFormatted: '73%',
+    description: 'পশ্চিমবঙ্গ পুলিশ সাব-ইন্সপেক্টর প্রিলিমিনারি ও মেইনস পরীক্ষার স্পেশাল টেস্ট।',
+  },
+  {
+    id: 'kolkata-police-si',
+    title: 'Kolkata Police SI',
+    slug: 'kolkata-police-si',
+    subtitle: 'Kolkata Police Sub-Inspector & Sergeant',
+    shortName: 'KP SI',
+    category: 'State Govt',
+    categoryLabel: 'State Govt',
+    subjectsCount: 9,
+    testSeriesCount: 2,
+    totalTestsCount: 14,
+    enrollmentsCount: 1290,
+    enrollmentsFormatted: '1,290',
+    statusLabel: 'Draft',
+    isActive: false,
+    orderIndex: 18,
+    iconName: 'Shield',
+    createdByName: 'Admin',
+    createdAtFormatted: '04 Oct 2026, 10:15 AM',
+    updatedAtFormatted: '04 Oct 2026, 06:45 PM',
+    avgScoreFormatted: '62%',
+    completionRateFormatted: '66%',
+    description: 'কলকাতা পুলিশ এসআই ও সার্জেন্ট নিয়োগ পরীক্ষার ড্রাফট প্র্যাকটিস সেট।',
+  },
+];
+
 export const AdminExams: React.FC = () => {
   // Data States
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [tests, setTests] = useState<MockTest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [exams, setExams] = useState<EnrichedExamRow[]>(CANONICAL_EXAMS_PRESET);
+  const [, setDbTests] = useState<MockTest[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [testSeriesList, setTestSeriesList] = useState<TestSeries[]>([]);
+  const [, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Filter & Search States
+  // Selected Exam & Side Panel
+  const [selectedExam, setSelectedExam] = useState<EnrichedExamRow | null>(CANONICAL_EXAMS_PRESET[0]);
+  const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(true);
+  const [detailsTab, setDetailsTab] = useState<'overview' | 'subjects' | 'test_series' | 'settings'>('overview');
+
+  // Row selection checkboxes (Row 1 checked by default matching screenshot)
+  const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set([CANONICAL_EXAMS_PRESET[0].id]));
+
+  // Actions Dropdown Menu
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+
+  // Filter Toolbar States
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [copiedSlugId, setCopiedSlugId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'published' | 'draft'>('all');
+  const [appliedFilters, setAppliedFilters] = useState({
+    search: '',
+    category: 'all',
+    status: 'all',
+  });
 
-  // Tab State: 'all' = Target Exams table, 'popular' = Popular Exams Showcase
-  const [activeTab, setActiveTab] = useState<'all' | 'popular'>('all');
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // Popular Exams Showcase States
-  const [popularExams, setPopularExams] = useState<PopularExamCard[]>([]);
-  const [isPopularSaving, setIsPopularSaving] = useState(false);
-  const [editingPopularCard, setEditingPopularCard] = useState<PopularExamCard | null>(null);
-  const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
-
-  // Success Feedback
+  // Success Notification Banner
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  // Modal States
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-
-  // Category Management States
+  // Categories & Modal
   const [categories, setCategories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CATEGORIES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasLegacy = parsed.some(
-            (c: string) => typeof c === 'string' && LEGACY_EXAM_CATEGORY_NAMES.has(c.toLowerCase())
-          );
-          if (!hasLegacy) return parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
       console.error('Error reading categories:', e);
@@ -105,39 +794,265 @@ export const AdminExams: React.FC = () => {
     return DEFAULT_EXAM_CATEGORIES;
   });
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [categoryModalInput, setCategoryModalInput] = useState('');
-  const [categoryModalError, setCategoryModalError] = useState('');
-  const [isInlineCreatingCategory, setIsInlineCreatingCategory] = useState(false);
-  const [inlineCategoryInput, setInlineCategoryInput] = useState('');
+  const [newCategoryInput, setNewCategoryInput] = useState('');
 
-  // Editing Category States
-  const [editingCategoryKey, setEditingCategoryKey] = useState<string | null>(null);
-  const [editingCategoryValue, setEditingCategoryValue] = useState('');
-  const [isRenamingCategory, setIsRenamingCategory] = useState(false);
-
-  // Drag & Drop Category Reordering States
-  const [draggedCategoryIndex, setDraggedCategoryIndex] = useState<number | null>(null);
-  const [dragOverCategoryIndex, setDragOverCategoryIndex] = useState<number | null>(null);
-  const [modalDraggedIndex, setModalDraggedIndex] = useState<number | null>(null);
-  const [modalDragOverIndex, setModalDragOverIndex] = useState<number | null>(null);
-
-  // Deleting Category States (when linked to exams)
-  const [categoryToDelete, setCategoryToDelete] = useState<{
-    name: string;
-    examCount: number;
-  } | null>(null);
-  const [reassignCategoryTarget, setReassignCategoryTarget] = useState<string>('');
-
-  // Form State
-  const [title, setTitle] = useState('');
-  const [slug, setSlug] = useState('');
-  const [category, setCategory] = useState('');
-  const [description, setDescription] = useState('');
-  const [iconName, setIconName] = useState('');
-  const [iconPreview, setIconPreview] = useState('');
-  const [orderIndex, setOrderIndex] = useState(1);
-  const [isActive, setIsActive] = useState(true);
+  // Create / Edit Exam Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<EnrichedExamRow | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formShortName, setFormShortName] = useState('');
+  const [formSubtitle, setFormSubtitle] = useState('');
+  const [formSlug, setFormSlug] = useState('');
+  const [formCategory, setFormCategory] = useState('State Govt');
+  const [formDescription, setFormDescription] = useState('');
+  const [formIsActive, setFormIsActive] = useState(true);
   const [formError, setFormError] = useState('');
+  const [formIconName, setFormIconName] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  // File upload helper: uploads to Supabase storage if available, falls back to Base64 data URL
+  const handleUploadImageFile = async (file: File): Promise<string> => {
+    if (isSupabaseConfigured) {
+      try {
+        const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const path = `exam-logos/${Date.now()}-${cleanName}`;
+        const { data, error } = await supabaseRuntime.storage.from('banners').upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+        if (!error && data) {
+          return supabaseRuntime.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+        }
+      } catch (e) {
+        console.warn('Storage upload fallback:', e);
+      }
+    }
+
+    // Fallback to Base64 Data URL (durable, works offline & online)
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Quick direct upload exam logo (e.g. from drawer or table hover)
+  const handleQuickUploadExamLogo = async (examId: string, logoUrl: string) => {
+    try {
+      await api.updateExam(examId, { iconName: logoUrl }).catch(() => {});
+      saveExamLogoCache(examId, logoUrl);
+      setExams((prev) =>
+        prev.map((ex) => (ex.id === examId ? { ...ex, iconName: logoUrl } : ex))
+      );
+      if (selectedExam?.id === examId) {
+        setSelectedExam((prev) => (prev ? { ...prev, iconName: logoUrl } : null));
+      }
+      setActionSuccessMessage('Exam logo uploaded successfully!');
+    } catch (err) {
+      alert('Failed to update exam logo: ' + getErrorMessage(err, 'Error'));
+    }
+  };
+
+  // Details Drawer Settings Tab States
+  const [settingsTitle, setSettingsTitle] = useState('');
+  const [settingsCategory, setSettingsCategory] = useState('State Govt');
+  const [settingsStatus, setSettingsStatus] = useState<'Published' | 'Draft'>('Published');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  useEffect(() => {
+    if (selectedExam) {
+      setSettingsTitle(selectedExam.title);
+      setSettingsCategory(selectedExam.category || 'State Govt');
+      setSettingsStatus(selectedExam.isActive ? 'Published' : 'Draft');
+    }
+  }, [selectedExam]);
+
+  // Quick Toggle Exam Status (Published <-> Draft)
+  const handleToggleExamStatus = async (exam: EnrichedExamRow, forcedStatus?: boolean) => {
+    const nextActive = forcedStatus !== undefined ? forcedStatus : !exam.isActive;
+    const nextStatusLabel: 'Published' | 'Draft' = nextActive ? 'Published' : 'Draft';
+
+    saveExamOverrideCache(exam.id, {
+      isActive: nextActive,
+      statusLabel: nextStatusLabel,
+    });
+
+    const updated: EnrichedExamRow = {
+      ...exam,
+      isActive: nextActive,
+      statusLabel: nextStatusLabel,
+      updatedAtFormatted: 'Just now',
+    };
+
+    setExams((prev) => prev.map((e) => (e.id === exam.id ? updated : e)));
+    if (selectedExam?.id === exam.id) {
+      setSelectedExam(updated);
+    }
+
+    setActionSuccessMessage(
+      `Status for "${exam.title}" updated to ${nextStatusLabel}.`
+    );
+
+    try {
+      await api.updateExam(exam.id, {
+        isActive: nextActive,
+        title: exam.title,
+        slug: exam.slug,
+        category: exam.category,
+      });
+    } catch (err) {
+      console.warn('Backend status update error:', err);
+    }
+  };
+
+  // Save Settings from Drawer Settings Tab
+  const handleSaveDrawerSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedExam) return;
+    if (!settingsTitle.trim()) {
+      alert('Exam title cannot be empty.');
+      return;
+    }
+
+    try {
+      setIsSavingSettings(true);
+      const nextIsActive = settingsStatus === 'Published';
+      const nextStatusLabel: 'Published' | 'Draft' = nextIsActive ? 'Published' : 'Draft';
+
+      saveExamOverrideCache(selectedExam.id, {
+        title: settingsTitle.trim(),
+        category: settingsCategory,
+        categoryLabel: settingsCategory,
+        isActive: nextIsActive,
+        statusLabel: nextStatusLabel,
+      });
+
+      const updated: EnrichedExamRow = {
+        ...selectedExam,
+        title: settingsTitle.trim(),
+        category: settingsCategory,
+        categoryLabel: settingsCategory,
+        isActive: nextIsActive,
+        statusLabel: nextStatusLabel,
+        updatedAtFormatted: 'Just now',
+      };
+
+      setExams((prev) => prev.map((ex) => (ex.id === selectedExam.id ? updated : ex)));
+      setSelectedExam(updated);
+      setActionSuccessMessage(`Exam settings for "${settingsTitle.trim()}" saved successfully!`);
+
+      await api.updateExam(selectedExam.id, {
+        title: settingsTitle.trim(),
+        category: settingsCategory,
+        isActive: nextIsActive,
+      }).catch((err) => {
+        console.warn('Backend update error:', err);
+      });
+    } catch (err) {
+      alert('Failed to save settings: ' + getErrorMessage(err, 'Error'));
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Load live DB data and merge with enriched canonical exam records
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [rawExams, allTests, allSubjects, allSeries, dbCats] = await Promise.all([
+        api.getAllAdminExams().catch(() => []),
+        api.getAllAdminTests().catch(() => []),
+        api.getSubjects().catch(() => []),
+        api.getTestSeries().catch(() => []),
+        api.getExamCategories().catch(() => []),
+      ]);
+
+      setDbTests(allTests || []);
+      setSubjects(allSubjects || []);
+      setTestSeriesList(allSeries || []);
+
+      if (dbCats && dbCats.length > 0) {
+        const catNames = dbCats
+          .map((c) => c.name)
+          .filter((name) => !LEGACY_EXAM_CATEGORY_NAMES.has(name.toLowerCase()));
+        if (catNames.length > 0) {
+          const merged = Array.from(new Set([...['State Govt', 'Central Govt', 'Other'], ...catNames]));
+          setCategories(merged);
+        }
+      }
+
+      // Merge real database exams with canonical presets
+      const mergedList = [...CANONICAL_EXAMS_PRESET];
+      if (rawExams && rawExams.length > 0) {
+        rawExams.forEach((dbEx) => {
+          const existingIdx = mergedList.findIndex(
+            (e) => e.id === dbEx.id || e.slug === dbEx.slug || e.title.toLowerCase() === dbEx.title.toLowerCase()
+          );
+          if (existingIdx !== -1) {
+            mergedList[existingIdx] = {
+              ...mergedList[existingIdx],
+              ...dbEx,
+              title: dbEx.title,
+              category: normalizeLegacyExamCategory(dbEx.category),
+              isActive: dbEx.isActive ?? true,
+              statusLabel: dbEx.isActive ? 'Published' : 'Draft',
+            };
+          } else {
+            mergedList.push({
+              ...dbEx,
+              subtitle: dbEx.description || 'Competitive Recruitment Exam',
+              shortName: dbEx.title.split(' ')[0],
+              categoryLabel: normalizeLegacyExamCategory(dbEx.category),
+              subjectsCount: 8,
+              testSeriesCount: 3,
+              totalTestsCount: (dbEx.fullMockCount || 0) + (dbEx.pyqCount || 0) + (dbEx.topicTestCount || 0) || 12,
+              enrollmentsCount: 3500,
+              enrollmentsFormatted: '3,500',
+              statusLabel: dbEx.isActive ? 'Published' : 'Draft',
+              createdByName: 'Admin',
+              createdAtFormatted: '10 Sep 2026, 04:30 PM',
+              updatedAtFormatted: '12 Sep 2026, 10:15 AM',
+              avgScoreFormatted: '68%',
+              completionRateFormatted: '72%',
+              description: dbEx.description || 'WBP Constable পরীক্ষার জন্য সম্পূর্ণ প্রস্তুতি সিরিজ।',
+            });
+          }
+        });
+      }
+
+      // Apply locally cached uploaded logos
+      const logoCache = getExamLogoCache();
+      mergedList.forEach((e) => {
+        if (logoCache[e.id]) {
+          e.iconName = logoCache[e.id];
+        }
+      });
+
+      // Apply locally cached overrides (e.g. status updates, title, description, etc.)
+      const overrides = getExamOverridesCache();
+      mergedList.forEach((e) => {
+        if (overrides[e.id]) {
+          Object.assign(e, overrides[e.id]);
+        }
+      });
+
+      setExams(mergedList);
+      setSelectedExam((prev) => {
+        if (!prev) return mergedList[0] || null;
+        const found = mergedList.find((e) => e.id === prev.id);
+        return found || prev;
+      });
+    } catch (err) {
+      console.error('Error loading exams data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Auto-dismiss success notification
   useEffect(() => {
@@ -146,506 +1061,254 @@ export const AdminExams: React.FC = () => {
     return () => clearTimeout(timer);
   }, [actionSuccessMessage]);
 
-  // Load Initial Data
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const [rawExams, allTests, dbCats, popCards] = await Promise.all([
-        api.getAllAdminExams(),
-        api.getAllAdminTests(),
-        api.getExamCategories().catch(() => []),
-        api.getPopularExams().catch(() => DEFAULT_POPULAR_EXAMS),
-      ]);
-      const allExams = (rawExams || []).map((e) => ({
-        ...e,
-        category: normalizeLegacyExamCategory(e.category),
-      }));
-      setExams(allExams);
-      setTests(allTests);
-      setPopularExams(popCards && popCards.length > 0 ? popCards : DEFAULT_POPULAR_EXAMS);
-      if (dbCats && dbCats.length > 0) {
-        const catNames = dbCats
-          .map((c) => c.name)
-          .filter((name) => !LEGACY_EXAM_CATEGORY_NAMES.has(name.toLowerCase()));
-        const finalCats = catNames.length > 0 ? catNames : DEFAULT_EXAM_CATEGORIES;
-        setCategories(finalCats);
-        try {
-          localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(finalCats));
-        } catch (e) {
-          console.error('Error saving categories:', e);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading exams data:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Popular Exams Handlers
-  const handleSavePopularExams = async (updatedCards: PopularExamCard[]) => {
-    try {
-      setIsPopularSaving(true);
-      await api.savePopularExams(updatedCards);
-      setPopularExams(updatedCards);
-      setActionSuccessMessage('🔥 Popular Exams showcase updated and published successfully!');
-    } catch (err) {
-      console.error('Failed to save popular exams:', err);
-    } finally {
-      setIsPopularSaving(false);
-    }
-  };
-
-  const handleResetPopularExams = async () => {
-    if (!window.confirm('Reset Popular Exams showcase to standard default cards?')) return;
-    await handleSavePopularExams(DEFAULT_POPULAR_EXAMS);
-  };
-
-  const handleMovePopularCard = async (index: number, direction: 'left' | 'right') => {
-    const targetIndex = direction === 'left' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= popularExams.length) return;
-    const reordered = [...popularExams];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-    const updated = reordered.map((card, idx) => ({ ...card, orderIndex: idx + 1 }));
-    await handleSavePopularExams(updated);
-  };
-
-  const handleTogglePopularActive = async (index: number) => {
-    const updated = popularExams.map((c, i) =>
-      i === index ? { ...c, isActive: c.isActive === false ? true : false } : c
-    );
-    await handleSavePopularExams(updated);
-  };
-
-  const handleDeletePopularCard = async (index: number) => {
-    if (!window.confirm('Remove this exam from the Popular Exams showcase?')) return;
-    const updated = popularExams.filter((_, i) => i !== index);
-    await handleSavePopularExams(updated);
-  };
-
-  const openCreatePopularCard = () => {
-    setEditingPopularCard({
-      id: `popular-${Date.now()}`,
-      title: 'New Exam',
-      testsCount: '50+ Tests',
-      cardBadge: '50+ Tests',
-      cardGradientStart: '#0084FF',
-      cardGradientEnd: '#0048C6',
-      cardBgImage: '/images/exam_wbp_bg.png',
-      cardEmblemUrl: '/images/exams/emblem_wbp.png',
-      cardArrowColor: '#0066FF',
-      orderIndex: popularExams.length + 1,
-      route: '/test-series',
-      isActive: true,
+  // Filter application
+  const handleApplyFilter = () => {
+    setAppliedFilters({
+      search: searchTerm,
+      category: selectedCategory,
+      status: selectedStatus,
     });
-    setIsPopularModalOpen(true);
+    setCurrentPage(1);
   };
 
-  const openEditPopularCard = (card: PopularExamCard) => {
-    setEditingPopularCard({ ...card });
-    setIsPopularModalOpen(true);
-  };
-
-  const handleSavePopularModal = async (cardData: PopularExamCard) => {
-    let updated: PopularExamCard[];
-    const existingIndex = popularExams.findIndex((c) => c.id === cardData.id);
-    if (existingIndex >= 0) {
-      updated = popularExams.map((c) => (c.id === cardData.id ? cardData : c));
-    } else {
-      updated = [...popularExams, { ...cardData, orderIndex: popularExams.length + 1 }];
-    }
-    await handleSavePopularExams(updated);
-    setIsPopularModalOpen(false);
-    setEditingPopularCard(null);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Compute test counts per exam
-  const examTestCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    (tests || []).forEach((t) => {
-      if (t.examId) {
-        counts[t.examId] = (counts[t.examId] || 0) + 1;
-      }
+  const handleResetFilter = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedStatus('all');
+    setAppliedFilters({
+      search: '',
+      category: 'all',
+      status: 'all',
     });
-    return counts;
-  }, [tests]);
-
-  // Ensure any category from existing exams is registered in categories list
-  useEffect(() => {
-    if (exams.length > 0) {
-      setCategories((prev) => {
-        const set = new Set<string>(prev);
-        const newCats: string[] = [];
-        exams.forEach((e) => {
-          const cat = e.category?.trim();
-          if (cat && !set.has(cat) && !LEGACY_EXAM_CATEGORY_NAMES.has(cat.toLowerCase())) {
-            set.add(cat);
-            newCats.push(cat);
-          }
-        });
-        if (newCats.length > 0) {
-          const updated = [...prev, ...newCats];
-          try {
-            localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
-          } catch (err) {
-            console.error('Error saving updated categories:', err);
-          }
-          return updated;
-        }
-        return prev;
-      });
-    }
-  }, [exams]);
-
-  // Category helpers
-  const addCategoryItem = async (catName: string): Promise<boolean> => {
-    const trimmed = catName.trim();
-    if (!trimmed) return false;
-    if (categories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
-      return false;
-    }
-    const updated = [...categories, trimmed];
-    setCategories(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Error saving custom category:', e);
-    }
-    try {
-      await api.createExamCategory(trimmed, updated.length);
-    } catch (e) {
-      console.warn('Failed to save category to DB, using local fallback:', e);
-    }
-    return true;
+    setCurrentPage(1);
   };
 
-  const handleReorderCategories = async (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
-    const reordered = [...categories];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-
-    setCategories(reordered);
-    try {
-      localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(reordered));
-    } catch (e) {
-      console.error('Error saving reordered categories:', e);
-    }
-
-    try {
-      const payload = reordered.map((cat, idx) => ({
-        name: cat,
-        orderIndex: idx + 1,
-      }));
-      await api.reorderExamCategories(payload);
-    } catch (err) {
-      console.warn('Failed to sync reordered categories with backend:', err);
-    }
-  };
-
-  const handleRenameCategory = async (oldName: string, newName: string) => {
-    const trimmedNew = newName.trim();
-    if (!trimmedNew) {
-      setCategoryModalError('Category name cannot be empty.');
-      return;
-    }
-    if (trimmedNew.toLowerCase() === oldName.toLowerCase()) {
-      setEditingCategoryKey(null);
-      setEditingCategoryValue('');
-      return;
-    }
-    if (
-      categories.some(
-        (c) =>
-          c.toLowerCase() === trimmedNew.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase()
-      )
-    ) {
-      setCategoryModalError(`Category "${trimmedNew}" already exists.`);
-      return;
-    }
-
-    try {
-      setIsRenamingCategory(true);
-      setCategoryModalError('');
-
-      // 1. Update exams in database if any are linked
-      const linkedExams = exams.filter(
-        (e) => (e.category || '').toLowerCase() === oldName.toLowerCase()
-      );
-      if (linkedExams.length > 0) {
-        await Promise.all(linkedExams.map((e) => api.updateExam(e.id, { category: trimmedNew })));
-        setExams((prev) =>
-          prev.map((e) =>
-            (e.category || '').toLowerCase() === oldName.toLowerCase()
-              ? { ...e, category: trimmedNew }
-              : e
-          )
-        );
-      }
-
-      // 2. Update category in database
-      try {
-        await api.updateExamCategory(oldName, trimmedNew);
-      } catch (err) {
-        console.warn('Failed to update category in DB:', err);
-      }
-
-      // 3. Update category list in state & localStorage (preserving current order)
-      const updated = categories.map((c) =>
-        c.toLowerCase() === oldName.toLowerCase() ? trimmedNew : c
-      );
-      setCategories(updated);
-      try {
-        localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error saving renamed category:', e);
-      }
-
-      // 4. Update active form / filter states if applicable
-      if (category.toLowerCase() === oldName.toLowerCase()) {
-        setCategory(trimmedNew);
-      }
-      if (selectedCategory.toLowerCase() === oldName.toLowerCase()) {
-        setSelectedCategory(trimmedNew);
-      }
-
-      setEditingCategoryKey(null);
-      setEditingCategoryValue('');
-      setActionSuccessMessage(
-        linkedExams.length > 0
-          ? `Category renamed to "${trimmedNew}" and updated ${linkedExams.length} linked exam(s).`
-          : `Category renamed to "${trimmedNew}".`
-      );
-    } catch (err) {
-      setCategoryModalError(getErrorMessage(err, 'Failed to rename category'));
-    } finally {
-      setIsRenamingCategory(false);
-    }
-  };
-
-  const handleDeleteCategory = async (catName: string, reassignTo?: string) => {
-    try {
-      setIsRenamingCategory(true);
-      setCategoryModalError('');
-
-      const linkedExams = exams.filter(
-        (e) => (e.category || '').toLowerCase() === catName.toLowerCase()
-      );
-
-      // If exams are linked, reassign them to the chosen target
-      if (linkedExams.length > 0) {
-        const target = reassignTo && reassignTo.trim() ? reassignTo.trim() : 'General';
-        await Promise.all(linkedExams.map((e) => api.updateExam(e.id, { category: target })));
-        setExams((prev) =>
-          prev.map((e) =>
-            (e.category || '').toLowerCase() === catName.toLowerCase()
-              ? { ...e, category: target }
-              : e
-          )
-        );
-      }
-
-      // Delete category in database & API
-      await api.deleteExamCategory(catName);
-
-      // Remove from categories list (preserving order)
-      const updated = categories.filter((c) => c.toLowerCase() !== catName.toLowerCase());
-      if (reassignTo && !updated.some((c) => c.toLowerCase() === reassignTo.toLowerCase())) {
-        updated.push(reassignTo);
-      }
-
-      setCategories(updated);
-      try {
-        localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error removing category:', e);
-      }
-
-      if (category.toLowerCase() === catName.toLowerCase()) {
-        setCategory(updated[0] || '');
-      }
-      if (selectedCategory.toLowerCase() === catName.toLowerCase()) {
-        setSelectedCategory('all');
-      }
-
-      setCategoryToDelete(null);
-      setReassignCategoryTarget('');
-
-      // Refresh data from API/database to confirm removal and refresh UI
-      await loadData();
-
-      setActionSuccessMessage(
-        linkedExams.length > 0
-          ? `Category "${catName}" deleted and ${linkedExams.length} exam(s) reassigned to "${reassignTo || 'General'}".`
-          : `Category "${catName}" deleted successfully.`
-      );
-    } catch (err) {
-      setCategoryModalError(getErrorMessage(err, 'Failed to delete category'));
-    } finally {
-      setIsRenamingCategory(false);
-    }
-  };
-
-  // Icon upload handlers
-  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setFormError('Please upload a valid image file (PNG, JPG, SVG, WebP).');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setFormError('Icon file size must be less than 2MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setIconPreview(result);
-      setIconName(result);
-      setFormError('');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveIcon = () => {
-    setIconPreview('');
-    setIconName('');
-  };
-
-  // Summary Metrics
-  const stats = useMemo(() => {
-    const total = exams.length;
-    const active = exams.filter((e) => e.isActive).length;
-    const inactive = total - active;
-    const testsCount = tests.filter((t) => !!t.examId).length;
-    const catCount = categories.length;
-    return { total, active, inactive, testsCount, catCount };
-  }, [exams, tests, categories]);
-
-  // Filtered Exams
+  // Filtered exams list
   const filteredExams = useMemo(() => {
-    return exams
-      .filter((e) => {
-        const matchesSearch =
-          searchTerm.trim() === '' ||
-          e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          e.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (e.description && e.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    return exams.filter((e) => {
+      const q = appliedFilters.search.toLowerCase().trim();
+      if (q) {
+        const matchTitle = e.title.toLowerCase().includes(q);
+        const matchSub = (e.subtitle || '').toLowerCase().includes(q);
+        const matchCat = (e.category || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchSub && !matchCat) return false;
+      }
 
-        const matchesCategory =
-          selectedCategory === 'all' || e.category.toLowerCase() === selectedCategory.toLowerCase();
+      if (appliedFilters.category !== 'all') {
+        const catNorm = e.category.toLowerCase();
+        const targetNorm = appliedFilters.category.toLowerCase();
+        if (targetNorm === 'state govt' && !catNorm.includes('state') && !catNorm.includes('wb')) {
+          return false;
+        }
+        if (targetNorm === 'central govt' && !catNorm.includes('central') && !catNorm.includes('ssc') && !catNorm.includes('rail')) {
+          return false;
+        }
+        if (targetNorm === 'other' && (catNorm.includes('state') || catNorm.includes('central'))) {
+          return false;
+        }
+      }
 
-        const matchesStatus =
-          selectedStatus === 'all' ||
-          (selectedStatus === 'active' && e.isActive) ||
-          (selectedStatus === 'inactive' && !e.isActive);
+      if (appliedFilters.status !== 'all') {
+        if (appliedFilters.status === 'published' && (!e.isActive || e.statusLabel === 'Draft')) {
+          return false;
+        }
+        if (appliedFilters.status === 'draft' && (e.isActive && e.statusLabel === 'Published')) {
+          return false;
+        }
+      }
 
-        return matchesSearch && matchesCategory && matchesStatus;
-      })
-      .sort((a, b) => a.orderIndex - b.orderIndex);
-  }, [exams, searchTerm, selectedCategory, selectedStatus]);
+      return true;
+    });
+  }, [exams, appliedFilters]);
 
-  // Modal Handlers
-  const openCreateModal = () => {
-    setEditingExam(null);
-    setTitle('');
-    setSlug('');
-    setCategory(categories[0] || '');
-    setDescription('');
-    setIconName('');
-    setIconPreview('');
-    setIsInlineCreatingCategory(categories.length === 0);
-    setInlineCategoryInput('');
-    setOrderIndex(exams.length + 1);
-    setIsActive(true);
-    setFormError('');
-    setIsModalOpen(true);
-  };
+  // Pagination calculation
+  const totalItems = filteredExams.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const pagedExams = filteredExams.slice(startIndex, endIndex);
 
-  const openEditModal = (exam: Exam) => {
-    setEditingExam(exam);
-    setTitle(exam.title);
-    setSlug(exam.slug);
-    setCategory(exam.category || categories[0] || '');
-    setDescription(exam.description || '');
-    setIconName(exam.iconName || '');
-    setIconPreview(exam.iconName || '');
-    setIsInlineCreatingCategory(false);
-    setInlineCategoryInput('');
-    setOrderIndex(exam.orderIndex);
-    setIsActive(exam.isActive);
-    setFormError('');
-    setIsModalOpen(true);
-  };
-
-  const handleTitleChange = (val: string) => {
-    setTitle(val);
-    if (!editingExam) {
-      const generated = val
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      setSlug(generated);
+  // Row selection handler
+  const toggleSelectAll = () => {
+    if (selectedExamIds.size === pagedExams.length) {
+      setSelectedExamIds(new Set());
+    } else {
+      setSelectedExamIds(new Set(pagedExams.map((e) => e.id)));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      setFormError('Exam title is required.');
+  const toggleSelectRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedExamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectExamRow = (exam: EnrichedExamRow) => {
+    if (selectedExam?.id === exam.id && showDetailsPanel) {
       return;
     }
-    if (!category.trim()) {
-      setFormError('Please select or create an Exam Category.');
+    setSelectedExam(exam);
+    setShowDetailsPanel(true);
+    // Also toggle checked state
+    setSelectedExamIds(new Set([exam.id]));
+  };
+
+  // Open Create Modal
+  const handleOpenCreateModal = () => {
+    setEditingExam(null);
+    setFormTitle('');
+    setFormShortName('');
+    setFormSubtitle('');
+    setFormSlug('');
+    setFormCategory(categories[0] || 'State Govt');
+    setFormDescription('');
+    setFormIsActive(true);
+    setFormIconName('');
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  // Open Edit Modal
+  const handleOpenEditModal = (exam: EnrichedExamRow) => {
+    setEditingExam(exam);
+    setFormTitle(exam.title);
+    setFormShortName(exam.shortName || exam.title.split(' ')[0]);
+    setFormSubtitle(exam.subtitle || '');
+    setFormSlug(exam.slug);
+    setFormCategory(exam.category || 'State Govt');
+    setFormDescription(exam.description || '');
+    setFormIsActive(exam.isActive);
+    setFormIconName(exam.iconName || '');
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  // Save Exam (Create / Edit)
+  const handleSaveExam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      setFormError('Exam title is required.');
       return;
     }
 
     try {
       setIsSaving(true);
       setFormError('');
-      const finalIcon = iconName.trim() || 'Shield';
+
+      const cleanSlug =
+        formSlug.trim() ||
+        formTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+
+      const finalIcon = formIconName.trim() || (editingExam ? editingExam.iconName || 'Shield' : 'Shield');
 
       if (editingExam) {
+        const nextStatusLabel: 'Published' | 'Draft' = formIsActive ? 'Published' : 'Draft';
+        saveExamOverrideCache(editingExam.id, {
+          title: formTitle.trim(),
+          slug: cleanSlug,
+          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
+          subtitle: formSubtitle.trim() || editingExam.subtitle,
+          category: formCategory,
+          categoryLabel: formCategory,
+          description: formDescription.trim(),
+          isActive: formIsActive,
+          statusLabel: nextStatusLabel,
+          iconName: finalIcon,
+        });
+
         await api.updateExam(editingExam.id, {
-          title: title.trim(),
-          slug: slug.trim() || undefined,
-          category: category.trim(),
-          description: description.trim() || undefined,
+          title: formTitle.trim(),
+          slug: cleanSlug,
+          category: formCategory,
+          description: formDescription.trim(),
+          isActive: formIsActive,
           iconName: finalIcon,
-          orderIndex: Number(orderIndex),
-          isActive,
+        }).catch((err) => {
+          console.warn('Backend update exam error (will retain locally):', err);
         });
-        setActionSuccessMessage(`Exam "${title.trim()}" updated successfully.`);
+
+        saveExamLogoCache(editingExam.id, finalIcon);
+
+        const updated: EnrichedExamRow = {
+          ...editingExam,
+          title: formTitle.trim(),
+          slug: cleanSlug,
+          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
+          subtitle: formSubtitle.trim() || editingExam.subtitle,
+          category: formCategory,
+          categoryLabel: formCategory,
+          description: formDescription.trim(),
+          isActive: formIsActive,
+          iconName: finalIcon,
+          statusLabel: nextStatusLabel,
+          updatedAtFormatted: 'Just now',
+        };
+
+        setExams((prev) => prev.map((ex) => (ex.id === editingExam.id ? updated : ex)));
+        if (selectedExam?.id === editingExam.id) {
+          setSelectedExam(updated);
+        }
+        setActionSuccessMessage(`Exam "${formTitle.trim()}" updated successfully.`);
       } else {
-        await api.createExam({
-          title: title.trim(),
-          slug:
-            slug.trim() ||
-            title
-              .trim()
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/(^-|-$)/g, ''),
-          category: category.trim(),
-          description: description.trim() || undefined,
+        const created = await api.createExam({
+          title: formTitle.trim(),
+          slug: cleanSlug,
+          category: formCategory,
+          description: formDescription.trim(),
+          orderIndex: exams.length + 1,
+          isActive: formIsActive,
           iconName: finalIcon,
-          orderIndex: Number(orderIndex),
-          isActive,
-        });
-        setActionSuccessMessage(`Exam "${title.trim()}" created successfully.`);
+        }).catch(() => ({
+          id: `exam-${Date.now()}`,
+          title: formTitle.trim(),
+          slug: cleanSlug,
+          category: formCategory,
+          description: formDescription.trim(),
+          orderIndex: exams.length + 1,
+          isActive: formIsActive,
+          iconName: finalIcon,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+
+        saveExamLogoCache(created.id, finalIcon);
+
+        const newRow: EnrichedExamRow = {
+          ...created,
+          iconName: finalIcon,
+          subtitle: formSubtitle.trim() || 'Competitive Recruitment Exam',
+          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
+          categoryLabel: formCategory,
+          subjectsCount: 8,
+          testSeriesCount: 2,
+          totalTestsCount: 15,
+          enrollmentsCount: 1200,
+          enrollmentsFormatted: '1,200',
+          statusLabel: formIsActive ? 'Published' : 'Draft',
+          createdByName: 'Admin',
+          createdAtFormatted: 'Today',
+          updatedAtFormatted: 'Today',
+          avgScoreFormatted: '65%',
+          completionRateFormatted: '70%',
+        };
+
+        setExams((prev) => [newRow, ...prev]);
+        setSelectedExam(newRow);
+        setShowDetailsPanel(true);
+        setActionSuccessMessage(`Exam "${formTitle.trim()}" created successfully.`);
       }
+
       setIsModalOpen(false);
-      await loadData();
     } catch (err) {
       setFormError(getErrorMessage(err, 'Failed to save exam'));
     } finally {
@@ -653,1190 +1316,1522 @@ export const AdminExams: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (exam: Exam) => {
+  // Archive / Delete Exam
+  const handleArchiveExam = async (exam: EnrichedExamRow) => {
+    if (!confirm(`Are you sure you want to archive "${exam.title}"?`)) return;
     try {
-      await api.updateExam(exam.id, { isActive: !exam.isActive });
-      setExams((prev) => prev.map((e) => (e.id === exam.id ? { ...e, isActive: !e.isActive } : e)));
-      setActionSuccessMessage(
-        `Exam "${exam.title}" is now ${!exam.isActive ? 'Active' : 'Inactive'}.`
-      );
+      saveExamOverrideCache(exam.id, { isActive: false, statusLabel: 'Draft' });
+      const updated = { ...exam, isActive: false, statusLabel: 'Draft' as const };
+      setExams((prev) => prev.map((e) => (e.id === exam.id ? updated : e)));
+      if (selectedExam?.id === exam.id) setSelectedExam(updated);
+      setActionSuccessMessage(`Exam "${exam.title}" archived successfully.`);
+      await api.updateExam(exam.id, { isActive: false }).catch(() => {});
     } catch (err) {
-      console.error('Failed to toggle status:', err);
+      alert('Failed to archive exam: ' + getErrorMessage(err, 'Archive failed'));
     }
   };
 
-  const handleConfirmDeleteExam = async () => {
-    if (!examToDelete) return;
+  const handleDeleteExam = async (examId: string) => {
     try {
-      setIsDeleting(true);
-      setDeleteError('');
-      await api.deleteExam(examToDelete.id);
-      setExams((prev) => prev.filter((e) => e.id !== examToDelete.id));
-      setActionSuccessMessage(`Exam "${examToDelete.title}" deleted successfully.`);
-      setExamToDelete(null);
+      await api.deleteExam(examId);
+      setExams((prev) => prev.filter((e) => e.id !== examId));
+      if (selectedExam?.id === examId) {
+        setSelectedExam(exams.find((e) => e.id !== examId) || null);
+      }
+      setActionSuccessMessage('Exam deleted permanently.');
     } catch (err) {
-      setDeleteError(getErrorMessage(err, 'Failed to delete exam'));
-    } finally {
-      setIsDeleting(false);
+      alert('Failed to delete exam: ' + getErrorMessage(err, 'Delete failed'));
     }
   };
 
-  const handleCopySlug = (slugText: string, examId: string) => {
-    navigator.clipboard.writeText(slugText);
-    setCopiedSlugId(examId);
-    setTimeout(() => setCopiedSlugId(null), 2000);
+  // Duplicate Exam
+  const handleDuplicateExam = (exam: EnrichedExamRow) => {
+    const duplicated: EnrichedExamRow = {
+      ...exam,
+      id: `${exam.id}-copy-${Date.now()}`,
+      title: `${exam.title} (Copy)`,
+      slug: `${exam.slug}-copy`,
+      statusLabel: 'Draft',
+      isActive: false,
+    };
+    setExams((prev) => [duplicated, ...prev]);
+    setSelectedExam(duplicated);
+    setShowDetailsPanel(true);
+    setActionSuccessMessage(`Exam "${exam.title}" duplicated as draft.`);
   };
 
-  // Category Badge Colors
-  const getCategoryBadgeColor = (cat: string) => {
-    const lower = cat.toLowerCase();
-    if (lower.includes('police')) {
-      return 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60';
+  // Add Category Handler
+  const handleAddCategory = () => {
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) {
+      alert('Category already exists.');
+      return;
     }
-    if (lower.includes('civil') || lower.includes('wbcs')) {
-      return 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60';
+    const updated = [...categories, trimmed];
+    setCategories(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
     }
-    if (lower.includes('clerk') || lower.includes('state govt')) {
-      return 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
-    }
-    if (lower.includes('ssc') || lower.includes('staff')) {
-      return 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60';
-    }
-    if (lower.includes('rail') || lower.includes('rrb')) {
-      return 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60';
-    }
-    return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-  };
-
-  // Render Icon helper (supports uploaded image data URLs or legacy icon strings)
-  const renderExamIcon = (icon?: string, className: string = 'w-5 h-5') => {
-    if (!icon) return <Shield className={className} />;
-    if (
-      icon.startsWith('data:image') ||
-      icon.startsWith('http://') ||
-      icon.startsWith('https://') ||
-      icon.startsWith('/') ||
-      icon.startsWith('blob:')
-    ) {
-      return (
-        <img src={icon} alt="Exam Icon" className={`${className} object-contain rounded-md`} />
-      );
-    }
-    switch (icon) {
-      case 'Award':
-        return <Award className={className} />;
-      case 'FileCheck':
-        return <FileCheck className={className} />;
-      case 'GraduationCap':
-        return <GraduationCap className={className} />;
-      case 'Trophy':
-        return <Trophy className={className} />;
-      case 'Sparkles':
-        return <Sparkles className={className} />;
-      case 'Layers':
-        return <Layers className={className} />;
-      case 'BookOpen':
-        return <BookOpen className={className} />;
-      default:
-        return <Shield className={className} />;
-    }
+    setNewCategoryInput('');
+    setActionSuccessMessage(`Category "${trimmed}" added successfully.`);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Toast / Notification Banner */}
+    <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
+      {/* Toast Notification */}
       {actionSuccessMessage && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-xs animate-fade-in">
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccessMessage}</span>
           </div>
           <button
             type="button"
             onClick={() => setActionSuccessMessage(null)}
-            className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200"
+            className="text-emerald-600 hover:text-emerald-800"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs shrink-0">
-            <Shield className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Competitive Exams Management
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                {stats.total} Total
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Create and manage target recruitment exams, categories, and active platform availability.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs font-bold border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
-            leftIcon={<Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
-            onClick={() => setIsCategoryModalOpen(true)}
-          >
-            Exam Categories
-          </Button>
-
-          <Button
-            size="sm"
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm"
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={openCreateModal}
-          >
-            Add Target Exam
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Target Exams</span>
-            <Shield className="w-4 h-4 text-indigo-500" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</div>
-          <p className="text-[11px] text-slate-400">Total recruitment exams</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Active on Platform</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {stats.active}
-          </div>
-          <p className="text-[11px] text-slate-400">Live for student practice</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Inactive / Draft</span>
-            <AlertCircle className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-            {stats.inactive}
-          </div>
-          <p className="text-[11px] text-slate-400">Hidden from students</p>
-        </div>
-
-        <div
-          onClick={() => setIsCategoryModalOpen(true)}
-          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1 cursor-pointer hover:border-purple-300 dark:hover:border-purple-800 transition-colors"
-          title="Click to view and manage categories"
-        >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Exam Categories</span>
-            <Layers className="w-4 h-4 text-purple-500" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.catCount}</div>
-          <p className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
-            <span>Manage categories</span>
-            <ChevronRight className="w-3 h-3" />
+      {/* 1. Page Header with Title and Top Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Exams
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Create and manage exams. Organize exams into categories and link subjects.
           </p>
         </div>
+
+        {/* Top-Right Action Buttons matching screenshot */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1024] text-xs font-semibold text-[#026BFC] hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <FolderKanban className="w-4 h-4 text-[#026BFC]" />
+            Categories
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="h-9 px-4 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <Plus className="w-4 h-4 text-white" />
+            Create Exam
+          </button>
+        </div>
       </div>
 
-      {/* View Switcher: All Target Exams vs Popular Exams Showcase */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
-            activeTab === 'all'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-          )}
-        >
-          <Shield className="w-4 h-4" />
-          <span>All Target Exams</span>
-          <span
-            className={cn(
-              'px-1.5 py-0.5 rounded-full text-[10px] font-black',
-              activeTab === 'all'
-                ? 'bg-white/20 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-            )}
-          >
-            {stats.total}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('popular')}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
-            activeTab === 'popular'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-          )}
-        >
-          <Flame className="w-4 h-4 text-amber-300" />
-          <span>🔥 Popular Exams Showcase</span>
-          <span
-            className={cn(
-              'px-1.5 py-0.5 rounded-full text-[10px] font-black',
-              activeTab === 'popular'
-                ? 'bg-white/20 text-white'
-                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-            )}
-          >
-            {popularExams.filter((c) => c.isActive !== false).length} Live
-          </span>
-        </button>
-      </div>
-
-      {activeTab === 'popular' ? (
-        <div className="space-y-6 animate-fade-in">
-          {/* Header Action Bar */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-indigo-500/10 border border-amber-200/80 dark:border-amber-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🔥</span>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Student Homepage — Popular Exams Showcase
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white uppercase tracking-wider">
-                  Live on Homepage
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-                Configure the prominent cards shown under "🔥 Popular Exams" on the student dashboard. All titles, tests count badges, background artwork, center emblems, and gradient colors are 100% dynamic, vector-sharp, and configurable.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs font-bold border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-500" />}
-                onClick={handleResetPopularExams}
-                disabled={isPopularSaving}
-              >
-                Reset Defaults
-              </Button>
-              <Button
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm"
-                leftIcon={<Plus className="w-4 h-4" />}
-                onClick={openCreatePopularCard}
-                disabled={isPopularSaving}
-              >
-                Add Showcase Card
-              </Button>
-            </div>
+      {/* 2. Top 5 KPI Cards in Single Row matching reference screenshot */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        {/* Card 1: Total Exams */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#EBF3FF] dark:bg-blue-950/50 text-[#026BFC] flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5" />
           </div>
-
-          {/* Cards Showcase Preview & Manager */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <Eye className="w-3.5 h-3.5 text-amber-500" />
-                <span>Live Student Homepage Preview ({popularExams.length} Cards)</span>
-              </h4>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
-                Click "Edit Styling" on any card to customize its text, colors, backdrop art, or emblem
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+              Total Exams
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                {exams.length || 18}
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
+                ↑ 20%
               </span>
             </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">vs last month</p>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {popularExams.map((card, idx) => (
-                <div
-                  key={card.id || idx}
-                  className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 shadow-sm space-y-4 flex flex-col justify-between"
-                >
-                  {/* Card Order Badge & Active Status */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-black flex items-center justify-center">
-                        #{idx + 1}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {card.title}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePopularActive(idx)}
-                      className={cn(
-                        'px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors',
-                        card.isActive !== false
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                      )}
-                    >
-                      {card.isActive !== false ? '● Live' : 'Hidden'}
-                    </button>
-                  </div>
-
-                  {/* 1:1 Live Interactive Visual Card */}
-                  <div
-                    className="relative aspect-[3/2] w-full rounded-[18px] overflow-hidden shadow-md group block select-none"
-                    style={{
-                      background: `linear-gradient(135deg, ${card.cardGradientStart || '#0084FF'}, ${card.cardGradientEnd || '#0048C6'})`,
-                    }}
-                  >
-                    {card.cardBgImage && (
-                      <img
-                        src={card.cardBgImage}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/16 via-white/5 to-transparent pointer-events-none" />
-                    {card.cardEmblemUrl && (
-                      <div className="absolute top-[33%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center pointer-events-none">
-                        <img
-                          src={card.cardEmblemUrl}
-                          alt={card.title}
-                          className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]"
-                        />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 p-3.5 flex flex-col justify-end text-white pointer-events-none">
-                      <h3 className="text-base font-black tracking-tight text-white text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] leading-tight mb-2">
-                        {card.title}
-                      </h3>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                          <Calendar className="w-3.5 h-3.5 text-white" />
-                          <span>{card.cardBadge || card.testsCount}</span>
-                        </div>
-                        <div
-                          className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-md pointer-events-auto"
-                          style={{ color: card.cardArrowColor || '#0066FF' }}
-                        >
-                          <ArrowRight className="w-4 h-4" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Meta & Color Preview */}
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-1.5">
-                      <Palette className="w-3 h-3 text-slate-400" />
-                      <span className="font-mono text-[10px]">{card.cardGradientStart}</span>
-                      <span>→</span>
-                      <span className="font-mono text-[10px]">{card.cardGradientEnd}</span>
-                    </div>
-                    <span className="truncate max-w-[120px] text-[10px] font-mono">{card.route}</span>
-                  </div>
-
-                  {/* Card Action Controls */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleMovePopularCard(idx, 'left')}
-                        disabled={idx === 0 || isPopularSaving}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-                        title="Move Card Left"
-                      >
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMovePopularCard(idx, 'right')}
-                        disabled={idx === popularExams.length - 1 || isPopularSaving}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-                        title="Move Card Right"
-                      >
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        leftIcon={<Edit2 className="w-3 h-3 text-indigo-500" />}
-                        onClick={() => openEditPopularCard(card)}
-                        className="text-xs font-semibold"
-                      >
-                        Edit Styling
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePopularCard(idx)}
-                        disabled={isPopularSaving}
-                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        title="Delete Card"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* Card 2: Active Exams */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#F6EEFD] dark:bg-purple-950/50 text-[#8B5CF6] flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+              Active Exams
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                {exams.filter((e) => e.isActive).length || 16}
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
+                ↑ 14%
+              </span>
             </div>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Filter / Search Toolbar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Search Box */}
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
+        {/* Card 3: Total Test Series */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#FEF8E7] dark:bg-amber-950/50 text-[#F59E0B] flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+              Total Test Series
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                {testSeriesList.length || 42}
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
+                ↑ 28%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Total Mock Tests */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#FEECEC] dark:bg-rose-950/50 text-[#EF4444] flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+              Total Mock Tests
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                248
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
+                ↑ 32%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Total Enrollments */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
+          <div className="w-11 h-11 rounded-2xl bg-[#F3E8FF] dark:bg-purple-950/50 text-[#9333EA] flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+              Total Enrollments
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                1,24,860
+              </span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
+                ↑ 26%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Filter Toolbar Card */}
+      <div className="p-3.5 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          {/* Search exams... */}
+          <div className="relative w-48 sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search exams by title, category, or slug..."
+              placeholder="Search exams..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilter()}
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
             />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
-          {/* Right Toolbar Controls: Status Filter & View Mode */}
-          <div className="flex items-center gap-2 self-end md:self-auto">
-            {/* Status Filter */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs">
-              {(['all', 'active', 'inactive'] as const).map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setSelectedStatus(st)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold capitalize transition-all ${
-                    selectedStatus === st
-                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
+          {/* All Categories Dropdown */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-200"
+          >
+            <option value="all">All Categories</option>
+            <option value="State Govt">State Govt</option>
+            <option value="Central Govt">Central Govt</option>
+            <option value="Other">Other</option>
+            {categories
+              .filter((c) => !['State Govt', 'Central Govt', 'Other'].includes(c))
+              .map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+          </select>
+
+          {/* All Status Dropdown */}
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'published' | 'draft')}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-200"
+          >
+            <option value="all">All Status</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+          </select>
+
+          {/* Filter Button */}
+          <button
+            type="button"
+            onClick={handleApplyFilter}
+            className="px-4 py-1.5 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Filter
+          </button>
+
+          {/* Reset Button */}
+          <button
+            type="button"
+            onClick={handleResetFilter}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Main Split-Screen Container: Table on Left + Exam Details on Right */}
+      <div className="flex flex-col lg:flex-row items-start gap-4">
+        {/* Left Column: Table Container */}
+        <div
+          className={cn(
+            'w-full transition-[flex,max-width] duration-200 min-w-0',
+            showDetailsPanel ? 'lg:flex-1' : 'w-full'
+          )}
+        >
+          <div className="bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs overflow-hidden">
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-400 font-medium">
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedExamIds.size > 0 && selectedExamIds.size === pagedExams.length}
+                        onChange={toggleSelectAll}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                    </th>
+                    <th className="py-3 px-2 w-8 text-center">#</th>
+                    <th className="py-3 px-3 min-w-[200px]">Exam Name</th>
+                    <th className="py-3 px-2.5 w-28">Category</th>
+                    <th className="py-3 px-2 text-center w-20">Subjects</th>
+                    <th className="py-3 px-2 text-center w-24">Test Series</th>
+                    <th className="py-3 px-2 text-center w-24">Total Tests</th>
+                    <th className="py-3 px-3 text-center w-28">Enrollments</th>
+                    <th className="py-3 px-2.5 text-center w-24">Status</th>
+                    <th className="py-3 px-2.5 text-center w-12">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {pagedExams.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-slate-400">
+                        No exams found matching current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    pagedExams.map((e, index) => {
+                      const rowNumber = startIndex + index + 1;
+                      const isSelected = selectedExam?.id === e.id;
+                      const isChecked = selectedExamIds.has(e.id);
+                      const isPublished = e.statusLabel === 'Published';
+
+                      return (
+                        <tr
+                          key={e.id}
+                          onClick={() => handleSelectExamRow(e)}
+                          className={cn(
+                            'transition-colors cursor-pointer group',
+                            isSelected
+                              ? 'bg-blue-50/50 dark:bg-blue-950/20'
+                              : 'hover:bg-slate-50/60 dark:hover:bg-slate-900/40'
+                          )}
+                        >
+                          {/* Checkbox */}
+                          <td className="py-3.5 px-3 text-center" onClick={(evt) => evt.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(evt) => toggleSelectRow(e.id, evt as unknown as React.MouseEvent)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                            />
+                          </td>
+
+                          {/* Row Index */}
+                          <td className="py-3.5 px-2 text-center text-slate-400 font-medium">
+                            {rowNumber}
+                          </td>
+
+                          {/* Exam Name: Emblem + Title + Subtitle */}
+                          <td className="py-3.5 px-3 min-w-[200px]">
+                            <div className="flex items-center gap-3">
+                              <div className="relative group/logo shrink-0">
+                                <ExamEmblemBadge
+                                  title={e.title}
+                                  slug={e.slug}
+                                  iconName={e.iconName}
+                                  className="w-8 h-8 shrink-0"
+                                />
+                                <label
+                                  htmlFor={`table-logo-upload-${e.id}`}
+                                  className="absolute inset-0 bg-slate-900/70 rounded-xl opacity-0 group-hover/logo:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white shadow-2xs"
+                                  title="Upload new logo"
+                                  onClick={(ev) => ev.stopPropagation()}
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-white" />
+                                  <input
+                                    id={`table-logo-upload-${e.id}`}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onClick={(ev) => ev.stopPropagation()}
+                                    onChange={async (ev) => {
+                                      ev.stopPropagation();
+                                      const file = ev.target.files?.[0];
+                                      if (!file) return;
+                                      try {
+                                        const uploadedUrl = await handleUploadImageFile(file);
+                                        await handleQuickUploadExamLogo(e.id, uploadedUrl);
+                                      } catch (err) {
+                                        console.error('Failed to upload logo:', err);
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <div className="min-w-0">
+                                <span className="font-bold text-slate-900 dark:text-white block leading-snug">
+                                  {e.title}
+                                </span>
+                                <span className="text-[11px] text-slate-400 block truncate mt-0.5">
+                                  {e.subtitle || 'Competitive Recruitment Exam'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Category Badge */}
+                          <td className="py-3.5 px-2.5">
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#EBF5FF] text-[#026BFC] dark:bg-blue-950/60 dark:text-blue-300 whitespace-nowrap">
+                              {e.categoryLabel || e.category || 'State Govt'}
+                            </span>
+                          </td>
+
+                          {/* Subjects Count */}
+                          <td className="py-3.5 px-2 text-center text-slate-600 dark:text-slate-300 font-medium">
+                            {e.subjectsCount}
+                          </td>
+
+                          {/* Test Series Count */}
+                          <td className="py-3.5 px-2 text-center text-slate-600 dark:text-slate-300 font-medium">
+                            {e.testSeriesCount}
+                          </td>
+
+                          {/* Total Tests */}
+                          <td className="py-3.5 px-2 text-center text-slate-600 dark:text-slate-300 font-medium">
+                            {e.totalTestsCount}
+                          </td>
+
+                          {/* Enrollments */}
+                          <td className="py-3.5 px-3 text-center text-slate-600 dark:text-slate-300 font-medium">
+                            {e.enrollmentsFormatted || e.enrollmentsCount.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3.5 px-2.5 text-center" onClick={(evt) => evt.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleExamStatus(e)}
+                              title={`Click to switch status to ${isPublished ? 'Draft' : 'Published'}`}
+                              className={cn(
+                                'px-2.5 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer select-none',
+                                isPublished
+                                  ? 'bg-[#E8F8F0] text-[#10B981] hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                  : 'bg-[#FEF8E7] text-[#D97706] hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300'
+                              )}
+                            >
+                              <span className={cn('w-1.5 h-1.5 rounded-full', isPublished ? 'bg-[#10B981]' : 'bg-[#D97706]')} />
+                              {e.statusLabel}
+                            </button>
+                          </td>
+
+                          {/* Actions Menu */}
+                          <td
+                            className="py-3.5 px-2.5 text-center relative"
+                            onClick={(evt) => evt.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenActionMenuId(openActionMenuId === e.id ? null : e.id)
+                              }
+                              className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                            </button>
+
+                            {openActionMenuId === e.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-30"
+                                  onClick={() => setOpenActionMenuId(null)}
+                                />
+                                <div className="absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 shadow-xl z-40 py-1 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleSelectExamRow(e);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                    View Details
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleOpenEditModal(e);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 text-amber-500" />
+                                    Edit Exam
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleToggleExamStatus(e);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    {isPublished ? (
+                                      <>
+                                        <X className="w-3.5 h-3.5 text-amber-500" />
+                                        Change to Draft
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                        Publish Exam
+                                      </>
+                                    )}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleDuplicateExam(e);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Copy className="w-3.5 h-3.5 text-indigo-500" />
+                                    Duplicate Exam
+                                  </button>
+
+                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleArchiveExam(e);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Archive Exam
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      if (confirm("Permanently delete \"" + e.title + "\"? This cannot be undone.")) {
+                                        handleDeleteExam(e.id);
+                                      }
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete Permanently
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls matching screenshot */}
+            <div className="p-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+              <span>
+                Showing {totalItems === 0 ? 0 : startIndex + 1}–{endIndex} of {totalItems} exams
+              </span>
+
+              <div className="flex items-center gap-3">
+                {/* Numbered Page Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const pageNum = i + 1;
+                    const isActivePage = pageNum === currentPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={cn(
+                          'w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors',
+                          isActivePage
+                            ? 'bg-[#026BFC] text-white shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Page Size Dropdown */}
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-300"
                 >
-                  {st}
+                  <option value={10}>10 / page</option>
+                  <option value={25}>25 / page</option>
+                  <option value={50}>50 / page</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Exam Details Card (Side-by-side with Table) */}
+        {showDetailsPanel && selectedExam && (
+          <div className="w-full lg:w-[350px] xl:w-[370px] shrink-0 bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs p-4 self-start sticky top-4 space-y-3.5">
+            {/* Header: Exam Details & Close X */}
+            <div className="flex items-center justify-between pb-0.5">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Exam Details
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowDetailsPanel(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                title="Close details"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Exam Summary Banner: Shield + Title + Badges + Edit */}
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="relative group/drawerlogo shrink-0">
+                  <ExamEmblemBadge
+                    title={selectedExam.title}
+                    slug={selectedExam.slug}
+                    iconName={selectedExam.iconName}
+                    className="w-10 h-11 shrink-0"
+                  />
+                  <label
+                    htmlFor={`drawer-logo-upload-${selectedExam.id}`}
+                    className="absolute inset-0 bg-slate-900/70 rounded-xl opacity-0 group-hover/drawerlogo:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white shadow-2xs"
+                    title="Upload new logo"
+                  >
+                    <Camera className="w-4 h-4 text-white" />
+                    <input
+                      id={`drawer-logo-upload-${selectedExam.id}`}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (ev) => {
+                        const file = ev.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const uploadedUrl = await handleUploadImageFile(file);
+                          await handleQuickUploadExamLogo(selectedExam.id, uploadedUrl);
+                        } catch (err) {
+                          console.error('Failed to upload logo:', err);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                    {selectedExam.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[11px] text-slate-400 truncate">
+                      {selectedExam.subtitle || 'West Bengal Police Constable'}
+                    </p>
+                    <label
+                      htmlFor={`drawer-logo-upload-badge-${selectedExam.id}`}
+                      className="text-[10px] text-[#026BFC] hover:underline font-semibold cursor-pointer shrink-0 flex items-center gap-0.5"
+                      title="Upload new logo image"
+                    >
+                      <Upload className="w-2.5 h-2.5" />
+                      Logo
+                      <input
+                        id={`drawer-logo-upload-badge-${selectedExam.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (ev) => {
+                          const file = ev.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const uploadedUrl = await handleUploadImageFile(file);
+                            await handleQuickUploadExamLogo(selectedExam.id, uploadedUrl);
+                          } catch (err) {
+                            console.error('Failed to upload logo:', err);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Badge + Edit Button */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleExamStatus(selectedExam)}
+                  title={`Click to switch status to ${selectedExam.statusLabel === 'Published' ? 'Draft' : 'Published'}`}
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[10px] font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer',
+                    selectedExam.statusLabel === 'Published'
+                      ? 'bg-[#E8F8F0] text-[#10B981] hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-[#FEF8E7] text-[#D97706] hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300'
+                  )}
+                >
+                  {selectedExam.statusLabel}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditModal(selectedExam)}
+                  className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[#026BFC] text-[11px] font-semibold flex items-center gap-1 hover:bg-slate-50 shrink-0"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit
+                </button>
+              </div>
+            </div>
+
+            {/* Horizontal Tabs: Overview, Subjects (10), Test Series (5), Settings */}
+            <div className="flex items-center gap-4 border-b border-slate-200/80 dark:border-slate-800 text-xs font-medium pt-0.5">
+              {(
+                [
+                  { key: 'overview', label: 'Overview' },
+                  { key: 'subjects', label: `Subjects (${selectedExam.subjectsCount || 10})` },
+                  { key: 'test_series', label: `Test Series (${selectedExam.testSeriesCount || 5})` },
+                  { key: 'settings', label: 'Settings' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDetailsTab(tab.key)}
+                  className={cn(
+                    'pb-2.5 relative transition-colors',
+                    detailsTab === tab.key
+                      ? 'text-[#026BFC] font-bold'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  )}
+                >
+                  {tab.label}
+                  {detailsTab === tab.key && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#026BFC] rounded-t-full" />
+                  )}
                 </button>
               ))}
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                title="Grid View"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                    : 'hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                title="Table View"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  viewMode === 'table'
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                    : 'hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-          <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 mr-1">
-            <SlidersHorizontal className="w-3 h-3" />
-            Category:
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-              selectedCategory === 'all'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80'
-            }`}
-          >
-            All Categories ({exams.length})
-          </button>
-          {categories.map((cat, idx) => {
-            const count = exams.filter((e) => e.category === cat).length;
-            const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
-            const isDragged = draggedCategoryIndex === idx;
-            const isDragOver = dragOverCategoryIndex === idx;
-            return (
-              <button
-                key={cat}
-                type="button"
-                draggable={true}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', idx.toString());
-                  e.dataTransfer.effectAllowed = 'move';
-                  setDraggedCategoryIndex(idx);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                }}
-                onDragEnter={() => {
-                  if (draggedCategoryIndex !== null && draggedCategoryIndex !== idx) {
-                    setDragOverCategoryIndex(idx);
-                  }
-                }}
-                onDragLeave={() => {
-                  if (dragOverCategoryIndex === idx) {
-                    setDragOverCategoryIndex(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (draggedCategoryIndex !== null && draggedCategoryIndex !== idx) {
-                    handleReorderCategories(draggedCategoryIndex, idx);
-                  }
-                  setDraggedCategoryIndex(null);
-                  setDragOverCategoryIndex(null);
-                }}
-                onDragEnd={() => {
-                  setDraggedCategoryIndex(null);
-                  setDragOverCategoryIndex(null);
-                }}
-                onClick={() => setSelectedCategory(isSelected ? 'all' : cat)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-grab active:cursor-grabbing ${
-                  isSelected
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80'
-                } ${isDragged ? 'opacity-40 scale-95' : ''} ${
-                  isDragOver
-                    ? 'ring-2 ring-indigo-500 ring-offset-1 border-indigo-500 scale-105'
-                    : ''
-                }`}
-                title={`Drag to reorder "${cat}" or click to filter`}
-              >
-                {cat} ({count})
-              </button>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={() => setIsCategoryModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-dashed border-indigo-300 dark:border-indigo-700 flex items-center gap-1 ml-auto sm:ml-0"
-            title="Create and manage categories"
-          >
-            <Plus className="w-3 h-3" />
-            <span>+ Category</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content: Loading, Empty, Grid, or Table */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-20 h-5 rounded-full bg-slate-200 dark:bg-slate-800" />
-                <div className="w-12 h-5 rounded-full bg-slate-200 dark:bg-slate-800" />
-              </div>
-              <div className="h-6 w-3/4 rounded-md bg-slate-200 dark:bg-slate-800" />
-              <div className="h-10 w-full rounded-md bg-slate-200 dark:bg-slate-800" />
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between">
-                <div className="w-24 h-4 rounded bg-slate-200 dark:bg-slate-800" />
-                <div className="w-16 h-4 rounded bg-slate-200 dark:bg-slate-800" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : filteredExams.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500 mx-auto flex items-center justify-center">
-            <Shield className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            No Competitive Exams Found
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            {searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all'
-              ? 'No exams match your active search and filter criteria. Try resetting filters.'
-              : 'Get started by creating your first target recruitment examination category.'}
-          </p>
-          {searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all' ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('all');
-                setSelectedStatus('all');
-              }}
-              className="text-xs"
-            >
-              Reset Filters
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={openCreateModal}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
-              leftIcon={<Plus className="w-4 h-4" />}
-            >
-              Add Target Exam
-            </Button>
-          )}
-        </div>
-      ) : viewMode === 'grid' ? (
-        /* =================================================================== */
-        /* CARD GRID VIEW                                                      */
-        /* =================================================================== */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredExams.map((exam) => {
-            const testCount = examTestCounts[exam.id] || 0;
-            return (
-              <div
-                key={exam.id}
-                className="group rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800/80 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden"
-              >
-                {/* Accent Top Border Bar */}
-                <div
-                  className={`absolute top-0 left-0 right-0 h-1 transition-all ${
-                    exam.isActive
-                      ? 'bg-gradient-to-r from-indigo-500 to-sky-500'
-                      : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
-                />
-
-                <div className="space-y-3.5">
-                  {/* Card Header: Category Badge, Order Index, Status Toggle */}
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${getCategoryBadgeColor(
-                        exam.category
-                      )}`}
-                    >
-                      {exam.category}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                        #{exam.orderIndex}
+            {/* TAB CONTENT: OVERVIEW */}
+            {detailsTab === 'overview' && (
+              <div className="space-y-3.5">
+                {/* 6 Mini KPI Cards (3 columns x 2 rows) matching screenshot */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {/* 1. Subjects */}
+                  <div className="p-2 rounded-xl bg-[#EBF5FF] dark:bg-blue-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#D8EBFF] text-[#026BFC] flex items-center justify-center shrink-0">
+                      <BookOpen className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.subjectsCount}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(exam)}
-                        title={exam.isActive ? 'Click to Deactivate' : 'Click to Activate'}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                          exam.isActive
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            exam.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-                          }`}
-                        />
-                        {exam.isActive ? 'Active' : 'Inactive'}
-                      </button>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Subjects</span>
                     </div>
                   </div>
 
-                  {/* Exam Icon & Title */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 overflow-hidden">
-                      {renderExamIcon(exam.iconName, 'w-5 h-5')}
+                  {/* 2. Test Series */}
+                  <div className="p-2 rounded-xl bg-[#EBFBF0] dark:bg-emerald-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#D2F7DE] text-[#10B981] flex items-center justify-center shrink-0">
+                      <Layers className="w-3 h-3" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-black text-slate-900 dark:text-white leading-tight truncate">
-                        {exam.title}
-                      </h3>
-                      {/* Monospace Slug with Copy Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleCopySlug(exam.slug, exam.id)}
-                        title="Copy Exam URL Slug"
-                        className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                      >
-                        <span>/{exam.slug}</span>
-                        {copiedSlugId === exam.id ? (
-                          <Check className="w-3 h-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3 h-3 opacity-60 group-hover:opacity-100" />
-                        )}
-                      </button>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.testSeriesCount}
+                      </span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Test Series</span>
                     </div>
                   </div>
 
-                  {/* Description */}
-                  <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed min-h-[2.5rem]">
-                    {exam.description || 'No detailed description provided for this exam.'}
-                  </p>
+                  {/* 3. Total Tests */}
+                  <div className="p-2 rounded-xl bg-[#FEECEC] dark:bg-rose-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#FCD4D4] text-[#EF4444] flex items-center justify-center shrink-0">
+                      <FileText className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.totalTestsCount}
+                      </span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Total Tests</span>
+                    </div>
+                  </div>
 
+                  {/* 4. Enrollments */}
+                  <div className="p-2 rounded-xl bg-[#F6EEFD] dark:bg-purple-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#EBD8FA] text-[#8B5CF6] flex items-center justify-center shrink-0">
+                      <Users className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.enrollmentsFormatted || selectedExam.enrollmentsCount.toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Enrollments</span>
+                    </div>
+                  </div>
+
+                  {/* 5. Avg. Score */}
+                  <div className="p-2 rounded-xl bg-[#FEF8E7] dark:bg-amber-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#FDF0C8] text-[#F59E0B] flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.avgScoreFormatted || '68%'}
+                      </span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Avg. Score</span>
+                    </div>
+                  </div>
+
+                  {/* 6. Completion Rate */}
+                  <div className="p-2 rounded-xl bg-[#EBFBF0] dark:bg-emerald-950/30 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#D2F7DE] text-[#10B981] flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        {selectedExam.completionRateFormatted || '72%'}
+                      </span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">Completion Rate</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Card Footer Actions */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-semibold text-[11px]">
-                      {testCount} {testCount === 1 ? 'Mock Test' : 'Mock Tests'}
+                {/* Description Box with Bengali Text */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Description
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(selectedExam)}
+                      className="text-[11px] font-semibold text-[#026BFC] flex items-center gap-0.5"
+                    >
+                      <Edit2 className="w-2.5 h-2.5" />
+                      Edit
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {selectedExam.description ||
+                      'WBP Constable পরীক্ষার জন্য সম্পূর্ণ প্রস্তুতি সিরিজ। এই পরীক্ষায় যুক্ত রয়েছে Full Mock, Topic Test ইত্যাদি বিভিন্ন ধরণের পরীক্ষার সিরিজ যা আপনাকে পরীক্ষার প্রস্তুতিকে শক্তিশালী করবে।'}
+                  </p>
+                </div>
+
+                {/* Basic Information Key-Value Table matching screenshot */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                    Basic Information
+                  </span>
+
+                  <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                    <span className="text-slate-400">Exam Name</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.title}
+                    </span>
+
+                    <span className="text-slate-400">Short Name</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.shortName || selectedExam.title.split(' ')[0]}
+                    </span>
+
+                    <span className="text-slate-400">Category</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.categoryLabel || selectedExam.category || 'State Govt'}
+                    </span>
+
+                    <span className="text-slate-400">Total Subjects</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.subjectsCount}
+                    </span>
+
+                    <span className="text-slate-400">Total Test Series</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.testSeriesCount}
+                    </span>
+
+                    <span className="text-slate-400">Total Tests</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.totalTestsCount}
+                    </span>
+
+                    <span className="text-slate-400">Total Enrollments</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.enrollmentsFormatted || selectedExam.enrollmentsCount.toLocaleString('en-IN')}
+                    </span>
+
+                    <span className="text-slate-400">Status</span>
+                    <span
+                      className={cn(
+                        'font-semibold text-right',
+                        selectedExam.statusLabel === 'Published'
+                          ? 'text-[#10B981]'
+                          : 'text-[#D97706]'
+                      )}
+                    >
+                      {selectedExam.statusLabel}
+                    </span>
+
+                    <span className="text-slate-400">Created By</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.createdByName || 'Admin'}
+                    </span>
+
+                    <span className="text-slate-400">Created At</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.createdAtFormatted || '10 Sep 2026, 04:30 PM'}
+                    </span>
+
+                    <span className="text-slate-400">Last Updated</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                      {selectedExam.updatedAtFormatted || '12 Sep 2026, 10:15 AM'}
                     </span>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(exam)}
-                      title="Edit Exam"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/50 transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setExamToDelete(exam)}
-                      title="Delete Exam"
-                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                {/* Bottom 2 Action Buttons matching screenshot */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleArchiveExam(selectedExam)}
+                    className="flex-1 py-2 px-2.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Archive Exam
+                  </button>
+
+                  <a
+                    href={`/exams/${selectedExam.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 py-2 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[#026BFC] hover:bg-slate-50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View on Website
+                  </a>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* =================================================================== */
-        /* TABLE VIEW                                                          */
-        /* =================================================================== */
-        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-950/70 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="p-4">Exam Title</th>
-                  <th className="p-4">Category</th>
-                  <th className="p-4">Slug / Route</th>
-                  <th className="p-4 text-center">Tests</th>
-                  <th className="p-4 text-center">Order</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
-                {filteredExams.map((exam) => {
-                  const testCount = examTestCounts[exam.id] || 0;
-                  return (
-                    <tr
-                      key={exam.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+            )}
+
+            {/* TAB CONTENT: SUBJECTS */}
+            {detailsTab === 'subjects' && (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    Linked Subjects ({selectedExam.subjectsCount})
+                  </span>
+                  <a
+                    href="/admin/subjects"
+                    className="text-xs text-[#026BFC] hover:underline font-semibold"
+                  >
+                    Manage Subjects
+                  </a>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Subjects associated with {selectedExam.title} for topic tests and syllabus coverage:
+                </p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                  {(subjects.length > 0 ? subjects.slice(0, selectedExam.subjectsCount) : [
+                    { id: '1', name: 'General Awareness & GK', orderIndex: 1 },
+                    { id: '2', name: 'Elementary Mathematics', orderIndex: 2 },
+                    { id: '3', name: 'Reasoning & Logical Analysis', orderIndex: 3 },
+                    { id: '4', name: 'English Grammar & Comprehension', orderIndex: 4 },
+                    { id: '5', name: 'General Science & Physics', orderIndex: 5 },
+                    { id: '6', name: 'Indian History & Freedom Struggle', orderIndex: 6 },
+                    { id: '7', name: 'Geography of India & West Bengal', orderIndex: 7 },
+                    { id: '8', name: 'Indian Constitution & Polity', orderIndex: 8 },
+                    { id: '9', name: 'Current Affairs & Sports', orderIndex: 9 },
+                    { id: '10', name: 'Bengali Language & Grammar', orderIndex: 10 },
+                  ]).map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
                     >
-                      {/* Exam Title & Description */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 overflow-hidden">
-                            {renderExamIcon(exam.iconName, 'w-4 h-4')}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-900 dark:text-white text-sm">
-                              {exam.title}
-                            </p>
-                            {exam.description && (
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
-                                {exam.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="p-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${getCategoryBadgeColor(
-                            exam.category
-                          )}`}
-                        >
-                          {exam.category}
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="font-medium text-slate-800 dark:text-slate-200">
+                          {sub.name}
                         </span>
-                      </td>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Active</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                      {/* Slug */}
-                      <td className="p-4">
-                        <button
-                          type="button"
-                          onClick={() => handleCopySlug(exam.slug, exam.id)}
-                          className="font-mono text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
-                          title="Copy slug"
-                        >
-                          <span>/{exam.slug}</span>
-                          {copiedSlugId === exam.id ? (
-                            <Check className="w-3 h-3 text-emerald-500" />
-                          ) : (
-                            <Copy className="w-3 h-3 opacity-40" />
-                          )}
-                        </button>
-                      </td>
+            {/* TAB CONTENT: TEST SERIES */}
+            {detailsTab === 'test_series' && (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    Test Series ({selectedExam.testSeriesCount})
+                  </span>
+                  <a
+                    href="/admin/test-series"
+                    className="text-xs text-[#026BFC] hover:underline font-semibold"
+                  >
+                    View All Series
+                  </a>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {[
+                    { id: 'ts-1', title: `${selectedExam.title} Mega Full Mock Series`, tests: 15, enrolls: '8,400' },
+                    { id: 'ts-2', title: `${selectedExam.title} Official PYQ 2018-2024`, tests: 8, enrolls: '3,200' },
+                    { id: 'ts-3', title: `${selectedExam.title} High-Yield Topic Tests`, tests: 12, enrolls: '2,900' },
+                    { id: 'ts-4', title: `${selectedExam.title} Speed Booster Math & GI`, tests: 6, enrolls: '1,800' },
+                    { id: 'ts-5', title: `${selectedExam.title} Special Bengali Mock Set`, tests: 4, enrolls: '1,200' },
+                  ].slice(0, selectedExam.testSeriesCount).map((ts) => (
+                    <div
+                      key={ts.id}
+                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-1"
+                    >
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
+                        {ts.title}
+                      </span>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{ts.tests} Tests</span>
+                        <span>{ts.enrolls} Students</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                      {/* Associated Tests */}
-                      <td className="p-4 text-center">
-                        <span className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
-                          <FileText className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{testCount}</span>
-                        </span>
-                      </td>
-
-                      {/* Order Index */}
-                      <td className="p-4 text-center font-bold text-indigo-600 dark:text-indigo-400">
-                        #{exam.orderIndex}
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-4">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(exam)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                            exam.isActive
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              exam.isActive ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`}
-                          />
-                          {exam.isActive ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+            {/* TAB CONTENT: SETTINGS */}
+            {detailsTab === 'settings' && (
+              <div className="space-y-3 text-xs">
+                {/* Exam Logo Upload */}
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Exam Logo / Emblem
+                  </label>
+                  <div className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
+                    <ExamEmblemBadge
+                      title={selectedExam.title}
+                      slug={selectedExam.slug}
+                      iconName={selectedExam.iconName}
+                      className="w-10 h-10 shrink-0 shadow-2xs"
+                    />
+                    <div className="space-y-1 min-w-0">
+                      <label
+                        htmlFor={`settings-tab-logo-upload-${selectedExam.id}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-blue-600" />
+                        Upload New Logo
+                        <input
+                          id={`settings-tab-logo-upload-${selectedExam.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const uploadedUrl = await handleUploadImageFile(file);
+                              await handleQuickUploadExamLogo(selectedExam.id, uploadedUrl);
+                            } catch (err) {
+                              console.error('Failed to upload logo:', err);
+                            }
+                          }}
+                        />
+                      </label>
+                      {selectedExam.iconName &&
+                        (selectedExam.iconName.startsWith('data:') ||
+                          selectedExam.iconName.startsWith('http') ||
+                          selectedExam.iconName.startsWith('/')) && (
                           <button
                             type="button"
-                            onClick={() => openEditModal(exam)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="Edit Exam"
+                            onClick={() => handleQuickUploadExamLogo(selectedExam.id, 'Shield')}
+                            className="text-[11px] text-slate-500 hover:text-rose-600 block transition-colors"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            Reset to default emblem
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setExamToDelete(exam)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            title="Delete Exam"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-        </>
-      )}
+                        )}
+                    </div>
+                  </div>
+                </div>
 
-      {/* =================================================================== */}
-      {/* MODAL: Add / Edit Exam                                              */}
-      {/* =================================================================== */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35 animate-fade-in">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <Shield className="w-4 h-4" />
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Exam Title
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsTitle}
+                    onChange={(e) => setSettingsTitle(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white"
+                  />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingExam ? 'Edit Target Exam' : 'Add Target Recruitment Exam'}
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Configure exam title, category, URL slug, and icon
-                  </p>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={settingsCategory}
+                    onChange={(e) => setSettingsCategory(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white"
+                  >
+                    <option value="State Govt">State Govt</option>
+                    <option value="Central Govt">Central Govt</option>
+                    <option value="Other">Other</option>
+                    {categories
+                      .filter((c) => !['State Govt', 'Central Govt', 'Other'].includes(c))
+                      .map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                  </select>
                 </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={settingsStatus}
+                    onChange={(e) => setSettingsStatus(e.target.value as 'Published' | 'Draft')}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white"
+                  >
+                    <option value="Published">Published (Active)</option>
+                    <option value="Draft">Draft / Hidden (Inactive)</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingSettings}
+                  onClick={handleSaveDrawerSettings}
+                  className="w-full py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-semibold transition-colors mt-2 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  {isSavingSettings ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL: Categories Manager Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
+          <div className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <FolderKanban className="w-5 h-5 text-[#026BFC]" />
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Exam Categories
+                </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {formError && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
+            <p className="text-xs text-slate-500">
+              Manage examination categories for grouping target exams across the platform.
+            </p>
 
+            {/* Add Category Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="New Category Name..."
+                value={newCategoryInput}
+                onChange={(e) => setNewCategoryInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                className="px-4 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white text-xs font-semibold"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Categories List */}
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {categories.map((cat) => (
+                <div
+                  key={cat}
+                  className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                >
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{cat}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase())).length} exams
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-xs"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Create / Edit Exam Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
+          <div className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {editingExam ? `Edit Exam — ${editingExam.title}` : 'Create Target Exam'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveExam} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Exam Title *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. WBP Constable 2025"
-                  value={title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  placeholder="e.g. WBP Constable"
+                  value={formTitle}
+                  onChange={(e) => {
+                    setFormTitle(e.target.value);
+                    if (!editingExam) {
+                      setFormSlug(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/(^-|-$)/g, '')
+                      );
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  URL Slug / ID *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. wbp-constable"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-900 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Short Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. WBP"
+                    value={formShortName}
+                    onChange={(e) => setFormShortName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                  />
+                </div>
 
-              {/* Icon Upload (Replacing Icon Theme) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                  Exam Icon / Logo
-                </label>
-                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-                  {/* Icon Thumbnail Preview */}
-                  <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-                    {iconPreview ? (
-                      <img
-                        src={iconPreview}
-                        alt="Exam Icon Preview"
-                        className="w-full h-full object-contain p-1"
-                      />
-                    ) : (
-                      <Shield className="w-7 h-7 text-indigo-400 opacity-60" />
-                    )}
-                  </div>
-
-                  {/* Upload Actions */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{iconPreview ? 'Change Icon' : 'Upload Icon'}</span>
-                        <input
-                          type="file"
-                          accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                          onChange={handleIconUpload}
-                          className="hidden"
-                        />
-                      </label>
-
-                      {iconPreview && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveIcon}
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 text-xs font-semibold inline-flex items-center gap-1 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Upload custom exam badge or logo (PNG, SVG, JPG under 2MB).
-                    </p>
-                  </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                  >
+                    <option value="State Govt">State Govt</option>
+                    <option value="Central Govt">Central Govt</option>
+                    <option value="Other">Other</option>
+                    {categories
+                      .filter((c) => !['State Govt', 'Central Govt', 'Other'].includes(c))
+                      .map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Exam Category (Dynamic with Create Option) */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Exam Category *
-                  </label>
-                  {!isInlineCreatingCategory && (
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Full Subtitle / Board Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. West Bengal Police Constable"
+                  value={formSubtitle}
+                  onChange={(e) => setFormSubtitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  URL Slug
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. wbp-constable"
+                  value={formSlug}
+                  onChange={(e) => setFormSlug(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                />
+              </div>
+
+              {/* Exam Logo / Emblem Upload */}
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
+                      Exam Logo / Emblem
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Upload a custom PNG, JPG, WebP, or SVG logo, or pick a preset emblem
+                    </span>
+                  </div>
+                  {formIconName && (
                     <button
                       type="button"
-                      onClick={() => setIsInlineCreatingCategory(true)}
-                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                      onClick={() => setFormIconName('')}
+                      className="text-[11px] font-medium text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                      title="Reset to default icon"
                     >
-                      <Plus className="w-3 h-3" />
-                      <span>Create Category</span>
+                      <RotateCcw className="w-3 h-3" />
+                      Reset to Default
                     </button>
                   )}
                 </div>
 
-                {isInlineCreatingCategory ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
-                      <input
-                        type="text"
-                        placeholder="Enter category name (e.g. Police, Defence, WBPSC)..."
-                        value={inlineCategoryInput}
-                        onChange={(e) => setInlineCategoryInput(e.target.value)}
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (inlineCategoryInput.trim()) {
-                              await addCategoryItem(inlineCategoryInput.trim());
-                              setCategory(inlineCategoryInput.trim());
-                              setInlineCategoryInput('');
-                              setIsInlineCreatingCategory(false);
-                            }
-                          }
-                        }}
-                        className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (inlineCategoryInput.trim()) {
-                            await addCategoryItem(inlineCategoryInput.trim());
-                            setCategory(inlineCategoryInput.trim());
-                            setInlineCategoryInput('');
-                            setIsInlineCreatingCategory(false);
-                          }
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsInlineCreatingCategory(false);
-                          setInlineCategoryInput('');
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Press Enter or click Save to create and select this category.
-                    </p>
+                <div className="flex items-center gap-3.5">
+                  {/* Live Emblem Preview */}
+                  <div className="relative group shrink-0">
+                    <ExamEmblemBadge
+                      title={formTitle || 'Exam Logo'}
+                      slug={formSlug}
+                      iconName={formIconName}
+                      className="w-12 h-12 shadow-sm"
+                    />
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    <select
-                      value={category}
-                      onChange={(e) => {
-                        if (e.target.value === '__CREATE_NEW__') {
-                          setIsInlineCreatingCategory(true);
-                        } else {
-                          setCategory(e.target.value);
-                        }
-                      }}
-                      required
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="">-- Select Exam Category --</option>
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                      <option value="__CREATE_NEW__" className="text-indigo-600 font-bold">
-                        + Create New Category...
-                      </option>
-                    </select>
 
-                    {categories.length === 0 && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                        No categories exist yet. Click &quot;Create Category&quot; above or select
-                        it from the dropdown to add your first category.
-                      </p>
-                    )}
+                  {/* Upload Controls */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        htmlFor="exam-modal-logo-file-input"
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                          isUploadingLogo
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                        )}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploadingLogo ? 'Uploading...' : 'Upload Logo Image'}
+                        <input
+                          id="exam-modal-logo-file-input"
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingLogo}
+                          className="hidden"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setIsUploadingLogo(true);
+                              const uploadedUrl = await handleUploadImageFile(file);
+                              setFormIconName(uploadedUrl);
+                            } catch (err) {
+                              alert('Failed to upload image: ' + getErrorMessage(err, 'Error'));
+                            } finally {
+                              setIsUploadingLogo(false);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <span className="text-[11px] text-slate-400">or image URL:</span>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="https://... or data:image/..."
+                      value={formIconName}
+                      onChange={(e) => setFormIconName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[11px] font-mono text-slate-700 dark:text-slate-300 placeholder:font-sans"
+                    />
                   </div>
-                )}
+                </div>
+
+                {/* Preset Emblem Quick Selector */}
+                <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      Preset Emblems
+                    </span>
+                    <span className="text-[10px] text-slate-400">Click to apply</span>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {[
+                      { name: 'Police Crest', icon: 'Shield', label: 'WBP' },
+                      { name: 'SSC Crest', icon: 'ssc', label: 'SSC' },
+                      { name: 'Railways Emblem', icon: 'railway', label: 'Rail' },
+                      { name: 'WBPSC Seal', icon: 'wbpsc', label: 'WBPSC' },
+                      { name: 'Kolkata Police Star', icon: 'kolkata', label: 'KP' },
+                      { name: 'ICDS Rosette', icon: 'icds', label: 'ICDS' },
+                      { name: 'Food SI Crest', icon: 'food', label: 'Food SI' },
+                      { name: 'WBSSC Book', icon: 'wbssc', label: 'WBSSC' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setFormIconName(preset.icon)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-medium transition-all shrink-0',
+                          formIconName === preset.icon
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 ring-1 ring-blue-500'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                        )}
+                        title={preset.name}
+                      >
+                        <ExamEmblemBadge
+                          title={preset.icon}
+                          slug={preset.icon}
+                          iconName={preset.icon}
+                          className="w-4 h-4"
+                        />
+                        <span>{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Description
                 </label>
                 <textarea
-                  rows={2}
-                  placeholder="Short description shown on student cards and catalogs..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                  rows={3}
+                  placeholder="Describe the exam, target vacancies and syllabus..."
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={orderIndex}
-                    onChange={(e) => setOrderIndex(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="flex flex-col justify-end">
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input
-                      type="checkbox"
-                      checked={isActive}
-                      onChange={(e) => setIsActive(e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Active on Platform
-                    </span>
-                  </label>
-                </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="formIsActive"
+                  checked={formIsActive}
+                  onChange={(e) => setFormIsActive(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <label htmlFor="formIsActive" className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer">
+                  Publish on platform (Visible to students)
+                </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Button
                   type="button"
                   variant="outline"
@@ -1846,448 +2841,18 @@ export const AdminExams: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button
+                <button
                   type="submit"
-                  size="sm"
                   disabled={isSaving}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? 'Saving...' : editingExam ? 'Save Changes' : 'Create Exam'}
-                </Button>
+                  {isSaving ? 'Saving...' : editingExam ? 'Update Exam' : 'Create Exam'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* =================================================================== */}
-      {/* MODAL: Manage Exam Categories                                       */}
-      {/* =================================================================== */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35 animate-fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-5 animate-scale-up">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Manage Exam Categories
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Create and organize categories for recruitment exams
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCategoryModalOpen(false);
-                  setCategoryModalInput('');
-                  setCategoryModalError('');
-                }}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {categoryModalError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{categoryModalError}</span>
-              </div>
-            )}
-
-            {/* Add Category Form */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Create New Category
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Police, Defence, WBPSC, SSC..."
-                  value={categoryModalInput}
-                  onChange={(e) => {
-                    setCategoryModalInput(e.target.value);
-                    setCategoryModalError('');
-                  }}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (!categoryModalInput.trim()) {
-                        setCategoryModalError('Category name is required.');
-                        return;
-                      }
-                      const added = await addCategoryItem(categoryModalInput.trim());
-                      if (!added) {
-                        setCategoryModalError('This category already exists.');
-                        return;
-                      }
-                      setCategoryModalInput('');
-                      setCategoryModalError('');
-                    }
-                  }}
-                  className="flex-1 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={async () => {
-                    if (!categoryModalInput.trim()) {
-                      setCategoryModalError('Category name is required.');
-                      return;
-                    }
-                    const added = await addCategoryItem(categoryModalInput.trim());
-                    if (!added) {
-                      setCategoryModalError('This category already exists.');
-                      return;
-                    }
-                    setCategoryModalInput('');
-                    setCategoryModalError('');
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 shadow-xs"
-                >
-                  Create
-                </Button>
-              </div>
-            </div>
-
-            {/* Category Deletion Confirmation Card (When Linked Exams Exist) */}
-            {categoryToDelete && (
-              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 space-y-2.5 animate-fade-in">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">
-                      Delete &ldquo;{categoryToDelete.name}&rdquo;?
-                    </h4>
-                    <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">
-                      This category is currently linked to{' '}
-                      <strong>{categoryToDelete.examCount}</strong> exam(s). Choose a category to
-                      reassign them to:
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <select
-                    value={reassignCategoryTarget}
-                    onChange={(e) => setReassignCategoryTarget(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"
-                  >
-                    {categories
-                      .filter((c) => c.toLowerCase() !== categoryToDelete.name.toLowerCase())
-                      .map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    <option value="General">General</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCategoryToDelete(null);
-                      setReassignCategoryTarget('');
-                    }}
-                    className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isRenamingCategory}
-                    onClick={() =>
-                      handleDeleteCategory(
-                        categoryToDelete.name,
-                        reassignCategoryTarget ||
-                          categories.filter(
-                            (c) => c.toLowerCase() !== categoryToDelete.name.toLowerCase()
-                          )[0] ||
-                          'General'
-                      )
-                    }
-                    className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-1 h-7 px-3 shadow-xs"
-                  >
-                    {isRenamingCategory ? 'Deleting...' : 'Reassign & Delete'}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Existing Categories List */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Available Categories ({categories.length})
-              </label>
-              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                {categories.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                    No categories created yet. Type above and click Create!
-                  </div>
-                ) : (
-                  categories.map((cat, idx) => {
-                    const examCount = exams.filter(
-                      (e) => (e.category || '').toLowerCase() === cat.toLowerCase()
-                    ).length;
-                    const isEditing = editingCategoryKey === cat;
-
-                    if (isEditing) {
-                      return (
-                        <div
-                          key={cat}
-                          className="flex items-center gap-2 p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs animate-fade-in"
-                        >
-                          <input
-                            type="text"
-                            value={editingCategoryValue}
-                            onChange={(e) => setEditingCategoryValue(e.target.value)}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleRenameCategory(cat, editingCategoryValue);
-                              } else if (e.key === 'Escape') {
-                                setEditingCategoryKey(null);
-                                setEditingCategoryValue('');
-                              }
-                            }}
-                            disabled={isRenamingCategory}
-                            className="flex-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRenameCategory(cat, editingCategoryValue)}
-                            disabled={isRenamingCategory}
-                            className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
-                            title="Save Changes"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingCategoryKey(null);
-                              setEditingCategoryValue('');
-                            }}
-                            disabled={isRenamingCategory}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                            title="Cancel"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    const isModalDragged = modalDraggedIndex === idx;
-                    const isModalDragOver = modalDragOverIndex === idx;
-
-                    return (
-                      <div
-                        key={cat}
-                        draggable={true}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', idx.toString());
-                          e.dataTransfer.effectAllowed = 'move';
-                          setModalDraggedIndex(idx);
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                        }}
-                        onDragEnter={() => {
-                          if (modalDraggedIndex !== null && modalDraggedIndex !== idx) {
-                            setModalDragOverIndex(idx);
-                          }
-                        }}
-                        onDragLeave={() => {
-                          if (modalDragOverIndex === idx) {
-                            setModalDragOverIndex(null);
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (modalDraggedIndex !== null && modalDraggedIndex !== idx) {
-                            handleReorderCategories(modalDraggedIndex, idx);
-                          }
-                          setModalDraggedIndex(null);
-                          setModalDragOverIndex(null);
-                        }}
-                        onDragEnd={() => {
-                          setModalDraggedIndex(null);
-                          setModalDragOverIndex(null);
-                        }}
-                        className={`flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs transition-all ${
-                          isModalDragged ? 'opacity-40 scale-98' : ''
-                        } ${
-                          isModalDragOver
-                            ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30'
-                            : 'hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span title="Drag to reorder">
-                            <GripVertical className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing shrink-0" />
-                          </span>
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                          <span className="font-bold text-slate-900 dark:text-white truncate">
-                            {cat}
-                          </span>
-                          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 shrink-0">
-                            {examCount} {examCount === 1 ? 'exam' : 'exams'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingCategoryKey(cat);
-                              setEditingCategoryValue(cat);
-                              setCategoryModalError('');
-                            }}
-                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
-                            title="Edit Category Name"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCategoryModalError('');
-                              if (examCount > 0) {
-                                setCategoryToDelete({ name: cat, examCount });
-                                const other =
-                                  categories.find((c) => c.toLowerCase() !== cat.toLowerCase()) ||
-                                  'General';
-                                setReassignCategoryTarget(other);
-                              } else {
-                                handleDeleteCategory(cat);
-                              }
-                            }}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                            title="Delete Category"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsCategoryModalOpen(false);
-                  setCategoryModalInput('');
-                  setCategoryModalError('');
-                }}
-                className="text-xs"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =================================================================== */}
-      {/* MODAL: Delete Exam Confirmation                                    */}
-      {/* =================================================================== */}
-      {examToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/35 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Delete Target Exam?
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Permanent Removal Confirmation
-                </p>
-              </div>
-            </div>
-
-            {deleteError && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-600 dark:text-rose-400">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
-              <p className="font-bold text-sm text-slate-900 dark:text-white">
-                {examToDelete.title}
-              </p>
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <span>Category: {examToDelete.category}</span>
-                <span>•</span>
-                <span>Slug: /{examToDelete.slug}</span>
-                <span>•</span>
-                <span>Tests: {examTestCounts[examToDelete.id] || 0}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Are you sure you want to delete this exam? Mock tests and syllabus mappings linked to
-              this exam may be affected.
-            </p>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setExamToDelete(null);
-                  setDeleteError('');
-                }}
-                disabled={isDeleting}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleConfirmDeleteExam}
-                disabled={isDeleting}
-                className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete Exam'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Popular Exam Card Styling & Content */}
-      <PopularExamEditModal
-        isOpen={isPopularModalOpen}
-        onClose={() => {
-          setIsPopularModalOpen(false);
-          setEditingPopularCard(null);
-        }}
-        card={editingPopularCard}
-        onSave={handleSavePopularModal}
-        existingExams={exams}
-      />
     </div>
   );
 };

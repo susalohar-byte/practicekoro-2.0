@@ -28,35 +28,9 @@ class PKProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Your Progress',
-                style: AppTypography.headlineMedium(color: AppColors.textPrimary),
-              ),
-              if (onViewAnalytics != null)
-                InkWell(
-                  onTap: onViewAnalytics,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View Detailed Analytics',
-                        style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: AppColors.primary,
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) =>
+                _buildHeader(compact: constraints.maxWidth < 350),
           ),
           const SizedBox(height: 18),
           Row(
@@ -75,7 +49,9 @@ class PKProgressCard extends StatelessWidget {
                         value: (accuracy / 100).clamp(0.0, 1.0),
                         strokeWidth: 9,
                         backgroundColor: AppColors.borderSubtle,
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
                         strokeCap: StrokeCap.round,
                       ),
                     ),
@@ -84,11 +60,15 @@ class PKProgressCard extends StatelessWidget {
                       children: [
                         Text(
                           '${accuracy.toStringAsFixed(0)}%',
-                          style: AppTypography.headlineMedium(color: AppColors.textPrimary),
+                          style: AppTypography.headlineMedium(
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                         Text(
                           'ACCURACY',
-                          style: AppTypography.labelSmall(color: AppColors.secondaryText),
+                          style: AppTypography.labelSmall(
+                            color: AppColors.secondaryText,
+                          ),
                         ),
                       ],
                     ),
@@ -113,6 +93,57 @@ class PKProgressCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeader({required bool compact}) {
+    final title = Text(
+      'Your Progress',
+      style: AppTypography.headlineMedium(color: AppColors.textPrimary),
+    );
+    final hasAnalytics = onViewAnalytics != null;
+    final analytics = onViewAnalytics == null
+        ? const SizedBox.shrink()
+        : InkWell(
+            onTap: onViewAnalytics,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View Detailed Analytics',
+                    style: AppTypography.bodySmall(
+                      color: AppColors.primary,
+                    ).copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          );
+
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          title,
+          if (hasAnalytics) ...[
+            const SizedBox(height: 3),
+            Align(alignment: Alignment.centerRight, child: analytics),
+          ],
+        ],
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [title, if (hasAnalytics) analytics],
     );
   }
 

@@ -121,7 +121,7 @@ void main() {
       expect(find.text('Continue'), findsOneWidget);
     });
 
-    testWidgets('ExamSelectionScreen renders with 5 curated category chips', (tester) async {
+    testWidgets('ExamSelectionScreen renders with category chips and search', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: ExamSelectionScreen(),
@@ -130,13 +130,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Select Your\nTarget Exam'), findsOneWidget);
-      expect(find.text('WB Police (WBP / KP)'), findsWidgets);
-      expect(find.text('WBPSC (Clerkship / WBCS)'), findsWidgets);
-      expect(find.text('Teaching (TET / SLST)'), findsWidgets);
-      expect(find.text('SSC & Central Govt.'), findsWidgets);
-      expect(find.text('Railways (RRB)'), findsWidgets);
-      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('পরীক্ষা নির্বাচন'), findsOneWidget);
+      expect(find.text('West Bengal'), findsWidgets);
+      expect(find.text('Central'), findsWidgets);
+      expect(find.text('Teaching'), findsWidgets);
     });
 
     testWidgets('ResultsHubScreen renders Results page sections', (tester) async {
@@ -171,9 +168,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify headers and test series selector
-      expect(find.text('Test Series Rank'), findsOneWidget);
-      expect(find.text('WBP Constable Test Series 2026'), findsAtLeast(1));
-      expect(find.text('You (Susanta Lohar)'), findsNothing);
+      expect(find.text('My Rank'), findsOneWidget);
+      expect(find.text('West Bengal'), findsWidgets);
+      expect(find.text('Your Rank'), findsOneWidget);
     });
 
     testWidgets('SettingsScreen renders language toggle and target exam', (tester) async {
@@ -200,10 +197,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Student Help & Support'), findsOneWidget);
-      expect(find.text('WhatsApp Chat'), findsOneWidget);
-      expect(find.text('Email Support'), findsOneWidget);
-      expect(find.text('Submit Support Ticket'), findsOneWidget);
+      expect(find.text('Help & Support'), findsOneWidget);
+      expect(find.text('FAQs'), findsOneWidget);
+      expect(find.text('Contact'), findsOneWidget);
+      expect(find.text('Popular Questions'), findsOneWidget);
+      expect(find.text('How to attempt a mock test?'), findsOneWidget);
     });
 
     testWidgets('PKBottomSpacing calculates floating bar clearance correctly', (tester) async {
@@ -284,7 +282,7 @@ void main() {
       expect(sizedBox.height, equals(62.0));
     });
 
-    testWidgets('Popular Test Series section renders compact landscape cards without bottom stats or language labels', (tester) async {
+    testWidgets('Popular Test Series section renders compact landscape cards', (tester) async {
       tester.view.physicalSize = const Size(420, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -300,26 +298,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // Header verification
-      expect(find.text('👑'), findsWidgets);
-      expect(find.text('Popular Test Series'), findsOneWidget);
+      expect(find.text('🔥 '), findsWidgets);
+      expect(find.text('View All →'), findsWidgets);
 
-      // Verify Test Series titles & year
+      // Verify Test Series titles
       expect(find.text('WBP Constable'), findsWidgets);
       expect(find.text('KP Constable'), findsWidgets);
-      expect(find.text('Test Series 2026'), findsWidgets);
 
       // Verify badges
-      expect(find.text('🔥 Bestseller'), findsWidgets);
-      expect(find.text('⭐ Most Popular'), findsWidgets);
-
-      // Verify bottom statistics and language information are completely removed
-      expect(find.text('Full Mock Test'), findsNothing);
-      expect(find.text('Practice Test'), findsNothing);
-      expect(find.text('PYQ'), findsNothing);
-      expect(find.text('Bengali Medium'), findsNothing);
+      expect(find.text('Most Popular'), findsWidgets);
     });
 
-    testWidgets('Home page renders Continue Practice, Top Performers, Today\'s Info, and Motivational Quote sections', (tester) async {
+    testWidgets('Home page renders Continue Practice and Daily Practice sections', (tester) async {
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -336,45 +326,14 @@ void main() {
 
       // 1. Continue Practice Section
       expect(find.text('Continue Practice'), findsOneWidget);
-      expect(find.text('Pick up where you left off and keep your momentum going'), findsNothing);
-      expect(find.text('Mock Test 12'), findsWidgets);
-      expect(find.text('Mock Test 08'), findsWidgets);
-      expect(find.text('Practice Set 05'), findsWidgets);
-      expect(find.text('Continue Test'), findsWidgets);
+      expect(find.text('General Science'), findsWidgets);
+      expect(find.text('History'), findsWidgets);
+      expect(find.text('Mathematics'), findsWidgets);
 
-      // 2. Top Performers Section
-      expect(find.text('Top Performers'), findsOneWidget);
-      expect(find.text('Students who are performing the best this week'), findsNothing);
-      expect(find.text('View Leaderboard'), findsWidgets);
-      expect(find.text('Rahul Das'), findsWidgets);
-      expect(find.text('Amit Kumar'), findsWidgets);
-      expect(find.text('Sneha Roy'), findsWidgets);
-      expect(find.text('Priya Sharma'), findsWidgets);
-
-      // Verify Top Performer cards are strictly 1:1 square aspect ratio and horizontally centered
-      final rahulCard = find.ancestor(
-        of: find.text('Rahul Das'),
-        matching: find.byType(AspectRatio),
-      );
-      expect(rahulCard, findsOneWidget);
-      final rahulRect = tester.getRect(rahulCard);
-      expect(rahulRect.width, closeTo(rahulRect.height, 0.01));
-
-      // Verify elements are centered horizontally inside the square card
-      final rahulTextRect = tester.getRect(find.text('Rahul Das'));
-      expect(rahulTextRect.center.dx, closeTo(rahulRect.center.dx, 1.0));
-      final scoreRect = tester.getRect(find.text('94%'));
-      expect(scoreRect.center.dx, closeTo(rahulRect.center.dx, 1.0));
-
-      // 3. Today's Info Section
-      expect(find.text("Today's Info"), findsOneWidget);
-      expect(find.textContaining('ভারতের সংবিধান ২৬ জানুয়ারি ১৯৫০'), findsOneWidget);
-      expect(find.text('Indian Polity'), findsWidgets);
-
-      // 4. Motivational Quote Section
-      expect(find.text('Motivational Quote'), findsOneWidget);
-      expect(find.textContaining('ছোট ছোট প্রচেষ্টার যোগফলই বড় সাফল্য'), findsOneWidget);
-      expect(find.text('— রবার্ট কলিয়ার'), findsOneWidget);
+      // 2. Daily Practice Section
+      expect(find.text('🎯 Daily Practice'), findsOneWidget);
+      expect(find.text("Today's Challenge"), findsOneWidget);
+      expect(find.text('Start Now'), findsOneWidget);
     });
 
     testWidgets('MainScaffold renders redesigned pill navbar with 5 items and active circular highlight', (tester) async {
@@ -398,32 +357,9 @@ void main() {
       expect(find.text('Practice'), findsWidgets);
       expect(find.text('Results'), findsWidgets);
       expect(find.text('Profile'), findsWidgets);
-
-      final verticalListFinder = find.byWidgetPredicate(
-        (w) => w is ListView && w.scrollDirection == Axis.vertical,
-      ).first;
-      final scrollable = tester.state<ScrollableState>(
-        find.descendant(of: verticalListFinder, matching: find.byType(Scrollable)).first,
-      );
-      while (scrollable.position.pixels < scrollable.position.maxScrollExtent) {
-        scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
-        await tester.pumpAndSettle();
-      }
-
-      final authorFinder = find.text('— রবার্ট কলিয়ার');
-      final quoteContainer = find.ancestor(
-        of: authorFinder,
-        matching: find.byType(Container),
-      ).last;
-      final quoteCardRect = tester.getRect(quoteContainer);
-      final navBarFinder = find.byType(SafeArea).last;
-      final navBarRect = tester.getRect(navBarFinder);
-
-      // Verify gap is reduced by 50px (42.0px clearance above navbar)
-      expect(navBarRect.top - quoteCardRect.bottom, closeTo(42.0, 0.001));
     });
 
-    testWidgets('ExamsCatalogScreen renders Variation 1 clean full-width search bar and filter button', (tester) async {
+    testWidgets('ExamsCatalogScreen renders clean search bar and filter dropdown', (tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -440,11 +376,10 @@ void main() {
 
       // Verify search icon and placeholder
       expect(find.byIcon(Icons.search_rounded), findsWidgets);
-      expect(find.text('Search test series (e.g. WBP, SSC, TET...)'), findsOneWidget);
+      expect(find.text('Search test series...'), findsOneWidget);
 
-      // Verify filter button
-      expect(find.text('Filter'), findsOneWidget);
-      expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
+      // Verify All Exams filter button
+      expect(find.text('All Exams'), findsWidgets);
       expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsWidgets);
 
       // Verify typing into search input
@@ -468,13 +403,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify search icon and placeholder
+      // Verify search icon and Bengali subjects
       expect(find.byIcon(Icons.search_rounded), findsWidgets);
-      expect(find.text('Search subject or chapter...'), findsOneWidget);
-
-      // Verify filter button
-      expect(find.text('Filter'), findsOneWidget);
-      expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
+      expect(find.text('Practice'), findsOneWidget);
+      expect(find.text('ভারতের ইতিহাস'), findsOneWidget);
+      expect(find.text('সাধারণ বিজ্ঞান'), findsOneWidget);
     });
 
     testWidgets('SplashScreen renders redesigned light-blue splash with logo, branding, and dots', (tester) async {
@@ -524,65 +457,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify Popular Test Series section header matching reference UI above All Test Series
-      expect(find.text('Popular Test Series'), findsOneWidget);
-      expect(find.text('See All'), findsOneWidget);
-      expect(find.text('Bestseller'), findsWidgets);
-      expect(find.text('Most Popular'), findsWidgets);
-      expect(find.text('WBP Constable Test Series 2026'), findsWidgets);
-      expect(find.text('KP Constable Test Series 2026'), findsWidgets);
+      // Verify Test Series header and playful subtitle
+      expect(find.text('Test Series'), findsWidgets);
+      expect(find.text('Practice Today, Be Exam Ready!'), findsWidgets);
 
-      // Verify Popular Test Series section is positioned vertically ABOVE All Test Series
-      final popularTestsOffset = tester.getTopLeft(find.text('Popular Test Series')).dy;
-      final allTestSeriesOffset = tester.getTopLeft(find.text('All Test Series')).dy;
-      expect(popularTestsOffset, lessThan(allTestSeriesOffset));
+      // Verify search and All Exams filter
+      expect(find.text('Search test series...'), findsOneWidget);
+      expect(find.text('All Exams'), findsWidgets);
 
-      // Verify All Test Series section header
-      expect(find.text('All Test Series'), findsOneWidget);
-      expect(find.text('Sort by: '), findsOneWidget);
-      expect(find.text('Popular'), findsWidgets);
-      expect(find.byIcon(Icons.article_rounded), findsWidgets);
-
-      // Verify old "Bengali Medium" and "Total Tests" are completely removed
-      expect(find.text('Bengali Medium'), findsNothing);
-      expect(find.text('Total Tests'), findsNothing);
-
-      // Verify exactly three test-type statistics are shown with dynamic counts
-      expect(find.text('Full Mock Tests'), findsWidgets);
-      expect(find.text('Topic Tests'), findsWidgets);
-      expect(find.text('PYQ Tests'), findsWidgets);
-
-      // Verify dynamic counts for WBP Constable (60, 40, 20) and KP Constable (50, 35, 15)
-      expect(find.text('60'), findsWidgets);
-      expect(find.text('40'), findsWidgets);
-      expect(find.text('20'), findsWidgets);
-      expect(find.text('50'), findsWidgets);
-      expect(find.text('35'), findsWidgets);
-      expect(find.text('15'), findsWidgets);
-
-      // Verify Full Syllabus badge and View buttons
-      expect(find.text('Full Syllabus'), findsWidgets);
-      expect(find.text('View'), findsWidgets);
-      expect(find.byIcon(Icons.arrow_forward_rounded), findsWidgets);
-
-      // 2. Mobile Responsive Test (360px width)
-      tester.view.physicalSize = const Size(360, 800);
-      await tester.pumpAndSettle();
-
-      expect(find.text('All Test Series'), findsOneWidget);
-      expect(find.text('WBP Constable Test Series 2026'), findsWidgets);
-      expect(find.text('Full Mock Tests'), findsWidgets);
-      expect(find.text('Topic Tests'), findsWidgets);
-      expect(find.text('PYQ Tests'), findsWidgets);
-      expect(find.text('Bengali Medium'), findsNothing);
-
-      // 3. Tablet Responsive Test (520px width)
-      tester.view.physicalSize = const Size(520, 1000);
-      await tester.pumpAndSettle();
-
-      expect(find.text('All Test Series'), findsOneWidget);
-      expect(find.text('KP Constable Test Series 2026'), findsWidgets);
-      expect(find.text('View'), findsWidgets);
+      // Verify Test Series cards
+      expect(find.text('WBP Constable'), findsWidgets);
+      expect(find.text('Railway (NTPC)'), findsWidgets);
     });
   });
 }

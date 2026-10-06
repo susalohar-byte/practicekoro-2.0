@@ -6,12 +6,26 @@ import {
 } from '@/lib/supabase';
 import { isAdminEmail } from '@/lib/authPolicy';
 import type { Database } from '@/types/database';
-import type { UserProfile, UserRole, AdminRole, AdminPermissions } from '@/types';
+import type {
+  UserProfile,
+  UserRole,
+  AdminRole,
+  AdminPermissions,
+  StudentCategoryCode,
+  StudentGenderCode,
+  PreparationStatusCode,
+} from '@/types';
 import { getAdminPermissions } from '@/types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'] & {
   admin_role?: string | null;
   district?: string | null;
+  state?: string | null;
+  gender?: string | null;
+  category?: string | null;
+  dob?: string | null;
+  preferred_subjects?: any;
+  preparation_status?: string | null;
 };
 
 /**
@@ -73,12 +87,17 @@ const resolveUserProfile = async (supabaseUser: {
     if (!profile) {
       const initialName = metaFullName || supabaseUser.email?.split('@')[0] || 'Candidate';
       const initialDistrict = ((meta.district || '') as string).trim() || null;
+      const initialGender = meta.gender || 'NOT_SPECIFIED';
+      const initialCategory = meta.category || 'GEN';
       const newProfile = {
         id: supabaseUser.id,
         email: supabaseUser.email || '',
         full_name: initialName,
         avatar_url: metaAvatar || null,
         district: initialDistrict,
+        state: meta.state || 'West Bengal',
+        gender: initialGender,
+        category: initialCategory,
         role: effectiveRole,
       };
       try {
@@ -113,6 +132,12 @@ const resolveUserProfile = async (supabaseUser: {
         ? (profile.admin_role as AdminRole)
         : 'super_admin';
 
+    const prefSubs = Array.isArray(profile?.preferred_subjects)
+      ? profile.preferred_subjects
+      : Array.isArray(meta.preferred_subjects)
+        ? meta.preferred_subjects
+        : [];
+
     return {
       id: profile?.id || supabaseUser.id,
       fullName:
@@ -121,7 +146,14 @@ const resolveUserProfile = async (supabaseUser: {
       phone: profile?.phone ?? undefined,
       avatarUrl: profile?.avatar_url || metaAvatar || undefined,
       district: profile?.district || ((meta.district || '') as string).trim() || undefined,
-      targetExamId: profile?.target_exam_id ?? undefined,
+      state: profile?.state || meta.state || 'West Bengal',
+      dob: profile?.dob || meta.dob || undefined,
+      gender: (profile?.gender || meta.gender || 'NOT_SPECIFIED') as StudentGenderCode,
+      category: (profile?.category || meta.category || 'GEN') as StudentCategoryCode,
+      targetExamId: profile?.target_exam_id || meta.target_exam_id || undefined,
+      targetExamTitle: meta.target_exam_title || undefined,
+      preferredSubjects: prefSubs,
+      preparationStatus: (profile?.preparation_status || meta.preparation_status || 'BEGINNER') as PreparationStatusCode,
       role: effectiveRole,
       adminRole: effectiveRole === 'admin' ? adminSubRole : undefined,
       createdAt: profile?.created_at || new Date().toISOString(),
@@ -166,6 +198,14 @@ interface AuthContextType {
     phone?: string;
     avatarUrl?: string;
     district?: string;
+    state?: string;
+    gender?: StudentGenderCode;
+    category?: StudentCategoryCode;
+    dob?: string;
+    targetExamId?: string;
+    targetExamTitle?: string;
+    preferredSubjects?: string[];
+    preparationStatus?: PreparationStatusCode;
   }) => Promise<{ error: Error | null; user?: UserProfile }>;
   refreshProStatus: () => Promise<boolean>;
 }
@@ -432,6 +472,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone?: string;
     avatarUrl?: string;
     district?: string;
+    state?: string;
+    gender?: StudentGenderCode;
+    category?: StudentCategoryCode;
+    dob?: string;
+    targetExamId?: string;
+    targetExamTitle?: string;
+    preferredSubjects?: string[];
+    preparationStatus?: PreparationStatusCode;
   }): Promise<{ error: Error | null; user?: UserProfile }> => {
     if (!user) return { error: new Error('User is not logged in') };
 
@@ -442,6 +490,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : user.avatarUrl;
     const updatedDistrict =
       updates.district !== undefined ? updates.district.trim() : user.district;
+    const updatedState =
+      updates.state !== undefined ? updates.state.trim() : user.state || 'West Bengal';
+    const updatedGender =
+      updates.gender !== undefined ? updates.gender : user.gender || 'NOT_SPECIFIED';
+    const updatedCategory =
+      updates.category !== undefined ? updates.category : user.category || 'GEN';
+    const updatedDob =
+      updates.dob !== undefined ? updates.dob.trim() : user.dob;
+    const updatedTargetExamId =
+      updates.targetExamId !== undefined ? updates.targetExamId : user.targetExamId;
+    const updatedTargetExamTitle =
+      updates.targetExamTitle !== undefined ? updates.targetExamTitle : user.targetExamTitle;
+    const updatedPreferredSubjects =
+      updates.preferredSubjects !== undefined ? updates.preferredSubjects : user.preferredSubjects || [];
+    const updatedPreparationStatus =
+      updates.preparationStatus !== undefined ? updates.preparationStatus : user.preparationStatus || 'BEGINNER';
 
     if (!updatedFullName) {
       return { error: new Error('Full Name cannot be empty') };
@@ -451,35 +515,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isSupabaseConfigured && isUuid) {
+        const fullPayload: Record<string, any> = {
+          full_name: updatedFullName,
+          phone: updatedPhone || null,
+          avatar_url: updatedAvatarUrl || null,
+          district: updatedDistrict || null,
+          state: updatedState || 'West Bengal',
+          gender: updatedGender,
+          category: updatedCategory,
+          dob: updatedDob || null,
+          target_exam_id: updatedTargetExamId || null,
+          preferred_subjects: updatedPreferredSubjects,
+          preparation_status: updatedPreparationStatus,
+          updated_at: new Date().toISOString(),
+        };
+
         let { error: profileError } = await supabase
           .from('profiles')
-          .update({
-            full_name: updatedFullName,
-            phone: updatedPhone || null,
-            avatar_url: updatedAvatarUrl || null,
-            district: updatedDistrict || null,
-            updated_at: new Date().toISOString(),
-          })
+          .update(fullPayload)
           .eq('id', user.id);
 
-        // Resilient fallback if 'district' column has not yet been added to Supabase profiles schema
+        // Resilient fallback if newer demographic columns are not yet in Supabase schema cache
         if (
           profileError &&
-          (profileError.message?.includes("'district'") ||
-            profileError.message?.toLowerCase().includes('schema cache') ||
+          (profileError.message?.toLowerCase().includes('schema cache') ||
+            profileError.message?.includes('column') ||
             profileError.code === 'PGRST204')
         ) {
           console.warn(
-            "Notice: 'district' column not yet in profiles schema cache. Saving district to auth metadata and retrying profile update without column."
+            'Notice: Demographic columns not yet in profiles schema cache. Retrying basic profile update and saving full details to auth metadata.'
           );
+          const basicPayload: Record<string, any> = {
+            full_name: updatedFullName,
+            phone: updatedPhone || null,
+            avatar_url: updatedAvatarUrl || null,
+            updated_at: new Date().toISOString(),
+          };
+          if (updatedDistrict) basicPayload.district = updatedDistrict;
+
           const { error: retryError } = await supabase
             .from('profiles')
-            .update({
-              full_name: updatedFullName,
-              phone: updatedPhone || null,
-              avatar_url: updatedAvatarUrl || null,
-              updated_at: new Date().toISOString(),
-            })
+            .update(basicPayload)
             .eq('id', user.id);
 
           profileError = retryError;
@@ -495,6 +571,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               full_name: updatedFullName,
               avatar_url: updatedAvatarUrl || null,
               district: updatedDistrict || null,
+              state: updatedState,
+              gender: updatedGender,
+              category: updatedCategory,
+              dob: updatedDob,
+              target_exam_id: updatedTargetExamId,
+              target_exam_title: updatedTargetExamTitle,
+              preferred_subjects: updatedPreferredSubjects,
+              preparation_status: updatedPreparationStatus,
             },
           });
         } catch (authErr) {
@@ -508,6 +592,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         phone: updatedPhone,
         avatarUrl: updatedAvatarUrl,
         district: updatedDistrict || undefined,
+        state: updatedState,
+        gender: updatedGender,
+        category: updatedCategory,
+        dob: updatedDob,
+        targetExamId: updatedTargetExamId,
+        targetExamTitle: updatedTargetExamTitle,
+        preferredSubjects: updatedPreferredSubjects,
+        preparationStatus: updatedPreparationStatus,
       };
 
       setUser(updatedUser);

@@ -1,9 +1,41 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import fs from 'node:fs';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'apk-downloader-headers',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = req.url || '';
+          if (
+            url === '/download-apk' ||
+            url === '/PracticeKoro.apk' ||
+            url === '/practicekoro-release.apk' ||
+            url.endsWith('.apk')
+          ) {
+            const filePath = path.resolve(import.meta.dirname, 'public/PracticeKoro.apk');
+            if (fs.existsSync(filePath)) {
+              const stat = fs.statSync(filePath);
+              res.writeHead(200, {
+                'Content-Type': 'application/vnd.android.package-archive',
+                'Content-Length': stat.size,
+                'Content-Disposition': 'attachment; filename="PracticeKoro.apk"',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Accept-Ranges': 'bytes',
+              });
+              fs.createReadStream(filePath).pipe(res);
+              return;
+            }
+          }
+          next();
+        });
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

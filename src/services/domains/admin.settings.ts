@@ -106,6 +106,11 @@ export async function updateAppSettings(
       key: 'website_url',
       description: 'Official web application domain',
     },
+    daily_content: {
+      category: 'general',
+      key: 'daily_content',
+      description: 'Student homepage daily fact and motivational quote',
+    },
     content_language_mode: {
       category: 'general',
       key: 'content_language_mode',

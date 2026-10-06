@@ -39,7 +39,7 @@ export const AppLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F1F5FC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#0877FF]/20 selection:text-[#0877FF]">
+    <div className="min-h-screen flex bg-[#F1F5FC] dark:bg-[#020617] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#026BFC]/20 selection:text-[#026BFC]">
       {/* 1. App Left Sidebar Navigation (Desktop sticky, Mobile drawer) */}
       <StudentSidebar
         isOpen={isMobileSidebarOpen}

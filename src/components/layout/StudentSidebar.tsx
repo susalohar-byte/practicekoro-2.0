@@ -119,7 +119,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             className="flex items-center gap-2.5 overflow-hidden group"
           >
             {/* Official PracticeKoro App Icon */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0877FF] to-[#0B1F5B] p-1 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 overflow-hidden">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#026BFC] to-[#051A43] p-1 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 overflow-hidden">
               <img
                 src="/images/logo.png"
                 alt="PracticeKoro"
@@ -139,10 +139,10 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
             <div className={cn('flex flex-col min-w-0', isCollapsed && 'lg:hidden')}>
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-[17px] text-[#0B1F5B] dark:text-white tracking-tight leading-none">
-                  Practice<span className="text-[#0877FF]">Koro</span>
+                <span className="font-black text-[17px] text-[#051A43] dark:text-white tracking-tight leading-none">
+                  Practice<span className="text-[#026BFC]">Koro</span>
                 </span>
-                <span className="px-1.5 py-0.5 rounded-md bg-[#EFF5FF] dark:bg-blue-950/80 text-[#0877FF] dark:text-blue-300 text-[8.5px] font-black uppercase tracking-wider border border-[#DBEAFE] dark:border-blue-800">
+                <span className="px-1.5 py-0.5 rounded-md bg-[#EFF5FF] dark:bg-blue-950/80 text-[#026BFC] dark:text-blue-300 text-[8.5px] font-black uppercase tracking-wider border border-[#DBEAFE] dark:border-blue-800">
                   2.0
                 </span>
               </div>
@@ -160,7 +160,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden lg:flex p-1.5 rounded-lg text-[#64748B] hover:text-[#0877FF] hover:bg-[#F1F5FC] dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="hidden lg:flex p-1.5 rounded-lg text-[#64748B] hover:text-[#026BFC] hover:bg-[#F1F5FC] dark:hover:bg-slate-800 transition-colors cursor-pointer"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
             >
@@ -201,21 +201,21 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                       'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all duration-150',
                       isCollapsed ? 'justify-center px-0' : '',
                       active
-                        ? 'bg-[#EFF5FF] dark:bg-blue-950/40 text-[#0877FF] dark:text-blue-400 font-bold border border-[#DBEAFE] dark:border-blue-900/60 shadow-2xs'
-                        : 'text-[#475569] dark:text-slate-300 hover:text-[#0877FF] hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 font-semibold'
+                        ? 'bg-[#EFF5FF] dark:bg-blue-950/40 text-[#026BFC] dark:text-blue-400 font-bold border border-[#DBEAFE] dark:border-blue-900/60 shadow-2xs'
+                        : 'text-[#475569] dark:text-slate-300 hover:text-[#026BFC] hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 font-semibold'
                     )}
                   >
                     {/* Refined Left Accent Pill (Active indicator) */}
                     {active && !isCollapsed && (
-                      <span className="absolute left-0 top-2 bottom-2 w-1.2 rounded-r-full bg-[#0877FF] dark:bg-blue-400 shadow-xs" />
+                      <span className="absolute left-0 top-2 bottom-2 w-1.2 rounded-r-full bg-[#026BFC] dark:bg-blue-400 shadow-xs" />
                     )}
 
                     <Icon
                       className={cn(
                         'w-[18px] h-[18px] shrink-0 transition-transform duration-150',
                         active
-                          ? 'text-[#0877FF] dark:text-blue-400 stroke-[2.4] scale-105'
-                          : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#0877FF] stroke-[2]'
+                          ? 'text-[#026BFC] dark:text-blue-400 stroke-[2.4] scale-105'
+                          : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#026BFC] stroke-[2]'
                       )}
                     />
 
@@ -231,7 +231,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                         className={cn(
                           'ml-auto text-[9.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider',
                           item.badgeColor ||
-                            'bg-[#EFF5FF] dark:bg-blue-950 text-[#0877FF] dark:text-blue-300 border border-[#DBEAFE] dark:border-blue-800'
+                            'bg-[#EFF5FF] dark:bg-blue-950 text-[#026BFC] dark:text-blue-300 border border-[#DBEAFE] dark:border-blue-800'
                         )}
                       >
                         {item.badge}
@@ -240,7 +240,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
                     {/* Active highlight dot when collapsed */}
                     {isCollapsed && active && (
-                      <span className="absolute -left-1 w-1 h-5 rounded-r-full bg-[#0877FF] dark:bg-blue-400" />
+                      <span className="absolute -left-1 w-1 h-5 rounded-r-full bg-[#026BFC] dark:bg-blue-400" />
                     )}
 
                     {/* Desktop Floating Tooltip when collapsed */}
@@ -248,7 +248,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                       <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center gap-1.5 border border-slate-700 animate-in fade-in zoom-in-95 duration-100">
                         <span>{item.label}</span>
                         {item.badge && (
-                          <span className="px-1 py-0.2 rounded text-[9px] bg-[#0877FF] text-white">
+                          <span className="px-1 py-0.2 rounded text-[9px] bg-[#026BFC] text-white">
                             {item.badge}
                           </span>
                         )}
@@ -284,20 +284,20 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                       'group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all duration-150',
                       isCollapsed ? 'justify-center px-0' : '',
                       active
-                        ? 'bg-[#EFF5FF] dark:bg-blue-950/80 text-[#0877FF] dark:text-blue-300 font-bold border border-[#DBEAFE] dark:border-blue-800'
-                        : 'text-[#64748B] dark:text-slate-400 hover:text-[#0877FF] hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 font-medium'
+                        ? 'bg-[#EFF5FF] dark:bg-blue-950/80 text-[#026BFC] dark:text-blue-300 font-bold border border-[#DBEAFE] dark:border-blue-800'
+                        : 'text-[#64748B] dark:text-slate-400 hover:text-[#026BFC] hover:bg-[#F1F5FC] dark:hover:bg-slate-800/60 font-medium'
                     )}
                   >
                     {active && !isCollapsed && (
-                      <span className="absolute left-0 top-2 bottom-2 w-1.2 rounded-r-full bg-[#0877FF] dark:bg-blue-400" />
+                      <span className="absolute left-0 top-2 bottom-2 w-1.2 rounded-r-full bg-[#026BFC] dark:bg-blue-400" />
                     )}
 
                     <Icon
                       className={cn(
                         'w-4 h-4 shrink-0',
                         active
-                          ? 'text-[#0877FF] stroke-[2.2]'
-                          : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#0877FF] stroke-[1.8]'
+                          ? 'text-[#026BFC] stroke-[2.2]'
+                          : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#026BFC] stroke-[1.8]'
                       )}
                     />
 
@@ -360,7 +360,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                 <Link
                   to="/subscription"
                   onClick={onClose}
-                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B1F5B] to-[#0877FF] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
+                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#051A43] to-[#026BFC] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
                   aria-label="Pro Pass Active"
                 >
                   <Crown className="w-5 h-5 fill-amber-300" />
@@ -371,7 +371,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               </div>
             ) : (
               <div className="pt-2">
-                <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#0B1F5B] via-[#0E2874] to-[#0877FF] text-white shadow-md shadow-blue-900/10 space-y-2.5 relative overflow-hidden group">
+                <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#051A43] via-[#0E2874] to-[#026BFC] text-white shadow-md shadow-blue-900/10 space-y-2.5 relative overflow-hidden group">
                   <Crown className="absolute -right-3 -bottom-3 w-20 h-20 text-white/5 pointer-events-none group-hover:scale-110 transition-transform" />
 
                   <div className="flex items-center justify-between relative z-10">
@@ -406,7 +406,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                 <Link
                   to="/subscription"
                   onClick={onClose}
-                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#0B1F5B] to-[#0877FF] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
+                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#051A43] to-[#026BFC] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
                   aria-label="Upgrade to Pro Pass"
                 >
                   <Crown className="w-5 h-5 fill-amber-300 animate-pulse" />
@@ -417,7 +417,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               </div>
             ) : (
               <div className="pt-2">
-                <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#0B1F5B] via-[#0E2874] to-[#0877FF] text-white shadow-md shadow-blue-900/15 space-y-2.5 relative overflow-hidden group">
+                <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#051A43] via-[#0E2874] to-[#026BFC] text-white shadow-md shadow-blue-900/15 space-y-2.5 relative overflow-hidden group">
                   <Crown className="absolute -right-3 -bottom-3 w-20 h-20 text-white/5 pointer-events-none group-hover:scale-110 transition-transform" />
 
                   <div className="flex items-center justify-between relative z-10">
@@ -425,7 +425,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                       <Crown className="w-4 h-4 fill-amber-300 animate-pulse" />
                       <span>PRO PASS</span>
                     </div>
-                    <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-[#0B1F5B] text-[9px] font-black uppercase tracking-wider shadow-xs">
+                    <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-[#051A43] text-[9px] font-black uppercase tracking-wider shadow-xs">
                       OFFER
                     </span>
                   </div>
@@ -437,7 +437,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                   <Link
                     to="/subscription"
                     onClick={onClose}
-                    className="inline-flex items-center justify-between w-full px-3 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#0877FF] text-[11px] font-black shadow-xs transition-all relative z-10 cursor-pointer hover:shadow-md"
+                    className="inline-flex items-center justify-between w-full px-3 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#026BFC] text-[11px] font-black shadow-xs transition-all relative z-10 cursor-pointer hover:shadow-md"
                   >
                     <span>Upgrade Now</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -453,7 +453,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-bounce" />
-                  <span className="text-xs font-black text-[#0B1F5B] dark:text-white">Daily Streak</span>
+                  <span className="text-xs font-black text-[#051A43] dark:text-white">Daily Streak</span>
                 </div>
                 <span className="px-1.5 py-0.2 rounded-md bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 text-[9.5px] font-black border border-orange-200/60 dark:border-orange-800">
                   Target: 20 Qs
@@ -465,7 +465,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               <Link
                 to="/practice"
                 onClick={onClose}
-                className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl bg-[#EFF5FF] hover:bg-[#DBEAFE] dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#0877FF] dark:text-blue-400 text-[11px] font-bold transition-colors cursor-pointer"
+                className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl bg-[#EFF5FF] hover:bg-[#DBEAFE] dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#026BFC] dark:text-blue-400 text-[11px] font-bold transition-colors cursor-pointer"
               >
                 <span>Continue Practice</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -504,7 +504,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               <div className="relative shrink-0">
                 <div
                   className={cn(
-                    'w-9 h-9 rounded-full overflow-hidden bg-[#0877FF] flex items-center justify-center border',
+                    'w-9 h-9 rounded-full overflow-hidden bg-[#026BFC] flex items-center justify-center border',
                     isPro
                       ? 'border-amber-400 ring-2 ring-amber-400/30'
                       : 'border-[#E2EAF8] dark:border-slate-700'
@@ -524,7 +524,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-[#0B1F5B] dark:text-white truncate">
+                  <p className="text-xs font-black text-[#051A43] dark:text-white truncate">
                     {user?.fullName || 'Student'}
                   </p>
                   <div className="flex items-center gap-1 mt-0.5">
@@ -555,7 +555,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                 <Link
                   to="/settings"
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0877FF] hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
+                  className="p-1.5 rounded-lg text-[#64748B] hover:text-[#026BFC] hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
                   title="Settings & Preferences"
                   aria-label="Settings"
                 >

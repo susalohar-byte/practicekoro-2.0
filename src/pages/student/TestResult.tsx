@@ -18,9 +18,20 @@ import {
   Target,
   Zap,
   Trophy,
+  BarChart3,
+  ShieldCheck,
+  Scale,
 } from 'lucide-react';
-import { formatSeconds } from '@/lib/utils';
-import type { GradedResult, QuestionSolution, LiveTest, LiveTestParticipant } from '@/types';
+import { formatSeconds, cn } from '@/lib/utils';
+import type {
+  GradedResult,
+  QuestionSolution,
+  LiveTest,
+  LiveTestParticipant,
+  StudentApplicableCutoff,
+  AttemptRankings,
+} from '@/types';
+import { CATEGORY_LABELS, GENDER_LABELS } from '@/types';
 
 export const TestResult: React.FC = () => {
   const { testId, attemptId } = useParams<{ testId: string; attemptId: string }>();
@@ -34,19 +45,33 @@ export const TestResult: React.FC = () => {
   const [negativeMarksDeducted, setNegativeMarksDeducted] = useState<number | null>(null);
   const [liveTest, setLiveTest] = useState<LiveTest | null>(null);
   const [liveLeaderboard, setLiveLeaderboard] = useState<LiveTestParticipant[]>([]);
+  const [attemptRankings, setAttemptRankings] = useState<AttemptRankings | null>(null);
+  const [applicableCutoff, setApplicableCutoff] = useState<StudentApplicableCutoff | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Helper to detect exam identifier based on test title or student's target exam
+  const detectExamId = (title?: string, fallbackTarget?: string): string => {
+    const text = `${title || ''} ${fallbackTarget || ''}`.toLowerCase();
+    if (text.includes('clerkship')) return 'wbpsc-clerkship';
+    if (text.includes('kp si') || text.includes('kolkata police')) return 'kp-si';
+    if (text.includes('wbcs')) return 'wbcs-exe';
+    if (text.includes('tet') || text.includes('primary')) return 'wb-primary-tet';
+    if (text.includes('constable') || text.includes('wbp')) return 'wbp-constable';
+    return 'wbp-constable';
+  };
 
   useEffect(() => {
     async function loadResult() {
       if (!attemptId) return;
       setLoading(true);
       try {
-        const [data, sols, lt, lb, savedNegativeMarks] = await Promise.all([
+        const [data, sols, lt, lb, savedNegativeMarks, rkData] = await Promise.all([
           api.getAttemptResult(attemptId),
           testId ? api.getAttemptSolutions(attemptId, testId).catch(() => []) : Promise.resolve([]),
           liveTestId ? api.getLiveTestById(liveTestId).catch(() => null) : Promise.resolve(null),
           liveTestId ? api.getLiveTestLeaderboard(liveTestId).catch(() => []) : Promise.resolve([]),
           testId ? api.getAttemptNegativeMarks(attemptId, testId).catch(() => null) : Promise.resolve(null),
+          api.getAttemptRankings(attemptId).catch(() => null),
         ]);
         setResult(data);
         setSolutions(sols || []);
@@ -57,6 +82,18 @@ export const TestResult: React.FC = () => {
         setNegativeMarksDeducted(savedNegativeMarks ?? (sols?.length ? solutionNegativeMarks : null));
         setLiveTest(lt);
         setLiveLeaderboard(lb || []);
+        setAttemptRankings(rkData);
+
+        // Fetch category-aware applicable cutoff benchmarks for this student
+        const targetExamId = detectExamId(data?.testTitle, user?.targetExamTitle);
+        if (typeof api.getStudentApplicableCutoff === 'function') {
+          try {
+            const cutoffInfo = await api.getStudentApplicableCutoff(targetExamId, user || undefined);
+            setApplicableCutoff(cutoffInfo);
+          } catch (cutoffErr) {
+            console.warn('Could not load applicable cutoff benchmark:', cutoffErr);
+          }
+        }
       } catch (err) {
         console.error('Failed to load attempt result:', err);
       } finally {
@@ -64,7 +101,7 @@ export const TestResult: React.FC = () => {
       }
     }
     loadResult();
-  }, [attemptId, testId, liveTestId]);
+  }, [attemptId, testId, liveTestId, user]);
 
   const studentLiveEntry = useMemo(() => {
     if (!liveTestId || !liveLeaderboard.length) return null;
@@ -194,17 +231,17 @@ export const TestResult: React.FC = () => {
         </div>
       )}
 
-      {/* Top Banner Card */}
-      <Card className="p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white border-0 shadow-lg relative overflow-hidden rounded-3xl">
+      {/* Top Banner Card (Solid Primary Blue #026BFC — Reference Screen 8) */}
+      <Card className="p-6 sm:p-8 bg-[#026BFC] text-white border-0 shadow-xl shadow-blue-500/20 relative overflow-hidden rounded-3xl">
         <div className="relative z-10 space-y-3">
           <div className="flex items-center gap-2">
             <Badge
               variant="success"
-              className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+              className="bg-white/20 text-white border-white/30 backdrop-blur-xs font-bold"
             >
-              Exam Attempt Completed
+              Passed
             </Badge>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-blue-100 font-mono">
               Attempt ID: {result.attemptId.slice(0, 12)}
             </span>
           </div>
@@ -215,36 +252,36 @@ export const TestResult: React.FC = () => {
 
           {/* Main Scorecard Numbers */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-300">Total Score</p>
+            <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+              <p className="text-[10px] uppercase font-bold text-blue-100">Your Score</p>
               <p className="text-2xl font-black text-white mt-0.5">
                 {result.score.toFixed(2)}{' '}
-                <span className="text-xs text-slate-400 font-normal">/ {result.totalMarks}</span>
+                <span className="text-xs text-blue-200 font-normal">/ {result.totalMarks}</span>
               </p>
-              <p className="text-[10px] text-indigo-300 font-semibold mt-0.5">
+              <p className="text-[10px] text-blue-100 font-semibold mt-0.5">
                 {result.percentage.toFixed(1)}% Marks
               </p>
             </div>
 
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-300">Accuracy</p>
-              <p className="text-2xl font-black text-emerald-400 mt-0.5">
+            <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+              <p className="text-[10px] uppercase font-bold text-blue-100">Accuracy</p>
+              <p className="text-2xl font-black text-white mt-0.5">
                 {result.accuracy.toFixed(1)}%
               </p>
-              <p className="text-[10px] text-emerald-300/80 font-semibold mt-0.5">
+              <p className="text-[10px] text-blue-100 font-semibold mt-0.5">
                 {result.correctCount}/{result.correctCount + result.wrongCount} Attempted
               </p>
             </div>
 
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-300">
+            <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+              <p className="text-[10px] uppercase font-bold text-blue-100">
                 {liveTest
                   ? liveTest.rankingEnabled
                     ? 'Live State Rank'
                     : 'Live Mode'
                   : 'State Rank'}
               </p>
-              <p className="text-2xl font-black text-blue-400 mt-0.5">
+              <p className="text-2xl font-black text-white mt-0.5">
                 {liveTest
                   ? liveTest.rankingEnabled
                     ? studentLiveEntry?.rank
@@ -254,7 +291,7 @@ export const TestResult: React.FC = () => {
                   : result.rank !== null
                     ? `#${result.rank}`
                     : '—'}{' '}
-                <span className="text-xs text-slate-400 font-normal">
+                <span className="text-xs text-blue-200 font-normal">
                   {liveTest && liveTest.rankingEnabled && studentLiveEntry?.rank
                     ? `/ ${liveLeaderboard.length || result.totalCandidates}`
                     : result.rank !== null
@@ -262,7 +299,7 @@ export const TestResult: React.FC = () => {
                       : ''}
                 </span>
               </p>
-              <p className="text-[10px] text-blue-300/80 font-semibold mt-0.5">
+              <p className="text-[10px] text-blue-100 font-semibold mt-0.5">
                 {liveTest
                   ? liveTest.rankingEnabled
                     ? studentLiveEntry?.rank
@@ -275,12 +312,12 @@ export const TestResult: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-slate-300">Time Taken</p>
-              <p className="text-2xl font-black text-slate-200 mt-0.5">
+            <div className="p-3 bg-white/15 backdrop-blur-md rounded-2xl border border-white/20">
+              <p className="text-[10px] uppercase font-bold text-blue-100">Time Taken</p>
+              <p className="text-2xl font-black text-white mt-0.5">
                 {formatSeconds(result.timeSpentSeconds)}
               </p>
-              <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Completed</p>
+              <p className="text-[10px] text-blue-100 font-semibold mt-0.5">Completed</p>
             </div>
           </div>
         </div>
@@ -290,6 +327,364 @@ export const TestResult: React.FC = () => {
       </Card>
 
       <ResultRankingCard attemptId={result.attemptId} />
+
+      {/* ==================================================================== */}
+      {/* SECTIONS 14, 15, 16: REAL COMPETITIVE EXAM CUTOFF BENCHMARK & COMPARISON */}
+      {/* ==================================================================== */}
+      {applicableCutoff && (
+        <Card className="p-6 sm:p-7 border-blue-200/80 dark:border-blue-900/60 bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/20 rounded-3xl space-y-6 shadow-md">
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#026BFC]/10 text-[#026BFC] dark:bg-[#026BFC]/20 flex items-center justify-center shrink-0">
+                <Scale className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Competitive Exam Cutoff Benchmark
+                  </h2>
+                  <Badge variant="brand" className="text-[10px] uppercase font-bold tracking-wider">
+                    {applicableCutoff.examTitle}
+                  </Badge>
+                  {applicableCutoff.expectedCutoff?.stage && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {applicableCutoff.expectedCutoff.stage} Stage
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Demographic category-aware performance comparison against expected benchmarks and verified official cutoffs
+                </p>
+              </div>
+            </div>
+
+            {/* Student Context Badges */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                Category: {CATEGORY_LABELS[applicableCutoff.studentCategory] || 'General / UR'}
+              </span>
+              {applicableCutoff.isGenderApplicable ? (
+                <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                  Gender: {GENDER_LABELS[applicableCutoff.studentGender] || 'Specified'}
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  Gender: Common Merit (All Genders)
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Section 15 Non-Guarantee Advisory Banner */}
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Important Educational Benchmark Notice:</span> PracticeKoro{' '}
+              <strong>Expected Cutoffs</strong> are algorithmic target estimates calculated to guide your study plan.
+              Mock examination scores provide diagnostic preparation feedback and do{' '}
+              <strong>NOT</strong> guarantee recruitment qualification or final government selection.
+            </div>
+          </div>
+
+          {/* Section 15: The 7 Core Benchmark Performance Numbers */}
+          {(() => {
+            const expCutoff = applicableCutoff.expectedCutoff?.cutoffMarks ?? null;
+            const maxMarks = result.totalMarks;
+            const wbRank = attemptRankings?.westBengal?.rank ?? result.rank ?? null;
+            const distRank = attemptRankings?.district?.rank ?? null;
+            const distName = attemptRankings?.district?.name || user?.district || 'District';
+
+            // Calculate score difference relative to expected cutoff
+            const diff = expCutoff !== null ? Number((result.score - expCutoff).toFixed(2)) : null;
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                {/* 1. Your Score */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Your Score
+                  </p>
+                  <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                    {result.score.toFixed(2)}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">out of {maxMarks}</p>
+                </div>
+
+                {/* 2. Maximum Marks */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Max Marks
+                  </p>
+                  <p className="text-xl font-black text-slate-800 dark:text-slate-200 mt-1">
+                    {maxMarks}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Total Paper</p>
+                </div>
+
+                {/* 3. Accuracy */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Accuracy
+                  </p>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                    {result.accuracy.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {result.correctCount} / {result.correctCount + result.wrongCount} attempted
+                  </p>
+                </div>
+
+                {/* 4. West Bengal Rank */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    WB Rank
+                  </p>
+                  <p className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                    {wbRank ? `#${wbRank}` : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">West Bengal State</p>
+                </div>
+
+                {/* 5. District Rank */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    District Rank
+                  </p>
+                  <p className="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                    {distRank ? `#${distRank}` : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{distName}</p>
+                </div>
+
+                {/* 6. Expected Cutoff */}
+                <div className="p-3.5 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Expected Cutoff
+                    </p>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                      Estimate
+                    </span>
+                  </div>
+                  <p className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                    {expCutoff !== null ? expCutoff.toFixed(2) : '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">PracticeKoro Benchmark</p>
+                </div>
+
+                {/* 7. Difference from Expected Cutoff */}
+                <div
+                  className={cn(
+                    'p-3.5 rounded-2xl border shadow-2xs col-span-2 sm:col-span-1',
+                    diff === null
+                      ? 'bg-white dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/80'
+                      : diff >= 0
+                        ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
+                        : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60'
+                  )}
+                >
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Difference
+                  </p>
+                  <p
+                    className={cn(
+                      'text-xl font-black mt-1',
+                      diff === null
+                        ? 'text-slate-600 dark:text-slate-300'
+                        : diff >= 0
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    {diff === null
+                      ? '—'
+                      : diff >= 0
+                        ? `+${diff.toFixed(2)} marks`
+                        : `${diff.toFixed(2)} marks`}
+                  </p>
+                  <p
+                    className={cn(
+                      'text-[10px] font-semibold mt-0.5 truncate',
+                      diff === null
+                        ? 'text-slate-400'
+                        : diff >= 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    {diff === null
+                      ? 'No benchmark'
+                      : diff >= 0
+                        ? 'Ahead of expected cutoff'
+                        : 'Below expected cutoff'}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Section 16: Visual Cutoff Comparison */}
+          <div className="p-5 bg-white dark:bg-slate-800/70 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                  Cutoff Comparison: Your Score vs Expected Cutoff vs Official Cutoff
+                </h3>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Standardized on {applicableCutoff.examTitle} scoring rules
+              </span>
+            </div>
+
+            {/* Comparison Bars */}
+            <div className="space-y-3.5 pt-1">
+              {/* Bar 1: Your Score */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#026BFC]" />
+                    <span>Your Mock Score</span>
+                  </span>
+                  <span className="font-black text-[#026BFC]">
+                    {result.score.toFixed(2)}{' '}
+                    <span className="text-[10px] font-normal text-slate-400">
+                      / {result.totalMarks} ({((result.score / result.totalMarks) * 100).toFixed(1)}%)
+                    </span>
+                  </span>
+                </div>
+                <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#026BFC] transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (result.score / result.totalMarks) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Bar 2: Expected Cutoff */}
+              {applicableCutoff.expectedCutoff && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span>
+                        Expected Cutoff ({applicableCutoff.expectedCutoff.year} {applicableCutoff.expectedCutoff.stage})
+                      </span>
+                      <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                        EXPECTED
+                      </span>
+                    </span>
+                    <span className="font-black text-amber-600 dark:text-amber-400">
+                      {applicableCutoff.expectedCutoff.cutoffMarks.toFixed(2)}{' '}
+                      <span className="text-[10px] font-normal text-slate-400">
+                        / {applicableCutoff.expectedCutoff.maxMarks} (
+                        {((applicableCutoff.expectedCutoff.cutoffMarks / applicableCutoff.expectedCutoff.maxMarks) * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-amber-500 transition-all duration-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            (applicableCutoff.expectedCutoff.cutoffMarks / applicableCutoff.expectedCutoff.maxMarks) * 100
+                          )
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Bar 3: Previous Official Cutoff */}
+              {applicableCutoff.previousOfficialCutoff && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span>
+                        Previous Official Cutoff ({applicableCutoff.previousOfficialCutoff.year} {applicableCutoff.previousOfficialCutoff.stage})
+                      </span>
+                      <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        OFFICIAL VERIFIED
+                      </span>
+                    </span>
+                    <span className="font-black text-emerald-600 dark:text-emerald-400">
+                      {applicableCutoff.previousOfficialCutoff.cutoffMarks.toFixed(2)}{' '}
+                      <span className="text-[10px] font-normal text-slate-400">
+                        / {applicableCutoff.previousOfficialCutoff.maxMarks} (
+                        {((applicableCutoff.previousOfficialCutoff.cutoffMarks / applicableCutoff.previousOfficialCutoff.maxMarks) * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            (applicableCutoff.previousOfficialCutoff.cutoffMarks /
+                              applicableCutoff.previousOfficialCutoff.maxMarks) *
+                              100
+                          )
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Historical Official Cutoff Cycle Badges */}
+            {applicableCutoff.historicalOfficialCutoffs.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  Multi-Year Official Recruitment History:
+                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {applicableCutoff.historicalOfficialCutoffs.map((hist) => (
+                    <div
+                      key={hist.id}
+                      className="px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs flex items-center gap-1.5"
+                    >
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        {hist.year} {hist.stage}:
+                      </span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400">
+                        {hist.cutoffMarks.toFixed(2)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">/ {hist.maxMarks}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Verification Metadata Footnote */}
+            {applicableCutoff.previousOfficialCutoff && (
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>
+                  Official cutoff verified against{' '}
+                  <strong className="text-slate-600 dark:text-slate-300">
+                    {applicableCutoff.previousOfficialCutoff.source}
+                  </strong>
+                  . Verification status: {applicableCutoff.previousOfficialCutoff.verificationStatus}
+                  {applicableCutoff.previousOfficialCutoff.verifiedBy ? ` (${applicableCutoff.previousOfficialCutoff.verifiedBy})` : ''}.
+                </span>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Breakdown Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">

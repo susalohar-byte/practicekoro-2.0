@@ -86,6 +86,9 @@ class _PKSearchFilterBarState extends State<PKSearchFilterBar> {
   Widget build(BuildContext context) {
     final hasFocus = _focusNode.hasFocus;
     final hasText = widget.controller.text.isNotEmpty;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compactFilter = screenWidth < 340;
+    final narrowFilter = screenWidth < 380;
 
     final searchField = Container(
       height: widget.height,
@@ -209,12 +212,12 @@ class _PKSearchFilterBarState extends State<PKSearchFilterBar> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(child: searchField),
-        const SizedBox(width: 12),
+        SizedBox(width: narrowFilter ? 8 : 12),
         GestureDetector(
           onTap: widget.onFilterTap,
           child: Container(
             height: widget.height,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: narrowFilter ? 11 : 16),
             decoration: BoxDecoration(
               color: widget.isFilterActive
                   ? const Color(0xFFEFF6FF)
@@ -244,25 +247,27 @@ class _PKSearchFilterBarState extends State<PKSearchFilterBar> {
                       ? const Color(0xFF0877FF)
                       : const Color(0xFF0B1F5B),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  widget.filterLabel,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
+                if (!compactFilter) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.filterLabel,
+                    style: TextStyle(
+                      fontSize: narrowFilter ? 12 : 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isFilterActive
+                          ? const Color(0xFF0877FF)
+                          : const Color(0xFF0B1F5B),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 19,
                     color: widget.isFilterActive
                         ? const Color(0xFF0877FF)
                         : const Color(0xFF0B1F5B),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 19,
-                  color: widget.isFilterActive
-                      ? const Color(0xFF0877FF)
-                      : const Color(0xFF0B1F5B),
-                ),
+                ],
               ],
             ),
           ),

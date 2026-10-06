@@ -62,6 +62,15 @@ class PKBottomSpacing {
   /// Adjustment offset to calibrate visual clearance with the floating navbar (reduced by 50px).
   static const double floatingBarOffset = 50.0;
 
+  /// Keeps the standard gutters useful on compact phones without changing spacing
+  /// on normal-width devices or tablets.
+  static double responsiveHorizontal(BuildContext context, double preferred) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < 340) return preferred.clamp(8.0, 10.0);
+    if (width < 380) return preferred.clamp(10.0, 12.0);
+    return preferred;
+  }
+
   /// Calculates the required bottom padding dynamically based on context.
   ///
   /// If inside a [PKBottomNavScope] with an active floating navbar (such as the 5 main tabs),
@@ -71,10 +80,7 @@ class PKBottomSpacing {
   /// If outside [PKBottomNavScope] (such as standalone detail or settings screens),
   /// this returns:
   /// `MediaQuery.paddingOf(context).bottom + additionalGap`
-  static double of(
-    BuildContext context, {
-    double? additionalGap,
-  }) {
+  static double of(BuildContext context, {double? additionalGap}) {
     final scope = PKBottomNavScope.maybeOf(context);
     // If scope is explicitly defined, use its hasFloatingNavBar flag.
     // If no scope is found, check if we're on a route that uses MainScaffold or assume true for safety.
@@ -99,7 +105,10 @@ class PKBottomSpacing {
     double additionalGap = defaultBreathingGap,
   }) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    return (totalFloatingBarFootprint + bottomInset + additionalGap - floatingBarOffset)
+    return (totalFloatingBarFootprint +
+            bottomInset +
+            additionalGap -
+            floatingBarOffset)
         .clamp(0.0, double.infinity);
   }
 
@@ -120,9 +129,9 @@ class PKBottomSpacing {
     double? additionalGap,
   }) {
     return EdgeInsets.fromLTRB(
-      horizontal,
+      responsiveHorizontal(context, horizontal),
       top,
-      horizontal,
+      responsiveHorizontal(context, horizontal),
       of(context, additionalGap: additionalGap),
     );
   }
@@ -135,7 +144,7 @@ class PKBottomSpacing {
     double additionalGap = defaultBreathingGap,
   }) {
     return EdgeInsets.fromLTRB(
-      horizontal,
+      responsiveHorizontal(context, horizontal),
       top,
       horizontal,
       floatingBarOf(context, additionalGap: additionalGap),
@@ -163,10 +172,7 @@ class PKBottomSpacing {
 class PKBottomNavSpacer extends StatelessWidget {
   final double? additionalGap;
 
-  const PKBottomNavSpacer({
-    super.key,
-    this.additionalGap,
-  });
+  const PKBottomNavSpacer({super.key, this.additionalGap});
 
   @override
   Widget build(BuildContext context) {
@@ -180,10 +186,7 @@ class PKBottomNavSpacer extends StatelessWidget {
 class PKBottomNavSliverSpacer extends StatelessWidget {
   final double? additionalGap;
 
-  const PKBottomNavSliverSpacer({
-    super.key,
-    this.additionalGap,
-  });
+  const PKBottomNavSliverSpacer({super.key, this.additionalGap});
 
   @override
   Widget build(BuildContext context) {
@@ -205,13 +208,12 @@ extension PKBottomSpacingExtension on BuildContext {
     double horizontal = 16.0,
     double top = 12.0,
     double? additionalGap,
-  }) =>
-      PKBottomSpacing.edgeInsets(
-        this,
-        horizontal: horizontal,
-        top: top,
-        additionalGap: additionalGap,
-      );
+  }) => PKBottomSpacing.edgeInsets(
+    this,
+    horizontal: horizontal,
+    top: top,
+    additionalGap: additionalGap,
+  );
 
   /// Whether a floating bottom navbar is active in current context.
   bool get hasBottomNav => PKBottomNavScope.hasNavBar(this);

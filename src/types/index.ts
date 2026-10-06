@@ -63,6 +63,55 @@ export function getAdminPermissions(adminRole?: AdminRole): AdminPermissions {
   }
 }
 
+export type StudentCategoryCode =
+  | 'GEN'
+  | 'OBC_A'
+  | 'OBC_B'
+  | 'SC'
+  | 'ST'
+  | 'EWS'
+  | 'PWD'
+  | 'OTHER'
+  | 'NOT_SPECIFIED';
+
+export const CATEGORY_LABELS: Record<StudentCategoryCode, string> = {
+  GEN: 'General / UR',
+  OBC_A: 'OBC-A',
+  OBC_B: 'OBC-B',
+  SC: 'SC',
+  ST: 'ST',
+  EWS: 'EWS',
+  PWD: 'PwD',
+  OTHER: 'Other',
+  NOT_SPECIFIED: 'Prefer not to say',
+};
+
+export type StudentGenderCode =
+  | 'MALE'
+  | 'FEMALE'
+  | 'OTHER'
+  | 'NOT_SPECIFIED';
+
+export const GENDER_LABELS: Record<StudentGenderCode, string> = {
+  MALE: 'Male',
+  FEMALE: 'Female',
+  OTHER: 'Other',
+  NOT_SPECIFIED: 'Prefer not to say',
+};
+
+export type PreparationStatusCode =
+  | 'BEGINNER'
+  | 'INTERMEDIATE'
+  | 'ADVANCED'
+  | 'REVISION';
+
+export const PREPARATION_STATUS_LABELS: Record<PreparationStatusCode, string> = {
+  BEGINNER: 'Beginner (Starting preparation)',
+  INTERMEDIATE: 'Intermediate (Covering syllabus)',
+  ADVANCED: 'Advanced (Mocks & Speed practice)',
+  REVISION: 'Final Revision (Exam ready)',
+};
+
 export interface UserProfile {
   id: string;
   fullName: string;
@@ -70,7 +119,14 @@ export interface UserProfile {
   phone?: string;
   avatarUrl?: string;
   district?: string;
+  state?: string;
+  dob?: string;
+  gender?: StudentGenderCode;
+  category?: StudentCategoryCode;
   targetExamId?: string;
+  targetExamTitle?: string;
+  preferredSubjects?: string[];
+  preparationStatus?: PreparationStatusCode;
   role: UserRole;
   adminRole?: AdminRole;
   createdAt: string;
@@ -123,6 +179,25 @@ export interface PopularExamCard {
   isActive?: boolean;
 }
 
+export interface PopularTestSeriesCard {
+  id: string;
+  testSeriesId?: string;
+  title: string;
+  subtitle?: string; // e.g. "Complete Test Series"
+  cardGradientStart: string;
+  cardGradientEnd: string;
+  cardArrowColor?: string;
+  cardBgImage?: string;
+  cardLogoUrl?: string;
+  orderIndex: number;
+  route?: string;
+  isActive?: boolean;
+  fullMockCount?: number;
+  topicTestCount?: number;
+  pyqTestCount?: number;
+  badgeText?: string;
+}
+
 export interface ExamCategory {
   id: string;
   name: string;
@@ -169,17 +244,22 @@ export interface ExamTopicMapping {
   subjectId?: string;
 }
 
+export type TestSeriesStatus = 'published' | 'draft' | 'under_review' | 'archived';
+
 export interface TestSeries {
   id: string;
   examId: string;
   title: string;
+  subtitle?: string;
   slug: string;
   description?: string;
   isPremium: boolean;
   orderIndex: number;
   isActive: boolean;
+  status?: TestSeriesStatus;
   isFeatured?: boolean;
   iconUrl?: string;
+  bannerUrl?: string;
   createdAt?: string;
   examTitle?: string;
   examCategory?: string;
@@ -189,6 +269,9 @@ export interface TestSeries {
   fullMockCount?: number;
   topicTestCount?: number;
   pyqTestCount?: number;
+  enrollmentCount?: number;
+  avgCompletion?: number;
+  avgAccuracy?: number;
 }
 
 export type SeriesTestCategory = 'full_mock' | 'pyq' | 'topic_test' | 'live_test';
@@ -380,12 +463,18 @@ export interface Question {
   sourcePaper?: string;
   sourceShift?: string;
   isActive: boolean;
-  status?: 'active' | 'archived' | 'draft';
+  status?: 'active' | 'archived' | 'draft' | 'published' | 'under_review';
   subjectName?: string;
   chapterName?: string;
   topicName?: string;
   testId?: string;
   testTitle?: string;
+  uploadMode?: 'exam' | 'subject';
+  subtopic?: string;
+  section?: string;
+  shortNotes?: string;
+  tags?: string[];
+  versionHistory?: { version: number; editedBy: string; editedAt: string; changes: string }[];
 }
 
 export interface AdminDashboardStats {
@@ -479,6 +568,8 @@ export interface TestAttempt {
   id: string;
   userId: string;
   testId: string;
+  testSeriesId?: string;
+  examId?: string;
   testTitle?: string;
   examTitle?: string;
   subjectName?: string;
@@ -708,6 +799,26 @@ export interface AdminPaymentRow {
   created_at?: string;
 }
 
+export interface ProcessRefundRequest {
+  paymentId: string;
+  refundAmount: number;
+  refundReason: string;
+  refundMode: 'gateway' | 'manual';
+  refundId?: string;
+  revokeSubscription?: boolean;
+  notes?: string;
+}
+
+export interface ProcessRefundResponse {
+  success: boolean;
+  refundId?: string;
+  refundAmount?: number;
+  status?: string;
+  revokedSubscription?: boolean;
+  error?: string;
+  gatewayResponse?: any;
+}
+
 export interface AdminBatch {
   id: string;
   name: string;
@@ -743,6 +854,8 @@ export interface AdminDashboardV2Stats {
   freeStudents: number;
   proStudents: number;
   activeSubscriptions: number;
+  testsAttempted?: number;
+  questionsAnswered?: number;
   totalExams: number;
   totalTests: number;
   topicTests: number;
@@ -771,6 +884,11 @@ export interface AdminStudentRow {
   totalAttempts?: number;
   testsCompleted?: number;
   lastActive?: string;
+  gender?: StudentGenderCode;
+  category?: StudentCategoryCode;
+  district?: string;
+  state?: string;
+  targetExamTitle?: string;
 }
 
 export interface AdminStudentDetails extends AdminStudentRow {
@@ -1107,3 +1225,150 @@ export interface HeroBanner {
   createdAt: string;
   updatedAt?: string;
 }
+
+// ============================================================================
+// CUTOFF SYSTEM ARCHITECTURE (COMPETITIVE EXAMINATIONS)
+// ============================================================================
+
+export type CutoffType = 'OFFICIAL' | 'EXPECTED';
+
+export type RecruitmentStage =
+  | 'Preliminary'
+  | 'Written Examination'
+  | 'CBT'
+  | 'Physical Test'
+  | 'PMT / PET'
+  | 'Final Written'
+  | 'Final Merit'
+  | 'Document Verification'
+  | 'Other';
+
+export const ALL_RECRUITMENT_STAGES: RecruitmentStage[] = [
+  'Preliminary',
+  'Written Examination',
+  'CBT',
+  'Physical Test',
+  'PMT / PET',
+  'Final Written',
+  'Final Merit',
+  'Document Verification',
+  'Other',
+];
+
+export type CutoffScoreType =
+  | 'raw_marks'
+  | 'normalized'
+  | 'percentage'
+  | 'score'
+  | 'rank';
+
+export const SCORE_TYPE_LABELS: Record<CutoffScoreType, string> = {
+  raw_marks: 'Raw Marks',
+  normalized: 'Normalized Marks',
+  percentage: 'Percentage (%)',
+  score: 'Score Points',
+  rank: 'Rank Cutoff Threshold',
+};
+
+export type CutoffGenderScope = 'ALL' | 'MALE' | 'FEMALE';
+
+export type VerificationStatus = 'Verified' | 'Pending Verification';
+
+export type SourceType =
+  | 'Official Notification'
+  | 'Official Result'
+  | 'Official Recruitment Board'
+  | 'PracticeKoro Academic Panel'
+  | 'Other Verified Source';
+
+export const SOURCE_TYPE_OPTIONS: SourceType[] = [
+  'Official Notification',
+  'Official Result',
+  'Official Recruitment Board',
+  'PracticeKoro Academic Panel',
+  'Other Verified Source',
+];
+
+export interface ExamCutoffConfig {
+  examId: string;
+  examTitle: string;
+  categoryEnabled: boolean;
+  genderEnabled: boolean;
+  districtEnabled: boolean;
+  stageEnabled: boolean;
+  allowedStages: RecruitmentStage[];
+  defaultScoreType: CutoffScoreType;
+  defaultMaxMarks: number;
+}
+
+export interface CutoffRecord {
+  id: string;
+  examId: string;
+  examTitle: string;
+  year: number;
+  stage: RecruitmentStage;
+  cutoffType: CutoffType; // 'OFFICIAL' vs 'EXPECTED'
+  category: StudentCategoryCode;
+  gender: CutoffGenderScope; // 'ALL' | 'MALE' | 'FEMALE'
+  district?: string; // 'ALL' or specific West Bengal district
+  scoreType: CutoffScoreType;
+  maxMarks: number;
+  cutoffMarks: number;
+  percentage?: number;
+  negativeMarking?: number;
+  sourceType: SourceType;
+  source: string;
+  sourceUrl?: string;
+  verificationStatus: VerificationStatus;
+  verifiedBy?: string;
+  verifiedDate?: string;
+  notes?: string;
+  status: 'active' | 'draft' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StudentApplicableCutoff {
+  examId: string;
+  examTitle: string;
+  studentCategory: StudentCategoryCode;
+  studentGender: StudentGenderCode;
+  isGenderApplicable: boolean;
+  isDistrictApplicable: boolean;
+  expectedCutoff: CutoffRecord | null;
+  previousOfficialCutoff: CutoffRecord | null;
+  historicalOfficialCutoffs: CutoffRecord[];
+}
+
+export type BlogPostStatus = 'published' | 'draft' | 'scheduled' | 'archived';
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  author: string;
+  authorRole?: string;
+  authorAvatar?: string;
+  status: BlogPostStatus;
+  isFeatured: boolean;
+  thumbnail: string;
+  views: number;
+  uniqueViews: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  readTime: string;
+  publishedAt: string | null;
+  scheduledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  tags?: string[];
+}
+
+

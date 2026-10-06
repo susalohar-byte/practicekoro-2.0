@@ -46,70 +46,6 @@ interface SubjectItem {
   badgeTextColor: string;
 }
 
-const DEFAULT_SUBJECTS: SubjectItem[] = [
-  {
-    title: 'General Knowledge',
-    scored: 18,
-    total: 25,
-    percentage: 72,
-    iconBg: 'bg-[#EBF3FF]',
-    iconColor: 'text-[#2563EB]',
-    icon: BookOpen,
-    progressColor: 'bg-[#10B981]',
-    badgeBg: 'bg-[#ECFDF5]',
-    badgeTextColor: 'text-[#10B981]',
-  },
-  {
-    title: 'Mathematics',
-    scored: 20,
-    total: 30,
-    percentage: 67,
-    iconBg: 'bg-[#E6F8EE]',
-    iconColor: 'text-[#16A34A]',
-    icon: Calculator,
-    progressColor: 'bg-[#0877FF]',
-    badgeBg: 'bg-[#EFF6FF]',
-    badgeTextColor: 'text-[#0877FF]',
-  },
-  {
-    title: 'Reasoning',
-    scored: 12,
-    total: 20,
-    percentage: 60,
-    iconBg: 'bg-[#FFE4E6]',
-    iconColor: 'text-[#E11D48]',
-    icon: Brain,
-    progressColor: 'bg-[#EF4444]',
-    badgeBg: 'bg-[#FFF1F2]',
-    badgeTextColor: 'text-[#EF4444]',
-  },
-  {
-    title: 'English',
-    scored: 16,
-    total: 20,
-    percentage: 80,
-    iconBg: 'bg-[#F3E8FF]',
-    iconColor: 'text-[#9333EA]',
-    symbol: 'A',
-    symbolBg: 'bg-[#9333EA]',
-    progressColor: 'bg-[#10B981]',
-    badgeBg: 'bg-[#ECFDF5]',
-    badgeTextColor: 'text-[#10B981]',
-  },
-  {
-    title: 'General Science',
-    scored: 6,
-    total: 15,
-    percentage: 40,
-    iconBg: 'bg-[#FEF3C7]',
-    iconColor: 'text-[#D97706]',
-    icon: FlaskConical,
-    progressColor: 'bg-[#0877FF]',
-    badgeBg: 'bg-[#EFF6FF]',
-    badgeTextColor: 'text-[#0877FF]',
-  },
-];
-
 interface RecentTestItem {
   id: string;
   testId?: string;
@@ -126,48 +62,6 @@ interface RecentTestItem {
   isRealAttempt?: boolean;
 }
 
-const DEFAULT_RECENT_TESTS: RecentTestItem[] = [
-  {
-    id: 'wbp_mock_01',
-    title: 'WBP Constable Mock Test 01',
-    type: 'Full Length Test',
-    questionsCount: '100 Questions',
-    date: '28 Sep 2026',
-    percentage: 72,
-    scored: 72,
-    total: 100,
-    emblemType: 'wbssc_red',
-    scoreBg: 'bg-[#ECFDF5]',
-    scoreColor: 'text-[#10B981]',
-  },
-  {
-    id: 'kp_mock_02',
-    title: 'KP Constable Mock Test 02',
-    type: 'Full Length Test',
-    questionsCount: '100 Questions',
-    date: '25 Sep 2026',
-    percentage: 65,
-    scored: 65,
-    total: 100,
-    emblemType: 'kp_crest',
-    scoreBg: 'bg-[#EFF6FF]',
-    scoreColor: 'text-[#0877FF]',
-  },
-  {
-    id: 'ssc_gd_mock_01',
-    title: 'SSC GD Mock Test 01',
-    type: 'Full Length Test',
-    questionsCount: '80 Questions',
-    date: '20 Sep 2026',
-    percentage: 58,
-    scored: 58,
-    total: 80,
-    emblemType: 'ssc_red',
-    scoreBg: 'bg-[#FFF1F2]',
-    scoreColor: 'text-[#EF4444]',
-  },
-];
-
 interface SeriesResultItem {
   id: string;
   title: string;
@@ -181,33 +75,6 @@ interface SeriesResultItem {
   scoreColor: string;
 }
 
-const DEFAULT_SERIES_RESULTS: SeriesResultItem[] = [
-  {
-    id: 'wbp-constable-2026',
-    title: 'WBP Constable Test Series 2026',
-    totalTests: 12,
-    completedTests: 8,
-    status: 'In Progress',
-    isCompleted: false,
-    avgScore: 68,
-    emblemType: 'wbssc_red',
-    scoreBg: 'bg-[#EFF6FF]',
-    scoreColor: 'text-[#0877FF]',
-  },
-  {
-    id: 'kp-constable-2026',
-    title: 'KP Constable Test Series 2026',
-    totalTests: 10,
-    completedTests: 10,
-    status: 'Completed',
-    isCompleted: true,
-    avgScore: 74,
-    emblemType: 'kp_crest',
-    scoreBg: 'bg-[#ECFDF5]',
-    scoreColor: 'text-[#10B981]',
-  },
-];
-
 export const MyTests: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -218,6 +85,7 @@ export const MyTests: React.FC = () => {
   const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<MetricView>('Marks');
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
+  const [seriesResults, setSeriesResults] = useState<SeriesResultItem[]>([]);
   const [, setLoading] = useState(true);
 
   // Load user attempts
@@ -241,30 +109,89 @@ export const MyTests: React.FC = () => {
     loadAttempts();
   }, [loadAttempts]);
 
+  useEffect(() => {
+    let active = true;
+    api.getStudentTestSeries().then(async (series) => {
+      const reports = await Promise.all(series.map(async (item) => {
+        try {
+          const analytics = await api.getTestSeriesAnalytics(item.id);
+          return { item, analytics };
+        } catch (error) {
+          console.error(`Failed to load results for test series ${item.id}:`, error);
+          return { item, analytics: null };
+        }
+      }));
+      if (!active) return;
+      setSeriesResults(reports.map(({ item, analytics }, index) => {
+        const title = item.title.toLowerCase();
+        const emblemType: SeriesResultItem['emblemType'] = title.includes('kp')
+          ? 'kp_crest'
+          : title.includes('ssc')
+            ? 'ssc_red'
+            : 'wbssc_red';
+        const completedTests = analytics?.testsAttempted ?? 0;
+        const totalTests = analytics?.totalTests ?? item.testCount ?? item.testsCount ?? 0;
+        const avgScore = Math.round(analytics?.averageScorePercent ?? 0);
+        const color = index % 2 === 0 ? 'text-[#026BFC]' : 'text-[#10B981]';
+        return {
+          id: item.id,
+          title: item.title,
+          totalTests,
+          completedTests,
+          status: completedTests === 0 ? 'Not Started' : completedTests >= totalTests ? 'Completed' : 'In Progress',
+          isCompleted: completedTests > 0 && completedTests >= totalTests,
+          avgScore,
+          emblemType,
+          scoreBg: index % 2 === 0 ? 'bg-[#EFF6FF]' : 'bg-[#ECFDF5]',
+          scoreColor: color,
+        };
+      }));
+    }).catch((error) => {
+      console.error('Failed to load student test series:', error);
+      if (active) setSeriesResults([]);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const subjectPerformance = useMemo<SubjectItem[]>(() => {
+    const grouped = new Map<string, { scored: number; total: number; count: number }>();
+    attempts.filter((attempt) => attempt.status === 'completed' && attempt.subjectName)
+      .forEach((attempt) => {
+        const current = grouped.get(attempt.subjectName!) || { scored: 0, total: 0, count: 0 };
+        current.scored += attempt.score || 0;
+        current.total += attempt.totalMarks || 0;
+        current.count += 1;
+        grouped.set(attempt.subjectName!, current);
+      });
+    const themes = [
+      { iconBg: 'bg-[#EBF3FF]', iconColor: 'text-[#2563EB]', progressColor: 'bg-[#10B981]', badgeBg: 'bg-[#ECFDF5]', badgeTextColor: 'text-[#10B981]', icon: BookOpen },
+      { iconBg: 'bg-[#E6F8EE]', iconColor: 'text-[#16A34A]', progressColor: 'bg-[#026BFC]', badgeBg: 'bg-[#EFF6FF]', badgeTextColor: 'text-[#026BFC]', icon: Calculator },
+      { iconBg: 'bg-[#FFE4E6]', iconColor: 'text-[#E11D48]', progressColor: 'bg-[#EF4444]', badgeBg: 'bg-[#FFF1F2]', badgeTextColor: 'text-[#EF4444]', icon: Brain },
+      { iconBg: 'bg-[#FEF3C7]', iconColor: 'text-[#D97706]', progressColor: 'bg-[#026BFC]', badgeBg: 'bg-[#EFF6FF]', badgeTextColor: 'text-[#026BFC]', icon: FlaskConical },
+    ];
+    return Array.from(grouped.entries()).map(([title, scores], index) => {
+      const percentage = scores.total > 0 ? Math.round((scores.scored / scores.total) * 100) : 0;
+      return {
+        title,
+        scored: Math.round(scores.scored),
+        total: Math.round(scores.total),
+        percentage,
+        ...themes[index % themes.length],
+      };
+    });
+  }, [attempts]);
+
   // Derived Performance Metrics
   const computedMetrics = useMemo(() => {
-    if (!attempts || attempts.length === 0) {
-      return {
-        accuracy: 72,
-        correct: '1,254',
-        wrong: '356',
-        skipped: '190',
-        timeSpent: '42h',
-        totalTests: 25,
-        totalQuestions: '2,480',
-        rank: '1,245 / 12,680',
-        improvement: '+18%',
-      };
-    }
-
-    const totalAttempts = attempts.length;
+    const completedAttempts = attempts.filter((attempt) => attempt.status === 'completed');
+    const totalAttempts = completedAttempts.length;
     let sumCorrect = 0;
     let sumWrong = 0;
     let sumSkipped = 0;
     let sumTimeSec = 0;
     let sumAcc = 0;
 
-    attempts.forEach((a) => {
+    completedAttempts.forEach((a) => {
       sumCorrect += a.correctCount || 0;
       sumWrong += a.wrongCount || 0;
       sumSkipped += a.skippedCount || 0;
@@ -273,30 +200,33 @@ export const MyTests: React.FC = () => {
     });
 
     const totalQuestions = sumCorrect + sumWrong + sumSkipped;
-    const avgAcc = Math.round(sumAcc / totalAttempts);
+    const avgAcc = totalAttempts > 0 ? Math.round(sumAcc / totalAttempts) : 0;
     const hours = Math.round(sumTimeSec / 3600);
     const timeSpentStr = hours > 0 ? `${hours}h` : `${Math.round(sumTimeSec / 60)}m`;
+    const chronological = [...completedAttempts].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const improvement = chronological.length > 1
+      ? Math.round((chronological[chronological.length - 1].accuracy || 0) - (chronological[0].accuracy || 0))
+      : 0;
+    const latestRank = [...completedAttempts].reverse().find((attempt) => attempt.rank)?.rank;
 
     return {
-      accuracy: avgAcc > 0 ? avgAcc : 72,
-      correct: sumCorrect > 0 ? sumCorrect.toLocaleString('en-IN') : '1,254',
-      wrong: sumWrong > 0 ? sumWrong.toLocaleString('en-IN') : '356',
-      skipped: sumSkipped > 0 ? sumSkipped.toLocaleString('en-IN') : '190',
-      timeSpent: sumTimeSec > 0 ? timeSpentStr : '42h',
+      accuracy: avgAcc,
+      correct: sumCorrect.toLocaleString('en-IN'),
+      wrong: sumWrong.toLocaleString('en-IN'),
+      skipped: sumSkipped.toLocaleString('en-IN'),
+      timeSpent: timeSpentStr,
       totalTests: totalAttempts,
-      totalQuestions: totalQuestions > 0 ? totalQuestions.toLocaleString('en-IN') : '2,480',
-      rank: '1,245 / 12,680',
-      improvement: '+18%',
+      totalQuestions: totalQuestions.toLocaleString('en-IN'),
+      rank: latestRank ? `#${latestRank}` : '—',
+      improvement: `${improvement > 0 ? '+' : ''}${improvement}%`,
     };
   }, [attempts]);
 
-  // Unified Recent Tests (combining real attempts + fallback)
+  // Recent tests are drawn only from this student's saved attempts.
   const recentTestsList = useMemo<RecentTestItem[]>(() => {
-    if (attempts.length === 0) {
-      return DEFAULT_RECENT_TESTS;
-    }
-
-    return attempts.slice(0, 10).map((a) => {
+    return attempts.filter((attempt) => attempt.status === 'completed').slice(0, 10).map((a) => {
       const pct = Math.round(a.accuracy || (a.score / (a.totalMarks || 100)) * 100);
       let emblem: RecentTestItem['emblemType'] = 'wbssc_red';
       const titleLower = (a.testTitle || '').toLowerCase();
@@ -307,7 +237,7 @@ export const MyTests: React.FC = () => {
       }
 
       let scoreBg = 'bg-[#EFF6FF]';
-      let scoreColor = 'text-[#0877FF]';
+      let scoreColor = 'text-[#026BFC]';
       if (pct >= 70) {
         scoreBg = 'bg-[#ECFDF5]';
         scoreColor = 'text-[#10B981]';
@@ -328,11 +258,11 @@ export const MyTests: React.FC = () => {
         testId: a.testId,
         title: a.testTitle || 'Mock Test',
         type: a.testType === 'pyq' ? 'Previous Year Paper' : 'Full Length Test',
-        questionsCount: `${(a.correctCount || 0) + (a.wrongCount || 0) + (a.skippedCount || 0) || 100} Questions`,
+        questionsCount: `${a.totalQuestions || (a.correctCount || 0) + (a.wrongCount || 0) + (a.skippedCount || 0)} Questions`,
         date: dateStr,
         percentage: pct,
         scored: Math.round(a.score),
-        total: a.totalMarks || 100,
+        total: a.totalMarks || 0,
         emblemType: emblem,
         scoreBg,
         scoreColor,
@@ -403,7 +333,7 @@ export const MyTests: React.FC = () => {
     <div className="space-y-4 pb-12 font-sans select-none">
       {/* ── 1. SCREEN TITLE & SUBTITLE (APP 1:1) ── */}
       <div>
-        <h1 className="text-[28px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.6px] leading-[1.15]">
+        <h1 className="text-[28px] font-black text-[#051A43] dark:text-white tracking-[-0.6px] leading-[1.15]">
           Results
         </h1>
         <p className="text-[12.5px] font-medium text-[#64748B] dark:text-slate-400 mt-1">
@@ -422,7 +352,7 @@ export const MyTests: React.FC = () => {
               onClick={() => setSelectedFilter(filter)}
               className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 isSelected
-                  ? 'bg-[#0877FF] text-white shadow-md shadow-[#0877FF]/25 border border-[#0877FF]'
+                  ? 'bg-[#026BFC] text-white shadow-md shadow-[#026BFC]/25 border border-[#026BFC]'
                   : 'bg-white dark:bg-slate-900 text-[#475569] dark:text-slate-300 border border-[#E2ECF8] dark:border-slate-800 hover:border-blue-200'
               }`}
             >
@@ -448,7 +378,7 @@ export const MyTests: React.FC = () => {
           {/* Header Row: Title & Subtitle + Time Dropdown */}
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[17.5px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.3px]">
+              <h2 className="text-[17.5px] font-black text-[#051A43] dark:text-white tracking-[-0.3px]">
                 Total Performance
               </h2>
               <p className="text-[11px] font-medium text-[#64748B] dark:text-slate-400 mt-0.5">
@@ -461,11 +391,11 @@ export const MyTests: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 text-[#0B1F5B] dark:text-slate-200 text-[11px] font-bold shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 text-[#051A43] dark:text-slate-200 text-[11px] font-bold shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                <Calendar className="w-3 h-3 text-[#0B1F5B] dark:text-slate-300" />
+                <Calendar className="w-3 h-3 text-[#051A43] dark:text-slate-300" />
                 <span>{selectedTimeRange}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#0B1F5B] dark:text-slate-300" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#051A43] dark:text-slate-300" />
               </button>
 
               {isTimeDropdownOpen && (
@@ -481,7 +411,7 @@ export const MyTests: React.FC = () => {
                         }}
                         className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-slate-700 ${
                           selectedTimeRange === range
-                            ? 'text-[#0877FF] font-bold bg-blue-50/50 dark:bg-slate-700/50'
+                            ? 'text-[#026BFC] font-bold bg-blue-50/50 dark:bg-slate-700/50'
                             : 'text-[#475569] dark:text-slate-300'
                         }`}
                       >
@@ -513,7 +443,7 @@ export const MyTests: React.FC = () => {
                   cy="18"
                   r="14"
                   fill="none"
-                  stroke="#0877FF"
+                  stroke="#026BFC"
                   strokeWidth="3.6"
                   strokeDasharray={`${(computedMetrics.accuracy / 100) * 88} 100`}
                   strokeLinecap="round"
@@ -521,7 +451,7 @@ export const MyTests: React.FC = () => {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[18px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.5px] leading-tight">
+                <span className="text-[18px] font-black text-[#051A43] dark:text-white tracking-[-0.5px] leading-tight">
                   {computedMetrics.accuracy}%
                 </span>
                 <span className="text-[8.5px] font-semibold text-[#64748B] dark:text-slate-400 leading-[1.1]">
@@ -537,7 +467,7 @@ export const MyTests: React.FC = () => {
               {/* Correct */}
               <div className="bg-[#ECFDF5] dark:bg-emerald-950/40 rounded-xl py-2 px-1.5 text-center flex flex-col items-center">
                 <CheckCircle2 className="w-4 h-4 text-[#10B981] mb-1" />
-                <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px]">
+                <span className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px]">
                   {computedMetrics.correct}
                 </span>
                 <span className="text-[9px] font-semibold text-[#059669] dark:text-emerald-400 mt-0.5">
@@ -548,7 +478,7 @@ export const MyTests: React.FC = () => {
               {/* Wrong */}
               <div className="bg-[#FFF1F2] dark:bg-rose-950/40 rounded-xl py-2 px-1.5 text-center flex flex-col items-center">
                 <XCircle className="w-4 h-4 text-[#EF4444] mb-1" />
-                <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px]">
+                <span className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px]">
                   {computedMetrics.wrong}
                 </span>
                 <span className="text-[9px] font-semibold text-[#DC2626] dark:text-rose-400 mt-0.5">
@@ -559,7 +489,7 @@ export const MyTests: React.FC = () => {
               {/* Skipped */}
               <div className="bg-[#F1F5F9] dark:bg-slate-800/80 rounded-xl py-2 px-1.5 text-center flex flex-col items-center">
                 <MinusCircle className="w-4 h-4 text-[#64748B] mb-1" />
-                <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px]">
+                <span className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px]">
                   {computedMetrics.skipped}
                 </span>
                 <span className="text-[9px] font-semibold text-[#64748B] dark:text-slate-400 mt-0.5">
@@ -569,11 +499,11 @@ export const MyTests: React.FC = () => {
 
               {/* Time Spent */}
               <div className="bg-[#EFF6FF] dark:bg-blue-950/40 rounded-xl py-2 px-1.5 text-center flex flex-col items-center">
-                <Clock className="w-4 h-4 text-[#0877FF] mb-1" />
-                <span className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px]">
+                <Clock className="w-4 h-4 text-[#026BFC] mb-1" />
+                <span className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px]">
                   {computedMetrics.timeSpent}
                 </span>
-                <span className="text-[9px] font-semibold text-[#0877FF] dark:text-blue-400 mt-0.5">
+                <span className="text-[9px] font-semibold text-[#026BFC] dark:text-blue-400 mt-0.5">
                   Time Spent
                 </span>
               </div>
@@ -588,10 +518,10 @@ export const MyTests: React.FC = () => {
             {/* Total Tests */}
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 flex items-center justify-center shrink-0">
-                <BarChart3 className="w-4 h-4 text-[#0877FF]" />
+                <BarChart3 className="w-4 h-4 text-[#026BFC]" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11.5px] font-black text-[#0B1F5B] dark:text-white truncate">
+                <div className="text-[11.5px] font-black text-[#051A43] dark:text-white truncate">
                   {computedMetrics.totalTests}
                 </div>
                 <div className="text-[9px] font-medium text-[#64748B] dark:text-slate-400 truncate">
@@ -603,10 +533,10 @@ export const MyTests: React.FC = () => {
             {/* Total Questions */}
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 flex items-center justify-center shrink-0">
-                <FileText className="w-4 h-4 text-[#0877FF]" />
+                <FileText className="w-4 h-4 text-[#026BFC]" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11.5px] font-black text-[#0B1F5B] dark:text-white truncate">
+                <div className="text-[11.5px] font-black text-[#051A43] dark:text-white truncate">
                   {computedMetrics.totalQuestions}
                 </div>
                 <div className="text-[9px] font-medium text-[#64748B] dark:text-slate-400 truncate">
@@ -621,7 +551,7 @@ export const MyTests: React.FC = () => {
                 <Trophy className="w-4 h-4 text-[#F59E0B]" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11.5px] font-black text-[#0B1F5B] dark:text-white truncate">
+                <div className="text-[11.5px] font-black text-[#051A43] dark:text-white truncate">
                   {computedMetrics.rank}
                 </div>
                 <div className="text-[9px] font-medium text-[#64748B] dark:text-slate-400 truncate">
@@ -653,7 +583,7 @@ export const MyTests: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 rounded-[20px] p-4 sm:p-5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_3px_10px_rgba(11,31,91,0.03)] space-y-3.5 h-full flex flex-col justify-between">
           {/* Header Row */}
           <div className="flex items-center justify-between">
-            <h2 className="text-[17.5px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.3px]">
+            <h2 className="text-[17.5px] font-black text-[#051A43] dark:text-white tracking-[-0.3px]">
               Subject-wise Performance
             </h2>
 
@@ -661,16 +591,16 @@ export const MyTests: React.FC = () => {
             <button
               type="button"
               onClick={() => setSelectedMetric(selectedMetric === 'Marks' ? 'Percentage' : 'Marks')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 text-[#0B1F5B] dark:text-slate-200 text-[11px] font-bold shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 text-[#051A43] dark:text-slate-200 text-[11px] font-bold shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <span>{selectedMetric}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#0B1F5B] dark:text-slate-300" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#051A43] dark:text-slate-300" />
             </button>
           </div>
 
           {/* Subject Rows */}
           <div className="space-y-3">
-            {DEFAULT_SUBJECTS.map((sub) => {
+            {subjectPerformance.map((sub) => {
               const progressPct = Math.round((sub.scored / sub.total) * 100);
               return (
                 <div
@@ -695,7 +625,7 @@ export const MyTests: React.FC = () => {
 
                   {/* Title */}
                   <div className="w-24 sm:w-32 shrink-0 truncate">
-                    <span className="text-xs font-extrabold text-[#0B1F5B] dark:text-white truncate block">
+                    <span className="text-xs font-extrabold text-[#051A43] dark:text-white truncate block">
                       {sub.title}
                     </span>
                   </div>
@@ -725,12 +655,15 @@ export const MyTests: React.FC = () => {
                   </div>
 
                   {/* Right chevron circle */}
-                  <div className="w-5 h-5 rounded-full bg-[#EFF6FF] dark:bg-slate-800 flex items-center justify-center text-[#0877FF] shrink-0 group-hover:translate-x-0.5 transition-transform">
+                  <div className="w-5 h-5 rounded-full bg-[#EFF6FF] dark:bg-slate-800 flex items-center justify-center text-[#026BFC] shrink-0 group-hover:translate-x-0.5 transition-transform">
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
               );
             })}
+            {subjectPerformance.length === 0 && (
+              <p className="py-4 text-center text-xs text-slate-500">Subject performance appears after you complete tests with subject data.</p>
+            )}
           </div>
         </div>
       )}
@@ -744,13 +677,13 @@ export const MyTests: React.FC = () => {
         <div className="space-y-3 pt-1">
           {/* Header Row */}
           <div className="flex items-center justify-between">
-            <h2 className="text-[18px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.4px]">
+            <h2 className="text-[18px] font-black text-[#051A43] dark:text-white tracking-[-0.4px]">
               Recent Tests
             </h2>
             <button
               type="button"
               onClick={() => setSelectedFilter('Mock Tests')}
-              className="flex items-center gap-1 text-[12.5px] font-bold text-[#0877FF] hover:underline cursor-pointer"
+              className="flex items-center gap-1 text-[12.5px] font-bold text-[#026BFC] hover:underline cursor-pointer"
             >
               <span>See All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -770,7 +703,7 @@ export const MyTests: React.FC = () => {
 
                 {/* Middle info */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px] truncate group-hover:text-[#0877FF] transition-colors">
+                  <h3 className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px] truncate group-hover:text-[#026BFC] transition-colors">
                     {test.title}
                   </h3>
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#64748B] dark:text-slate-400 mt-0.5">
@@ -796,7 +729,7 @@ export const MyTests: React.FC = () => {
                 </div>
 
                 {/* Circular Chevron */}
-                <div className="w-6 h-6 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#0877FF] flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
+                <div className="w-6 h-6 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#026BFC] flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
                   <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
@@ -811,15 +744,15 @@ export const MyTests: React.FC = () => {
           {/* Header Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <BarChart3 className="w-5 h-5 text-[#0B1F5B] dark:text-white" />
-              <h2 className="text-[18px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.4px]">
+              <BarChart3 className="w-5 h-5 text-[#051A43] dark:text-white" />
+              <h2 className="text-[18px] font-black text-[#051A43] dark:text-white tracking-[-0.4px]">
                 Test Series Results
               </h2>
             </div>
             <button
               type="button"
               onClick={() => navigate('/test-series')}
-              className="flex items-center gap-1 text-[12.5px] font-bold text-[#0877FF] hover:underline cursor-pointer"
+              className="flex items-center gap-1 text-[12.5px] font-bold text-[#026BFC] hover:underline cursor-pointer"
             >
               <span>See All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -828,7 +761,7 @@ export const MyTests: React.FC = () => {
 
           {/* Series Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {DEFAULT_SERIES_RESULTS.map((series) => {
+            {seriesResults.map((series) => {
               const progressPct = Math.round((series.completedTests / series.totalTests) * 100);
               return (
                 <div
@@ -841,7 +774,7 @@ export const MyTests: React.FC = () => {
 
                   {/* Middle Info */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[13px] font-black text-[#0B1F5B] dark:text-white tracking-[-0.2px] truncate group-hover:text-[#0877FF] transition-colors">
+                    <h3 className="text-[13px] font-black text-[#051A43] dark:text-white tracking-[-0.2px] truncate group-hover:text-[#026BFC] transition-colors">
                       {series.title}
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 text-[9.5px] font-semibold text-[#64748B] dark:text-slate-400 mt-1">
@@ -857,7 +790,7 @@ export const MyTests: React.FC = () => {
                       <span>•</span>
                       <span
                         className={`inline-flex items-center gap-1 ${
-                          series.isCompleted ? 'text-[#10B981]' : 'text-[#0877FF]'
+                          series.isCompleted ? 'text-[#10B981]' : 'text-[#026BFC]'
                         }`}
                       >
                         <Clock className="w-2.5 h-2.5" />
@@ -870,7 +803,7 @@ export const MyTests: React.FC = () => {
                       <div className="flex-1 h-1 bg-[#E2ECF8] dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            series.isCompleted ? 'bg-[#10B981]' : 'bg-[#0877FF]'
+                            series.isCompleted ? 'bg-[#10B981]' : 'bg-[#026BFC]'
                           }`}
                           style={{ width: `${progressPct}%` }}
                         />
@@ -892,12 +825,15 @@ export const MyTests: React.FC = () => {
                   </div>
 
                   {/* Circular Chevron */}
-                  <div className="w-6 h-6 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#0877FF] flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
+                  <div className="w-6 h-6 rounded-full bg-[#EFF6FF] dark:bg-slate-800 text-[#026BFC] flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
               );
             })}
+            {seriesResults.length === 0 && (
+              <p className="col-span-full py-4 text-center text-xs text-slate-500">No published test series are available yet.</p>
+            )}
           </div>
         </div>
       )}

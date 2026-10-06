@@ -125,17 +125,8 @@ const AdminExams = lazyWithRetry(() =>
 const AdminBanners = lazyWithRetry(() =>
   import('@/pages/admin/AdminBanners').then((module) => ({ default: module.AdminBanners }))
 );
-const AdminTopicManage = lazyWithRetry(() =>
-  import('@/pages/admin/AdminTopicManage').then((module) => ({ default: module.AdminTopicManage }))
-);
-const AdminExamTopics = lazyWithRetry(() =>
-  import('@/pages/admin/AdminExamTopics').then((module) => ({ default: module.AdminExamTopics }))
-);
 const AdminTestSeries = lazyWithRetry(() =>
   import('@/pages/admin/AdminTestSeries').then((module) => ({ default: module.AdminTestSeries }))
-);
-const AdminLiveTests = lazyWithRetry(() =>
-  import('@/pages/admin/AdminLiveTests').then((module) => ({ default: module.AdminLiveTests }))
 );
 const AdminTests = lazyWithRetry(() =>
   import('@/pages/admin/AdminTests').then((module) => ({ default: module.AdminTests }))
@@ -154,16 +145,6 @@ const AdminSubscriptions = lazyWithRetry(() =>
 const AdminQuestionBank = lazyWithRetry(() =>
   import('@/pages/admin/AdminQuestionBank').then((module) => ({
     default: module.AdminQuestionBank,
-  }))
-);
-const AdminItemAnalysis = lazyWithRetry(() =>
-  import('@/pages/admin/AdminItemAnalysis').then((module) => ({
-    default: module.AdminItemAnalysis,
-  }))
-);
-const AdminRevenueAnalytics = lazyWithRetry(() =>
-  import('@/pages/admin/AdminRevenueAnalytics').then((module) => ({
-    default: module.AdminRevenueAnalytics,
   }))
 );
 const AdminNotifications = lazyWithRetry(() =>
@@ -196,6 +177,72 @@ const AdminAuditLogs = lazyWithRetry(() =>
     default: module.AdminAuditLogs,
   }))
 );
+const AdminSubjects = lazyWithRetry(() =>
+  import('@/pages/admin/AdminSubjects').then((module) => ({
+    default: module.AdminSubjects,
+  }))
+);
+const AdminTopics = lazyWithRetry(() =>
+  import('@/pages/admin/AdminTopics').then((module) => ({
+    default: module.AdminTopics,
+  }))
+);
+const AdminStudents = lazyWithRetry(() =>
+  import('@/pages/admin/AdminStudents').then((module) => ({
+    default: module.AdminStudents,
+  }))
+);
+const AdminTestAttempts = lazyWithRetry(() =>
+  import('@/pages/admin/AdminTestAttempts').then((module) => ({
+    default: module.AdminTestAttempts,
+  }))
+);
+const AdminRankings = lazyWithRetry(() =>
+  import('@/pages/admin/AdminRankings').then((module) => ({
+    default: module.AdminRankings,
+  }))
+);
+const AdminDistrictRankings = lazyWithRetry(() =>
+  import('@/pages/admin/AdminDistrictRankings').then((module) => ({
+    default: module.AdminDistrictRankings,
+  }))
+);
+const AdminPerformance = lazyWithRetry(() =>
+  import('@/pages/admin/AdminPerformance').then((module) => ({
+    default: module.AdminPerformance,
+  }))
+);
+const AdminCutoff = lazyWithRetry(() =>
+  import('@/pages/admin/AdminCutoff').then((module) => ({
+    default: module.AdminCutoff,
+  }))
+);
+const AdminPayments = lazyWithRetry(() =>
+  import('@/pages/admin/AdminPayments').then((module) => ({
+    default: module.AdminPayments,
+  }))
+);
+const AdminSubscriptionPlans = lazyWithRetry(() =>
+  import('@/pages/admin/AdminSubscriptionPlans').then((module) => ({
+    default: module.AdminSubscriptionPlans,
+  }))
+);
+const AdminAnalytics = lazyWithRetry(() =>
+  import('@/pages/admin/AdminAnalytics').then((module) => ({
+    default: module.AdminAnalytics,
+  }))
+);
+const AdminLiveTests = lazyWithRetry(() =>
+  import('@/pages/admin/AdminLiveTests').then((module) => ({
+    default: module.AdminLiveTests,
+  }))
+);
+const AdminBlog = lazyWithRetry(() =>
+  import('@/pages/admin/AdminBlog').then((module) => ({
+    default: module.AdminBlog,
+  }))
+);
+
 
 /**
  * RootRoute:
@@ -409,10 +456,10 @@ export const App: React.FC = () => {
             </AdminRoute>
           }
         >
-          {/* 1. Dashboard (Consolidated Home + Analytics) */}
+          {/* 1. DASHBOARD */}
           <Route index element={<AdminDashboard />} />
 
-          {/* 2. Question Bank & Item Analysis */}
+          {/* 2. CONTENT */}
           <Route
             path="question-bank"
             element={
@@ -421,55 +468,16 @@ export const App: React.FC = () => {
               </AdminRoute>
             }
           />
-          {/* Analytics & Reports */}
           <Route
-            path="item-analysis"
+            path="test-series"
             element={
-              <AdminRoute requiredPermission="canManageQuestions">
-                <AdminItemAnalysis />
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminTestSeries />
               </AdminRoute>
             }
           />
           <Route
-            path="revenue-analytics"
-            element={
-              <AdminRoute requiredPermission="canManageSubscriptions">
-                <AdminRevenueAnalytics />
-              </AdminRoute>
-            }
-          />
-          <Route path="revenue" element={<Navigate to="/admin/revenue-analytics" replace />} />
-          <Route path="financials" element={<Navigate to="/admin/revenue-analytics" replace />} />
-
-          {/* 3. Manage Exams */}
-          <Route
-            path="exams"
-            element={
-              <AdminRoute requiredPermission="canManageExams">
-                <AdminExams />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="banners"
-            element={
-              <AdminRoute requiredPermission="canManageExams">
-                <AdminBanners />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="exam-topics"
-            element={
-              <AdminRoute requiredPermission="canManageExams">
-                <AdminExamTopics />
-              </AdminRoute>
-            }
-          />
-
-          {/* 4. Mock Test Management */}
-          <Route
-            path="tests"
+            path="mock-tests"
             element={
               <AdminRoute requiredPermission="canManageTests">
                 <AdminTests />
@@ -477,10 +485,10 @@ export const App: React.FC = () => {
             }
           />
           <Route
-            path="live-tests"
+            path="tests"
             element={
               <AdminRoute requiredPermission="canManageTests">
-                <AdminLiveTests />
+                <AdminTests />
               </AdminRoute>
             }
           />
@@ -508,109 +516,27 @@ export const App: React.FC = () => {
               </AdminRoute>
             }
           />
-
-          {/* 5. Subscriptions & Pro Users */}
           <Route
-            path="subscriptions"
+            path="exams"
             element={
-              <AdminRoute requiredPermission="canManageSubscriptions">
-                <AdminSubscriptions />
+              <AdminRoute requiredPermission="canManageExams">
+                <AdminExams />
               </AdminRoute>
             }
-          />
-          <Route
-            path="coupons"
-            element={
-              <AdminRoute requiredPermission="canManageCoupons">
-                <AdminCoupons />
-              </AdminRoute>
-            }
-          />
-          <Route path="discounts" element={<Navigate to="/admin/coupons" replace />} />
-
-          {/* 6. Team & Staff RBAC */}
-          <Route
-            path="staff"
-            element={
-              <AdminRoute requiredPermission="canManageStaff">
-                <AdminStaff />
-              </AdminRoute>
-            }
-          />
-
-          {/* 7. Audit Trail Logs */}
-          <Route
-            path="audit-logs"
-            element={
-              <AdminRoute requiredPermission="canViewAuditLogs">
-                <AdminAuditLogs />
-              </AdminRoute>
-            }
-          />
-
-          {/* 8. Notifications */}
-          <Route
-            path="notifications"
-            element={
-              <AdminRoute requiredPermission="canManageNotifications">
-                <AdminNotifications />
-              </AdminRoute>
-            }
-          />
-
-          {/* 9. Support & Help */}
-          <Route
-            path="support"
-            element={
-              <AdminRoute requiredPermission="canManageSupport">
-                <AdminSupport />
-              </AdminRoute>
-            }
-          />
-
-          {/* 10. Settings */}
-          <Route
-            path="settings"
-            element={
-              <AdminRoute requiredPermission="canManageSettings">
-                <AdminSettings />
-              </AdminRoute>
-            }
-          />
-
-          {/* Backward compatibility & Consolidation Redirects */}
-          <Route path="students" element={<Navigate to="/admin/subscriptions" replace />} />
-          <Route path="pro-users" element={<Navigate to="/admin/subscriptions" replace />} />
-          <Route path="analytics" element={<Navigate to="/admin/revenue-analytics" replace />} />
-          <Route path="overview" element={<Navigate to="/admin" replace />} />
-          <Route path="questions" element={<Navigate to="/admin/question-bank" replace />} />
-          <Route
-            path="full-mock-questions"
-            element={<Navigate to="/admin/question-bank" replace />}
           />
           <Route
             path="subjects"
             element={
               <AdminRoute requiredPermission="canManageExams">
-                <AdminTopicManage />
+                <AdminSubjects />
               </AdminRoute>
             }
           />
           <Route
-            path="topic-manage"
+            path="topics"
             element={
               <AdminRoute requiredPermission="canManageExams">
-                <AdminTopicManage />
-              </AdminRoute>
-            }
-          />
-          <Route path="topics" element={<Navigate to="/admin/topic-manage" replace />} />
-          <Route path="chapters" element={<Navigate to="/admin/topic-manage" replace />} />
-          <Route
-            path="test-series"
-            element={
-              <AdminRoute requiredPermission="canManageTests">
-                <AdminTestSeries />
+                <AdminTopics />
               </AdminRoute>
             }
           />
@@ -622,6 +548,187 @@ export const App: React.FC = () => {
               </AdminRoute>
             }
           />
+          <Route
+            path="banners"
+            element={
+              <AdminRoute requiredPermission="canManageExams">
+                <AdminBanners />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="blog"
+            element={
+              <AdminRoute requiredPermission="canManageSettings">
+                <AdminBlog />
+              </AdminRoute>
+            }
+          />
+
+
+          {/* 3. STUDENTS */}
+          <Route
+            path="students"
+            element={
+              <AdminRoute requiredPermission="canManageSubscriptions">
+                <AdminStudents />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="test-attempts"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminTestAttempts />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="subscriptions"
+            element={
+              <AdminRoute requiredPermission="canManageSubscriptions">
+                <AdminSubscriptions />
+              </AdminRoute>
+            }
+          />
+
+          {/* 4. RANK & PERFORMANCE */}
+          <Route
+            path="rankings"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminRankings />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="district-rankings"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminDistrictRankings />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="performance"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminPerformance />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="cutoff"
+            element={
+              <AdminRoute requiredPermission="canManageTests">
+                <AdminCutoff />
+              </AdminRoute>
+            }
+          />
+
+          {/* 5. COMMERCE */}
+          <Route
+            path="payments"
+            element={
+              <AdminRoute requiredPermission="canManageSubscriptions">
+                <AdminPayments />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="subscription-plans"
+            element={
+              <AdminRoute requiredPermission="canManageSubscriptions">
+                <AdminSubscriptionPlans />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="coupons"
+            element={
+              <AdminRoute requiredPermission="canManageCoupons">
+                <AdminCoupons />
+              </AdminRoute>
+            }
+          />
+
+          {/* 6. COMMUNICATION */}
+          <Route
+            path="notifications"
+            element={
+              <AdminRoute requiredPermission="canManageNotifications">
+                <AdminNotifications />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="support"
+            element={
+              <AdminRoute requiredPermission="canManageSupport">
+                <AdminSupport />
+              </AdminRoute>
+            }
+          />
+
+          {/* 7. ANALYTICS */}
+          <Route
+            path="analytics"
+            element={
+              <AdminRoute requiredPermission="canManageQuestions">
+                <AdminAnalytics />
+              </AdminRoute>
+            }
+          />
+          <Route path="analytics-insights" element={<Navigate to="/admin/analytics" replace />} />
+          <Route path="insights" element={<Navigate to="/admin/analytics" replace />} />
+
+          {/* 8. SYSTEM */}
+          <Route
+            path="admins"
+            element={
+              <AdminRoute requiredPermission="canManageStaff">
+                <AdminStaff />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="staff"
+            element={
+              <AdminRoute requiredPermission="canManageStaff">
+                <AdminStaff />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="audit-logs"
+            element={
+              <AdminRoute requiredPermission="canViewAuditLogs">
+                <AdminAuditLogs />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <AdminRoute requiredPermission="canManageSettings">
+                <AdminSettings />
+              </AdminRoute>
+            }
+          />
+
+          {/* Backward compatibility & Consolidation Aliases */}
+          <Route path="overview" element={<Navigate to="/admin" replace />} />
+          <Route path="questions" element={<Navigate to="/admin/question-bank" replace />} />
+          <Route path="full-mock-questions" element={<Navigate to="/admin/question-bank" replace />} />
+          <Route path="topic-manage" element={<Navigate to="/admin/topics" replace />} />
+          <Route path="chapters" element={<Navigate to="/admin/topics" replace />} />
+          <Route path="exam-topics" element={<Navigate to="/admin/topics" replace />} />
+          <Route path="revenue" element={<Navigate to="/admin/payments" replace />} />
+          <Route path="revenue-analytics" element={<Navigate to="/admin/payments" replace />} />
+          <Route path="financials" element={<Navigate to="/admin/payments" replace />} />
+          <Route path="item-analysis" element={<Navigate to="/admin/analytics" replace />} />
+          <Route path="discounts" element={<Navigate to="/admin/coupons" replace />} />
+          <Route path="pro-users" element={<Navigate to="/admin/subscriptions" replace />} />
         </Route>
 
         {/* Fallback */}

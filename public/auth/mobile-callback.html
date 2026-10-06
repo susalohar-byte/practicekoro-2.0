@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PracticeKoro Authentication</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: white;
+      padding: 32px 24px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      max-width: 380px;
+      width: 100%;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #026bfc;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h2 { font-size: 19px; margin-bottom: 8px; font-weight: 800; }
+    p { font-size: 13.5px; color: #64748b; margin-bottom: 24px; line-height: 1.5; }
+    .btn {
+      display: block;
+      background: #026bfc;
+      color: white;
+      text-decoration: none;
+      padding: 13px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h2>Opening PracticeKoro App...</h2>
+    <p>Authentication successful! Redirecting you back to the mobile app.</p>
+    <a id="open-app-btn" href="#" class="btn">Tap to Open App</a>
+  </div>
+
+  <script>
+    (function() {
+      var hash = window.location.hash || '';
+      var search = window.location.search || '';
+      var payload = search + hash;
+      
+      // Schemes to attempt
+      var targetUrl = 'io.supabase.practicekoro://login-callback' + payload;
+      var altUrl = 'practicekoro://login-callback' + payload;
+      
+      var btn = document.getElementById('open-app-btn');
+      btn.href = targetUrl;
+      
+      // Attempt auto-redirect
+      window.location.href = targetUrl;
+      
+      setTimeout(function() {
+        // Fallback to secondary scheme if still on page
+        window.location.href = altUrl;
+      }, 1500);
+    })();
+  </script>
+</body>
+</html>

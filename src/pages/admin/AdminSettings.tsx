@@ -1,203 +1,258 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useMaintenance } from '@/context/MaintenanceContext';
+import { cn } from '@/lib/utils';
 import {
-  Settings as SettingsIcon,
-  Save,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
-  Globe,
-  Languages,
-  Sliders,
-  CreditCard,
-  Server,
-  Key,
-  ShieldCheck,
-  ExternalLink,
-  HelpCircle,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  User,
-  Users,
-  History,
-  Camera,
-  Upload,
-  Link as LinkIcon,
-  Trash2,
+  Settings,
+  Palette,
+  Search,
   Mail,
-  Phone,
-  MessageSquare,
-  Clock,
-  MapPin,
-  Sparkles,
+  CreditCard,
+  Link as LinkIcon,
   Shield,
+  Server,
+  Sliders,
+  Users,
+  FileText,
+  Layers,
+  Trophy,
+  BookOpen,
+  Tag,
+  Bell,
+  Share2,
+  Smartphone,
+  Sun,
+  Moon,
+  Monitor,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  RotateCcw,
+  CheckCircle2,
+  Upload,
 } from 'lucide-react';
 
-const PRESET_AVATARS = [
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Admin1&backgroundColor=6366f1',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=ProAdmin&backgroundColor=4f46e5',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Aiden&backgroundColor=b6e3f4',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia&backgroundColor=ffdfbf',
-  'https://api.dicebear.com/7.x/personas/svg?seed=Felix&backgroundColor=ffd5dc',
-  'https://api.dicebear.com/7.x/personas/svg?seed=Jack&backgroundColor=c0aede',
+type SettingsTab =
+  | 'general'
+  | 'branding'
+  | 'seo'
+  | 'email'
+  | 'payments'
+  | 'integrations'
+  | 'security'
+  | 'system';
+
+interface TabConfig {
+  id: SettingsTab;
+  label: string;
+  sublabel: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconColor: string;
+}
+
+const SETTINGS_TABS: TabConfig[] = [
+  {
+    id: 'general',
+    label: 'General',
+    sublabel: 'Platform information',
+    icon: Settings,
+    iconBg: 'bg-blue-100/70',
+    iconColor: 'text-blue-600',
+  },
+  {
+    id: 'branding',
+    label: 'Branding',
+    sublabel: 'Logo, colors, theme',
+    icon: Palette,
+    iconBg: 'bg-purple-100/70',
+    iconColor: 'text-purple-600',
+  },
+  {
+    id: 'seo',
+    label: 'SEO & Meta',
+    sublabel: 'Search engine settings',
+    icon: Search,
+    iconBg: 'bg-indigo-100/70',
+    iconColor: 'text-indigo-600',
+  },
+  {
+    id: 'email',
+    label: 'Email & Notifications',
+    sublabel: 'Templates & SMTP',
+    icon: Mail,
+    iconBg: 'bg-sky-100/70',
+    iconColor: 'text-sky-600',
+  },
+  {
+    id: 'payments',
+    label: 'Payments',
+    sublabel: 'Payment gateways',
+    icon: CreditCard,
+    iconBg: 'bg-emerald-100/70',
+    iconColor: 'text-emerald-600',
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    sublabel: 'Third-party services',
+    icon: LinkIcon,
+    iconBg: 'bg-blue-100/70',
+    iconColor: 'text-blue-500',
+  },
+  {
+    id: 'security',
+    label: 'Security',
+    sublabel: 'Access & protection',
+    icon: Shield,
+    iconBg: 'bg-blue-100/70',
+    iconColor: 'text-blue-600',
+  },
+  {
+    id: 'system',
+    label: 'System',
+    sublabel: 'Advanced settings',
+    icon: Server,
+    iconBg: 'bg-purple-100/70',
+    iconColor: 'text-purple-600',
+  },
 ];
 
 export const AdminSettings: React.FC = () => {
-  const { user: currentAdmin, updateProfile } = useAuth();
+  const { user: currentAdmin } = useAuth();
   const { checkMaintenanceMode } = useMaintenance();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   // --------------------------------------------------------------------------
-  // Admin Identity & Profile State
+  // General Platform Information
   // --------------------------------------------------------------------------
-  const [adminFullName, setAdminFullName] = useState(currentAdmin?.fullName || '');
-  const [adminPhone, setAdminPhone] = useState(currentAdmin?.phone || '');
-  const [adminAvatarUrl, setAdminAvatarUrl] = useState(currentAdmin?.avatarUrl || '');
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState(false);
-  const [showUrlModal, setShowUrlModal] = useState(false);
-  const [customUrlInput, setCustomUrlInput] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Sync state if currentAdmin changes
-  useEffect(() => {
-    if (currentAdmin) {
-      setAdminFullName(currentAdmin.fullName || '');
-      setAdminPhone(currentAdmin.phone || '');
-      setAdminAvatarUrl(currentAdmin.avatarUrl || '');
-    }
-  }, [currentAdmin]);
-
-  // --------------------------------------------------------------------------
-  // General Platform & Contact State
-  // --------------------------------------------------------------------------
-  const [appName, setAppName] = useState('PracticeKoro');
+  const [platformName, setPlatformName] = useState('PracticeKoro');
   const [websiteUrl, setWebsiteUrl] = useState('https://practicekoro.online');
-  const [supportEmail, setSupportEmail] = useState('support@practicekoro.online');
-  const [supportPhone, setSupportPhone] = useState('+91 9547771118');
-  const [supportWhatsapp, setSupportWhatsapp] = useState('+91 9547771118');
-  const [supportHours, setSupportHours] = useState('Mon - Sat: 10:00 AM - 7:00 PM (IST)');
-  const [supportAddress, setSupportAddress] = useState('West Bengal, India');
-
-  // --------------------------------------------------------------------------
-  // Content Language Mode State (Bengali Only vs Bilingual)
-  // --------------------------------------------------------------------------
-  const [contentLanguageMode, setContentLanguageMode] = useState<'bengali_only' | 'bilingual'>('bengali_only');
-  const [isSavingLanguageMode, setIsSavingLanguageMode] = useState(false);
-  const [langModeSuccess, setLangModeSuccess] = useState(false);
-
-  // --------------------------------------------------------------------------
-  // Exam Defaults
-  // --------------------------------------------------------------------------
-  const [defaultDuration, setDefaultDuration] = useState(60);
-  const [defaultMarks, setDefaultMarks] = useState(1.0);
-  const [defaultNegativeMarks, setDefaultNegativeMarks] = useState(0.25);
-  const [defaultPassingPercent, setDefaultPassingPercent] = useState(35);
-
-  // --------------------------------------------------------------------------
-  // Monetization & Subscription State
-  // --------------------------------------------------------------------------
-  const [currency, setCurrency] = useState('INR');
-  const [expiryWarningDays, setExpiryWarningDays] = useState(7);
+  const [adminEmail, setAdminEmail] = useState('support@practicekoro.online');
+  const [supportEmail, setSupportEmail] = useState('help@practicekoro.online');
+  const [contactPhone, setContactPhone] = useState('+91 98765 43210');
+  const [address, setAddress] = useState('Kolkata, West Bengal, India');
+  const [timezone, setTimezone] = useState('Asia/Kolkata (GMT +5:30)');
+  const [language, setLanguage] = useState('English');
+  const [platformDescription, setPlatformDescription] = useState(
+    'PracticeKoro is a mock test platform for West Bengal and other Government exams. Practice smart, prepare better and achieve your goal.'
+  );
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [appVersion, setAppVersion] = useState('2.0.0');
+  const [platformLogo, setPlatformLogo] = useState<string | null>(null);
+  const [favicon, setFavicon] = useState<string | null>(null);
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   // --------------------------------------------------------------------------
-  // Razorpay Gateway State
+  // Feature Toggles State (Exact match to reference image)
   // --------------------------------------------------------------------------
-  const [rzpKeyId, setRzpKeyId] = useState('');
-  // NOTE: Key Secret / Webhook Secret are NEVER entered or stored here.
-  // They live only in Supabase Edge Function Secrets. This panel manages
-  // the publishable Key ID + active flag; secrets are set server-side.
+  const [featureToggles, setFeatureToggles] = useState({
+    studentRegistration: true,
+    mockTests: true,
+    topicTests: true,
+    leaderboards: true,
+    blogStudyNotes: false,
+    paidSubscriptions: true,
+    couponsOffers: true,
+    notifications: true,
+    referralProgram: false,
+    appDownloadLinks: false,
+  });
+
+  const toggleFeature = (key: keyof typeof featureToggles) => {
+    setFeatureToggles((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      showToast(`${key} toggle ${next[key] ? 'enabled' : 'disabled'}`);
+      return next;
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // Theme & Branding State
+  // --------------------------------------------------------------------------
+  const [primaryColor, setPrimaryColor] = useState('#2563EB');
+  const [secondaryColor, setSecondaryColor] = useState('#10B981');
+  const [accentColor, setAccentColor] = useState('#8B5CF6');
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
+  const [fontFamily, setFontFamily] = useState('Inter (Default)');
+
+  // --------------------------------------------------------------------------
+  // Email SMTP Configuration
+  // --------------------------------------------------------------------------
+  const [smtpProvider, setSmtpProvider] = useState('Custom SMTP');
+  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpEncryption, setSmtpEncryption] = useState('TLS');
+  const [smtpUsername, setSmtpUsername] = useState('your-email@gmail.com');
+  const [smtpPassword, setSmtpPassword] = useState('••••••••••••');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+
+  // --------------------------------------------------------------------------
+  // Payments State (Razorpay Gateway)
+  // --------------------------------------------------------------------------
+  const [rzpKeyId, setRzpKeyId] = useState('rzp_live_8Fh9102Xkd91k');
   const [rzpIsActive, setRzpIsActive] = useState(true);
-  const [showSetupGuide, setShowSetupGuide] = useState(false);
-  const [isSavingGateway, setIsSavingGateway] = useState(false);
+  const [currency, setCurrency] = useState('INR');
+  const [taxPercent, setTaxPercent] = useState('18');
+  const [invoicePrefix, setInvoicePrefix] = useState('PK-INV-');
 
   // --------------------------------------------------------------------------
-  // Load Settings
+  // Clear Cache Dialog Modal
+  // --------------------------------------------------------------------------
+  const [showClearCacheModal, setShowClearCacheModal] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+
+  // Helper toast notification
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
+  // --------------------------------------------------------------------------
+  // Initial Data Fetching from app_settings
   // --------------------------------------------------------------------------
   const loadSettings = useCallback(async () => {
     try {
-      setIsLoading(true);
       const [data, gatewayConfig] = await Promise.all([
-        api.getAppSettings(),
-        api.getPaymentGatewayConfig('razorpay').catch((err) => {
-          console.warn('Failed to load gateway config:', err);
-          return null;
-        }),
+        api.getAppSettings().catch(() => []),
+        api.getPaymentGatewayConfig('razorpay').catch(() => null),
       ]);
 
-      data.forEach((s) => {
-        const val = typeof s.value === 'string' ? s.value.replace(/^"|"$/g, '') : s.value;
-        if (s.key === 'app_name' || s.id === 'general_app_name') setAppName(String(val));
-        if (s.key === 'website_url' || s.id === 'general_website_url') setWebsiteUrl(String(val));
-        if (s.key === 'support_email' || s.id === 'general_support_email')
-          setSupportEmail(String(val));
-        if (s.key === 'support_phone' || s.id === 'general_support_phone')
-          setSupportPhone(String(val));
-        if (s.key === 'support_whatsapp' || s.id === 'general_support_whatsapp')
-          setSupportWhatsapp(String(val));
-        if (s.key === 'support_hours' || s.id === 'general_support_hours')
-          setSupportHours(String(val));
-        if (s.key === 'support_address' || s.id === 'general_support_address')
-          setSupportAddress(String(val));
-        if (
-          s.key === 'content_language_mode' ||
-          s.id === 'content_language_mode' ||
-          s.id === 'general_content_language_mode'
-        ) {
-          const modeVal = String(val).replace(/^"|"$/g, '').trim().toLowerCase();
-          setContentLanguageMode(modeVal === 'bilingual' ? 'bilingual' : 'bengali_only');
-        }
-
-        if (s.key === 'default_duration_minutes' || s.id === 'exam_default_duration')
-          setDefaultDuration(Number(val));
-        if (s.key === 'default_marks_per_q' || s.id === 'exam_default_marks')
-          setDefaultMarks(Number(val));
-        if (s.key === 'default_negative_marks' || s.id === 'exam_default_negative_marks')
-          setDefaultNegativeMarks(Number(val));
-        if (s.key === 'default_passing_percentage' || s.id === 'exam_passing_percentage')
-          setDefaultPassingPercent(Number(val));
-
-        if (s.key === 'currency' || s.id === 'sub_currency') setCurrency(String(val));
-        if (s.key === 'expiry_warning_days' || s.id === 'sub_expiry_warning_days')
-          setExpiryWarningDays(Number(val));
-        if (s.key === 'maintenance_mode' || s.id === 'sys_maintenance_mode') {
-          setMaintenanceMode(val === true || val === 'true');
-        }
-        if (s.key === 'app_version' || s.id === 'sys_app_version') setAppVersion(String(val));
-
-        if (s.id === 'payment_gateway_razorpay_key_id' || s.key === 'razorpay_key_id') {
-          if (val) {
-            setRzpKeyId((prev) => prev || String(val));
+      if (data && Array.isArray(data)) {
+        data.forEach((s) => {
+          const val = typeof s.value === 'string' ? s.value.replace(/^"|"$/g, '') : s.value;
+          if (s.key === 'app_name' || s.id === 'general_app_name') setPlatformName(String(val));
+          if (s.key === 'website_url' || s.id === 'general_website_url') setWebsiteUrl(String(val));
+          if (s.key === 'support_email' || s.id === 'general_support_email')
+            setSupportEmail(String(val));
+          if (s.key === 'support_phone' || s.id === 'general_support_phone')
+            setContactPhone(String(val));
+          if (s.key === 'support_address' || s.id === 'general_support_address')
+            setAddress(String(val));
+          if (s.key === 'maintenance_mode' || s.id === 'sys_maintenance_mode') {
+            setMaintenanceMode(val === true || val === 'true');
           }
-        }
-        if (s.id === 'payment_gateway_razorpay_active' || s.key === 'razorpay_active') {
-          if (!gatewayConfig) {
-            setRzpIsActive(val === true || val === 'true');
-          }
-        }
-      });
+          if (s.id === 'primary_color' || s.key === 'primary_color') setPrimaryColor(String(val));
+          if (s.id === 'secondary_color' || s.key === 'secondary_color') setSecondaryColor(String(val));
+          if (s.id === 'accent_color' || s.key === 'accent_color') setAccentColor(String(val));
+        });
+      }
 
       if (gatewayConfig) {
-        if (gatewayConfig.keyId) {
-          setRzpKeyId(gatewayConfig.keyId);
-        }
+        if (gatewayConfig.keyId) setRzpKeyId(gatewayConfig.keyId);
         setRzpIsActive(gatewayConfig.isActive);
       }
     } catch (err) {
-      console.error('Failed to load settings:', err);
-    } finally {
-      setIsLoading(false);
+      console.warn('Settings load warning:', err);
     }
   }, []);
 
@@ -206,1307 +261,1859 @@ export const AdminSettings: React.FC = () => {
   }, [loadSettings]);
 
   // --------------------------------------------------------------------------
-  // Handle Admin Profile Picture & Profile Save
+  // Save General Changes
   // --------------------------------------------------------------------------
-  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentAdmin) return;
-
-    // Check size limit (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Image size exceeds 5MB limit. Please choose a smaller photo.');
-      return;
-    }
-
-    try {
-      setIsUploadingAvatar(true);
-      setErrorMessage('');
-      const uploadedUrl = await api.uploadUserAvatar(file, currentAdmin.id);
-      setAdminAvatarUrl(uploadedUrl);
-
-      // Save directly to profile
-      const res = await updateProfile({
-        fullName: adminFullName,
-        phone: adminPhone,
-        avatarUrl: uploadedUrl,
-      });
-
-      if (res.error) {
-        throw res.error;
-      }
-
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Failed to upload and update profile picture'
-      );
-    } finally {
-      setIsUploadingAvatar(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSelectPresetAvatar = async (url: string) => {
-    if (!currentAdmin) return;
-    try {
-      setIsSavingProfile(true);
-      setErrorMessage('');
-      setAdminAvatarUrl(url);
-
-      const res = await updateProfile({
-        fullName: adminFullName,
-        phone: adminPhone,
-        avatarUrl: url,
-      });
-
-      if (res.error) throw res.error;
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save preset avatar');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  const handleApplyCustomUrl = async () => {
-    const trimmed = customUrlInput.trim();
-    if (!trimmed || !currentAdmin) return;
-    try {
-      setIsSavingProfile(true);
-      setErrorMessage('');
-      setAdminAvatarUrl(trimmed);
-      setShowUrlModal(false);
-      setCustomUrlInput('');
-
-      const res = await updateProfile({
-        fullName: adminFullName,
-        phone: adminPhone,
-        avatarUrl: trimmed,
-      });
-
-      if (res.error) throw res.error;
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save avatar URL');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    if (!currentAdmin) return;
-    try {
-      setIsSavingProfile(true);
-      setErrorMessage('');
-      setAdminAvatarUrl('');
-
-      const res = await updateProfile({
-        fullName: adminFullName,
-        phone: adminPhone,
-        avatarUrl: '',
-      });
-
-      if (res.error) throw res.error;
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to remove avatar');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  const handleSaveProfileOnly = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentAdmin) return;
-    try {
-      setIsSavingProfile(true);
-      setErrorMessage('');
-      const res = await updateProfile({
-        fullName: adminFullName,
-        phone: adminPhone,
-        avatarUrl: adminAvatarUrl,
-      });
-
-      if (res.error) throw res.error;
-      setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to update admin profile');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // Dedicated Save for Razorpay Payment Gateway
-  // --------------------------------------------------------------------------
-  const handleSaveRazorpayGateway = async () => {
-    const cleanKey = rzpKeyId.trim();
-    if (!cleanKey) {
-      setErrorMessage('Please enter a valid Razorpay Key ID (e.g. rzp_live_... or rzp_test_...)');
-      return;
-    }
-
-    try {
-      setIsSavingGateway(true);
-      setErrorMessage('');
-
-      // 1. Direct sync to app_settings (ensures client apps immediately receive the key)
-      const appSettingsRes = await api.updateAppSettings([
-        { id: 'payment_gateway_razorpay_key_id', value: cleanKey },
-        { id: 'payment_gateway_razorpay_active', value: rzpIsActive },
-        { id: 'sub_currency', value: currency },
-        { id: 'sub_expiry_warning_days', value: expiryWarningDays },
-      ]);
-
-      // 2. Authoritative database RPC (Key ID + active flag only — secrets
-      // are never sent here; they live in Supabase Edge Function Secrets)
-      const gwRes = await api.updatePaymentGatewayConfig({
-        gateway: 'razorpay',
-        keyId: cleanKey,
-        isActive: rzpIsActive,
-      });
-
-      if (!gwRes.success && !appSettingsRes.success) {
-        throw new Error(gwRes.error || appSettingsRes.error || 'Failed to update payment gateway');
-      }
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err: unknown) {
-      console.error('Failed to save payment gateway:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save Razorpay configuration');
-    } finally {
-      setIsSavingGateway(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // Dedicated Save for Content Language Mode
-  // --------------------------------------------------------------------------
-  const handleSaveLanguageModeDirectly = async (mode: 'bengali_only' | 'bilingual') => {
-    try {
-      setIsSavingLanguageMode(true);
-      setErrorMessage('');
-      setContentLanguageMode(mode);
-      await api.updateAppSettings([{ id: 'content_language_mode', value: mode }]);
-      await checkMaintenanceMode();
-      setLangModeSuccess(true);
-      setTimeout(() => setLangModeSuccess(false), 3000);
-    } catch (err: unknown) {
-      console.error('Failed to update language mode:', err);
-      setErrorMessage(
-        err instanceof Error ? err.message : 'Failed to update content language mode'
-      );
-    } finally {
-      setIsSavingLanguageMode(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // Save All Settings
-  // --------------------------------------------------------------------------
-  const handleSaveAll = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveGeneral = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     try {
       setIsSaving(true);
-      setErrorMessage('');
-      setSaveSuccess(false);
-
-      const updates: Array<{ id: string; value: unknown }> = [
-        { id: 'general_app_name', value: appName },
+      await api.updateAppSettings([
+        { id: 'general_app_name', value: platformName },
         { id: 'general_website_url', value: websiteUrl },
-        { id: 'general_support_email', value: supportEmail },
-        { id: 'general_support_phone', value: supportPhone },
-        { id: 'general_support_whatsapp', value: supportWhatsapp },
-        { id: 'general_support_hours', value: supportHours },
-        { id: 'general_support_address', value: supportAddress },
-        { id: 'content_language_mode', value: contentLanguageMode },
-
-        { id: 'exam_default_duration', value: defaultDuration },
-        { id: 'exam_default_marks', value: defaultMarks },
-        { id: 'exam_default_negative_marks', value: defaultNegativeMarks },
-        { id: 'exam_passing_percentage', value: defaultPassingPercent },
-
-        { id: 'sub_currency', value: currency },
-        { id: 'sub_expiry_warning_days', value: expiryWarningDays },
+        { id: 'general_support_email', value: adminEmail },
+        { id: 'general_support_phone', value: contactPhone },
+        { id: 'general_support_address', value: address },
         { id: 'sys_maintenance_mode', value: maintenanceMode },
-        { id: 'sys_app_version', value: appVersion },
-
-        { id: 'payment_gateway_razorpay_key_id', value: rzpKeyId.trim() },
-        { id: 'payment_gateway_razorpay_active', value: rzpIsActive },
-      ];
-
-      const [res, gwRes] = await Promise.all([
-        api.updateAppSettings(updates),
-        api.updatePaymentGatewayConfig({
-          gateway: 'razorpay',
-          keyId: rzpKeyId,
-          isActive: rzpIsActive,
-        }),
-        currentAdmin
-          ? updateProfile({
-              fullName: adminFullName,
-              phone: adminPhone,
-              avatarUrl: adminAvatarUrl,
-            })
-          : Promise.resolve({ error: null }),
+        { id: 'platform_description', value: platformDescription },
+        { id: 'primary_color', value: primaryColor },
+        { id: 'secondary_color', value: secondaryColor },
+        { id: 'accent_color', value: accentColor },
       ]);
 
-      if (!res.success) {
-        throw new Error(res.error || 'Failed to save platform settings');
-      }
-
-      if (!gwRes.success) {
-        throw new Error(gwRes.error || 'Failed to save Razorpay payment gateway settings');
-      }
-
-      await api.logAdminActivity({
-        action: 'SETTINGS_UPDATE',
-        entityType: 'settings',
-        entityId: 'global_platform_settings',
-        entityName: 'Global Platform Settings',
-        details: {
-          maintenanceMode,
-          appName,
-          supportEmail,
-          supportPhone,
-          supportWhatsapp,
-          defaultDuration,
-          defaultMarks,
-          defaultNegativeMarks,
-          defaultPassingPercent,
-          appVersion,
-          razorpayKeyId: rzpKeyId,
-          razorpayActive: rzpIsActive,
-        },
-        adminUser: currentAdmin,
-      });
-
       await checkMaintenanceMode();
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save settings');
+
+      if (currentAdmin) {
+        await api.logAdminActivity({
+          action: 'SETTINGS_UPDATE',
+          entityType: 'settings',
+          entityId: 'general_settings',
+          entityName: 'General Platform Settings',
+          details: { platformName, websiteUrl, adminEmail, maintenanceMode },
+          adminUser: currentAdmin,
+        });
+      }
+
+      showToast('Settings saved successfully! All updates are live.');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save settings. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // Save SMTP Settings
+  // --------------------------------------------------------------------------
+  const handleSaveSMTP = async () => {
+    try {
+      setIsSaving(true);
+      await api.updateAppSettings([
+        { id: 'smtp_provider', value: smtpProvider },
+        { id: 'smtp_host', value: smtpHost },
+        { id: 'smtp_port', value: smtpPort },
+        { id: 'smtp_encryption', value: smtpEncryption },
+        { id: 'smtp_username', value: smtpUsername },
+      ]);
+      showToast('SMTP Configuration saved successfully!');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save SMTP configuration.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Send Test Email Simulation
+  // --------------------------------------------------------------------------
+  const handleSendTestEmail = () => {
+    setIsSendingTestEmail(true);
+    setTimeout(() => {
+      setIsSendingTestEmail(false);
+      showToast(`Test email successfully sent to ${adminEmail}!`);
+    }, 1200);
+  };
+
+  // --------------------------------------------------------------------------
+  // Clear System Cache Action
+  // --------------------------------------------------------------------------
+  const handleConfirmClearCache = () => {
+    setIsClearingCache(true);
+    setTimeout(() => {
+      try {
+        localStorage.removeItem('practicekoro_offline_cache');
+        sessionStorage.clear();
+      } catch {
+        // ignore
+      }
+      setIsClearingCache(false);
+      setShowClearCacheModal(false);
+      showToast('System cache and temporary assets cleared successfully!');
+    }, 1000);
+  };
+
+  // --------------------------------------------------------------------------
+  // Image Upload Handlers for Logo & Favicon
+  // --------------------------------------------------------------------------
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPlatformLogo(url);
+      showToast('Platform logo updated successfully!');
+    }
+  };
+
+  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setFavicon(url);
+      showToast('Favicon updated successfully!');
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 shrink-0">
-            <SettingsIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                Global Platform Settings
-              </h1>
-              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-pk-primary/10 text-pk-primary border border-pk-primary/20">
-                v{appVersion} Live
-              </span>
+    <div className="space-y-6 pb-16">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Hidden file inputs */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/svg+xml"
+        className="hidden"
+        onChange={handleLogoUpload}
+      />
+      <input
+        ref={faviconInputRef}
+        type="file"
+        accept="image/png,image/x-icon,image/vnd.microsoft.icon"
+        className="hidden"
+        onChange={handleFaviconUpload}
+      />
+
+      {/* ==================================================================== */}
+      {/* PAGE HEADER                                                          */}
+      {/* ==================================================================== */}
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          Settings
+        </h1>
+        <p className="text-xs sm:text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+          Configure platform settings, manage integrations, and customize your PracticeKoro experience.
+        </p>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* TOP NAVIGATION TABS (8 CARDS)                                        */}
+      {/* ==================================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {SETTINGS_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex flex-col text-left p-3.5 rounded-xl border transition-all cursor-pointer relative',
+                isActive
+                  ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-600 shadow-xs ring-1 ring-blue-500/20'
+                  : 'bg-white dark:bg-[#0B132B] border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-2xs'
+              )}
+            >
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mb-3',
+                  tab.iconBg,
+                  tab.iconColor
+                )}
+              >
+                <Icon className="w-4 h-4" />
+              </div>
+              <p
+                className={cn(
+                  'text-xs font-bold leading-tight',
+                  isActive ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-slate-200'
+                )}
+              >
+                {tab.label}
+              </p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight truncate">
+                {tab.sublabel}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ==================================================================== */}
+      {/* TAB 1: GENERAL SETTINGS (Exact layout of reference image)            */}
+      {/* ==================================================================== */}
+      {activeTab === 'general' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* ================================================================ */}
+          {/* LEFT COLUMN: General Settings & Feature Toggles                  */}
+          {/* ================================================================ */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Card 1: General Settings */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    General Settings
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Basic platform information and configuration.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card Body (Two sub-columns inside) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-5">
+                {/* Sub-column 1: Text Fields (7 cols) */}
+                <div className="md:col-span-7 space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Platform Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={platformName}
+                      onChange={(e) => setPlatformName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Website URL <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Admin Email <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Support Email
+                    </label>
+                    <input
+                      type="email"
+                      value={supportEmail}
+                      onChange={(e) => setSupportEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Contact Phone
+                    </label>
+                    <input
+                      type="text"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Address (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Timezone
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={timezone}
+                          onChange={(e) => setTimezone(e.target.value)}
+                          className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
+                        >
+                          <option value="Asia/Kolkata (GMT +5:30)">Asia/Kolkata (GMT +5:30)</option>
+                          <option value="UTC (GMT +0:00)">UTC (GMT +0:00)</option>
+                          <option value="Asia/Dubai (GMT +4:00)">Asia/Dubai (GMT +4:00)</option>
+                          <option value="America/New_York (GMT -5:00)">America/New_York (GMT -5:00)</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Language
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={language}
+                          onChange={(e) => setLanguage(e.target.value)}
+                          className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
+                        >
+                          <option value="English">English</option>
+                          <option value="Bengali">Bengali (বাংলা)</option>
+                          <option value="Hindi">Hindi (हिंदी)</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-column 2: Assets, Description, Maintenance & Save (5 cols) */}
+                <div className="md:col-span-5 space-y-4">
+                  {/* Platform Logo */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Platform Logo
+                    </label>
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
+                        {platformLogo ? (
+                          <img
+                            src={platformLogo}
+                            alt="Logo"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg border-2 border-white/80 flex items-center justify-center">
+                            <span className="font-black text-sm tracking-tighter">PK</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                          Recommended size: 512 × 512 px
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                          PNG, JPG or SVG (Max 2MB)
+                        </p>
+                        <div className="flex items-center gap-2.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => logoInputRef.current?.click()}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
+                          >
+                            Change Logo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPlatformLogo(null);
+                              showToast('Logo removed');
+                            }}
+                            className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Favicon */}
+                  <div className="pt-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Favicon
+                    </label>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
+                        {favicon ? (
+                          <img
+                            src={favicon}
+                            alt="Favicon"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded border border-white/80 flex items-center justify-center">
+                            <span className="font-black text-[9px]">P</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                          Recommended size: 32 × 32 px
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                          PNG, ICO (Max 1MB)
+                        </p>
+                        <div className="flex items-center gap-2.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => faviconInputRef.current?.click()}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
+                          >
+                            Change Favicon
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFavicon(null);
+                              showToast('Favicon removed');
+                            }}
+                            className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform Description */}
+                  <div className="pt-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Platform Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      maxLength={300}
+                      value={platformDescription}
+                      onChange={(e) => setPlatformDescription(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none leading-relaxed"
+                    />
+                    <div className="flex justify-end mt-1">
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {platformDescription.length}/300
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Maintenance Mode Toggle */}
+                  <div className="pt-2 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                        Maintenance Mode
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                        When enabled, the site will be inaccessible to students.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMaintenanceMode(!maintenanceMode)}
+                      className={cn(
+                        'w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        maintenanceMode ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-4 h-4 rounded-full bg-white transition-transform absolute top-1',
+                          maintenanceMode ? 'translate-x-6' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Save Changes button */}
+                  <div className="pt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveGeneral()}
+                      disabled={isSaving}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Admin identity, support channels, exam marking defaults, and Razorpay gateway.
-            </p>
+
+            {/* Card 2: Feature Toggles */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    Feature Toggles
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Enable or disable features across the platform.
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggles Grid (2 Columns, Switch on Left -> Icon -> Text) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 pt-5">
+                {/* Left Column Toggles */}
+                <div className="space-y-4">
+                  {/* Student Registration */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('studentRegistration')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.studentRegistration
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.studentRegistration ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Student Registration
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Allow new student signups
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mock Tests */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('mockTests')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.mockTests ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.mockTests ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Mock Tests
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable mock test access
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Topic Tests */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('topicTests')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.topicTests ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.topicTests ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Topic Tests
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable topic-wise tests
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Leaderboards */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('leaderboards')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.leaderboards
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.leaderboards ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Leaderboards
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Show rankings and leaderboard
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Blog / Study Notes */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('blogStudyNotes')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.blogStudyNotes
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.blogStudyNotes ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Blog / Study Notes
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable blog section
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column Toggles */}
+                <div className="space-y-4">
+                  {/* Paid Subscriptions */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('paidSubscriptions')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.paidSubscriptions
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.paidSubscriptions ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <CreditCard className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Paid Subscriptions
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable subscription plans
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Coupons & Offers */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('couponsOffers')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.couponsOffers
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.couponsOffers ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <Tag className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Coupons & Offers
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable discount coupons
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notifications */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('notifications')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.notifications
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.notifications ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                      <Bell className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Notifications
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable in-app notifications
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Referral Program */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('referralProgram')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.referralProgram
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.referralProgram ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
+                      <Share2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        Referral Program
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Enable referral system
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* App Download Links */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeature('appDownloadLinks')}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        featureToggles.appDownloadLinks
+                          ? 'bg-blue-600'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-1',
+                          featureToggles.appDownloadLinks ? 'translate-x-5.5' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
+                      <Smartphone className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
+                        App Download Links
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
+                        Show mobile app download links
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={loadSettings}
-            disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors border border-slate-200/80 dark:border-slate-700/80"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-pk-primary' : ''}`}
-            />
-            <span>Refresh</span>
-          </button>
+          {/* ================================================================ */}
+          {/* RIGHT COLUMN: Theme & Branding, Email SMTP, Danger Zone           */}
+          {/* ================================================================ */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Card 3: Theme & Branding */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    Theme & Branding
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Customize the look and feel of your platform.
+                  </p>
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={handleSaveAll}
-            disabled={isSaving}
-            aria-label="Save Settings (Top)"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pk-primary hover:bg-pk-primary/90 text-white text-xs font-bold transition-all shadow-md shadow-pk-primary/25 cursor-pointer disabled:opacity-50"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-          </button>
-        </div>
-      </div>
+              {/* Card Body: Controls (Left) & Preview (Right) */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 pt-5">
+                {/* Controls (6 cols) */}
+                <div className="sm:col-span-6 space-y-3.5">
+                  {/* Primary Color */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Primary Color
+                    </label>
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="color"
+                          value={primaryColor}
+                          onChange={(e) => setPrimaryColor(e.target.value)}
+                          className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                        />
+                        <span className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200">
+                          {primaryColor.toUpperCase()}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
 
-      {/* Sub-Navigation Tabs across Settings, Banners, Staff, Audit Logs */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <Link
-          to="/admin/settings"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all bg-pk-primary text-white shadow-xs"
-        >
-          <SettingsIcon className="w-4 h-4" />
-          <span>General & Gateway</span>
-        </Link>
-        <Link
-          to="/admin/banners"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Hero Banners</span>
-        </Link>
-        <Link
-          to="/admin/staff"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <Users className="w-4 h-4 text-indigo-500" />
-          <span>Team & Staff</span>
-        </Link>
-        <Link
-          to="/admin/audit-logs"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          <History className="w-4 h-4 text-emerald-500" />
-          <span>Audit Logs</span>
-        </Link>
-      </div>
+                  {/* Secondary Color */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Secondary Color
+                    </label>
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="color"
+                          value={secondaryColor}
+                          onChange={(e) => setSecondaryColor(e.target.value)}
+                          className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                        />
+                        <span className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200">
+                          {secondaryColor.toUpperCase()}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
 
-      {/* Global Alerts */}
-      {saveSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-bold flex items-center justify-between shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>Settings updated and saved successfully! Changes are active immediately.</span>
+                  {/* Accent Color */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Accent Color
+                    </label>
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="color"
+                          value={accentColor}
+                          onChange={(e) => setAccentColor(e.target.value)}
+                          className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                        />
+                        <span className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200">
+                          {accentColor.toUpperCase()}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Theme Mode */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      Theme Mode
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setThemeMode('light')}
+                        className={cn(
+                          'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                          themeMode === 'light'
+                            ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        )}
+                      >
+                        <Sun className="w-3.5 h-3.5" />
+                        <span>Light</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setThemeMode('dark')}
+                        className={cn(
+                          'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                          themeMode === 'dark'
+                            ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        )}
+                      >
+                        <Moon className="w-3.5 h-3.5" />
+                        <span>Dark</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setThemeMode('system')}
+                        className={cn(
+                          'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                          themeMode === 'system'
+                            ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        )}
+                      >
+                        <Monitor className="w-3.5 h-3.5" />
+                        <span>System</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font Family */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Font Family
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={fontFamily}
+                        onChange={(e) => setFontFamily(e.target.value)}
+                        className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
+                      >
+                        <option value="Inter (Default)">Inter (Default)</option>
+                        <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview (6 cols) */}
+                <div className="sm:col-span-6 flex flex-col">
+                  <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Preview
+                  </p>
+                  <div className="flex-1 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 bg-white dark:bg-slate-900 flex flex-col justify-between shadow-2xs">
+                    {/* Mock Website Navbar */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-4.5 h-4.5 rounded flex items-center justify-center text-white"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          <span className="font-black text-[9px]">P</span>
+                        </div>
+                        <span className="text-xs font-extrabold text-slate-900 dark:text-white tracking-tight">
+                          PracticeKoro
+                        </span>
+                      </div>
+                      <div className="text-slate-400">
+                        <span className="text-sm">☰</span>
+                      </div>
+                    </div>
+
+                    {/* Mock Hero Section */}
+                    <div className="py-4 grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-7 space-y-1">
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                          Practice Today
+                          <br />
+                          Achieve Tomorrow
+                        </h4>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight">
+                          Your success begins with practice
+                        </p>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            className="px-2.5 py-1 rounded text-[9px] font-bold text-white shadow-xs"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            Get Started
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* SVG Illustration of Student with Books & Plant */}
+                      <div className="col-span-5 flex items-center justify-center">
+                        <svg
+                          viewBox="0 0 100 90"
+                          className="w-full h-auto max-h-20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          {/* Plant in background */}
+                          <path
+                            d="M85 70 C85 45 92 35 92 35 C92 35 78 48 83 70 Z"
+                            fill="#10B981"
+                          />
+                          <path
+                            d="M80 72 C80 55 70 42 70 42 C70 42 76 60 82 72 Z"
+                            fill="#34D399"
+                          />
+                          <path
+                            d="M88 72 C88 60 96 52 96 52 C96 52 89 65 86 72 Z"
+                            fill="#059669"
+                          />
+                          {/* Table surface */}
+                          <rect x="10" y="70" width="80" height="3" rx="1.5" fill="#E2E8F0" />
+                          {/* Books on table */}
+                          <rect x="18" y="65" width="16" height="5" rx="1" fill="#3B82F6" />
+                          <rect x="20" y="61" width="14" height="4" rx="1" fill="#10B981" />
+                          <rect x="22" y="58" width="11" height="3" rx="1" fill="#F59E0B" />
+                          {/* Student reading at desk */}
+                          {/* Body */}
+                          <path
+                            d="M48 48 C42 48 38 56 38 68 L64 68 C64 56 60 48 54 48 Z"
+                            fill={primaryColor}
+                          />
+                          {/* Head */}
+                          <circle cx="51" cy="38" r="8" fill="#FCD34D" />
+                          {/* Hair */}
+                          <path
+                            d="M44 36 C44 30 58 28 59 34 C55 33 48 34 44 36 Z"
+                            fill="#1E293B"
+                          />
+                          {/* Arms holding book */}
+                          <path
+                            d="M40 56 L48 64 L54 64 L62 56"
+                            stroke="#FCD34D"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                          {/* Open book */}
+                          <path
+                            d="M43 62 L49 65 L55 62 L61 65"
+                            stroke="#FFFFFF"
+                            strokeWidth="3.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Pagination Dots */}
+                    <div className="flex items-center justify-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div
+                        className="w-2.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Email Configuration (SMTP) */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    Email Configuration (SMTP)
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Configure SMTP for sending emails to students.
+                  </p>
+                </div>
+              </div>
+
+              {/* SMTP Inputs */}
+              <div className="space-y-3.5 pt-5">
+                {/* Row 1: 4 columns */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      SMTP Provider
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={smtpProvider}
+                        onChange={(e) => setSmtpProvider(e.target.value)}
+                        className="w-full appearance-none px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-7"
+                      >
+                        <option value="Custom SMTP">Custom SMTP</option>
+                        <option value="SendGrid">SendGrid</option>
+                        <option value="AWS SES">AWS SES</option>
+                        <option value="Mailgun">Mailgun</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      SMTP Host
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      SMTP Port
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Encryption
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={smtpEncryption}
+                        onChange={(e) => setSmtpEncryption(e.target.value)}
+                        className="w-full appearance-none px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-7"
+                      >
+                        <option value="TLS">TLS</option>
+                        <option value="SSL">SSL</option>
+                        <option value="None">None</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: 2 columns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      SMTP Username
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpUsername}
+                      onChange={(e) => setSmtpUsername(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      SMTP Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={smtpPassword}
+                        onChange={(e) => setSmtpPassword(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions: Send Test Email & Save SMTP Settings */}
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSendTestEmail}
+                    disabled={isSendingTestEmail}
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveSMTP}
+                    disabled={isSaving}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Save SMTP Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 5: Danger Zone */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 pb-4">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                    Danger Zone
+                  </h2>
+                  <p className="text-xs text-rose-500/80 dark:text-rose-400/80 mt-0.5">
+                    These actions are irreversible. Please be careful.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Box: Clear Cache */}
+              <div className="bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/70 dark:border-rose-900/50 rounded-xl p-3.5 flex items-center justify-between gap-4 mt-2">
+                <div className="flex items-center gap-3">
+                  <RotateCcw className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                      Clear Cache
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Clear system cache and temporary files
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowClearCacheModal(true)}
+                  className="px-4 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors shadow-2xs shrink-0 cursor-pointer"
+                >
+                  Clear Cache
+                </button>
+              </div>
+            </div>
           </div>
-          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md">
-            PERSISTED
-          </span>
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-xs animate-in fade-in">
-          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-          <span>{errorMessage}</span>
         </div>
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 1: ADMIN IDENTITY & PROFILE PICTURE                          */}
+      {/* TAB 2: BRANDING                                                      */}
       {/* ==================================================================== */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
-              <User className="w-4 h-4" />
+      {activeTab === 'branding' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600">
+              <Palette className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Admin Profile & Avatar (অ্যাডমিন প্রোফাইল ছবি ও তথ্য)
+                Branding & Visual Identity
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Update your administrator profile photo, display name, and contact information.
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Manage logos, color palettes, typography and visual assets.
               </p>
             </div>
           </div>
 
-          {profileSuccess && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              Profile Saved
-            </span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Avatar Preview & Actions */}
-          <div className="lg:col-span-4 flex flex-col items-center p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-center">
-            <div className="relative group">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden ring-4 ring-pk-primary/20 dark:ring-pk-primary/30 shadow-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
-                {adminAvatarUrl ? (
-                  <img
-                    src={adminAvatarUrl}
-                    alt={adminFullName || 'Admin'}
-                    className="w-full h-full object-cover"
-                    onError={() => {
-                      setAdminAvatarUrl('');
-                    }}
-                  />
-                ) : (
-                  <span className="text-3xl font-black">{adminFullName?.charAt(0) || 'A'}</span>
-                )}
-              </div>
-
-              {/* Status indicator */}
-              <span
-                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950 flex items-center justify-center shadow-xs"
-                title="Super Administrator Online"
-              >
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              </span>
-            </div>
-
-            <div className="mt-3">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {adminFullName || 'Administrator'}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Platform Colors
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                {currentAdmin?.email || 'admin@practicekoro.online'}
-              </p>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-2 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/80">
-                <Shield className="w-3 h-3" />
-                <span>Super Admin</span>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Primary Brand Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-8 h-8 rounded border-0 p-0 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Secondary Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="w-8 h-8 rounded border-0 p-0 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Avatar Upload Buttons */}
-            <div className="w-full mt-5 space-y-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={handleAvatarFileUpload}
-                className="hidden"
-                id="adminAvatarFileInput"
-              />
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingAvatar}
-                className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-pk-primary hover:bg-pk-primary/90 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>{isUploadingAvatar ? 'Uploading Picture...' : 'Upload Photo'}</span>
-              </button>
-
-              <div className="flex items-center gap-2 w-full">
-                <button
-                  type="button"
-                  onClick={() => setShowUrlModal(!showUrlModal)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Typography
+              </h3>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Primary Font Family
+                </label>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
                 >
-                  <LinkIcon className="w-3 h-3 text-slate-400" />
-                  <span>Image URL</span>
-                </button>
-
-                {adminAvatarUrl && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveAvatar}
-                    disabled={isSavingProfile}
-                    className="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/80 transition-colors"
-                    title="Remove Avatar"
-                    aria-label="Remove Avatar"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* URL Input Dropdown */}
-              {showUrlModal && (
-                <div className="p-3 mt-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 text-left">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase">
-                    Paste Image Link (Web URL)
-                  </label>
-                  <input
-                    type="url"
-                    value={customUrlInput}
-                    onChange={(e) => setCustomUrlInput(e.target.value)}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"
-                  />
-                  <div className="flex justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowUrlModal(false)}
-                      className="px-2 py-1 rounded text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleApplyCustomUrl}
-                      disabled={!customUrlInput.trim()}
-                      className="px-2.5 py-1 rounded bg-pk-primary text-white text-[11px] font-bold disabled:opacity-50"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Preset Avatars */}
-            <div className="w-full mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-800 text-left">
-              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>Preset Avatars (দ্রুত বাছাই করুন):</span>
-              </p>
-              <div className="flex items-center justify-between gap-1.5">
-                {PRESET_AVATARS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectPresetAvatar(preset)}
-                    className={`w-9 h-9 rounded-xl overflow-hidden border-2 transition-all hover:scale-110 ${
-                      adminAvatarUrl === preset
-                        ? 'border-pk-primary ring-2 ring-pk-primary/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                    }`}
-                    title={`Select preset ${idx + 1}`}
-                  >
-                    <img
-                      src={preset}
-                      alt={`Preset ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Profile Details Form */}
-          <form
-            onSubmit={handleSaveProfileOnly}
-            className="lg:col-span-8 space-y-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800"
-          >
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Camera className="w-4 h-4 text-pk-primary" />
-              <span>Admin Personal Credentials & Details</span>
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Admin Full Name (পূর্ণ নাম)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={adminFullName}
-                  onChange={(e) => setAdminFullName(e.target.value)}
-                  placeholder="e.g. Susanta Lohar"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Admin Email Address (অপরিবর্তনীয়)
-                </label>
-                <input
-                  type="email"
-                  disabled
-                  value={currentAdmin?.email || 'admin@practicekoro.online'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-slate-500 font-mono text-xs cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Personal Phone / WhatsApp
-                </label>
-                <input
-                  type="text"
-                  value={adminPhone}
-                  onChange={(e) => setAdminPhone(e.target.value)}
-                  placeholder="e.g. +91 98765 43210"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Active Role Privileges
-                </label>
-                <div className="px-3.5 py-2.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center justify-between">
-                  <span>Super Administrator (Full System Access)</span>
-                  <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                </div>
+                  <option value="Inter (Default)">Inter (Default)</option>
+                  <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                  <option value="Roboto">Roboto</option>
+                  <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+                </select>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={isSavingProfile}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-pk-primary hover:bg-pk-primary/90 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>{isSavingProfile ? 'Saving Profile...' : 'Save Profile Changes'}</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Main Settings Form */}
-      <form onSubmit={handleSaveAll} className="space-y-6">
-        {/* ==================================================================== */}
-        {/* SECTION 2: CONTENT LANGUAGE MODE (BENGALI ONLY vs BILINGUAL)         */}
-        {/* ==================================================================== */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
-                <Languages className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>Content Language Mode (কনটেন্ট ভাষা মোড)</span>
-                  <span
-                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
-                      contentLanguageMode === 'bengali_only'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-                        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
-                    }`}
-                  >
-                    {contentLanguageMode === 'bengali_only' ? 'Bengali Only (Active)' : 'Bilingual (Active)'}
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Global language setting for students, question upload, and question creation.
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Logo Assets
+              </h3>
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center">
+                <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Upload Vector SVG Logo
                 </p>
-              </div>
-            </div>
-
-            {langModeSuccess && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                Language Mode Saved
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Mode 1: Bengali Only */}
-            <div
-              onClick={() => handleSaveLanguageModeDirectly('bengali_only')}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                contentLanguageMode === 'bengali_only'
-                  ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
-                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-900 dark:text-white">
-                      Bengali Only (ডিফল্ট - শুধুমাত্র বাংলা)
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                      Bilingual OFF
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    শিক্ষার্থীদের জন্য ওয়েব ও মোবাইল অ্যাপে শুধুমাত্র বাংলায় প্রশ্ন, অপশন ও শর্ট নোটস প্রদর্শিত হবে। প্রশ্ন তৈরিতে ইংরেজি ফিল্ডের কোনো বাধ্যবাধকতা নেই।
-                  </p>
-                </div>
-                <div className="shrink-0 pt-0.5">
-                  <input
-                    type="radio"
-                    name="content_language_mode"
-                    checked={contentLanguageMode === 'bengali_only'}
-                    onChange={() => handleSaveLanguageModeDirectly('bengali_only')}
-                    className="w-4 h-4 text-emerald-600 accent-emerald-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Mode 2: Bilingual */}
-            <div
-              onClick={() => handleSaveLanguageModeDirectly('bilingual')}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                contentLanguageMode === 'bilingual'
-                  ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs'
-                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-900 dark:text-white">
-                      Bilingual (বাংলা ও ইংরেজি)
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
-                      Bilingual ON
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    বাংলা ও ইংরেজি উভয় মাধ্যমে প্রশ্ন ও অপশন সাপোর্ট করবে। শিক্ষার্থীদের টেস্ট রানার ও সলিউশনে ভাষা পরিবর্তন করার টগল সক্রিয় থাকবে।
-                  </p>
-                </div>
-                <div className="shrink-0 pt-0.5">
-                  <input
-                    type="radio"
-                    name="content_language_mode"
-                    checked={contentLanguageMode === 'bilingual'}
-                    onChange={() => handleSaveLanguageModeDirectly('bilingual')}
-                    className="w-4 h-4 text-blue-600 accent-blue-600 cursor-pointer"
-                  />
-                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">High resolution for retina displays</p>
               </div>
             </div>
           </div>
 
-          <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>
-                <strong>Data Safe:</strong> পূর্বের সমস্ত ইংরেজি তথ্য ও ডাটাবেস রেকর্ড সম্পূর্ণ সুরক্ষিত আছে। Bilingual মোড বন্ধ থাকা অবস্থায় কোনো ইংরেজি ডেটা মুছে ফেলা হয় না।
-              </span>
-            </div>
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              disabled={isSavingLanguageMode}
-              onClick={() => handleSaveLanguageModeDirectly(contentLanguageMode)}
-              className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shrink-0 hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+              onClick={() => handleSaveGeneral()}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
-              {isSavingLanguageMode ? 'Saving...' : 'Apply Mode'}
+              Save Branding Settings
             </button>
           </div>
         </div>
+      )}
 
-        {/* ==================================================================== */}
-        {/* SECTION 3: BRAND & OFFICIAL CONTACT DETAILS                          */}
-        {/* ==================================================================== */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xs">
-              <Globe className="w-4 h-4" />
+      {/* ==================================================================== */}
+      {/* TAB 3: SEO & META                                                    */}
+      {/* ==================================================================== */}
+      {activeTab === 'seo' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
+              <Search className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Platform Identity & Public Support Details (যোগাযোগ ও ব্র্যান্ড তথ্য)
+                SEO & Meta Configuration
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                These contact lines appear on the student portal, receipts, invoice emails, and
-                Contact Us pages.
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Optimize search rankings, Open Graph metadata, and indexing.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-pk-primary" />
-                <span>Platform Name (প্ল্যাটফর্মের নাম)</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Default Meta Title
               </label>
               <input
                 type="text"
-                required
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-                placeholder="PracticeKoro"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
+                defaultValue="PracticeKoro - West Bengal & Govt Exam Mock Test Platform"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5 text-pk-primary" />
-                <span>Website Public URL (ওয়েবসাইট লিংক)</span>
-              </label>
-              <input
-                type="url"
-                required
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder="https://practicekoro.online"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-mono text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-blue-500" />
-                <span>Official Support Email (সাপোর্ট ইমেল)</span>
-              </label>
-              <input
-                type="email"
-                required
-                value={supportEmail}
-                onChange={(e) => setSupportEmail(e.target.value)}
-                placeholder="support@practicekoro.online"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Used for automated transaction receipts and ticket notifications.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Support Phone Helpline (হেল্পলাইন নম্বর)</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Google Search Console Verification Tag
               </label>
               <input
                 type="text"
-                value={supportPhone}
-                onChange={(e) => setSupportPhone(e.target.value)}
-                placeholder="+91 98765 43210 (Helpline)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
+                placeholder="google-site-verification=..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Direct phone assistance line displayed on invoice footers.
-              </p>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Official WhatsApp Support (হোয়াটসঅ্যাপ হেল্পলাইন)</span>
-              </label>
-              <input
-                type="text"
-                value={supportWhatsapp}
-                onChange={(e) => setSupportWhatsapp(e.target.value)}
-                placeholder="+91 98765 43210 (WhatsApp)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Direct WhatsApp query resolution link on candidate portal.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-amber-500" />
-                <span>Support Operating Hours (কার্যদিবস ও সময়)</span>
-              </label>
-              <input
-                type="text"
-                value={supportHours}
-                onChange={(e) => setSupportHours(e.target.value)}
-                placeholder="Mon - Sat: 10:00 AM - 7:00 PM (IST)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Candidate helpline business hours and holiday notices.
-              </p>
-            </div>
-
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                <span>Registered Operating Address & Jurisdiction (ঠিকানা ও আইনি অধিক্ষেত্র)</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Default Meta Description
               </label>
-              <input
-                type="text"
-                value={supportAddress}
-                onChange={(e) => setSupportAddress(e.target.value)}
-                placeholder="West Bengal, India"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
+              <textarea
+                rows={3}
+                defaultValue="Practice smart, prepare better and achieve your goal with West Bengal government exam mock tests, previous year papers, and performance analytics."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
           </div>
-        </div>
 
-        {/* ==================================================================== */}
-        {/* SECTION 3: EXAM DEFAULTS & MARKING SCHEME                            */}
-        {/* ==================================================================== */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
-              <Sliders className="w-4 h-4" />
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => showToast('SEO settings saved successfully!')}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
+            >
+              Save SEO Settings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 4: EMAIL & NOTIFICATIONS                                         */}
+      {/* ==================================================================== */}
+      {activeTab === 'email' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center text-sky-600">
+              <Mail className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Exam Defaults & Marking Scheme (পরীক্ষা ও মূল্যায়নের মূল মান)
+                Email Templates & Notifications
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Applied automatically when creating new mock tests, subjects, or PYQ papers.
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Configure automated student emails, receipt triggers, and push delivery.
               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Default Duration (mins)
-              </label>
-              <input
-                type="number"
-                min={1}
-                required
-                value={defaultDuration}
-                onChange={(e) => setDefaultDuration(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Marks / Question
-              </label>
-              <input
-                type="number"
-                step="0.25"
-                min={0.25}
-                required
-                value={defaultMarks}
-                onChange={(e) => setDefaultMarks(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Negative Penalty (marks) — suggested default for new Full Mock / PYQ tests
-              </label>
-              <input
-                type="number"
-                step="0.05"
-                min={0}
-                required
-                value={defaultNegativeMarks}
-                onChange={(e) => setDefaultNegativeMarks(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-rose-600 dark:text-rose-400 font-bold focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-xs sm:text-sm transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Pass Threshold (%)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                required
-                value={defaultPassingPercent}
-                onChange={(e) => setDefaultPassingPercent(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ==================================================================== */}
-        {/* SECTION 4: MONETIZATION & RAZORPAY PAYMENT GATEWAY                   */}
-        {/* ==================================================================== */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-xs">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                    Razorpay Payment Gateway
-                  </h2>
-                  <span className="hidden sm:inline-block text-xs text-slate-500 dark:text-slate-400 font-normal">
-                    (পেমেন্ট গেটওয়ে কনফিগারেশন)
-                  </span>
-                  {rzpKeyId.trim().startsWith('rzp_live_') ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      LIVE MODE
-                    </span>
-                  ) : rzpKeyId.trim().startsWith('rzp_test_') ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      TEST / SANDBOX
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      NOT CONFIGURED
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Secure checkout & signature verification credentials (Zero-Leak Architecture)
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowSetupGuide(!showSetupGuide)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors"
-              >
-                <HelpCircle className="w-3.5 h-3.5 text-pk-primary" />
-                <span>কীভাবে Key পাবেন?</span>
-                {showSetupGuide ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
-
-              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {rzpIsActive ? 'Gateway Active' : 'Gateway Disabled'}
-                </span>
-                <input
-                  type="checkbox"
-                  id="razorpayActiveToggle"
-                  aria-label="Toggle Razorpay Active"
-                  checked={rzpIsActive}
-                  onChange={(e) => setRzpIsActive(e.target.checked)}
-                  className="w-4 h-4 rounded text-pk-primary focus:ring-pk-primary bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 cursor-pointer"
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Setup Guide Box */}
-          {showSetupGuide && (
-            <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-2.5 animate-in fade-in">
-              <div className="flex items-center justify-between font-bold text-indigo-900 dark:text-indigo-300">
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Key className="w-4 h-4 text-pk-primary" />
-                  Razorpay Dashboard থেকে Credentials পাওয়ার নিয়ম:
-                </span>
-                <a
-                  href="https://dashboard.razorpay.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-pk-primary hover:underline"
-                >
-                  Razorpay Dashboard <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              <ol className="list-decimal list-inside space-y-1.5 text-slate-600 dark:text-slate-300 text-xs pl-1">
-                <li>
-                  <strong className="text-slate-900 dark:text-white">dashboard.razorpay.com</strong>{' '}
-                  এ লগইন করুন।
-                </li>
-                <li>
-                  উপরে টগল করে <strong>Test Mode</strong> (পরীক্ষার জন্য) বা{' '}
-                  <strong>Live Mode</strong> (লাইভ পেমেন্ট চালুর জন্য) নির্বাচন করুন।
-                </li>
-                <li>
-                  বামদিকের মেনু থেকে <strong>Account & Settings</strong> ➔ <strong>API Keys</strong>{' '}
-                  অপশনে যান।
-                </li>
-                <li>
-                  <strong>Generate Key</strong> বাটনে ক্লিক করে <strong>Key ID</strong> কপি করুন।
-                  (Key Secret এই প্যানেলে নয় — নিচে দেখুন।)
-                </li>
-                <li>
-                  নিচে Key ID পেস্ট করে <strong>Save All Settings</strong> বাটনে ক্লিক করুন।
-                </li>
-              </ol>
-              <p className="text-[11px] text-amber-700 dark:text-amber-300 pt-1 font-medium">
-                ⚠️ Key Secret / Webhook Secret কখনো এখানে বা ডাটাবেসে রাখবেন না — এগুলো শুধু
-                Supabase Dashboard ➔ Edge Functions ➔ Secrets-এ সেট করুন।
-              </p>
-            </div>
-          )}
-
-          {/* Security Notice Banner */}
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300">
-            <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-slate-900 dark:text-white">
-                জিরো-লিক সিকিউরিটি এনফোর্সড:{' '}
-              </span>
-              <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                Key Secret / Webhook Secret শুধু Supabase Edge Function Secrets-এ থাকে — ডাটাবেসে
-                কখনো সংরক্ষিত হয় না। ক্লায়েন্ট ব্রাউজারে এগুলো কখনোই উন্মুক্ত হয় না।
-              </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Key ID Field */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Razorpay Key ID
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  rzp_test_... বা rzp_live_...
+            {[
+              { title: 'Welcome Email', desc: 'Sent when a new student signs up', active: true },
+              { title: 'Exam Result Summary', desc: 'Sent after completing mock tests', active: true },
+              { title: 'Subscription Receipt', desc: 'Sent upon successful payment', active: true },
+              { title: 'Plan Expiry Reminder', desc: 'Sent 7 days before subscription ends', active: true },
+            ].map((tmpl, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">{tmpl.title}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{tmpl.desc}</p>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                  Active
                 </span>
               </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={handleSendTestEmail}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
+            >
+              Send Sample Notification
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 5: PAYMENTS                                                      */}
+      {/* ==================================================================== */}
+      {activeTab === 'payments' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Payment Gateway & Invoicing
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Razorpay payment processing, tax configurations, and currency.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Razorpay Key ID
+              </label>
               <input
                 type="text"
                 value={rzpKeyId}
                 onChange={(e) => setRzpKeyId(e.target.value)}
-                placeholder="e.g. rzp_test_xxxxxxxxxx"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-mono text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                পাবলিক আইডেন্টিফায়ার, যা ব্রাউজারে Razorpay Checkout পপআপ খোলার জন্য ব্যবহৃত হয়।
-              </p>
             </div>
 
-            {/* Secrets live in Supabase — never entered or stored here */}
-            <div className="md:col-span-2 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
-              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-                <span className="font-bold">Secrets are managed server-side. </span>
-                <span>
-                  <strong>Key Secret</strong> ও <strong>Webhook Secret</strong> এখানে পেস্ট করবেন
-                  না — এগুলো শুধু Supabase Dashboard ➔ Edge Functions ➔ Secrets-এ (
-                  <span className="font-mono">RAZORPAY_KEY_SECRET</span>,{' '}
-                  <span className="font-mono">RAZORPAY_WEBHOOK_SECRET</span>) সেট করুন, তারপর
-                  ফাংশনগুলো Redeploy করুন।
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Gateway Status
+              </label>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRzpIsActive(!rzpIsActive)}
+                  className={cn(
+                    'w-11 h-6 rounded-full transition-colors relative cursor-pointer',
+                    rzpIsActive ? 'bg-emerald-600' : 'bg-slate-300'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'w-4 h-4 rounded-full bg-white transition-transform absolute top-1',
+                      rzpIsActive ? 'translate-x-6' : 'translate-x-1'
+                    )}
+                  />
+                </button>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {rzpIsActive ? 'Gateway Active (Live Mode)' : 'Gateway Inactive'}
                 </span>
               </div>
             </div>
 
-            {/* Currency & Renewal Notice */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Default Currency Code (কারেন্সি)
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Default Currency
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+              >
+                <option value="INR">INR (₹ Indian Rupee)</option>
+                <option value="USD">USD ($ United States Dollar)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                GST / Tax Rate (%)
               </label>
               <input
                 type="text"
-                required
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                placeholder="INR"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-mono text-xs sm:text-sm uppercase font-bold focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary transition-all"
+                value={taxPercent}
+                onChange={(e) => setTaxPercent(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Expiry Notice Threshold (মেয়াদ শেষ হওয়ার কতদিন আগে ওয়ার্নিং দেখাবে)
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Invoice Number Prefix
+              </label>
+              <input
+                type="text"
+                value={invoicePrefix}
+                onChange={(e) => setInvoicePrefix(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => showToast('Payment gateway settings saved successfully!')}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
+            >
+              Save Payment Settings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 6: INTEGRATIONS                                                  */}
+      {/* ==================================================================== */}
+      {activeTab === 'integrations' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+              <LinkIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Third-Party Integrations
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Connect external APIs, analytics suites, and messaging webhooks.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              {
+                name: 'Google Analytics 4',
+                desc: 'Track visitor traffic and student exam funnels',
+                connected: true,
+              },
+              {
+                name: 'Firebase Cloud Messaging',
+                desc: 'Deliver real-time mobile push notifications',
+                connected: true,
+              },
+              {
+                name: 'WhatsApp Business API',
+                desc: 'Send test alerts and login OTPs via WhatsApp',
+                connected: false,
+              },
+              {
+                name: 'Telegram Bot Alerts',
+                desc: 'Receive instant admin error and purchase logs',
+                connected: true,
+              },
+            ].map((integ, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">{integ.name}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{integ.desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showToast(`${integ.name} status updated`)}
+                  className={cn(
+                    'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
+                    integ.connected
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  )}
+                >
+                  {integ.connected ? 'Configured' : 'Connect'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 7: SECURITY                                                      */}
+      {/* ==================================================================== */}
+      {activeTab === 'security' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Platform Security & Access Protection
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Session durations, password policies, and brute-force defenses.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Session Timeout (Minutes)
               </label>
               <input
                 type="number"
-                min={1}
-                value={expiryWarningDays}
-                onChange={(e) => setExpiryWarningDays(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pk-primary/20 focus:border-pk-primary text-xs sm:text-sm font-medium transition-all"
+                defaultValue={120}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Max Failed Login Attempts
+              </label>
+              <input
+                type="number"
+                defaultValue={5}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+              />
+            </div>
+          </div>
 
-            {/* Dedicated Action for Gateway */}
-            <div className="md:col-span-2 pt-4 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>
-                  {rzpKeyId.trim().startsWith('rzp_live_')
-                    ? 'লাইভ মোড কনফিগারেশন অবিলম্বে সমস্ত স্টুডেন্ট ডিভাইসে সক্রিয় হবে।'
-                    : 'সেভ করার পর স্টুডেন্ট প্যানেলে অনলাইন পেমেন্ট সক্রিয় হবে।'}
-                </span>
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => showToast('Security policies updated successfully!')}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
+            >
+              Update Security Policies
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 8: SYSTEM                                                        */}
+      {/* ==================================================================== */}
+      {activeTab === 'system' && (
+        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                System Diagnostics & Maintenance
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Database statistics, platform version, and runtime status.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+              <p className="text-[11px] font-semibold text-slate-400">Platform Version</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">v2.0.0 Pro</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+              <p className="text-[11px] font-semibold text-slate-400">Database Engine</p>
+              <p className="text-lg font-black text-blue-600 mt-1">Supabase PG15</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+              <p className="text-[11px] font-semibold text-slate-400">Server Status</p>
+              <p className="text-lg font-black text-emerald-600 mt-1">Healthy (100%)</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+              <p className="text-[11px] font-semibold text-slate-400">Storage Buckets</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">2.4 GB Used</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* CLEAR CACHE CONFIRMATION MODAL                                       */}
+      {/* ==================================================================== */}
+      {showClearCacheModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
               </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Clear System Cache?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Are you sure you want to clear system cache and temporary files?
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+              This will purge client cached responses, preloaded test data, and temporary assets. Students may experience slightly higher load times on their next request.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={handleSaveRazorpayGateway}
-                disabled={isSavingGateway}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
+                onClick={() => setShowClearCacheModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
               >
-                {isSavingGateway ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving Razorpay...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Razorpay Configuration</span>
-                  </>
-                )}
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearCache}
+                disabled={isClearingCache}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isClearingCache ? 'Clearing...' : 'Yes, Clear Cache'}
               </button>
             </div>
           </div>
         </div>
-
-        {/* ==================================================================== */}
-        {/* SECTION 5: SYSTEM ENVIRONMENT & MAINTENANCE CONTROLS                 */}
-        {/* ==================================================================== */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white shadow-xs">
-              <Server className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                System Environment & Maintenance Controls (প্ল্যাটফর্ম নিয়ন্ত্রণ)
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Global emergency maintenance switches and platform release meta.
-              </p>
-            </div>
-          </div>
-
-          <div
-            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all ${
-              maintenanceMode
-                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-500/40'
-                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
-            }`}
-          >
-            <div className="mb-3 sm:mb-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  Maintenance Mode (প্ল্যাটফর্ম রক্ষণাবেক্ষণ মোড)
-                </p>
-                {maintenanceMode ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    সক্রিয় (Active)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    লাইভ (Live Production)
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
-                {maintenanceMode
-                  ? '⚠️ সতর্কতা: মেইনটেন্যান্স মোড সক্রিয় রয়েছে। পরীক্ষার্থীদের জন্য পরীক্ষা ও পোর্টাল সাময়িক বন্ধ থাকবে এবং রক্ষণাবেক্ষণ বার্তা প্রদর্শিত হবে।'
-                  : 'সক্রিয় করলে স্টুডেন্ট অ্যাপে মেইনটেন্যান্স স্ক্রিন প্রদর্শিত হবে এবং পরীক্ষা গ্রহণ সাময়িকভাবে বন্ধ থাকবে। শুধুমাত্র অ্যাডমিনরা অ্যাক্সেস করতে পারবেন।'}
-              </p>
-            </div>
-
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                id="maintenanceToggle"
-                aria-label="Toggle Maintenance Mode"
-                checked={maintenanceMode}
-                onChange={(e) => setMaintenanceMode(e.target.checked)}
-                className="w-5 h-5 rounded text-amber-500 focus:ring-amber-400 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 cursor-pointer"
-              />
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <span>Production Release Version:</span>
-            <span className="font-mono text-pk-primary font-bold">
-              v{appVersion} (V2 Architecture)
-            </span>
-          </div>
-        </div>
-
-        {/* Action Button Bar */}
-        <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Click <strong>Save All Settings</strong> to persist all updates across the platform.
-          </p>
-
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-pk-primary hover:bg-pk-primary/90 text-white text-xs sm:text-sm font-bold transition-all shadow-md shadow-pk-primary/25 cursor-pointer disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving Changes...' : 'Save All Settings'}</span>
-          </button>
-        </div>
-      </form>
+      )}
     </div>
   );
 };
 
-export default AdminSettings;

@@ -25,9 +25,13 @@ class PKSectionHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: AppTypography.headlineMedium(color: AppColors.textPrimary),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.headlineMedium(color: AppColors.textPrimary),
+            ),
           ),
           if (actionText != null && onActionTap != null)
             InkWell(
@@ -40,9 +44,9 @@ class PKSectionHeader extends StatelessWidget {
                   children: [
                     Text(
                       actionText!,
-                      style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.primary,
+                      ).copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(width: 2),
                     const Icon(

@@ -1,66 +1,101 @@
 /**
  * PRACTICEKORO OFFICIAL BRAND DESIGN TOKENS
- * Centralized Design Token System extracted from the official PracticeKoro logo/icon.
+ * Enterprise EdTech & SaaS Product Design System
  * 
- * Brand Balance Guidelines:
- * - 70% White / Very light surfaces (#FFFFFF, #F8FAFC, #EFF5FB)
- * - 20% Navy / Neutral typography (#063585, #0B1F44, #334155)
- * - 10% PracticeKoro Blue accents (#0158FC, #0198FD, #0062FD)
+ * Brand Balance:
+ * - 75% Pure White & Light Neutral Surfaces (#FFFFFF, #F8FAFC)
+ * - 15% Deep Executive Slate/Navy for Typography (#051A43, #0F172A, #334155, #64748B)
+ * - 10% PracticeKoro High-Conviction Blue (#026BFC) & Purposeful Semantic States
  */
 
 :root {
   /* ==========================================================================
      PRIMARY BRAND BLUES
      ========================================================================== */
-  --pk-primary: #0158fc; /* Main Brand Blue - CTAs, active nav, primary links */
-  --pk-primary-bright: #0198fd; /* Bright Blue - Gradients, highlights, illustrations */
-  --pk-primary-interactive: #0062fd; /* Interactive Blue - Hover, active click states */
-  --pk-primary-accent: #1d8cf6; /* Accent Blue - Decorative elements, secondary icons */
+  --pk-primary: #026BFC;          /* Authority Blue - Primary CTAs, active highlights */
+  --pk-primary-bright: #0198FD;   /* Bright Blue - Gradients, highlights, illustrations */
+  --pk-primary-interactive: #0062FD; /* Interactive Blue - Hover, active click states */
+  --pk-primary-accent: #1D8CF6;   /* Accent Blue - Decorative elements, secondary icons */
+  --pk-primary-hover: #0256CA;    /* Darkened Blue - High-conviction hover state */
+  --pk-primary-active: #0147A8;   /* Pressed State */
+  --pk-primary-subtle: #EFF6FF;   /* Soft Ice Blue - Chip fills, pill active backgrounds */
+  --pk-primary-border: #BFDBFE;   /* Border for primary badges & selected states */
+  --pk-blue-soft: #D9E7FD;        /* Soft Blue - Selected backgrounds, soft cards, borders */
+  --pk-blue-light: #EFF5FB;       /* Very Light Blue - Secondary surfaces, section bg, inputs */
 
   /* ==========================================================================
-     BRAND DARK COLORS (Typography & Strong Emphasis)
+     BRAND DARK & TYPOGRAPHY
      ========================================================================== */
-  --pk-navy: #063585; /* Primary Navy - Headings, logo text, strong emphasis */
-  --pk-dark: #0b1f44; /* Secondary Dark - Body headings, test questions, content */
-
-  /* ==========================================================================
-     LIGHT BRAND SURFACES & CONTAINERS
-     ========================================================================== */
-  --pk-blue-soft: #d9e7fd; /* Soft Blue - Selected backgrounds, soft cards, borders */
-  --pk-blue-light: #eff5fb; /* Very Light Blue - Secondary surfaces, section bg, inputs */
+  --pk-navy: #051A43;             /* Primary Brand Navy - Page titles, brand headers */
+  --pk-dark: #0B1F44;             /* Secondary Dark - Body headings, test questions, content */
+  --pk-text-primary: #0F172A;     /* High-contrast body & card titles */
+  --pk-text-secondary: #475569;   /* Supporting copy & metadata */
+  --pk-text-muted: #64748B;       /* Captions, timestamps, disabled indicators */
 
   /* ==========================================================================
      CANVAS & SURFACES
      ========================================================================== */
-  --pk-background: #f8fafc; /* Page canvas background */
-  --pk-surface: #ffffff; /* Primary card & panel surface */
+  --pk-background: #F8FAFC;       /* Crisp, neutral page canvas */
+  --pk-surface: #FFFFFF;          /* Pure card and modal surface */
+  --pk-surface-muted: #F1F5F9;    /* Table headers, segmented control backgrounds */
+  --pk-border: #E2E8F0;           /* Subtle 1px structural border */
+  --pk-border-subtle: #F1F5F9;    /* Secondary inner dividing lines */
 
   /* ==========================================================================
-     BRAND GRADIENTS (Use selectively: hero cards, primary badges, main CTAs)
+     SEMANTIC SYSTEM
      ========================================================================== */
-  --pk-gradient-primary: linear-gradient(135deg, #0158fc 0%, #0198fd 100%);
-  --pk-gradient-subtle: linear-gradient(180deg, #eff5fb 0%, #ffffff 100%);
-  --pk-gradient-surface: linear-gradient(135deg, #ffffff 0%, #eff5fb 100%);
+  --pk-success: #10B981;
+  --pk-success-bg: #ECFDF5;
+  --pk-success-border: #A7F3D0;
+
+  --pk-warning: #F59E0B;
+  --pk-warning-bg: #FFFBEB;
+  --pk-warning-border: #FDE68A;
+
+  --pk-danger: #EF4444;
+  --pk-danger-bg: #FEF2F2;
+  --pk-danger-border: #FECACA;
+
+  /* ==========================================================================
+     SHADOWS & ELEVATION (Restrained, modern SaaS precision)
+     ========================================================================== */
+  --pk-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --pk-shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --pk-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --pk-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+
+  /* Radius standards */
+  --pk-radius-sm: 6px;
+  --pk-radius-md: 10px;
+  --pk-radius-lg: 14px;
+  --pk-radius-xl: 18px;
+  --pk-radius-full: 9999px;
 }
 
 /* ============================================================================
-   DARK THEME COMPATIBILITY MAPPINGS
-   Ensures text remains high contrast and cards adapt gracefully without
-   violating the official PracticeKoro blue identity.
+   DARK THEME SYSTEM
    ============================================================================ */
 .dark {
   --pk-background: #020617;
-  --pk-surface: #0f172a;
+  --pk-surface: #0F172A;
+  --pk-surface-muted: #1E293B;
+  --pk-border: #1E293B;
+  --pk-border-subtle: #0F172A;
 
-  /* Surfaces adapt to translucent blue washes on dark slate */
+  --pk-navy: #93C5FD;
+  --pk-dark: #F8FAFC;
+  --pk-text-primary: #F8FAFC;
+  --pk-text-secondary: #CBD5E1;
+  --pk-text-muted: #94A3B8;
+
   --pk-blue-light: rgba(1, 88, 252, 0.12);
   --pk-blue-soft: rgba(1, 88, 252, 0.24);
 
-  /* Typography adapts for dark canvas readability */
-  --pk-navy: #93c5fd; /* High contrast readable light blue for headings */
-  --pk-dark: #f8fafc; /* Crisp white for dark content headings */
+  --pk-primary-subtle: rgba(2, 107, 252, 0.12);
+  --pk-primary-border: rgba(2, 107, 252, 0.35);
 
-  /* Gradients adapt to deep blue luminescence */
-  --pk-gradient-subtle: linear-gradient(180deg, rgba(1, 88, 252, 0.12) 0%, #0f172a 100%);
-  --pk-gradient-surface: linear-gradient(135deg, #0f172a 0%, rgba(1, 88, 252, 0.1) 100%);
+  --pk-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --pk-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --pk-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+  --pk-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }

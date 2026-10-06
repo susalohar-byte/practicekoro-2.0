@@ -25,7 +25,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 3000));
     await tester.pumpAndSettle();
 
-    // Verify Onboarding Screen renders Skip button
-    expect(find.text('Skip'), findsOneWidget);
+    // Verify Onboarding Screen renders action buttons
+    expect(find.text('চালু করি'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
   });
 }

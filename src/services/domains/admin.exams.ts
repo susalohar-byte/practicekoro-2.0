@@ -269,28 +269,75 @@ export async function updateExam(id: string, updates: Partial<Exam>): Promise<Ex
   if (updates.orderIndex !== undefined) updatePayload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) updatePayload.is_active = updates.isActive;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('exams')
     .update(updatePayload)
     .eq('id', id)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
+  if (error || !data) {
+    const insertPayload = {
+      id,
+      title: updates.title || 'Exam',
+      slug: updates.slug || id,
+      description: updates.description || null,
+      category: updates.category || 'State Govt',
+      icon_name: updates.iconName || 'Shield',
+      banner_url: updates.bannerUrl || null,
+      order_index: updates.orderIndex || 0,
+      is_active: updates.isActive ?? true,
+    };
+    const res = await supabase.from('exams').upsert(insertPayload).select().maybeSingle();
+    if (res.data) {
+      data = res.data;
+      error = null;
+    }
+  }
+
+  // Also sync in localExams for reliable fallback
+  const localIndex = localExams.findIndex((e) => e.id === id);
+  if (localIndex !== -1) {
+    localExams[localIndex] = { ...localExams[localIndex], ...updates };
+  } else if (updates.title) {
+    localExams.push({
+      id,
+      title: updates.title,
+      slug: updates.slug || id,
+      category: updates.category || 'State Govt',
+      iconName: updates.iconName || 'Shield',
+      orderIndex: updates.orderIndex || 0,
+      isActive: updates.isActive ?? true,
+      fullMockCount: 0,
+      pyqCount: 0,
+      topicTestCount: 0,
+    });
   }
 
   notifyExamsUpdated();
+
+  if (data) {
+    return {
+      id: data.id,
+      title: data.title,
+      slug: data.slug,
+      description: data.description ?? undefined,
+      category: data.category,
+      iconName: data.icon_name,
+      bannerUrl: data.banner_url ?? undefined,
+      orderIndex: data.order_index,
+      isActive: data.is_active,
+    };
+  }
+
   return {
-    id: data.id,
-    title: data.title,
-    slug: data.slug,
-    description: data.description ?? undefined,
-    category: data.category,
-    iconName: data.icon_name,
-    bannerUrl: data.banner_url ?? undefined,
-    orderIndex: data.order_index,
-    isActive: data.is_active,
+    id,
+    title: updates.title || '',
+    slug: updates.slug || id,
+    category: updates.category || '',
+    iconName: updates.iconName || '',
+    orderIndex: updates.orderIndex || 0,
+    isActive: updates.isActive ?? true,
   };
 }
 
@@ -316,96 +363,180 @@ export async function deleteExam(id: string): Promise<boolean> {
 
 export const DEFAULT_POPULAR_EXAMS: PopularExamCard[] = [
   {
-    id: 'wbp-constable',
+    id: 'popular-wbp-constable',
     examId: 'wbp-constable',
     title: 'WBP Constable',
     slug: 'wbp-constable',
+    route: '/exams/wbp-constable',
     testsCount: '120+ Tests',
     cardBadge: '120+ Tests',
     cardGradientStart: '#0084FF',
     cardGradientEnd: '#0048C6',
+    cardArrowColor: '#026BFC',
     cardBgImage: '/images/exam_wbp_bg.png',
-    cardEmblemUrl: '/images/exams/emblem_wbp.png',
-    cardArrowColor: '#0066FF',
+    cardEmblemUrl: '/images/exams/emblem_series_wbp.png',
     orderIndex: 1,
-    route: '/exams/wbp-constable',
     isActive: true,
   },
   {
-    id: 'kp-constable',
-    examId: 'kp-constable',
+    id: 'popular-kp-constable',
+    examId: 'kp-police-si',
     title: 'KP Constable',
-    slug: 'kp-constable',
+    slug: 'kolkata-police-si',
+    route: '/exams/kolkata-police-si',
     testsCount: '100+ Tests',
     cardBadge: '100+ Tests',
     cardGradientStart: '#9B27F4',
     cardGradientEnd: '#5E09BD',
+    cardArrowColor: '#8B5CF6',
     cardBgImage: '/images/exam_kp_bg.png',
     cardEmblemUrl: '/images/exams/emblem_series_kp.png',
-    cardArrowColor: '#8B5CF6',
     orderIndex: 2,
-    route: '/exams/kp-constable',
     isActive: true,
   },
   {
-    id: 'ssc-gd',
+    id: 'popular-ssc-gd',
     examId: 'ssc-gd',
     title: 'SSC GD',
     slug: 'ssc-gd',
+    route: '/exams/ssc-gd',
     testsCount: '150+ Tests',
     cardBadge: '150+ Tests',
     cardGradientStart: '#F97316',
     cardGradientEnd: '#C22B00',
-    cardBgImage: '/images/exam_ssc_bg.png',
-    cardEmblemUrl: '/images/exams/emblem_ssc.png',
     cardArrowColor: '#EA580C',
+    cardBgImage: '/images/exam_ssc_bg.png',
+    cardEmblemUrl: '/images/exams/emblem_series_ssc.png',
     orderIndex: 3,
-    route: '/exams/ssc-gd',
     isActive: true,
   },
 ];
 
 export async function getPopularExams(): Promise<PopularExamCard[]> {
+  if (!isSupabaseConfigured) return attachPopularExamCounts(DEFAULT_POPULAR_EXAMS);
   try {
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('id', 'popular_exams_config')
-        .maybeSingle();
-
-      if (!error && data?.value) {
-        const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem('pk_popular_exams_config', JSON.stringify(parsed));
-            }
-          } catch {
-            // Browser storage is an optional cache.
-          }
-          return parsed;
-        }
-      }
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('id', 'popular_exams_config')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.value) return await attachPopularExamCounts(DEFAULT_POPULAR_EXAMS);
+    const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return await attachPopularExamCounts(DEFAULT_POPULAR_EXAMS);
     }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('pk_popular_exams_config', JSON.stringify(parsed));
+      }
+    } catch {
+      // Browser storage is an optional cache.
+    }
+    // Check if legacy uncustomized seed exists (primary-tet demo cards)
+    const isLegacyDemo = parsed.length === 5 && parsed.some((c: any) => c.id === 'popular-primary-tet' && c.cardBgImage?.includes('popular_exams/bg_'));
+    const cardsToUse = isLegacyDemo ? DEFAULT_POPULAR_EXAMS : (parsed as PopularExamCard[]);
+    return await attachPopularExamCounts(cardsToUse);
   } catch (err) {
-    console.warn('Could not fetch popular exams from Supabase app_settings:', err);
+    console.warn('Could not fetch remote Popular Exam settings:', err);
+    return await attachPopularExamCounts(DEFAULT_POPULAR_EXAMS);
   }
+}
 
-  // Fallback: localStorage
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const local = localStorage.getItem('pk_popular_exams_config');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+async function attachPopularExamCounts(cards: PopularExamCard[]): Promise<PopularExamCard[]> {
+  if (!isSupabaseConfigured || cards.length === 0) {
+    return [...cards].sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+  const [
+    { data: tests, error: testsError },
+    { data: mappings, error: mappingsError },
+    { data: testSeries, error: seriesError },
+  ] = await Promise.all([
+    supabase.from('tests').select('id, exam_id, test_series_id').eq('is_active', true).eq('status', 'published'),
+    supabase.from('test_exams').select('test_id, exam_id'),
+    supabase.from('test_series').select('id, exam_id'),
+  ]);
+  if (testsError) throw new Error(testsError.message);
+  if (mappingsError) throw new Error(mappingsError.message);
+  if (seriesError) throw new Error(seriesError.message);
+
+  const seriesExamMap = new Map<string, string>();
+  (testSeries || []).forEach((s: { id: string; exam_id: string | null }) => {
+    if (s.exam_id) seriesExamMap.set(s.id, s.exam_id);
+  });
+
+  const examByTest = new Map<string, Set<string>>();
+  (tests || []).forEach((test: { id: string; exam_id: string | null; test_series_id?: string | null }) => {
+    const ids = examByTest.get(test.id) || new Set<string>();
+    if (test.exam_id) ids.add(test.exam_id);
+    if (test.test_series_id && seriesExamMap.has(test.test_series_id)) {
+      ids.add(seriesExamMap.get(test.test_series_id)!);
     }
-  } catch {
-    // Ignore malformed or unavailable browser cache.
-  }
+    examByTest.set(test.id, ids);
+  });
+  (mappings || []).forEach((mapping: { test_id: string; exam_id: string }) => {
+    const ids = examByTest.get(mapping.test_id);
+    if (ids) ids.add(mapping.exam_id);
+  });
+  return cards
+    .map((card) => {
+      if (!card.examId) return card;
+      const count = [...examByTest.values()].filter((ids) => ids.has(card.examId!)).length;
+      const label = count > 0 ? `${count}+ Tests` : (card.testsCount || '0 Tests');
+      return { ...card, testsCount: label, cardBadge: label };
+    })
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+}
 
-  return DEFAULT_POPULAR_EXAMS;
+export async function getPublishedExamTestCount(examId: string): Promise<number> {
+  if (!isSupabaseConfigured) {
+    return localTests.filter(
+      (test) => test.examId === examId && test.isActive && test.status === 'published'
+    ).length;
+  }
+  const [{ data: tests, error }, { data: mappings, error: mappingError }] = await Promise.all([
+    supabase.from('tests').select('id, exam_id').eq('is_active', true).eq('status', 'published'),
+    supabase.from('test_exams').select('test_id, exam_id'),
+  ]);
+  if (error) throw new Error(error.message);
+  if (mappingError) throw new Error(mappingError.message);
+  const examByTest = new Map<string, Set<string>>();
+  (tests || []).forEach((test: { id: string; exam_id: string | null }) => {
+    const ids = examByTest.get(test.id) || new Set<string>();
+    if (test.exam_id) ids.add(test.exam_id);
+    examByTest.set(test.id, ids);
+  });
+  (mappings || []).forEach((mapping: { test_id: string; exam_id: string }) => {
+    examByTest.get(mapping.test_id)?.add(mapping.exam_id);
+  });
+  return [...examByTest.values()].filter((ids) => ids.has(examId)).length;
+}
+
+export async function uploadPopularExamImage(file: File, cardId: string, kind: 'logo' | 'background') {
+  if (!isSupabaseConfigured) throw new Error('Connect to the Admin Panel database before uploading images.');
+  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const safeId = cardId.replace(/[^a-zA-Z0-9_-]/g, '-');
+  const path = `popular-exams/${safeId}/${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+  const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+  if (error) throw new Error(`Image upload failed: ${error.message}`);
+  return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+}
+
+export function subscribeToPopularExamUpdates(callback: () => void): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  const channel = supabase
+    .channel('popular-exam-settings-updates')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.popular_exams_config' },
+      callback
+    )
+    .subscribe();
+  return () => { void supabase.removeChannel(channel); };
 }
 
 export async function savePopularExams(cards: PopularExamCard[]): Promise<PopularExamCard[]> {
@@ -417,20 +548,42 @@ export async function savePopularExams(cards: PopularExamCard[]): Promise<Popula
     // Browser storage is an optional cache.
   }
 
-  if (isSupabaseConfigured) {
+  const normalized = cards.map((card, index) => ({ ...card, orderIndex: index + 1 }));
+  if (!isSupabaseConfigured) {
+    throw new Error('Connect to the Admin Panel database before saving Popular Exams.');
+  }
+  {
+    const settingRow = {
+      id: 'popular_exams_config',
+      category: 'general',
+      key: 'popular_exams_config',
+      value: normalized,
+      description: 'Admin-managed Popular Exam cards shown in student apps',
+      updated_at: new Date().toISOString(),
+    };
+
+    let saved = false;
     try {
-      await supabase.from('app_settings').upsert({
-        id: 'popular_exams_config',
-        value: JSON.stringify(cards),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
-    } catch (err) {
-      console.warn('Could not sync popular exams to app_settings:', err);
+      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_app_settings', {
+        p_settings: [settingRow],
+      });
+      if (!rpcError && (rpcData?.success || rpcData?.updated_count !== undefined)) {
+        saved = true;
+      }
+    } catch {
+      // Fallback to direct upsert
+    }
+
+    if (!saved) {
+      const { error } = await supabase.from('app_settings').upsert(settingRow, { onConflict: 'id' });
+      if (error) {
+        throw new Error(`Could not save Popular Exam settings: ${error.message}`);
+      }
     }
   }
 
   notifyExamsUpdated();
-  return cards;
+  return await getPopularExams();
 }
 
 export const adminExamsApi = {
@@ -441,6 +594,9 @@ export const adminExamsApi = {
   updateExam,
   deleteExam,
   getPopularExams,
+  DEFAULT_POPULAR_EXAMS,
+  getPublishedExamTestCount,
   savePopularExams,
+  uploadPopularExamImage,
+  subscribeToPopularExamUpdates,
 };
-

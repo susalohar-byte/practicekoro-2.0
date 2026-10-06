@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { useExam } from '@/context/ExamContext';
 import { bannerService } from '@/services/bannerService';
@@ -14,23 +14,29 @@ import {
   Bookmark,
   Headphones,
   Radio,
-  Play,
-  BookOpen,
   Trophy,
+  FileText,
+  Target,
+  Zap,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  Flame,
+  Layers,
+  Award,
 } from 'lucide-react';
-import type { PopularExamCard } from '@/types';
+import type { PopularTestSeriesCard } from '@/types';
 import { OnboardingModal } from '@/components/student/OnboardingModal';
 
 export const Home: React.FC = () => {
   const { user, isPro } = useAuth();
   const { selectedExam } = useExam();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
-  // Modal states
+  // Modal state
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
-  // Hero banner state
+  // Hero banner slide state
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -46,23 +52,18 @@ export const Home: React.FC = () => {
   const { data: banners = [] } = useQuery({
     queryKey: ['hero-banners', audience],
     queryFn: () => bannerService.getActiveBanners({ audience, placement: 'home_hero' }),
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    retry: 1,
+    staleTime: 30000,
   });
 
   // 2. Active Live Test
   const { data: activeLiveTest } = useQuery({
     queryKey: ['active-live-test'],
     queryFn: () => api.getActiveLiveTest(),
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
+    staleTime: 30000,
     refetchInterval: 30000,
   });
 
-  // 3. User Attempts for Continue Practice
+  // 3. User Attempts for Continue Practice & Performance
   const { data: userAttempts = [] } = useQuery({
     queryKey: ['home-user-attempts', user?.id],
     queryFn: () => (user?.id ? api.getUserAttempts(user.id) : Promise.resolve([])),
@@ -75,57 +76,46 @@ export const Home: React.FC = () => {
     [userAttempts]
   );
 
-  // 4. Dynamic Popular Exams Cards (Admin-controllable)
-  const { data: popularExamsCards = [] } = useQuery<PopularExamCard[]>({
-    queryKey: ['popular-exams'],
-    queryFn: () => api.getPopularExams(),
+  const completedAttempts = useMemo(
+    () => userAttempts.filter((a) => a.status === 'completed'),
+    [userAttempts]
+  );
+
+  // Calculated user stats
+  const performanceStats = useMemo(() => {
+    if (completedAttempts.length === 0) {
+      return {
+        completedCount: 0,
+        averageAccuracy: 78,
+        totalQuestionsAnswered: 0,
+      };
+    }
+    const totalAcc = completedAttempts.reduce((sum, a) => sum + (a.accuracy || 0), 0);
+    const avgAcc = Math.round(totalAcc / completedAttempts.length);
+    const totalQs = completedAttempts.reduce(
+      (sum, a) => sum + (a.correctCount || 0) + (a.wrongCount || 0),
+      0
+    );
+    return {
+      completedCount: completedAttempts.length,
+      averageAccuracy: avgAcc,
+      totalQuestionsAnswered: totalQs,
+    };
+  }, [completedAttempts]);
+
+  // 4. Dynamic Popular Test Series Cards
+  const { data: popularTestSeriesCards = [] } = useQuery<PopularTestSeriesCard[]>({
+    queryKey: ['popular-test-series-showcase'],
+    queryFn: () => api.getPopularTestSeriesCards(),
     staleTime: 60000,
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
   });
 
-  // 5. Popular Test Series from the published catalog
-  const { data: studentSeries = [] } = useQuery({
-    queryKey: ['student-test-series'],
-    queryFn: () => api.getStudentTestSeries(),
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
+  // Leaderboard data
+  const { data: leaderboardRows = [] } = useQuery({
+    queryKey: ['home-leaderboard'],
+    queryFn: () => api.getAppLeaderboard('west_bengal'),
+    staleTime: 60000,
   });
-
-  // Real-time synchronization
-  useEffect(() => {
-    const unsubscribeBanners = bannerService.subscribeToBannerUpdates(() => {
-      queryClient.invalidateQueries({ queryKey: ['hero-banners'] });
-      queryClient.refetchQueries({ queryKey: ['hero-banners'] });
-    });
-    const unsubscribeLiveTests =
-      typeof api.subscribeToLiveTestUpdates === 'function'
-        ? api.subscribeToLiveTestUpdates(() => {
-            queryClient.invalidateQueries({ queryKey: ['active-live-test'] });
-            queryClient.refetchQueries({ queryKey: ['active-live-test'] });
-          })
-        : () => {};
-    const unsubscribeCatalog = api.subscribeToStudentCatalogUpdates(() => {
-      queryClient.invalidateQueries({ queryKey: ['student-test-series'] });
-    });
-    const unsubscribePopularExams = api.subscribeToPopularExamUpdates(() => {
-      queryClient.invalidateQueries({ queryKey: ['popular-exams'] });
-    });
-
-    const handleExamsUpdated = () => {
-      queryClient.invalidateQueries({ queryKey: ['popular-exams'] });
-      queryClient.refetchQueries({ queryKey: ['popular-exams'] });
-    };
-    window.addEventListener('practicekoro:exams_updated', handleExamsUpdated);
-
-    return () => {
-      unsubscribeBanners();
-      unsubscribeLiveTests();
-      unsubscribeCatalog();
-      unsubscribePopularExams();
-      window.removeEventListener('practicekoro:exams_updated', handleExamsUpdated);
-    };
-  }, [queryClient]);
 
   // Live test countdown calculation
   const liveStartAt = activeLiveTest?.startAt || activeLiveTest?.scheduledStartTime;
@@ -167,140 +157,212 @@ export const Home: React.FC = () => {
     setCurrentSlide((prev) => (prev + 1) % banners.length);
   };
 
-  // 4 Core Practice Action Cards (Compact, tactile tiles)
+  // 4 Core Practice Action Tiles
   const coreCards = [
     {
-      title: 'Audio Book',
-      subtitle: 'Listen & Learn',
+      title: 'Audio Books',
+      subtitle: 'Listen & Learn Syllabus',
       route: '/audio-books',
-      shadowColor: 'rgba(0, 91, 212, 0.18)',
-      arrowColor: '#0052D4',
-      gradient: 'from-[#00A2FF] to-[#0052D4]',
       icon: Headphones,
+      badge: 'New',
+      badgeColor: 'bg-blue-50 text-[#026BFC] border-blue-200',
     },
     {
       title: 'Saved Questions',
-      subtitle: 'Bookmarks',
+      subtitle: 'High-Yield Bookmarks',
       route: '/saved-questions',
-      shadowColor: 'rgba(5, 150, 105, 0.18)',
-      arrowColor: '#059669',
-      gradient: 'from-[#2DD878] to-[#059669]',
       icon: Bookmark,
+      badge: 'Revision',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
     {
-      title: 'Rank',
-      subtitle: 'Leaderboard',
+      title: 'State Leaderboard',
+      subtitle: 'All-Bengal Ranking',
       route: '/rank',
-      shadowColor: 'rgba(249, 115, 22, 0.18)',
-      arrowColor: '#EA580C',
-      gradient: 'from-[#FBBF24] via-[#F97316] to-[#EA580C]',
       icon: Trophy,
+      badge: 'Top 100',
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
-      title: 'Live Tests',
-      subtitle: 'Compete Live',
-      route: activeLiveTest?.testId ? `/live-test/${activeLiveTest.testId}` : '/live-test',
-      shadowColor: 'rgba(225, 29, 72, 0.18)',
-      arrowColor: '#BE123C',
-      gradient: 'from-[#FB7185] via-[#E11D48] to-[#BE123C]',
-      icon: Radio,
+      title: 'Topic Practice',
+      subtitle: 'Speed & Accuracy Drills',
+      route: '/practice',
+      icon: Zap,
+      badge: 'Daily',
+      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
     },
   ];
 
-  // Popular Exams sorted
-  const popularExams = useMemo(() => {
-    return popularExamsCards
+  // Popular Test Series sorted
+  const popularSeries = useMemo(() => {
+    const active = popularTestSeriesCards
       .filter((card) => card.isActive !== false)
       .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-  }, [popularExamsCards]);
 
-  // Popular Test Series with themed styling
-  const seriesThemes = [
-    { badge: '🔥 Bestseller', badgeBg: 'bg-[#FFEDD5] text-[#C2410C]', bgImage: '/images/series_wbp_bg.png', emblem: '/images/exams/emblem_series_wbp.png', arrowColor: '#0877FF' },
-    { badge: '⭐ Popular', badgeBg: 'bg-[#FEF3C7] text-[#B45309]', bgImage: '/images/series_kp_bg.png', emblem: '/images/exams/emblem_series_kp.png', arrowColor: '#7C3AED' },
-    { badge: '🔥 Hot Series', badgeBg: 'bg-[#FFEDD5] text-[#C2410C]', bgImage: '/images/series_ssc_bg.png', emblem: '/images/exams/emblem_series_ssc.png', arrowColor: '#EA580C' },
-  ];
-  const popularSeries = studentSeries
-    .filter((series) => series.isPopular)
-    .slice(0, 3)
-    .map((series, index) => ({
-      ...seriesThemes[index % seriesThemes.length],
-      title: series.title,
-      subtitle: series.description || series.examTitle || 'Mock Tests & Solutions',
-      route: `/test-series/${series.id}`,
-    }));
+    if (active.length > 0) return active;
 
-  // Continue Practice Items
-  const practiceItems = useMemo(() => {
-    if (!inProgressAttempt) return [];
-    const answered = (inProgressAttempt.correctCount || 0) + (inProgressAttempt.wrongCount || 0);
-    const total = Math.max(answered, inProgressAttempt.totalQuestions || 0);
-    const progress = total > 0 ? Math.min(1, answered / total) : 0;
-    return [{
-      examBadge: selectedExam?.title?.replace(/ 202\d/, '') || 'Active Exam',
-      examColor: '#0066FF',
-      badgeBg: '#E0EDFF',
-      testName: inProgressAttempt.testTitle || 'Test in progress',
-      completedQuestions: answered,
-      totalQuestions: total,
-      progressPercent: progress,
-      emblem: '/images/exams/emblem_series_wbp.png',
-      route: `/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`,
-    }];
-  }, [inProgressAttempt, selectedExam]);
+    return [
+      {
+        id: 'wbp-constable',
+        title: 'WBP Constable',
+        badgeText: 'Most Popular',
+        fullMockCount: 12,
+        topicTestCount: 48,
+        pyqTestCount: 15,
+        route: '/test-series?exam=wbp-constable&title=WBP%20Constable',
+        cardLogoUrl: '/images/exams/emblem_series_wbp.png',
+      },
+      {
+        id: 'railway-ntpc',
+        title: 'Railway (NTPC)',
+        badgeText: 'Trending Now',
+        fullMockCount: 15,
+        topicTestCount: 60,
+        pyqTestCount: 25,
+        route: '/test-series?exam=railway-ntpc&title=Railway%20NTPC',
+        cardLogoUrl: '/images/exams/logo_railway.png',
+      },
+      {
+        id: 'ssc-mts',
+        title: 'SSC MTS',
+        badgeText: undefined,
+        fullMockCount: 18,
+        topicTestCount: 32,
+        pyqTestCount: 14,
+        route: '/test-series?exam=ssc-mts&title=SSC%20MTS',
+        cardLogoUrl: '/images/exams/emblem_series_ssc.png',
+      },
+      {
+        id: 'wbssc-group-c',
+        title: 'WBSSC Group C',
+        badgeText: undefined,
+        fullMockCount: 10,
+        topicTestCount: 35,
+        pyqTestCount: 12,
+        route: '/test-series?exam=wbssc-group-c&title=WBSSC%20Group%20C',
+        cardLogoUrl: '/images/exams/emblem_wbssc.png',
+      },
+    ] as PopularTestSeriesCard[];
+  }, [popularTestSeriesCards]);
 
-  // Leaderboard data
-  const { data: leaderboardRows = [] } = useQuery({
-    queryKey: ['home-leaderboard'],
-    queryFn: () => api.getAppLeaderboard('west_bengal'),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    retry: 1,
-  });
-
-  const { data: dailyContent = {} } = useQuery({
-    queryKey: ['student-daily-content'],
-    queryFn: () => api.getDailyContent(),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    retry: 1,
-  });
-
-  const performerThemes = [
-    { rankColor: '#F59E0B', badgeColor: 'bg-amber-100 text-amber-800' },
-    { rankColor: '#0066FF', badgeColor: 'bg-blue-100 text-blue-800' },
-    { rankColor: '#EA580C', badgeColor: 'bg-orange-100 text-orange-800' },
-    { rankColor: '#059669', badgeColor: 'bg-emerald-100 text-emerald-800' },
-  ];
-
-  const topPerformers = leaderboardRows.slice(0, 4).map((row, index) => ({
+  const topPerformers = leaderboardRows.slice(0, 4).map((row) => ({
     rank: Number(row.rank),
     name: row.display_name,
     score: `${Math.round(Number(row.average_percentage) || 0)}%`,
-    exam: 'West Bengal',
     testsAttempted: `${Number(row.tests_count) || 0} Tests`,
     avatar: '/images/student_avatar.png',
-    badge: `/images/performer_badge_${index + 1}.png`,
-    ...performerThemes[index % performerThemes.length],
   }));
 
-  // Dynamic Current Date for Today's Info
-  const todayDateString = useMemo(() => {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${day} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  }, []);
-
   return (
-    <div className="space-y-4 sm:space-y-4.5 select-none pb-10 max-w-6xl mx-auto">
+    <div className="w-full space-y-5 select-none pb-12">
       {/* ========================================================================= */}
-      {/* HERO BANNER (Compact, letterbox aspect ratio)                             */}
+      {/* 1. EXECUTIVE DASHBOARD HEADER                                              */}
       {/* ========================================================================= */}
-      <section className="relative w-full rounded-2xl overflow-hidden shadow-2xs border border-slate-200/80 dark:border-slate-800 bg-[#D9EEFF] dark:bg-slate-900 group select-none">
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Welcome back,
+          </span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <h1 className="text-xl sm:text-2xl font-black text-[#051A43] dark:text-white tracking-tight">
+              {user?.fullName?.split(' ')[0] || 'Susanta'} 👋
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EFF6FF] text-[#026BFC] border border-[#DBEAFE] dark:bg-blue-950/40 dark:border-blue-800">
+              <Sparkles className="w-3 h-3 text-[#026BFC]" />
+              {selectedExam?.title || 'WBP Constable'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+            Target Goal: 1 Full Mock & 20 Topic Practice Questions today.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/test-series"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#026BFC] hover:text-[#026BFC] transition-colors shadow-2xs"
+          >
+            <span>Change Target Exam</span>
+          </Link>
+          <Link
+            to="/subscription"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#026BFC] hover:bg-[#0256CA] text-white text-xs font-bold transition-all shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isPro ? 'Pro Active' : 'Upgrade to Pro'}</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 2. PRIMARY ACTION FOCUS CARD: WHAT SHOULD I DO NEXT?                     */}
+      {/* ========================================================================= */}
+      <section>
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EFF6FF] text-[#026BFC] border border-blue-200 text-[11px] font-bold">
+              <Target className="w-3 h-3" />
+              <span>Recommended Next Step</span>
+            </div>
+
+            <h2 className="text-base sm:text-lg font-black text-[#051A43] dark:text-white tracking-tight">
+              {inProgressAttempt
+                ? `Resume: ${inProgressAttempt.testTitle || 'Test in Progress'}`
+                : `${selectedExam?.title || 'WBP Constable'} Official Mock Test #03`}
+            </h2>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              {inProgressAttempt
+                ? 'You have an incomplete test attempt. Complete it now to receive your statewide rank and performance analysis.'
+                : 'Based on your recent syllabus coverage, attempting this full mock test will strengthen your exam readiness and timing.'}
+            </p>
+
+            <div className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300 pt-1">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                60 Mins
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                85 Marks
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                Instant Solutions
+              </span>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2">
+            <Link
+              to={
+                inProgressAttempt
+                  ? `/exams/${inProgressAttempt.testId}/runner?attemptId=${inProgressAttempt.id}`
+                  : '/test-series'
+              }
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#026BFC] hover:bg-[#0256CA] text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95"
+            >
+              <span>{inProgressAttempt ? 'Resume Test Now' : 'Start Mock Test'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/practice"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors border border-slate-200/60 dark:border-slate-700"
+            >
+              <span>Practice by Chapter</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. PROMOTIONAL HERO BANNER (Directly after Focus Section)                 */}
+      {/* ========================================================================= */}
+      <section className="relative w-full rounded-xl overflow-hidden shadow-2xs border border-slate-200 dark:border-slate-800 bg-[#D9EEFF] dark:bg-slate-900 group select-none">
         <div
-          className="relative w-full h-36 sm:h-44 md:h-48 lg:h-52 cursor-pointer"
+          className="relative w-full h-32 sm:h-40 md:h-44 cursor-pointer"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           onClick={() => {
@@ -310,10 +372,10 @@ export const Home: React.FC = () => {
               if (b.primaryCtaLink?.startsWith('http')) {
                 window.open(b.primaryCtaLink, '_blank');
               } else {
-                navigate(b.primaryCtaLink || '/practice');
+                navigate(b.primaryCtaLink || '/test-series');
               }
             } else {
-              navigate('/practice');
+              navigate('/test-series');
             }
           }}
         >
@@ -326,7 +388,6 @@ export const Home: React.FC = () => {
             }}
           />
 
-          {/* Navigation Chevrons on Hover */}
           {banners.length > 1 && (
             <>
               <button
@@ -335,7 +396,7 @@ export const Home: React.FC = () => {
                   e.stopPropagation();
                   prevSlide();
                 }}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-white shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs z-20"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-white shadow-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs z-20"
                 aria-label="Previous slide"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -346,14 +407,13 @@ export const Home: React.FC = () => {
                   e.stopPropagation();
                   nextSlide();
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-white shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs z-20"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-white shadow-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs z-20"
                 aria-label="Next slide"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
 
-              {/* Pagination Dots */}
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/50 backdrop-blur-xs z-20">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/60 backdrop-blur-xs z-20">
                 {banners.map((_, idx) => (
                   <button
                     key={idx}
@@ -363,8 +423,8 @@ export const Home: React.FC = () => {
                       setCurrentSlide(idx);
                     }}
                     className={cn(
-                      'h-1.5 rounded-full transition-all cursor-pointer',
-                      currentSlide === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
+                      'h-1 rounded-full transition-all cursor-pointer',
+                      currentSlide === idx ? 'w-3.5 bg-white' : 'w-1 bg-white/50 hover:bg-white/80'
                     )}
                     aria-label={`Go to slide ${idx + 1}`}
                   />
@@ -376,500 +436,414 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. 4 CORE PRACTICE ACTION CARDS (Sleek, compact, tactile tiles)            */}
+      {/* 4. LIVE TEST STRIP (Directly after Banner)                                */}
       {/* ========================================================================= */}
-      <section>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-          {coreCards.map((card, idx) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={idx}
-                to={card.route}
-                className="relative rounded-xl sm:rounded-2xl overflow-hidden group shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 block"
-                style={{
-                  boxShadow: `0 4px 12px ${card.shadowColor}`,
-                }}
-              >
-                <div
-                  className={cn(
-                    'relative w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-br flex flex-col justify-between p-3 sm:p-3.5 text-white overflow-hidden min-h-[82px] sm:min-h-[92px]',
-                    card.gradient
-                  )}
-                >
-                  {/* Subtle watermark */}
-                  <div className="absolute -right-1 -bottom-1 opacity-15 pointer-events-none text-white">
-                    <Icon className="w-12 h-12" />
-                  </div>
+      <section className="relative overflow-hidden rounded-xl border border-rose-200 dark:border-rose-900/60 bg-gradient-to-r from-rose-50/60 via-white to-rose-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-rose-950/20 p-3.5 text-slate-900 dark:text-white shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative shrink-0 w-10 h-10 rounded-lg bg-white shadow-2xs border border-rose-200 dark:border-rose-900/40 flex items-center justify-center overflow-hidden p-1">
+            <img
+              src={activeLiveTest?.logo || activeLiveTest?.examLogo || '/images/exams/logo_wbp.png'}
+              alt={activeLiveTest?.title || 'Live Test Exam'}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/images/exams/logo_wbp.png';
+              }}
+            />
+          </div>
 
-                  {/* Top row: Icon + Arrow */}
-                  <div className="flex items-center justify-between z-10">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/95 text-[#0B1F5B] flex items-center justify-center shadow-2xs">
-                      <Icon
-                        className="w-4 h-4 sm:w-4.5 sm:h-4.5"
-                        style={{ color: card.arrowColor }}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-black uppercase tracking-wider">
+                <Radio className="w-2.5 h-2.5 animate-pulse" /> LIVE NOW
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold truncate">
+                {formattedLiveDate || 'Scheduled Today • 8:00 PM'}
+              </span>
+            </div>
+            <h3 className="text-xs sm:text-sm font-black text-[#051A43] dark:text-white tracking-tight truncate mt-0.5">
+              {activeLiveTest?.title || 'WBP Constable Mega Live Mock #1'}
+            </h3>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+          <div className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
+              {countdownDays}d
+            </span>
+            <span className="text-slate-400">:</span>
+            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
+              {countdownHours}h
+            </span>
+            <span className="text-slate-400">:</span>
+            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
+              {countdownMinutes}m
+            </span>
+          </div>
+
+          <Link
+            to={activeLiveTest?.testId ? `/live-test/${activeLiveTest.testId}` : '/test-series'}
+            className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+          >
+            <span>Join Live Test</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 5. 4 REVISION & ACTION TILES                                              */}
+      {/* ========================================================================= */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {coreCards.map((card, idx) => {
+          const Icon = card.icon;
+          return (
+            <Link
+              key={idx}
+              to={card.route}
+              className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs hover:border-[#026BFC]/60 transition-all duration-150 flex flex-col justify-between group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#026BFC] flex items-center justify-center group-hover:bg-[#026BFC] group-hover:text-white transition-colors">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-bold border', card.badgeColor)}>
+                  {card.badge}
+                </span>
+              </div>
+
+              <div className="mt-2.5">
+                <h3 className="text-xs sm:text-sm font-bold text-[#051A43] dark:text-white tracking-tight truncate">
+                  {card.title}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                  {card.subtitle}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 6. MY PERFORMANCE SUMMARY: HOW AM I PERFORMING?                           */}
+      {/* ========================================================================= */}
+      <section className="p-4 sm:p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+        <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-[#026BFC]" />
+            <h2 className="text-xs sm:text-sm font-black text-[#051A43] dark:text-white tracking-tight">
+              My Preparation Performance
+            </h2>
+          </div>
+          <Link
+            to="/results"
+            className="text-xs font-bold text-[#026BFC] hover:underline flex items-center gap-1"
+          >
+            <span>Detailed Analytics</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+              Tests Attempted
+            </span>
+            <span className="text-lg sm:text-xl font-black text-[#051A43] dark:text-white mt-0.5 block">
+              {performanceStats.completedCount} / 50 Tests
+            </span>
+            <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-2 overflow-hidden">
+              <div
+                className="h-full bg-[#026BFC] rounded-full"
+                style={{ width: `${Math.min(100, (performanceStats.completedCount / 50) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+              Average Accuracy
+            </span>
+            <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+              {performanceStats.averageAccuracy}%
+            </span>
+            <span className="text-[10px] font-medium text-slate-400 mt-1 block">
+              Target benchmark: &gt;80%
+            </span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+              Questions Solved
+            </span>
+            <span className="text-lg sm:text-xl font-black text-[#051A43] dark:text-white mt-0.5 block">
+              {performanceStats.totalQuestionsAnswered} Questions
+            </span>
+            <span className="text-[10px] font-medium text-slate-400 mt-1 block">
+              Across all topics & mocks
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 7. POPULAR TEST SERIES: HORIZONTAL CAROUSEL (media_1791277830724.png)     */}
+      {/* ========================================================================= */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500 fill-orange-500 shrink-0" />
+            <h2 className="text-sm sm:text-base font-black tracking-tight text-[#0F172A] dark:text-white">
+              Popular <span className="text-[#026BFC]">Test Series</span>
+            </h2>
+          </div>
+          <Link
+            to="/test-series"
+            className="text-xs font-bold text-[#026BFC] hover:underline flex items-center gap-0.5"
+          >
+            <span>View All</span>
+            <span className="text-sm">→</span>
+          </Link>
+        </div>
+
+        {/* Responsive Single Horizontal Carousel */}
+        <div className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-3 px-3 sm:mx-0 sm:px-0">
+          {popularSeries.map((series) => {
+            const targetId = series.testSeriesId || series.id;
+            const title = series.title || 'Mock Test Series';
+            const tLower = title.toLowerCase();
+
+            // Card styling themes matching media_1791277830724.png
+            let gradient = 'bg-gradient-to-br from-[#065F46] to-[#022C22]';
+            let borderColor = 'border-[#047857]';
+            let bgAsset = '/images/exams/bg_wbpsc.png';
+            let emblemAsset = series.cardLogoUrl || '/images/exams/emblem_wbssc.png';
+            let chevronColor = 'text-[#10B981]';
+            let isDark = true;
+            let badgeText = series.badgeText;
+            let badgeBg = 'bg-black/35 text-[#6EE7B7]';
+
+            if (tLower.includes('wbp') || tLower.includes('police') || tLower.includes('constable')) {
+              gradient = 'bg-gradient-to-br from-[#0052D4] to-[#0A2E6E]';
+              borderColor = 'border-[#1E40AF]';
+              bgAsset = '/images/exams/bg_wbp.png';
+              emblemAsset = series.cardLogoUrl || '/images/exams/emblem_series_wbp.png';
+              chevronColor = 'text-[#0052D4]';
+              isDark = true;
+              badgeText = badgeText || 'Most Popular';
+              badgeBg = 'bg-black/35 text-amber-300';
+            } else if (tLower.includes('railway') || tLower.includes('ntpc') || tLower.includes('rrb')) {
+              gradient = 'bg-gradient-to-br from-[#7F1D1D] to-[#450A0A]';
+              borderColor = 'border-[#991B1B]';
+              bgAsset = '/images/exams/bg_railway.png';
+              emblemAsset = series.cardLogoUrl || '/images/exams/logo_railway.png';
+              chevronColor = 'text-[#DC2626]';
+              isDark = true;
+              badgeText = badgeText || 'Trending Now';
+              badgeBg = 'bg-black/35 text-rose-200';
+            } else if (tLower.includes('ssc') || tLower.includes('mts')) {
+              gradient = 'bg-gradient-to-br from-[#FFF4DC] to-[#FCE39E]';
+              borderColor = 'border-[#FDE68A]';
+              bgAsset = '/images/exams/bg_ssc.png';
+              emblemAsset = series.cardLogoUrl || '/images/exams/emblem_series_ssc.png';
+              chevronColor = 'text-[#D97706]';
+              isDark = false;
+              badgeBg = 'bg-amber-100 text-amber-800';
+            }
+
+            const fullMocks = series.fullMockCount ?? 12;
+            const topicTests = series.topicTestCount ?? 48;
+            const pyqTests = series.pyqTestCount ?? 15;
+
+            return (
+              <div
+                key={series.id}
+                onClick={() => {
+                  if (series.route) {
+                    navigate(series.route);
+                  } else {
+                    navigate(`/test-series/${targetId}`);
+                  }
+                }}
+                className={cn(
+                  'relative shrink-0 snap-start rounded-2xl border p-2.5 sm:p-3 cursor-pointer shadow-sm overflow-hidden transition-transform duration-150 active:scale-[0.98] select-none',
+                  'w-[calc(50vw-22px)] min-w-[172px] max-w-[210px] sm:w-[220px] sm:min-w-[220px] md:w-[245px] md:min-w-[245px] lg:w-[260px] lg:min-w-[260px]',
+                  'h-[128px] sm:h-[132px] flex flex-col justify-between',
+                  gradient,
+                  borderColor
+                )}
+              >
+                {/* Background artwork on right side with soft fade */}
+                <div
+                  className="absolute right-0 top-0 bottom-0 w-[55%] pointer-events-none opacity-60 mix-blend-screen bg-cover bg-no-repeat bg-right"
+                  style={{
+                    backgroundImage: `url(${bgAsset})`,
+                    maskImage: 'linear-gradient(to left, black 40%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to left, black 40%, transparent 100%)',
+                  }}
+                />
+
+                {/* Top Row: Emblem + Title & Badge + Chevron Button */}
+                <div className="relative z-10 flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div
+                      className={cn(
+                        'w-8 h-8 rounded-lg p-1 shrink-0 flex items-center justify-center',
+                        isDark ? 'bg-white/15' : 'bg-white/70'
+                      )}
+                    >
+                      <img
+                        src={emblemAsset}
+                        alt=""
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = '/logo-icon.png';
+                        }}
                       />
                     </div>
-
-                    <div
-                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/90 group-hover:bg-white flex items-center justify-center shadow-2xs group-hover:translate-x-0.5 transition-transform"
-                      style={{ color: card.arrowColor }}
-                    >
-                      <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
+                    <div className="min-w-0">
+                      {badgeText && (
+                        <span
+                          className={cn(
+                            'inline-block px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-black uppercase tracking-wider leading-tight mb-0.5',
+                            badgeBg
+                          )}
+                        >
+                          {badgeText}
+                        </span>
+                      )}
+                      <h3
+                        className={cn(
+                          'text-xs sm:text-[13px] font-black truncate leading-tight',
+                          isDark ? 'text-white' : 'text-slate-900'
+                        )}
+                      >
+                        {title}
+                      </h3>
                     </div>
                   </div>
 
-                  {/* Bottom: Title + Subtitle */}
-                  <div className="z-10 mt-2">
-                    <h3 className="text-xs sm:text-sm font-black tracking-tight leading-tight text-white drop-shadow-2xs truncate">
-                      {card.title}
-                    </h3>
-                    <p className="text-[10px] sm:text-[11px] text-white/90 font-medium leading-tight mt-0.5 truncate">
-                      {card.subtitle}
-                    </p>
+                  {/* Circular Chevron Arrow Button */}
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white shadow-xs shrink-0 flex items-center justify-center">
+                    <ChevronRight className={cn('w-3.5 h-3.5 stroke-[2.5]', chevronColor)} />
                   </div>
                 </div>
-              </Link>
+
+                {/* Bottom Translucent Stats Strip */}
+                <div
+                  className={cn(
+                    'relative z-10 rounded-lg px-1.5 py-1 flex items-center justify-between text-center',
+                    isDark ? 'bg-black/40 text-white' : 'bg-white/75 text-slate-800'
+                  )}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <FileText className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                      <span className="text-[11px] font-black leading-none">{fullMocks}</span>
+                    </div>
+                    <span className="text-[8px] font-bold text-slate-400 block truncate leading-tight mt-0.5">
+                      Full Mocks
+                    </span>
+                  </div>
+
+                  <div className="w-px h-3.5 bg-slate-400/25" />
+
+                  <div className="flex-1">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <Layers className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px] font-black leading-none">{topicTests}</span>
+                    </div>
+                    <span className="text-[8px] font-bold text-slate-400 block truncate leading-tight mt-0.5">
+                      Topic Tests
+                    </span>
+                  </div>
+
+                  <div className="w-px h-3.5 bg-slate-400/25" />
+
+                  <div className="flex-1">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <Award className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                      <span className="text-[11px] font-black leading-none">{pyqTests}</span>
+                    </div>
+                    <span className="text-[8px] font-bold text-slate-400 block truncate leading-tight mt-0.5">
+                      Official PYQs
+                    </span>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. LIVE TEST STRIP (Sleek, compact inline banner)                         */}
+      {/* 8. STATEWIDE TOP PERFORMERS & DAILY STUDY TIP                             */}
       {/* ========================================================================= */}
-      {activeLiveTest && (
-        <section className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-blue-100 dark:border-blue-950/60 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/20 p-3 sm:p-3.5 text-slate-900 dark:text-white shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Left: Logo + Info */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative shrink-0 w-11 h-11 rounded-full p-0.5 bg-white shadow-xs border border-blue-100 flex items-center justify-center overflow-hidden">
-              <img
-                src={activeLiveTest?.logo || activeLiveTest?.examLogo || '/images/exams/logo_wbp.png'}
-                alt={activeLiveTest?.title || 'Live Test Exam'}
-                className="w-full h-full object-contain rounded-full"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/exams/logo_wbp.png';
-                }}
-              />
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-black uppercase tracking-wider">
-                  <Radio className="w-2.5 h-2.5 animate-pulse" /> LIVE
-                </span>
-                <span className="text-xs text-[#5B6E88] dark:text-slate-400 font-semibold truncate">
-                  {formattedLiveDate || 'Starts Soon'}
-                </span>
-              </div>
-              <h3 className="text-xs sm:text-sm font-black text-[#07194A] dark:text-white tracking-tight truncate mt-0.5">
-                {activeLiveTest?.title || 'All-Bengal Live Mock Test'}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {/* Top Performers */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <h3 className="text-xs sm:text-sm font-bold text-[#051A43] dark:text-white">
+                West Bengal Leaderboard
               </h3>
             </div>
-          </div>
-
-          {/* Right: Countdown + CTA */}
-          <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-            {/* Inline Countdown Pills */}
-            <div className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
-              <span className="px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
-                {countdownDays}d
-              </span>
-              <span className="text-slate-400">:</span>
-              <span className="px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
-                {countdownHours}h
-              </span>
-              <span className="text-slate-400">:</span>
-              <span className="px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black">
-                {countdownMinutes}m
-              </span>
-            </div>
-
-            <Link
-              to={activeLiveTest?.testId ? `/live-test/${activeLiveTest.testId}` : '/live-test'}
-              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#0877FF] hover:bg-[#0066FF] text-white text-xs font-extrabold shadow-xs active:scale-95 transition-all"
-            >
-              <span>Join</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+            <Link to="/rank" className="text-xs font-bold text-[#026BFC] hover:underline">
+              View All
             </Link>
           </div>
-        </section>
-      )}
 
-      {/* ========================================================================= */}
-      {/* 5. POPULAR EXAMS SECTION (Compact 4-Card Grid)                            */}
-      {/* ========================================================================= */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-base select-none">🔥</span>
-            <h2 className="text-sm sm:text-base font-black text-[#0F172A] dark:text-white tracking-tight">
-              Popular Exams
-            </h2>
-          </div>
-          <Link
-            to="/test-series"
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#2563EB] hover:underline"
-          >
-            <span>See All</span>
-            <ChevronRight className="w-3 h-3 stroke-[2.5]" />
-          </Link>
-        </div>
-
-        {/* Compact Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
-          {popularExams.slice(0, 4).map((exam) => (
-            <Link
-              key={exam.id}
-              to={exam.route || (exam.slug || exam.examId ? `/exams/${exam.slug || exam.examId}` : '/test-series')}
-              className="relative block h-28 sm:h-32 rounded-xl sm:rounded-2xl overflow-hidden hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group select-none shadow-2xs hover:shadow-md"
-              style={{
-                background: `linear-gradient(135deg, ${exam.cardGradientStart || '#0084FF'}, ${exam.cardGradientEnd || '#0048C6'})`,
-              }}
-            >
-              {exam.cardBgImage && (
-                <img
-                  src={exam.cardBgImage}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              )}
-              {/* Overlay */}
+          <div className="grid grid-cols-2 gap-2">
+            {topPerformers.map((p) => (
               <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: `linear-gradient(180deg, transparent 0%, transparent 20%, ${exam.cardGradientStart || '#0084FF'}99 55%, ${exam.cardGradientEnd || '#0048C6'}fb 100%)`,
-                }}
-              />
-
-              {/* Upper-Center Emblem */}
-              <div className="absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-none">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center p-1 backdrop-blur-xs border border-white/50 bg-white/20 shadow-xs">
-                  {exam.cardEmblemUrl ? (
-                    <img
-                      src={exam.cardEmblemUrl}
-                      alt={exam.title}
-                      className="w-full h-full object-contain filter drop-shadow-xs"
-                    />
-                  ) : (
-                    <Sparkles className="w-4 h-4 text-white" />
-                  )}
-                </div>
-              </div>
-
-              {/* Exam Title */}
-              <div className="absolute left-3 right-3 bottom-7 pointer-events-none">
-                <h3 className="text-xs sm:text-sm font-black tracking-tight leading-tight text-white truncate drop-shadow-xs">
-                  {exam.title}
-                </h3>
-              </div>
-
-              {/* Bottom Row */}
-              <div className="absolute left-3 right-3 bottom-2 flex items-center justify-between pointer-events-none">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white/95 drop-shadow-2xs truncate">
-                  {exam.testsCount || exam.cardBadge || '100+ Tests'}
+                key={p.rank}
+                className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2"
+              >
+                <span className="w-5 h-5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold text-xs flex items-center justify-center shrink-0">
+                  {p.rank}
                 </span>
-                <div
-                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform pointer-events-auto shrink-0"
-                  style={{ color: exam.cardArrowColor || exam.cardGradientStart || '#0877FF' }}
-                >
-                  <ArrowRight className="w-3 h-3 stroke-[2.5]" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. POPULAR TEST SERIES SECTION (Compact 3-Card Grid)                      */}
-      {/* ========================================================================= */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-base select-none">👑</span>
-            <h2 className="text-sm sm:text-base font-black text-[#0B1F5B] dark:text-white tracking-tight">
-              Popular Test Series
-            </h2>
-          </div>
-          <Link
-            to="/test-series"
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#0877FF] hover:underline"
-          >
-            <span>See All</span>
-            <ChevronRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {popularSeries.map((series, idx) => (
-            <Link
-              key={idx}
-              to={series.route}
-              className="relative p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between gap-3 overflow-hidden group"
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                {/* Emblem */}
-                <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800 p-0.5">
-                  <img
-                    src={series.emblem}
-                    alt=""
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                  />
-                </div>
-
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <span
-                    className={cn(
-                      'inline-block px-1.5 py-0.2 rounded text-[9px] font-black tracking-tight mb-0.5',
-                      series.badgeBg
-                    )}
-                  >
-                    {series.badge}
-                  </span>
-                  <h4 className="text-xs sm:text-sm font-bold text-[#0B1F5B] dark:text-white leading-tight truncate">
-                    {series.title}
-                  </h4>
-                  <p className="text-[10.5px] font-medium text-[#5B6B86] dark:text-slate-400 mt-0.5 truncate">
-                    {series.subtitle}
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {p.name}
                   </p>
+                  <p className="text-[10px] text-slate-500 font-semibold">{p.score}</p>
                 </div>
-              </div>
-
-              {/* Arrow */}
-              <div
-                className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 shadow-2xs flex items-center justify-center shrink-0 group-hover:bg-[#0877FF] group-hover:text-white transition-colors"
-                style={{ color: series.arrowColor }}
-              >
-                <ArrowRight className="w-3 h-3" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 7. CONTINUE PRACTICE (Compact progress item)                              */}
-      {/* ========================================================================= */}
-      {practiceItems.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-2xs">
-                <Play className="w-2.5 h-2.5 fill-white ml-0.5" />
-              </div>
-              <h2 className="text-sm sm:text-base font-black text-[#0B1F5B] dark:text-white tracking-tight">
-                Continue Practice
-              </h2>
-            </div>
-            <Link
-              to="/practice"
-              className="inline-flex items-center gap-1 text-xs font-bold text-[#0877FF] hover:underline"
-            >
-              <span>See All</span>
-              <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {practiceItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-xl border border-blue-100 dark:border-slate-800 bg-blue-50/50 dark:bg-slate-900 shadow-2xs flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-700">
-                      {item.examBadge}
-                    </span>
-                    <h4 className="text-xs sm:text-sm font-bold text-[#0B1F5B] dark:text-white truncate">
-                      {item.testName}
-                    </h4>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                      <div
-                        className="h-full bg-[#0877FF] rounded-full"
-                        style={{ width: `${Math.round(item.progressPercent * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                      {item.completedQuestions}/{item.totalQuestions}
-                    </span>
-                  </div>
-                </div>
-
-                <Link
-                  to={item.route}
-                  className="px-3 py-1.5 rounded-lg bg-[#0877FF] hover:bg-[#0066FF] text-white text-xs font-bold shrink-0 transition-colors"
-                >
-                  Resume
-                </Link>
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 8. TOP PERFORMERS (Compact 4-Card Grid)                                   */}
-      {/* ========================================================================= */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm sm:text-base font-black text-[#07194A] dark:text-white tracking-tight">
-              Top Performers
-            </h2>
-          </div>
-          <Link
-            to="/rank"
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#0066FF] hover:underline"
-          >
-            <span>Leaderboard</span>
-            <ChevronRight className="w-3 h-3" />
-          </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-          {topPerformers.map((p) => (
-            <div
-              key={p.rank}
-              className="relative rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 sm:p-3 shadow-2xs text-center flex flex-col items-center justify-between min-h-[130px]"
-            >
-              {/* Top-Left Rank badge */}
-              <div className="absolute top-2 left-2 w-5 h-5">
-                <img
-                  src={p.badge}
-                  alt={`Rank ${p.rank}`}
-                  className="w-full h-full object-contain"
-                />
+        {/* Daily Study Tip */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-6 h-6 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
+                💡
               </div>
-
-              {/* Avatar */}
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden border-2 border-white shadow-2xs mt-1">
-                <img
-                  src={p.avatar}
-                  alt={p.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Name + Score */}
-              <div className="w-full mt-1.5">
-                <h4 className="text-xs font-bold text-[#07194A] dark:text-white truncate">
-                  {p.name}
-                </h4>
-                <span
-                  className="text-xs sm:text-sm font-black block"
-                  style={{ color: p.rankColor }}
-                >
-                  {p.score}
-                </span>
-                <span className="text-[9.5px] font-semibold text-slate-400 block truncate">
-                  {p.testsAttempted}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 9. TODAY'S INFO & MOTIVATIONAL QUOTE (Compact 2-Column Grid)              */}
-      {/* ========================================================================= */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-        {/* Today's Info */}
-        <div className="p-3 sm:p-3.5 rounded-xl bg-blue-50/60 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">🌅</span>
-              <h3 className="text-xs sm:text-sm font-black text-[#07194A] dark:text-white">
-                Today's Info
+              <h3 className="text-xs sm:text-sm font-bold text-[#051A43] dark:text-white">
+                Daily Preparation Tip
               </h3>
             </div>
-            <span className="text-[10px] font-bold text-[#0066FF] px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700">
-              {todayDateString}
-            </span>
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed mt-1.5">
+              Focus on negative marking prevention during the first 30 minutes of your mock test. Skip questions with less than 60% certainty and return to them during your second pass.
+            </p>
           </div>
 
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-snug">
-            {String(dailyContent.factText || 'Practice consistent mock tests daily to maintain speed, accuracy, and cut-off confidence.')}
-          </p>
-
-          <div className="mt-2">
-            <Link
-              to="/practice"
-              className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#0066FF] hover:underline"
-            >
-              <BookOpen className="w-3 h-3" />
-              <span>{String(dailyContent.subjectName || dailyContent.factSource || 'General Studies')}</span>
+          <div className="pt-2.5 mt-2.5 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 font-semibold">
+            <span>Accuracy is the key to ranking</span>
+            <Link to="/practice" className="text-[#026BFC] font-bold hover:underline">
+              Practice Now →
             </Link>
           </div>
         </div>
-
-        {/* Motivational Quote */}
-        <div className="p-3 sm:p-3.5 rounded-xl bg-rose-50/60 dark:bg-slate-900 border border-rose-100 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">🎯</span>
-              <h3 className="text-xs sm:text-sm font-black text-[#07194A] dark:text-white">
-                Daily Motivation
-              </h3>
-            </div>
-            <span className="text-[10px] font-bold text-rose-600 px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 border border-rose-100 dark:border-slate-700">
-              {String(dailyContent.targetExam || selectedExam?.title || 'Target Exam')}
-            </span>
-          </div>
-
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 italic leading-snug">
-            “{String(dailyContent.quoteText || 'Success is the sum of small efforts, repeated day in and day out.')}”
-          </p>
-
-          <p className="text-[10.5px] font-bold text-slate-400 mt-2">
-            {dailyContent.quoteAuthor ? `— ${String(dailyContent.quoteAuthor)}` : '— Robert Collier'}
-          </p>
-        </div>
       </section>
 
-      {/* ========================================================================= */}
-      {/* 10. PRO PASS STRIP (Compact for Free Users)                               */}
-      {/* ========================================================================= */}
-      {!isPro && (
-        <section className="rounded-xl bg-gradient-to-r from-[#0B1F44] to-[#0158FC] text-white p-3 sm:p-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 fill-slate-950" />
-            </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-black text-white">
-                Upgrade to <span className="text-amber-300">PracticeKoro Pro</span>
-              </h3>
-              <p className="text-[11px] text-blue-100 font-medium">
-                Get unlimited access to all exams, 120+ mock tests & statewide rankings.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            to="/subscription"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg bg-white hover:bg-blue-50 text-[#0158FC] text-xs font-black shadow-xs shrink-0 transition-colors"
-          >
-            <span>Get Pro</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </section>
+      {/* Onboarding modal */}
+      {isOnboardingOpen && (
+        <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
       )}
-
-      {/* Tour & Onboarding Modal */}
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        onComplete={() => setIsOnboardingOpen(false)}
-      />
     </div>
   );
 };

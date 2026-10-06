@@ -53,7 +53,13 @@ This directory contains the canonical historical Supabase migration files for Pr
 | `041_add_district_to_profiles.sql`                              | Add district field to user profiles                                                                                                |    **PENDING**    |
 | `042_expose_subjects_in_student_rpcs.sql`                       | Restore subject and chapter metadata in student RPCs                                                                               |    **PENDING**    |
 | `043_update_exam_categories.sql`                                | Standardize exam categories to 5 curated categories and purge legacy                                                               |    **PENDING**    |
-| `20260930040017_045_core_exam_scoring_and_series_analytics.sql` | Apply per-test negative marking to the shared grader and add caller-scoped test series analytics                                   |    **PENDING**    |
+| `20261003060135_popular_exam_carousel.sql` | Seed the admin-managed Popular Exam carousel configuration shared by web and Flutter student apps                       |    **APPLIED**    |
+| `20261003060141_filtered_app_leaderboard.sql` | Add exam and date filters to the privacy-masked student leaderboard RPC                                                   |    **APPLIED**    |
+| `20261003061413_admin_managed_live_tests.sql` | Add RLS-protected Admin-managed live events, participation, and series metadata                                            |    **APPLIED**    |
+| `20261003061428_core_exam_scoring_and_series_analytics.sql` | Apply saved test-level scoring and expose caller-scoped series result analytics                              |    **APPLIED**    |
+| `20261003061700_secure_test_series_leaderboard.sql` | Add authenticated, district-filtered test-series ranking from completed attempts with masked student names |    **APPLIED**    |
+| `20261003061839_published_only_test_series_rankings.sql` | Exclude results from tests that admins have unpublished from student rankings |    **APPLIED**    |
+| `20261003062139_popular_exam_image_storage.sql` | Add public card-image delivery with administrator-only upload/delete policies |    **APPLIED**    |
 
 ---
 
