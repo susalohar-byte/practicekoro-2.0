@@ -599,10 +599,13 @@ export async function deleteQuestion(id: string): Promise<boolean> {
   // Delete test_questions assignments first
   await supabase.from('test_questions').delete().eq('question_id', id);
 
-  // Delete question
-  const { error } = await supabase.from('questions').delete().eq('id', id);
+  // Delete question and verify affected row
+  const { data, error } = await supabase.from('questions').delete().eq('id', id).select('id');
   if (error) {
     throw new Error(error.message || 'Failed to delete question from database');
+  }
+  if (!data || data.length === 0) {
+    throw new Error('Question not found or 0 rows deleted');
   }
   return true;
 }
@@ -631,12 +634,53 @@ export async function deleteQuestions(
 
   await supabase.from('test_questions').delete().in('question_id', ids);
 
-  const { error } = await supabase.from('questions').delete().in('id', ids);
+  const { data, error } = await supabase.from('questions').delete().in('id', ids).select('id');
   if (error) {
     throw new Error(error.message || 'Failed to bulk delete questions from database');
   }
+  const deletedCount = data?.length ?? 0;
+  if (deletedCount === 0) {
+    throw new Error('No questions were deleted (0 rows affected)');
+  }
 
-  return { success: true, deletedCount: ids.length };
+  return { success: true, deletedCount };
+}
+
+export async function updateQuestionsStatus(
+  ids: string[],
+  status: 'active' | 'draft' | 'archived'
+): Promise<{ success: boolean; updatedCount: number }> {
+  if (ids.length === 0) return { success: true, updatedCount: 0 };
+  const isActive = status === 'active';
+
+  if (!isSupabaseConfigured) {
+    const idSet = new Set(ids);
+    let count = 0;
+    localQuestions.forEach((q) => {
+      if (idSet.has(q.id)) {
+        q.status = status;
+        q.isActive = isActive;
+        count++;
+      }
+    });
+    return { success: true, updatedCount: count };
+  }
+
+  const { data, error } = await supabase
+    .from('questions')
+    .update({ status, is_active: isActive })
+    .in('id', ids)
+    .select('id');
+
+  if (error) {
+    throw new Error(error.message || 'Failed to update questions status in database');
+  }
+  const updatedCount = data?.length ?? 0;
+  if (updatedCount === 0) {
+    throw new Error('No questions were updated (0 rows affected)');
+  }
+
+  return { success: true, updatedCount };
 }
 
 export async function archiveQuestion(id: string): Promise<boolean> {
@@ -753,6 +797,7 @@ export const adminQuestionsApi = {
   updateQuestion,
   deleteQuestion,
   deleteQuestions,
+  updateQuestionsStatus,
   archiveQuestion,
   uploadQuestionImage,
   uploadUserAvatar,

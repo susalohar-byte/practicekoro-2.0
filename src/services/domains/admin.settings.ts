@@ -173,32 +173,33 @@ export async function updateAppSettings(
     },
   };
 
-  // Always update or insert (upsert) into in-memory localAppSettings
-  updates.forEach((u) => {
-    const parsedVal = parseSettingValue(u.value);
-    const meta = SETTINGS_META[u.id] || {
-      category: 'general',
-      key: u.id,
-      description: 'Platform configuration setting',
-    };
-    const idx = localAppSettings.findIndex((l) => l.id === u.id || l.key === u.id);
-    if (idx >= 0) {
-      localAppSettings[idx] = {
-        ...localAppSettings[idx],
-        value: parsedVal,
-        updatedAt: new Date().toISOString(),
+  const commitToLocalStore = () => {
+    updates.forEach((u) => {
+      const parsedVal = parseSettingValue(u.value);
+      const meta = SETTINGS_META[u.id] || {
+        category: 'general',
+        key: u.id,
+        description: 'Platform configuration setting',
       };
-    } else {
-      localAppSettings.push({
-        id: u.id,
-        category: meta.category,
-        key: meta.key,
-        value: parsedVal,
-        description: meta.description,
-        updatedAt: new Date().toISOString(),
-      });
-    }
-  });
+      const idx = localAppSettings.findIndex((l) => l.id === u.id || l.key === u.id);
+      if (idx >= 0) {
+        localAppSettings[idx] = {
+          ...localAppSettings[idx],
+          value: parsedVal,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        localAppSettings.push({
+          id: u.id,
+          category: meta.category,
+          key: meta.key,
+          value: parsedVal,
+          description: meta.description,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    });
+  };
 
   if (isSupabaseConfigured) {
     try {
@@ -225,6 +226,7 @@ export async function updateAppSettings(
         });
 
         if (!rpcError && (rpcData?.success || rpcData?.updated_count !== undefined)) {
+          commitToLocalStore();
           return { success: true };
         }
       } catch (rpcEx) {
@@ -235,35 +237,20 @@ export async function updateAppSettings(
       const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'id' });
 
       if (error) {
-        console.warn('Supabase app_settings upsert error:', error.message);
-        const hasSession = Boolean((await supabase.auth.getSession()).data.session);
-        if (
-          !hasSession ||
-          error.code === '42501' ||
-          error.message.includes('Unauthorized') ||
-          error.message.includes('schema cache') ||
-          error.code === 'PGRST205' ||
-          error.code === '42P01' ||
-          error.message.includes('does not exist') ||
-          error.message.includes('fetch') ||
-          error.message.includes('Failed to fetch')
-        ) {
-          // Unauthenticated test or unmigrated environment; local store already updated
-          return { success: true };
-        }
+        console.error('Supabase app_settings upsert error:', error.message);
         return { success: false, error: error.message };
       }
+
+      commitToLocalStore();
       return { success: true };
     } catch (err) {
       const msg = getErrorMessage(err, 'Failed to update app settings');
       console.error('Exception during app_settings upsert:', msg);
-      if (msg.includes('fetch') || msg.includes('network') || msg.includes('ECONNREFUSED')) {
-        return { success: true };
-      }
       return { success: false, error: msg };
     }
   }
 
+  commitToLocalStore();
   return { success: true };
 }
 

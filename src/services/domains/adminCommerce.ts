@@ -639,25 +639,63 @@ export const adminCommerceApi = {
           // Fetch subscriptions separately to avoid ambiguous FK join issues
           const userIds = studentProfiles.map((p: any) => p.id);
           const subsMap: Record<string, any> = {};
+          const attemptsMap: Record<
+            string,
+            { count: number; lastActive?: string; avgScore?: number | null }
+          > = {};
 
           if (userIds.length > 0) {
             try {
-              const { data: subsData } = await supabase
-                .from('subscriptions')
-                .select('user_id, plan_id, status, expires_at, subscription_plans(title)')
-                .in('user_id', userIds)
-                .order('created_at', { ascending: false });
+              const [subsRes, attRes] = await Promise.all([
+                supabase
+                  .from('subscriptions')
+                  .select('user_id, plan_id, status, expires_at, subscription_plans(title)')
+                  .in('user_id', userIds)
+                  .order('created_at', { ascending: false }),
+                supabase
+                  .from('test_attempts')
+                  .select('user_id, created_at, score, total_marks, status')
+                  .in('user_id', userIds)
+                  .order('created_at', { ascending: false }),
+              ]);
 
-              if (Array.isArray(subsData)) {
-                for (const s of subsData) {
+              if (Array.isArray(subsRes.data)) {
+                for (const s of subsRes.data) {
                   // Keep only the most recent subscription per user
                   if (!subsMap[s.user_id]) {
                     subsMap[s.user_id] = s;
                   }
                 }
               }
+
+              if (Array.isArray(attRes.data)) {
+                const userScores: Record<string, number[]> = {};
+                for (const a of attRes.data) {
+                  if (!attemptsMap[a.user_id]) {
+                    attemptsMap[a.user_id] = { count: 1, lastActive: a.created_at };
+                  } else {
+                    attemptsMap[a.user_id].count += 1;
+                  }
+                  if (a.status === 'completed' || (a.score != null && Number(a.score) > 0)) {
+                    if (!userScores[a.user_id]) userScores[a.user_id] = [];
+                    const tot = Number(a.total_marks);
+                    const sc = Number(a.score);
+                    const pct = tot > 0 ? (sc / tot) * 100 : sc;
+                    userScores[a.user_id].push(Math.min(100, Math.max(0, pct)));
+                  }
+                }
+                for (const uid of Object.keys(userScores)) {
+                  const arr = userScores[uid];
+                  if (arr.length > 0) {
+                    const avg = Math.round(arr.reduce((sum, v) => sum + v, 0) / arr.length);
+                    if (attemptsMap[uid]) {
+                      attemptsMap[uid].avgScore = avg;
+                    }
+                  }
+                }
+              }
             } catch {
-              // Subscriptions lookup is optional - students still show without it
+              // Related data lookup is optional - students still show without it
             }
           }
 
@@ -680,8 +718,9 @@ export const adminCommerceApi = {
                 subscriptionStatus: sub?.status || 'none',
                 isPro,
                 expiresAt: sub?.expires_at || undefined,
-                totalAttempts: 0,
-                lastActive: d.created_at,
+                totalAttempts: attemptsMap[d.id]?.count || 0,
+                avgScore: attemptsMap[d.id]?.avgScore ?? null,
+                lastActive: attemptsMap[d.id]?.lastActive || d.created_at,
                 category: d.category || undefined,
                 gender: d.gender || undefined,
                 district: d.district || undefined,
@@ -720,7 +759,7 @@ export const adminCommerceApi = {
         const [attRes, payRes, subRes] = await Promise.all([
           supabase
             .from('test_attempts')
-            .select('*')
+            .select('*, tests(title)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false }),
           supabase
@@ -740,6 +779,7 @@ export const adminCommerceApi = {
             id: a.id,
             userId: a.user_id,
             testId: a.test_id,
+            testTitle: (a.tests as { title?: string })?.title || 'Practice Mock Test',
             status: a.status,
             startTime: a.start_time,
             endTime: a.end_time,
@@ -824,8 +864,15 @@ export const adminCommerceApi = {
         if (updates.isActive !== undefined) payload.is_active = updates.isActive;
         if (updates.currency !== undefined) payload.currency = updates.currency;
 
-        const { error } = await supabase.from('subscription_plans').update(payload).eq('id', id);
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .update(payload)
+          .eq('id', id)
+          .select('id');
         if (error) return { success: false, error: error.message };
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Subscription plan not found or no rows updated.' };
+        }
         return { success: true };
       } catch (err) {
         return { success: false, error: err instanceof Error ? err.message : 'Update failed' };
@@ -843,7 +890,7 @@ export const adminCommerceApi = {
   ): Promise<{ success: boolean; error?: string }> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('subscription_plans').insert({
+        const { data, error } = await supabase.from('subscription_plans').insert({
           id: plan.id,
           name: plan.name || plan.title,
           title: plan.title,
@@ -855,8 +902,11 @@ export const adminCommerceApi = {
           features: plan.features,
           is_active: plan.isActive,
           order_index: plan.orderIndex || 1,
-        });
+        }).select('id');
         if (error) return { success: false, error: error.message };
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Failed to insert subscription plan.' };
+        }
         return { success: true };
       } catch (err) {
         return { success: false, error: err instanceof Error ? err.message : 'Creation failed' };
@@ -925,10 +975,11 @@ export const adminCommerceApi = {
         }
 
         // If no subscriptions or payments reference it, we can safely hard-delete
-        const { error: deleteErr } = await supabase
+        const { data, error: deleteErr } = await supabase
           .from('subscription_plans')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .select('id');
 
         if (deleteErr) {
           // If foreign key constraint still blocks it (e.g. coupons or other tables)
@@ -948,6 +999,10 @@ export const adminCommerceApi = {
             }
           }
           return { success: false, error: deleteErr.message };
+        }
+
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Subscription plan not found or already deleted.' };
         }
 
         return {
@@ -1068,22 +1123,27 @@ export const adminCommerceApi = {
           .maybeSingle();
 
         if (fetchErr) return { success: false, error: fetchErr.message };
+        if (!sub) return { success: false, error: 'Subscription not found.' };
 
-        const currentExpiry = new Date(sub?.expires_at || Date.now());
+        const currentExpiry = new Date(sub.expires_at || Date.now());
         const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
         baseDate.setDate(baseDate.getDate() + days);
         const newExpiresAt = baseDate.toISOString();
 
-        const { error: updateErr } = await supabase
+        const { data: updated, error: updateErr } = await supabase
           .from('subscriptions')
           .update({
             expires_at: newExpiresAt,
             status: 'active',
           })
-          .eq('id', idStr);
+          .eq('id', idStr)
+          .select('id, expires_at');
 
         if (updateErr) return { success: false, error: updateErr.message };
-        return { success: true, newExpiresAt };
+        if (!updated || updated.length === 0) {
+          return { success: false, error: 'Failed to update subscription (0 rows affected).' };
+        }
+        return { success: true, newExpiresAt: updated[0].expires_at };
       } catch (err) {
         return {
           success: false,
@@ -1091,13 +1151,77 @@ export const adminCommerceApi = {
         };
       }
     }
-    return { success: true };
+    return { success: false, error: 'Backend is required.' };
+  },
+
+  async changeSubscriptionPlan(
+    subscriptionId: string | number,
+    newPlanId: string
+  ): Promise<{ success: boolean; newExpiresAt?: string; planTitle?: string; error?: string }> {
+    if (isSupabaseConfigured) {
+      try {
+        const idStr = String(subscriptionId);
+        // Look up target plan
+        const { data: plan, error: planErr } = await supabase
+          .from('subscription_plans')
+          .select('id, title, duration_days, is_active')
+          .eq('id', newPlanId)
+          .maybeSingle();
+
+        if (planErr) return { success: false, error: planErr.message };
+        if (!plan) return { success: false, error: 'Selected plan not found in database.' };
+
+        // Look up current subscription
+        const { data: sub, error: fetchErr } = await supabase
+          .from('subscriptions')
+          .select('id, expires_at, status')
+          .eq('id', idStr)
+          .maybeSingle();
+
+        if (fetchErr) return { success: false, error: fetchErr.message };
+        if (!sub) return { success: false, error: 'Subscription record not found.' };
+
+        // Compute new expiry based on plan's configured duration
+        const durationDays = Number(plan.duration_days) || 30;
+        const currentExpiry = new Date(sub.expires_at || Date.now());
+        const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
+        baseDate.setDate(baseDate.getDate() + durationDays);
+        const newExpiresAt = baseDate.toISOString();
+
+        const { data: updated, error: updateErr } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_id: plan.id,
+            expires_at: newExpiresAt,
+            status: 'active',
+          })
+          .eq('id', idStr)
+          .select('id, plan_id, expires_at');
+
+        if (updateErr) return { success: false, error: updateErr.message };
+        if (!updated || updated.length === 0) {
+          return { success: false, error: 'Failed to update plan (0 rows affected).' };
+        }
+
+        return {
+          success: true,
+          newExpiresAt: updated[0].expires_at,
+          planTitle: plan.title,
+        };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Change plan failed',
+        };
+      }
+    }
+    return { success: false, error: 'Backend is required.' };
   },
 
   async createAdminSubscription(params: {
-    studentName: string;
+    studentName?: string;
     studentEmail: string;
-    planId?: string;
+    planId: string;
     planTitle?: string;
     amount?: number;
     paymentMethod?: string;
@@ -1106,50 +1230,60 @@ export const adminCommerceApi = {
     if (isSupabaseConfigured) {
       try {
         const email = params.studentEmail.trim().toLowerCase();
-        const { data: profile } = await supabase
+        // 1. Look up real registered student account
+        const { data: profile, error: profileErr } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, email')
           .ilike('email', email)
           .maybeSingle();
 
-        let userId = profile?.id;
-        if (!userId) {
-          const { data: newProfile, error: profileErr } = await supabase
-            .from('profiles')
-            .insert({
-              full_name: params.studentName.trim(),
-              email,
-              role: 'student',
-            })
-            .select('id')
-            .maybeSingle();
-
-          if (!profileErr && newProfile) {
-            userId = newProfile.id;
-          }
+        if (profileErr) return { success: false, error: profileErr.message };
+        if (!profile) {
+          return {
+            success: false,
+            error: `No registered student account found for email "${email}". The student must register an account first.`,
+          };
         }
 
-        if (userId) {
-          const durationDays = params.durationDays || 180;
-          const startsAt = new Date().toISOString();
-          const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
-          const planId = params.planId || 'pro_1_year';
+        // 2. Look up configured subscription plan
+        const { data: plan, error: planErr } = await supabase
+          .from('subscription_plans')
+          .select('id, title, duration_days, is_active')
+          .eq('id', params.planId)
+          .maybeSingle();
 
-          const { data: newSub, error: subErr } = await supabase
-            .from('subscriptions')
-            .insert({
-              user_id: userId,
-              plan_id: planId,
-              status: 'active',
-              starts_at: startsAt,
-              expires_at: expiresAt,
-            })
-            .select('id')
-            .maybeSingle();
-
-          if (subErr) return { success: false, error: subErr.message };
-          return { success: true, subscriptionId: newSub?.id };
+        if (planErr) return { success: false, error: planErr.message };
+        if (!plan) {
+          return { success: false, error: `Subscription plan "${params.planId}" not found.` };
         }
+        if (!plan.is_active) {
+          return {
+            success: false,
+            error: `Subscription plan "${plan.title}" is currently deactivated.`,
+          };
+        }
+
+        const durationDays = Number(plan.duration_days) || 30;
+        const startsAt = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
+
+        // 3. Insert real subscription grant
+        const { data: newSub, error: subErr } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: profile.id,
+            plan_id: plan.id,
+            status: 'active',
+            starts_at: startsAt,
+            expires_at: expiresAt,
+          })
+          .select('id')
+          .maybeSingle();
+
+        if (subErr || !newSub) {
+          return { success: false, error: subErr?.message || 'Failed to create subscription.' };
+        }
+        return { success: true, subscriptionId: newSub.id };
       } catch (err) {
         return {
           success: false,
@@ -1157,7 +1291,102 @@ export const adminCommerceApi = {
         };
       }
     }
-    return { success: true, subscriptionId: `sub_local_${Date.now()}` };
+    return { success: false, error: 'Backend is required.' };
+  },
+
+  async getStudentNotes(
+    studentId: string
+  ): Promise<{ id: string; author: string; text: string; createdAt: string }[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('student_notes')
+          .select('id, author_name, note, created_at')
+          .eq('student_id', studentId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (Array.isArray(data)) {
+          return data.map((d: any) => ({
+            id: d.id,
+            author: d.author_name || 'Staff Admin',
+            text: d.note,
+            createdAt: new Date(d.created_at).toLocaleString('en-GB'),
+          }));
+        }
+      } catch (err) {
+        console.warn('Could not load student notes from database:', err);
+      }
+    }
+    return [];
+  },
+
+  async createStudentNote(
+    studentId: string,
+    note: string,
+    authorName = 'Admin Staff'
+  ): Promise<{ success: boolean; note?: any; error?: string }> {
+    if (!note.trim()) {
+      return { success: false, error: 'Note text cannot be empty.' };
+    }
+    if (isSupabaseConfigured) {
+      try {
+        const { data: userRes } = await supabase.auth.getUser();
+        const authorId = userRes?.user?.id || null;
+
+        const { data, error } = await supabase
+          .from('student_notes')
+          .insert({
+            student_id: studentId,
+            author_id: authorId,
+            author_name: authorName,
+            note: note.trim(),
+          })
+          .select('id, author_name, note, created_at')
+          .single();
+
+        if (error) return { success: false, error: error.message };
+        return {
+          success: true,
+          note: {
+            id: data.id,
+            author: data.author_name,
+            text: data.note,
+            createdAt: new Date(data.created_at).toLocaleString('en-GB'),
+          },
+        };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Create note failed',
+        };
+      }
+    }
+    return { success: false, error: 'Backend is required.' };
+  },
+
+  async deleteStudentNote(noteId: string): Promise<{ success: boolean; error?: string }> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('student_notes')
+          .delete()
+          .eq('id', noteId)
+          .select('id');
+
+        if (error) return { success: false, error: error.message };
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Note not found or 0 rows deleted' };
+        }
+        return { success: true };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Delete note failed',
+        };
+      }
+    }
+    return { success: false, error: 'Backend is required.' };
   },
 
   async getAllAdminTestAttempts(limit = 100, offset = 0): Promise<any[]> {
@@ -2206,8 +2435,11 @@ export const adminCommerceApi = {
   async deleteAdminCoupon(id: string): Promise<{ success: boolean; error?: string }> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('coupons').delete().eq('id', id);
+        const { data, error } = await supabase.from('coupons').delete().eq('id', id).select('id');
         if (error) return { success: false, error: error.message };
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Coupon not found or 0 rows deleted' };
+        }
         return { success: true };
       } catch (err) {
         return {

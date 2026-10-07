@@ -984,11 +984,21 @@ export const AdminQuestionBank: React.FC = () => {
   const handleBulkStatusChange = async (newStatus: QuestionBankStatus) => {
     if (selectedRowIds.size === 0) return;
     const ids = Array.from(selectedRowIds);
-    setQuestions((prev) =>
-      prev.map((q) => (ids.includes(q.id) ? { ...q, status: newStatus } : q))
-    );
-    setSelectedRowIds(new Set());
-    showToast(`Updated status of ${ids.length} questions to ${newStatus}.`);
+    try {
+      const dbStatus =
+        newStatus === 'published' ? 'active' : newStatus === 'archived' ? 'archived' : 'draft';
+      const res = await api.updateQuestionsStatus(ids, dbStatus);
+      setQuestions((prev) =>
+        prev.map((q) => (ids.includes(q.id) ? { ...q, status: newStatus } : q))
+      );
+      if (activeQuestion && ids.includes(activeQuestion.id)) {
+        setActiveQuestion((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+      setSelectedRowIds(new Set());
+      showToast(`Updated status of ${res.updatedCount} questions to ${newStatus}.`);
+    } catch (err) {
+      showToast(`Error updating status: ${getErrorMessage(err, 'Failed to update status')}`);
+    }
   };
 
   // Bulk Delete
@@ -999,16 +1009,16 @@ export const AdminQuestionBank: React.FC = () => {
     }
     const ids = Array.from(selectedRowIds);
     try {
-      await api.deleteQuestions(ids);
-    } catch {
-      // offline fallback
+      const res = await api.deleteQuestions(ids);
+      setQuestions((prev) => prev.filter((q) => !ids.includes(q.id)));
+      if (activeQuestion && ids.includes(activeQuestion.id)) {
+        setActiveQuestion(null);
+      }
+      setSelectedRowIds(new Set());
+      showToast(`Deleted ${res.deletedCount} questions.`);
+    } catch (err) {
+      showToast(`Error deleting questions: ${getErrorMessage(err, 'Failed to bulk delete')}`);
     }
-    setQuestions((prev) => prev.filter((q) => !ids.includes(q.id)));
-    if (activeQuestion && ids.includes(activeQuestion.id)) {
-      setActiveQuestion(null);
-    }
-    setSelectedRowIds(new Set());
-    showToast(`Deleted ${ids.length} questions.`);
   };
 
   // Export Selected to CSV
@@ -1050,8 +1060,7 @@ export const AdminQuestionBank: React.FC = () => {
     if (!activeQuestion) return;
     try {
       setIsUpdatingDrawer(true);
-      const updatedQuestion: Question = {
-        ...activeQuestion,
+      const updatedQuestionData: Partial<Question> = {
         questionBengaliText: drawerBengaliText.trim(),
         questionText: drawerBengaliText.trim(),
         optionA: drawerOptions.A.trim(),
@@ -1073,17 +1082,12 @@ export const AdminQuestionBank: React.FC = () => {
         shortNotes: editExplanation.trim(),
       };
 
-      try {
-        await api.updateQuestion(activeQuestion.id, updatedQuestion);
-      } catch (err) {
-        console.warn('API update failed, updating in-memory store:', err);
-      }
-
+      const saved = await api.updateQuestion(activeQuestion.id, updatedQuestionData);
       setQuestions((prev) =>
-        prev.map((q) => (q.id === activeQuestion.id ? updatedQuestion : q))
+        prev.map((q) => (q.id === activeQuestion.id ? { ...q, ...saved } : q))
       );
-      setActiveQuestion(updatedQuestion);
-      showToast(`Question #${activeQuestion.id} updated successfully!`);
+      setActiveQuestion((prev) => (prev ? { ...prev, ...saved } : saved));
+      showToast('Question updated successfully in database!');
     } catch (err) {
       showToast(`Error updating question: ${getErrorMessage(err, 'Failed to update')}`);
     } finally {
@@ -1099,12 +1103,12 @@ export const AdminQuestionBank: React.FC = () => {
     }
     try {
       await api.deleteQuestion(activeQuestion.id);
-    } catch {
-      // ignore
+      setQuestions((prev) => prev.filter((q) => q.id !== activeQuestion.id));
+      setActiveQuestion(null);
+      showToast('Question deleted successfully from database.');
+    } catch (err) {
+      showToast(`Error deleting question: ${getErrorMessage(err, 'Failed to delete')}`);
     }
-    setQuestions((prev) => prev.filter((q) => q.id !== activeQuestion.id));
-    setActiveQuestion(null);
-    showToast('Question deleted successfully.');
   };
 
   // Add Tag in Drawer
@@ -1175,9 +1179,7 @@ export const AdminQuestionBank: React.FC = () => {
 
     try {
       setIsSubmittingAdd(true);
-      const newId = String(Math.floor(10000 + Math.random() * 90000));
-      const newQuestionItem: Question = {
-        id: newId,
+      const newQuestionPayload: Omit<Question, 'id'> = {
         questionBengaliText: addQuestionBengali.trim(),
         questionText: addQuestionEnglish.trim() || addQuestionBengali.trim(),
         optionA: addOptA.trim(),
@@ -1214,24 +1216,12 @@ export const AdminQuestionBank: React.FC = () => {
         isActive: true,
         defaultMarks: addMarks,
         defaultNegativeMarks: addNegativeMarks,
-        versionHistory: [
-          {
-            version: 1,
-            editedBy: 'Super Admin',
-            editedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-            changes: 'Initial question creation',
-          },
-        ],
       };
 
-      try {
-        await api.createQuestion(newQuestionItem);
-      } catch {
-        // offline fallback
-      }
+      const createdQuestion = await api.createQuestion(newQuestionPayload);
 
-      setQuestions([newQuestionItem, ...questions]);
-      setActiveQuestion(newQuestionItem);
+      setQuestions((prev) => [createdQuestion, ...prev]);
+      setActiveQuestion(createdQuestion);
       setIsAddModalOpen(false);
 
       // Reset form
@@ -1244,7 +1234,7 @@ export const AdminQuestionBank: React.FC = () => {
       setAddExplanation('');
       setAddTags([]);
       setDuplicateWarning(null);
-      showToast(`Question #${newId} created successfully!`);
+      showToast('Question created successfully in database!');
     } catch (err) {
       showToast(`Error creating question: ${getErrorMessage(err, 'Failed to create')}`);
     } finally {
@@ -1399,7 +1389,7 @@ export const AdminQuestionBank: React.FC = () => {
           }
 
           parsed.push({
-            id: String(Math.floor(20000 + Math.random() * 80000)),
+            id: crypto.randomUUID(),
             questionBengaliText: qText,
             questionText: qText,
             optionA: optA,
@@ -1461,25 +1451,73 @@ export const AdminQuestionBank: React.FC = () => {
     }
   };
 
-  // Execute Real Bulk Import
+  // Execute Real Bulk Import with controlled concurrency, real IDs and error retention
   const handleExecuteImport = async () => {
-    if (!importPreviewStats || importPreviewStats.valid === 0) return;
+    if (!importPreviewStats || parsedImportQuestions.length === 0) return;
     setIsImporting(true);
 
-    try {
-      await Promise.all(
-        parsedImportQuestions.map((q) => api.createQuestion(q).catch(() => {}))
+    const successfullyCreated: Question[] = [];
+    const failedQuestions: Question[] = [];
+    const errorDetails: string[] = [];
+
+    const CHUNK_SIZE = 5;
+    for (let i = 0; i < parsedImportQuestions.length; i += CHUNK_SIZE) {
+      const chunk = parsedImportQuestions.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.allSettled(
+        chunk.map((q) => {
+          const { id: _, ...payload } = q;
+          return api.createQuestion(payload);
+        })
       );
-    } catch {
-      // offline fallback
+
+      results.forEach((res, idx) => {
+        const originalQuestion = chunk[idx];
+        if (res.status === 'fulfilled') {
+          successfullyCreated.push(res.value);
+        } else {
+          failedQuestions.push(originalQuestion);
+          const reason =
+            res.reason instanceof Error ? res.reason.message : 'Unknown database error';
+          errorDetails.push(
+            `Question "${originalQuestion.questionText.slice(0, 30)}...": ${reason}`
+          );
+        }
+      });
     }
 
-    setQuestions((prev) => [...parsedImportQuestions, ...prev]);
     setIsImporting(false);
-    setIsImportModalOpen(false);
-    setImportFile(null);
-    setImportPreviewStats(null);
-    showToast(`Successfully imported ${parsedImportQuestions.length} questions into Question Bank!`);
+
+    if (successfullyCreated.length > 0) {
+      setQuestions((prev) => [...successfullyCreated, ...prev]);
+    }
+
+    if (failedQuestions.length === 0) {
+      // All succeeded
+      setIsImportModalOpen(false);
+      setImportFile(null);
+      setParsedImportQuestions([]);
+      setImportPreviewStats(null);
+      showToast(`Successfully imported ${successfullyCreated.length} questions into Question Bank!`);
+    } else {
+      // Partial or total failure - retain failed rows for retry
+      setParsedImportQuestions(failedQuestions);
+      setImportPreviewStats({
+        total: failedQuestions.length,
+        valid: failedQuestions.length,
+        errors: failedQuestions.length,
+        duplicates: 0,
+        errorList: errorDetails.slice(0, 5),
+      });
+      if (successfullyCreated.length > 0) {
+        showToast(
+          `Imported ${successfullyCreated.length} questions. ${failedQuestions.length} questions failed; examine errors and retry.`
+        );
+      } else {
+        showToast(
+          `Import failed for all ${failedQuestions.length} questions. Please check the errors.`
+        );
+      }
+    }
   };
 
   return (

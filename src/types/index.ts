@@ -877,6 +877,8 @@ export interface AdminStudentRow {
   subscriptionExpiresAt?: string;
   totalAttempts?: number;
   testsCompleted?: number;
+  avgScore?: number | null;
+  bestScore?: number | null;
   lastActive?: string;
   gender?: StudentGenderCode;
   category?: StudentCategoryCode;

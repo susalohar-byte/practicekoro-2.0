@@ -34,10 +34,9 @@ export interface SubscriptionPlanItem {
   id: string;
   name: string;
   subtitle: string;
-  monthlyPrice: number;
-  monthlyDuration: string;
-  yearlyPrice: number;
-  yearlyDuration: string;
+  price: number;
+  originalPrice: number;
+  durationDays: number;
   badge?: string;
   badgeColor?: string;
   buttonText: string;
@@ -60,16 +59,15 @@ export interface RecentSubscriptionItem {
   status: string;
 }
 
-// Initial 4 Plans matching media_1791200578097.jpg
+// Initial 4 Plans matching schema
 const INITIAL_PLANS: SubscriptionPlanItem[] = [
   {
     id: 'free',
     name: 'Free Plan',
     subtitle: 'Start your preparation',
-    monthlyPrice: 0,
-    monthlyDuration: '/ month',
-    yearlyPrice: 0,
-    yearlyDuration: '/ year',
+    price: 0,
+    originalPrice: 0,
+    durationDays: 365,
     buttonText: 'Current Plan',
     buttonClass: 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-default',
     themeColor: '#16A34A',
@@ -91,10 +89,9 @@ const INITIAL_PLANS: SubscriptionPlanItem[] = [
     id: 'basic',
     name: 'Basic Plan',
     subtitle: 'For serious learners',
-    monthlyPrice: 99,
-    monthlyDuration: '/ 6 months',
-    yearlyPrice: 179,
-    yearlyDuration: '/ 12 months',
+    price: 99,
+    originalPrice: 179,
+    durationDays: 180,
     badge: 'Most Popular',
     badgeColor: 'bg-[#F43F5E] text-white',
     buttonText: 'Get Basic Plan',
@@ -117,10 +114,9 @@ const INITIAL_PLANS: SubscriptionPlanItem[] = [
     id: 'pro',
     name: 'Pro Plan',
     subtitle: 'Complete preparation',
-    monthlyPrice: 199,
-    monthlyDuration: '/ 6 months',
-    yearlyPrice: 349,
-    yearlyDuration: '/ 12 months',
+    price: 199,
+    originalPrice: 349,
+    durationDays: 180,
     buttonText: 'Get Pro Plan',
     buttonClass: 'bg-[#F59E0B] hover:bg-amber-600 text-white shadow-2xs',
     themeColor: '#D97706',
@@ -142,10 +138,9 @@ const INITIAL_PLANS: SubscriptionPlanItem[] = [
     id: 'ultimate',
     name: 'Ultimate Plan',
     subtitle: 'For top rankers',
-    monthlyPrice: 399,
-    monthlyDuration: '/ 12 months',
-    yearlyPrice: 699,
-    yearlyDuration: '/ 24 months',
+    price: 399,
+    originalPrice: 699,
+    durationDays: 365,
     badge: 'Best Value',
     badgeColor: 'bg-[#10B981] text-white',
     buttonText: 'Get Ultimate Plan',
@@ -311,48 +306,55 @@ export const AdminSubscriptionPlans: React.FC = () => {
     }
   }, [plans]);
 
+  const loadPlans = async () => {
+    try {
+      const remote = await api.getSubscriptionPlans(true);
+      if (remote && remote.length > 0) {
+        const mapped: SubscriptionPlanItem[] = remote.map((p) => {
+          let icon: 'free' | 'basic' | 'pro' | 'ultimate' = 'basic';
+          const titleLower = (p.title || '').toLowerCase();
+          if (titleLower.includes('free')) icon = 'free';
+          else if (titleLower.includes('ultimate')) icon = 'ultimate';
+          else if (titleLower.includes('pro')) icon = 'pro';
+
+          return {
+            id: p.id,
+            name: p.title,
+            subtitle: p.description || 'Complete PracticeKoro test preparation access',
+            price: p.price,
+            originalPrice: p.originalPrice ?? p.price,
+            durationDays: p.durationDays || 30,
+            badge: p.id === 'pro_1_year' ? 'Best Value' : undefined,
+            badgeColor: 'bg-[#F43F5E] text-white',
+            buttonText: p.price === 0 ? 'Current Plan' : `Get ${p.title}`,
+            buttonClass:
+              p.price === 0
+                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-default'
+                : 'bg-[#2563EB] hover:bg-blue-700 text-white shadow-2xs',
+            themeColor: p.price === 0 ? '#16A34A' : '#0284C7',
+            borderClass: 'border-slate-200/80',
+            bgClass: 'bg-white',
+            iconType: icon,
+            features:
+              Array.isArray(p.features) && p.features.length > 0
+                ? p.features.map((f) => ({ text: f, included: true }))
+                : [
+                    { text: 'Full mock tests', included: true },
+                    { text: 'Topic tests', included: true },
+                    { text: 'Detailed solutions', included: true },
+                  ],
+          };
+        });
+        setPlans(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to load subscription plans from database:', err);
+    }
+  };
+
   // Load live subscription plans from database on mount
   useEffect(() => {
-    let isMounted = true;
-    api.getSubscriptionPlans(true).then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
-      const mapped: SubscriptionPlanItem[] = remote.map((p) => {
-        let icon: 'free' | 'basic' | 'pro' | 'ultimate' = 'basic';
-        const titleLower = (p.title || '').toLowerCase();
-        if (titleLower.includes('free')) icon = 'free';
-        else if (titleLower.includes('ultimate')) icon = 'ultimate';
-        else if (titleLower.includes('pro')) icon = 'pro';
-
-        return {
-          id: p.id,
-          name: p.title,
-          subtitle: p.description || 'Complete PracticeKoro test preparation access',
-          monthlyPrice: p.price,
-          monthlyDuration: `/ ${p.durationDays} days`,
-          yearlyPrice: p.originalPrice || (p.price > 0 ? p.price * 2 : 0),
-          yearlyDuration: '/ 12 months',
-          badge: p.id === 'pro_1_year' ? 'Best Value' : undefined,
-          badgeColor: 'bg-[#F43F5E] text-white',
-          buttonText: p.price === 0 ? 'Current Plan' : `Get ${p.title}`,
-          buttonClass: p.price === 0 ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-default' : 'bg-[#2563EB] hover:bg-blue-700 text-white shadow-2xs',
-          themeColor: p.price === 0 ? '#16A34A' : '#0284C7',
-          borderClass: 'border-slate-200/80',
-          bgClass: 'bg-white',
-          iconType: icon,
-          features: Array.isArray(p.features) && p.features.length > 0
-            ? p.features.map((f) => ({ text: f, included: true }))
-            : [
-                { text: 'Full mock tests', included: true },
-                { text: 'Topic tests', included: true },
-                { text: 'Detailed solutions', included: true },
-              ],
-        };
-      });
-      setPlans(mapped);
-    }).catch((err) => {
-      console.warn('Failed to load subscription plans from database:', err);
-    });
-    return () => { isMounted = false; };
+    loadPlans();
   }, []);
 
   // Billing Cycle Toggle (Monthly vs Yearly)
@@ -365,15 +367,30 @@ export const AdminSubscriptionPlans: React.FC = () => {
   const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<SubscriptionPlanItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Form states for Add / Edit Plan
+  // Form states for Add Plan
   const [formPlanName, setFormPlanName] = useState('');
   const [formPlanSubtitle, setFormPlanSubtitle] = useState('');
   const [formPlanPrice, setFormPlanPrice] = useState('149');
-  const [formPlanDuration, setFormPlanDuration] = useState('6 months');
+  const [formPlanOriginalPrice, setFormPlanOriginalPrice] = useState('299');
+  const [formPlanDurationDays, setFormPlanDurationDays] = useState('180');
   const [formPlanBadge, setFormPlanBadge] = useState('');
   const [formPlanFeatures, setFormPlanFeatures] = useState(
     'All topic tests, Unlimited mocks, Statewide rank, PDF notes'
   );
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+
+  // Form states for Edit Plan
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
+  const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false);
+  const [editPlanName, setEditPlanName] = useState('');
+  const [editPlanSubtitle, setEditPlanSubtitle] = useState('');
+  const [editPlanPrice, setEditPlanPrice] = useState('99');
+  const [editPlanOriginalPrice, setEditPlanOriginalPrice] = useState('179');
+  const [editPlanDurationDays, setEditPlanDurationDays] = useState('180');
+  const [editPlanBadge, setEditPlanBadge] = useState('');
+  const [editPlanFeatures, setEditPlanFeatures] = useState('');
+  const [editButtonText, setEditButtonText] = useState('');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -419,7 +436,36 @@ export const AdminSubscriptionPlans: React.FC = () => {
   // Handle Add Plan Submit
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formPlanName.trim()) return;
+    if (isSubmittingAdd) return;
+
+    if (!formPlanName.trim()) {
+      showToast('Plan name is required.');
+      return;
+    }
+
+    const priceTrimmed = formPlanPrice.trim();
+    const priceNum = Number(priceTrimmed);
+    if (priceTrimmed === '' || isNaN(priceNum) || priceNum < 0) {
+      showToast('Please enter a valid price (₹0 or greater).');
+      return;
+    }
+
+    const durationTrimmed = formPlanDurationDays.trim();
+    const durationNum = parseInt(durationTrimmed, 10);
+    if (durationTrimmed === '' || isNaN(durationNum) || durationNum <= 0) {
+      showToast('Please enter a valid duration in days (greater than 0).');
+      return;
+    }
+
+    const origPriceTrimmed = formPlanOriginalPrice.trim();
+    let origPriceNum = priceNum;
+    if (origPriceTrimmed !== '') {
+      origPriceNum = Number(origPriceTrimmed);
+      if (isNaN(origPriceNum) || origPriceNum < 0) {
+        showToast('Original price must be a valid non-negative number.');
+        return;
+      }
+    }
 
     const featureItems: PlanFeature[] = formPlanFeatures
       .split(',')
@@ -428,73 +474,46 @@ export const AdminSubscriptionPlans: React.FC = () => {
       .map((text) => ({ text, included: true }));
 
     const planId = `plan_${Date.now()}`;
-    const priceNum = Number(formPlanPrice) || 99;
-
-    const newPlan: SubscriptionPlanItem = {
-      id: planId,
-      name: formPlanName.trim(),
-      subtitle: formPlanSubtitle.trim() || 'Customized plan package',
-      monthlyPrice: priceNum,
-      monthlyDuration: `/ ${formPlanDuration}`,
-      yearlyPrice: priceNum * 2,
-      yearlyDuration: '/ 12 months',
-      badge: formPlanBadge.trim() || undefined,
-      badgeColor: 'bg-blue-600 text-white',
-      buttonText: `Get ${formPlanName}`,
-      buttonClass: 'bg-[#2563EB] hover:bg-blue-700 text-white shadow-2xs',
-      themeColor: '#2563EB',
-      borderClass: 'border border-blue-200',
-      bgClass: 'bg-white',
-      iconType: 'basic',
-      features: featureItems,
-    };
-
-    setPlans((prev) => [...prev, newPlan]);
-    setIsAddPlanModalOpen(false);
-    showToast(`New subscription plan "${formPlanName}" added successfully.`);
+    setIsSubmittingAdd(true);
 
     try {
-      await api.createSubscriptionPlan({
+      const res = await api.createSubscriptionPlan({
         id: planId,
         title: formPlanName.trim(),
         name: formPlanName.trim(),
         description: formPlanSubtitle.trim() || 'Customized plan package',
-        durationDays: formPlanDuration.includes('year') ? 365 : 180,
+        durationDays: durationNum,
         price: priceNum,
-        originalPrice: priceNum * 2,
+        originalPrice: origPriceNum,
         currency: 'INR',
         features: featureItems.map((f) => f.text),
         isActive: true,
         orderIndex: 99,
       });
-    } catch (err) {
-      console.warn('Failed to save subscription plan to database:', err);
+
+      if (!res.success) {
+        showToast(res.error || 'Failed to create plan on backend.');
+        setIsSubmittingAdd(false);
+        return;
+      }
+
+      await loadPlans();
+      setIsAddPlanModalOpen(false);
+      showToast(`Subscription plan "${formPlanName.trim()}" created successfully.`);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Error creating subscription plan.');
+    } finally {
+      setIsSubmittingAdd(false);
     }
   };
-
-  // ============================================================================
-  // EDIT PLAN HANDLERS & STATE
-  // ============================================================================
-  const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
-  const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false);
-  const [editPlanName, setEditPlanName] = useState('');
-  const [editPlanSubtitle, setEditPlanSubtitle] = useState('');
-  const [editMonthlyPrice, setEditMonthlyPrice] = useState('99');
-  const [editMonthlyDuration, setEditMonthlyDuration] = useState('6 months');
-  const [editYearlyPrice, setEditYearlyPrice] = useState('179');
-  const [editYearlyDuration, setEditYearlyDuration] = useState('12 months');
-  const [editPlanBadge, setEditPlanBadge] = useState('');
-  const [editPlanFeatures, setEditPlanFeatures] = useState('');
-  const [editButtonText, setEditButtonText] = useState('');
 
   const handleOpenEditModal = (plan: SubscriptionPlanItem) => {
     setEditingPlan(plan);
     setEditPlanName(plan.name);
     setEditPlanSubtitle(plan.subtitle);
-    setEditMonthlyPrice(String(plan.monthlyPrice));
-    setEditMonthlyDuration(plan.monthlyDuration.replace(/^\/\s*/, '') || '6 months');
-    setEditYearlyPrice(String(plan.yearlyPrice));
-    setEditYearlyDuration(plan.yearlyDuration.replace(/^\/\s*/, '') || '12 months');
+    setEditPlanPrice(String(plan.price));
+    setEditPlanOriginalPrice(String(plan.originalPrice || plan.price));
+    setEditPlanDurationDays(String(plan.durationDays || 30));
     setEditPlanBadge(plan.badge || '');
     setEditPlanFeatures(plan.features.map((f) => f.text).join(', '));
     setEditButtonText(plan.buttonText);
@@ -503,7 +522,36 @@ export const AdminSubscriptionPlans: React.FC = () => {
 
   const handleUpdatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPlan || !editPlanName.trim()) return;
+    if (!editingPlan || isSubmittingEdit) return;
+
+    if (!editPlanName.trim()) {
+      showToast('Plan name is required.');
+      return;
+    }
+
+    const priceTrimmed = editPlanPrice.trim();
+    const priceNum = Number(priceTrimmed);
+    if (priceTrimmed === '' || isNaN(priceNum) || priceNum < 0) {
+      showToast('Please enter a valid price (₹0 or greater).');
+      return;
+    }
+
+    const durationTrimmed = editPlanDurationDays.trim();
+    const durationNum = parseInt(durationTrimmed, 10);
+    if (durationTrimmed === '' || isNaN(durationNum) || durationNum <= 0) {
+      showToast('Please enter a valid duration in days (greater than 0).');
+      return;
+    }
+
+    const origPriceTrimmed = editPlanOriginalPrice.trim();
+    let origPriceNum = priceNum;
+    if (origPriceTrimmed !== '') {
+      origPriceNum = Number(origPriceTrimmed);
+      if (isNaN(origPriceNum) || origPriceNum < 0) {
+        showToast('Original price must be a valid non-negative number.');
+        return;
+      }
+    }
 
     const featureItems: PlanFeature[] = editPlanFeatures
       .split(',')
@@ -511,42 +559,32 @@ export const AdminSubscriptionPlans: React.FC = () => {
       .filter(Boolean)
       .map((text) => ({ text, included: true }));
 
-    const updatedMonthlyPrice = Number(editMonthlyPrice) || 0;
-    const updatedYearlyPrice = Number(editYearlyPrice) || 0;
-
-    const updatedPlan: SubscriptionPlanItem = {
-      ...editingPlan,
-      name: editPlanName.trim(),
-      subtitle: editPlanSubtitle.trim(),
-      monthlyPrice: updatedMonthlyPrice,
-      monthlyDuration: `/ ${editMonthlyDuration.trim()}`,
-      yearlyPrice: updatedYearlyPrice,
-      yearlyDuration: `/ ${editYearlyDuration.trim()}`,
-      badge: editPlanBadge.trim() || undefined,
-      buttonText:
-        editButtonText.trim() ||
-        (updatedMonthlyPrice === 0 ? 'Current Plan' : `Get ${editPlanName.trim()}`),
-      features: featureItems.length > 0 ? featureItems : editingPlan.features,
-    };
-
-    setPlans((prev) =>
-      prev.map((p) => (p.id === editingPlan.id ? updatedPlan : p))
-    );
-
-    setIsEditPlanModalOpen(false);
-    showToast(`Subscription plan "${editPlanName}" updated successfully.`);
+    setIsSubmittingEdit(true);
 
     try {
-      await api.updateSubscriptionPlan(editingPlan.id, {
+      const res = await api.updateSubscriptionPlan(editingPlan.id, {
         title: editPlanName.trim(),
         name: editPlanName.trim(),
         description: editPlanSubtitle.trim(),
-        price: updatedMonthlyPrice,
-        originalPrice: updatedYearlyPrice,
+        price: priceNum,
+        originalPrice: origPriceNum,
+        durationDays: durationNum,
         features: featureItems.map((f) => f.text),
       });
-    } catch (err) {
-      console.warn('Failed to update subscription plan in database:', err);
+
+      if (!res.success) {
+        showToast(res.error || 'Failed to update plan on backend.');
+        setIsSubmittingEdit(false);
+        return;
+      }
+
+      await loadPlans();
+      setIsEditPlanModalOpen(false);
+      showToast(`Subscription plan "${editPlanName.trim()}" updated successfully.`);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Error updating subscription plan.');
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -583,7 +621,8 @@ export const AdminSubscriptionPlans: React.FC = () => {
               setFormPlanName('');
               setFormPlanSubtitle('');
               setFormPlanPrice('149');
-              setFormPlanDuration('6 months');
+              setFormPlanOriginalPrice('299');
+              setFormPlanDurationDays('180');
               setFormPlanBadge('');
               setFormPlanFeatures('Full mock tests, Unlimited topic practice, Detailed solutions, No ads');
               setIsAddPlanModalOpen(true);
@@ -714,15 +753,10 @@ export const AdminSubscriptionPlans: React.FC = () => {
       </div>
 
       {/* ==================================================================== */}
-      {/* 4. THE 4 SUBSCRIPTION PLAN CARDS                                     */}
+      {/* 4. THE SUBSCRIPTION PLAN CARDS                                       */}
       {/* ==================================================================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {plans.map((plan) => {
-          const displayPrice =
-            billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
-          const displayDuration =
-            billingCycle === 'monthly' ? plan.monthlyDuration : plan.yearlyDuration;
-
           return (
             <div
               key={plan.id}
@@ -769,9 +803,12 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 </div>
 
                 {/* Price Display */}
-                <div className="flex items-baseline gap-1 mb-4 flex-wrap">
-                  <span className="text-2xl font-bold text-slate-900">₹{displayPrice}</span>
-                  <span className="text-xs text-slate-400 font-normal">{displayDuration}</span>
+                <div className="flex items-baseline gap-1.5 mb-4 flex-wrap">
+                  <span className="text-2xl font-bold text-slate-900">₹{plan.price}</span>
+                  {plan.originalPrice > plan.price && (
+                    <span className="text-xs text-slate-400 line-through">₹{plan.originalPrice}</span>
+                  )}
+                  <span className="text-xs text-slate-500 font-normal">/ {plan.durationDays} days</span>
                 </div>
 
                 {/* Features List */}
@@ -1121,41 +1158,56 @@ export const AdminSubscriptionPlans: React.FC = () => {
                   </label>
                   <input
                     type="number"
+                    min="0"
                     required
                     value={formPlanPrice}
                     onChange={(e) => setFormPlanPrice(e.target.value)}
+                    placeholder="0 or more"
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                    Duration
-                  </label>
-                  <select
-                    value={formPlanDuration}
-                    onChange={(e) => setFormPlanDuration(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  >
-                    <option value="1 month">1 month</option>
-                    <option value="3 months">3 months</option>
-                    <option value="6 months">6 months</option>
-                    <option value="12 months">12 months</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                    Badge Tag
+                    Original / MRP (₹)
                   </label>
                   <input
-                    type="text"
-                    value={formPlanBadge}
-                    onChange={(e) => setFormPlanBadge(e.target.value)}
-                    placeholder="e.g. New Launch"
+                    type="number"
+                    min="0"
+                    value={formPlanOriginalPrice}
+                    onChange={(e) => setFormPlanOriginalPrice(e.target.value)}
+                    placeholder="e.g. 299"
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                    Duration (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={formPlanDurationDays}
+                    onChange={(e) => setFormPlanDurationDays(e.target.value)}
+                    placeholder="e.g. 180"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                  Badge Tag (optional)
+                </label>
+                <input
+                  type="text"
+                  value={formPlanBadge}
+                  onChange={(e) => setFormPlanBadge(e.target.value)}
+                  placeholder="e.g. New Launch, Most Popular"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
               </div>
 
               <div>
@@ -1175,15 +1227,16 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddPlanModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                  disabled={isSubmittingAdd}
+                  className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Plan
+                  {isSubmittingAdd ? 'Saving...' : 'Save Plan'}
                 </button>
               </div>
             </form>
@@ -1250,57 +1303,45 @@ export const AdminSubscriptionPlans: React.FC = () => {
               {/* Pricing & Duration Block */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                 <span className="text-[11px] font-bold text-slate-800 block">Pricing & Duration</span>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
-                      Monthly Price (₹)
+                      Price (₹)
                     </label>
                     <input
                       type="number"
                       min={0}
                       required
-                      value={editMonthlyPrice}
-                      onChange={(e) => setEditMonthlyPrice(e.target.value)}
+                      value={editPlanPrice}
+                      onChange={(e) => setEditPlanPrice(e.target.value)}
+                      placeholder="0 or more"
                       className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
-                      Monthly Duration Label
-                    </label>
-                    <input
-                      type="text"
-                      value={editMonthlyDuration}
-                      onChange={(e) => setEditMonthlyDuration(e.target.value)}
-                      placeholder="e.g. 6 months or month"
-                      className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
-                      Yearly Price (₹)
+                      Original / MRP (₹)
                     </label>
                     <input
                       type="number"
                       min={0}
-                      required
-                      value={editYearlyPrice}
-                      onChange={(e) => setEditYearlyPrice(e.target.value)}
+                      value={editPlanOriginalPrice}
+                      onChange={(e) => setEditPlanOriginalPrice(e.target.value)}
+                      placeholder="e.g. 299"
                       className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
-                      Yearly Duration Label
+                      Duration (Days)
                     </label>
                     <input
-                      type="text"
-                      value={editYearlyDuration}
-                      onChange={(e) => setEditYearlyDuration(e.target.value)}
-                      placeholder="e.g. 12 months or year"
+                      type="number"
+                      min={1}
+                      required
+                      value={editPlanDurationDays}
+                      onChange={(e) => setEditPlanDurationDays(e.target.value)}
+                      placeholder="e.g. 180"
                       className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
@@ -1360,10 +1401,11 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  disabled={isSubmittingEdit}
+                  className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Update Plan</span>
+                  <span>{isSubmittingEdit ? 'Updating...' : 'Update Plan'}</span>
                 </button>
               </div>
             </form>
@@ -1497,15 +1539,10 @@ export const AdminSubscriptionPlans: React.FC = () => {
 
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-5">
               <span className="text-3xl font-bold text-slate-900">
-                ₹
-                {billingCycle === 'monthly'
-                  ? selectedPlanForPurchase.monthlyPrice
-                  : selectedPlanForPurchase.yearlyPrice}
+                ₹{selectedPlanForPurchase.price}
               </span>
               <span className="text-xs text-slate-500 ml-1">
-                {billingCycle === 'monthly'
-                  ? selectedPlanForPurchase.monthlyDuration
-                  : selectedPlanForPurchase.yearlyDuration}
+                / {selectedPlanForPurchase.durationDays} days
               </span>
             </div>
 

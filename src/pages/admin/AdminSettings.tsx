@@ -3,6 +3,7 @@ import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
+import { uploadQuestionImage } from '@/services/domains/admin.questions';
 import {
   Settings,
   Palette,
@@ -267,7 +268,7 @@ export const AdminSettings: React.FC = () => {
     if (e) e.preventDefault();
     try {
       setIsSaving(true);
-      await api.updateAppSettings([
+      const res = await api.updateAppSettings([
         { id: 'general_app_name', value: platformName },
         { id: 'general_website_url', value: websiteUrl },
         { id: 'general_support_email', value: adminEmail },
@@ -279,6 +280,11 @@ export const AdminSettings: React.FC = () => {
         { id: 'secondary_color', value: secondaryColor },
         { id: 'accent_color', value: accentColor },
       ]);
+
+      if (!res.success) {
+        showToast(res.error || 'Failed to save settings. Please try again.');
+        return;
+      }
 
       await checkMaintenanceMode();
 
@@ -294,9 +300,9 @@ export const AdminSettings: React.FC = () => {
       }
 
       showToast('Settings saved successfully! All updates are live.');
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      showToast('Failed to save settings. Please try again.');
+      showToast(err instanceof Error ? err.message : 'Failed to save settings. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -308,17 +314,23 @@ export const AdminSettings: React.FC = () => {
   const handleSaveSMTP = async () => {
     try {
       setIsSaving(true);
-      await api.updateAppSettings([
+      const res = await api.updateAppSettings([
         { id: 'smtp_provider', value: smtpProvider },
         { id: 'smtp_host', value: smtpHost },
         { id: 'smtp_port', value: smtpPort },
         { id: 'smtp_encryption', value: smtpEncryption },
         { id: 'smtp_username', value: smtpUsername },
       ]);
+
+      if (!res.success) {
+        showToast(res.error || 'Failed to save SMTP configuration.');
+        return;
+      }
+
       showToast('SMTP Configuration saved successfully!');
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      showToast('Failed to save SMTP configuration.');
+      showToast(err instanceof Error ? err.message : 'Failed to save SMTP configuration.');
     } finally {
       setIsSaving(false);
     }
@@ -329,10 +341,10 @@ export const AdminSettings: React.FC = () => {
   // --------------------------------------------------------------------------
   const handleSendTestEmail = () => {
     setIsSendingTestEmail(true);
+    showToast('Live test email sending requires a configured server-side mail provider (e.g. Resend / SendGrid Edge Function).');
     setTimeout(() => {
       setIsSendingTestEmail(false);
-      showToast(`Test email successfully sent to ${adminEmail}!`);
-    }, 1200);
+    }, 1500);
   };
 
   // --------------------------------------------------------------------------
@@ -349,28 +361,52 @@ export const AdminSettings: React.FC = () => {
       }
       setIsClearingCache(false);
       setShowClearCacheModal(false);
-      showToast('System cache and temporary assets cleared successfully!');
-    }, 1000);
+      showToast('Local admin browser cache and temporary session data cleared successfully.');
+    }, 600);
   };
 
   // --------------------------------------------------------------------------
-  // Image Upload Handlers for Logo & Favicon
+  // Image Upload Handlers for Logo & Favicon (Durable Backend Storage)
   // --------------------------------------------------------------------------
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPlatformLogo(url);
-      showToast('Platform logo updated successfully!');
+    if (!file) return;
+    try {
+      setIsSaving(true);
+      const durableUrl = await uploadQuestionImage(file);
+      setPlatformLogo(durableUrl);
+      const res = await api.updateAppSettings([{ id: 'general_platform_logo', value: durableUrl }]);
+      if (res.success) {
+        showToast('Platform logo uploaded to durable storage and saved successfully!');
+      } else {
+        showToast(res.error || 'Failed to save uploaded logo to database.');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      showToast(err instanceof Error ? err.message : 'Failed to upload logo.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setFavicon(url);
-      showToast('Favicon updated successfully!');
+    if (!file) return;
+    try {
+      setIsSaving(true);
+      const durableUrl = await uploadQuestionImage(file);
+      setFavicon(durableUrl);
+      const res = await api.updateAppSettings([{ id: 'general_favicon', value: durableUrl }]);
+      if (res.success) {
+        showToast('Favicon uploaded to durable storage and saved successfully!');
+      } else {
+        showToast(res.error || 'Failed to save uploaded favicon to database.');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      showToast(err instanceof Error ? err.message : 'Failed to upload favicon.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2081,16 +2117,16 @@ export const AdminSettings: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Clear System Cache?
+                  Clear Local Admin Cache?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Are you sure you want to clear system cache and temporary files?
+                  Are you sure you want to clear your local admin browser cache?
                 </p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-              This will purge client cached responses, preloaded test data, and temporary assets. Students may experience slightly higher load times on their next request.
+              This action clears your local administrator browser cache and temporary session data only. It does not delete or modify database records or affect student data on the server.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">

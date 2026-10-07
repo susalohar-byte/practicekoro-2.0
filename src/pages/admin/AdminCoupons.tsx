@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
-  Calendar,
   Check,
   Filter,
   Copy,
@@ -255,20 +254,44 @@ export const AdminCoupons: React.FC = () => {
     }
   }, [couponsList]);
 
-  // Load real coupons from database on mount
+  const [availablePlans, setAvailablePlans] = useState<{ id: string; title: string; price: number }[]>([]);
+
+  // Load backend active plans
   useEffect(() => {
     let isMounted = true;
-    api.getAdminCoupons().then((remote) => {
-      if (!isMounted) return;
+    api.getSubscriptionPlans(true).then((plans) => {
+      if (!isMounted || !plans) return;
+      setAvailablePlans(plans.map((p) => ({ id: p.id, title: p.title, price: p.price })));
+    }).catch((err) => {
+      console.warn('Failed to load subscription plans for coupons:', err);
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const loadCoupons = async () => {
+    try {
+      const remote = await api.getAdminCoupons();
       if (!remote || remote.length === 0) {
         if (isSupabaseConfigured) setCouponsList([]);
         return;
       }
       const mapped: CouponRowItem[] = remote.map((c) => {
         const isPct = c.discountType === 'percentage';
-        const validFromStr = c.validFrom ? new Date(c.validFrom).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '01 Sep 2026';
-        const validUntilStr = c.validUntil ? new Date(c.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 Sep 2026';
+        const validFromStr = c.validFrom
+          ? new Date(c.validFrom).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'Immediate';
+        const validUntilStr = c.validUntil
+          ? new Date(c.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'No Expiry';
         const isAct = c.isActive;
+
+        let planName = 'All Plans';
+        let planBadge = 'bg-[#DBEAFE] text-[#1E40AF]';
+        if (c.applicablePlanId) {
+          const matched = availablePlans.find((p) => p.id === c.applicablePlanId);
+          planName = matched ? matched.title : 'Specific Plan';
+          planBadge = 'bg-[#EDE9FE] text-[#6D28D9]';
+        }
 
         return {
           id: c.id,
@@ -278,8 +301,8 @@ export const AdminCoupons: React.FC = () => {
           discountType: isPct ? 'percentage' : 'fixed',
           discountValue: c.discountValue,
           maxDiscount: c.maxDiscountAmount,
-          applicablePlans: 'All Plans',
-          planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
+          applicablePlans: planName,
+          planBadgeClass: planBadge,
           usedCount: c.usedCount,
           totalLimit: c.maxUses || 500,
           validFrom: validFromStr,
@@ -291,12 +314,15 @@ export const AdminCoupons: React.FC = () => {
         };
       });
       setCouponsList(mapped);
-    }).catch((err) => {
+    } catch (err) {
       console.warn('Failed to load coupons from database:', err);
       if (isSupabaseConfigured) setCouponsList([]);
-    });
-    return () => { isMounted = false; };
-  }, []);
+    }
+  };
+
+  useEffect(() => {
+    loadCoupons();
+  }, [availablePlans]);
 
   // Checkbox selection
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<(number | string)[]>([]);
@@ -317,21 +343,21 @@ export const AdminCoupons: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form states for "Create New Coupon" panel
+  const todayDateStr = new Date().toISOString().split('T')[0];
   const [formCode, setFormCode] = useState('WELCOME50');
   const [formTitle, setFormTitle] = useState('Welcome Offer');
   const [formDescription, setFormDescription] = useState('Get 50% off on your first subscription.');
   const [formDiscountType, setFormDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [formDiscountValue, setFormDiscountValue] = useState('50');
   const [formMaxDiscount, setFormMaxDiscount] = useState('100');
-  const [formPlanBasic, setFormPlanBasic] = useState(false);
-  const [formPlanPro, setFormPlanPro] = useState(false);
-  const [formPlanUltimate, setFormPlanUltimate] = useState(false);
-  const [formPlanAll, setFormPlanAll] = useState(true);
+  const [formApplicablePlanId, setFormApplicablePlanId] = useState('');
   const [formUsageLimit, setFormUsageLimit] = useState('500');
-  const [formValidFrom] = useState('01 Sep 2026');
-  const [formValidUntil] = useState('30 Sep 2026');
+  const [formValidFrom, setFormValidFrom] = useState(todayDateStr);
+  const [formValidUntil, setFormValidUntil] = useState('');
   const [formActiveImmediately, setFormActiveImmediately] = useState(true);
   const [formFirstTimeOnly, setFormFirstTimeOnly] = useState(false);
+  const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
+  const [isDeletingCouponId, setIsDeletingCouponId] = useState<string | number | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -397,72 +423,80 @@ export const AdminCoupons: React.FC = () => {
   // Create Coupon Submit
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formCode.trim() || !formTitle.trim()) {
-      showToast('Please enter both coupon code and title.');
+    if (isSubmittingCoupon) return;
+
+    if (!formCode.trim()) {
+      showToast('Coupon code is required.');
       return;
     }
 
-    let planName = 'All Plans';
-    let planBadge = 'bg-[#DBEAFE] text-[#1E40AF]';
-    if (!formPlanAll) {
-      if (formPlanUltimate) {
-        planName = 'Ultimate Plan';
-        planBadge = 'bg-[#EDE9FE] text-[#6D28D9]';
-      } else if (formPlanPro) {
-        planName = 'Pro Plan';
-        planBadge = 'bg-[#FEF3C7] text-[#B45309]';
-      } else if (formPlanBasic) {
-        planName = 'Basic Plan';
-        planBadge = 'bg-[#DBEAFE] text-[#1E40AF]';
+    const discountNum = Number(formDiscountValue);
+    if (isNaN(discountNum) || discountNum <= 0) {
+      showToast('Discount value must be greater than 0.');
+      return;
+    }
+    if (formDiscountType === 'percentage' && discountNum > 100) {
+      showToast('Percentage discount cannot exceed 100%.');
+      return;
+    }
+
+    if (formValidFrom && formValidUntil) {
+      const fromTime = new Date(formValidFrom).getTime();
+      const untilTime = new Date(formValidUntil).getTime();
+      if (fromTime > untilTime) {
+        showToast('Valid From date cannot be after Valid Until date.');
+        return;
       }
     }
 
-    const tempId = `coup_${Date.now()}`;
-    const newCoupon: CouponRowItem = {
-      id: tempId,
-      code: formCode.trim().toUpperCase(),
-      title: formTitle.trim(),
-      subtitle: formDescription.trim() || 'Custom promotion',
-      discountType: formDiscountType,
-      discountValue: Number(formDiscountValue) || 20,
-      maxDiscount: formMaxDiscount ? Number(formMaxDiscount) : undefined,
-      applicablePlans: planName,
-      planBadgeClass: planBadge,
-      usedCount: 0,
-      totalLimit: Number(formUsageLimit) || 500,
-      validFrom: formValidFrom,
-      validUntil: formValidUntil,
-      status: formActiveImmediately ? 'Active' : 'Scheduled',
-      statusBadgeClass: formActiveImmediately
-        ? 'bg-[#DCFCE7] text-[#15803D]'
-        : 'bg-[#FEF3C7] text-[#D97706]',
-      description: formDescription,
-      isFirstTimeOnly: formFirstTimeOnly,
-    };
+    const maxDiscountNum = formMaxDiscount.trim() ? Number(formMaxDiscount) : undefined;
+    if (maxDiscountNum !== undefined && (isNaN(maxDiscountNum) || maxDiscountNum <= 0)) {
+      showToast('Maximum discount must be a positive number if provided.');
+      return;
+    }
 
-    setCouponsList((prev) => [newCoupon, ...prev]);
-    showToast(`Coupon "${newCoupon.code}" created successfully!`);
+    const maxUsesNum = formUsageLimit.trim() ? Number(formUsageLimit) : undefined;
+    if (maxUsesNum !== undefined && (isNaN(maxUsesNum) || maxUsesNum < 0)) {
+      showToast('Usage limit must be a valid non-negative number.');
+      return;
+    }
+
+    setIsSubmittingCoupon(true);
 
     try {
       const res = await api.createAdminCoupon({
         code: formCode.trim().toUpperCase(),
-        description: formDescription.trim(),
+        description: formDescription.trim() || undefined,
         discountType: formDiscountType,
-        discountValue: Number(formDiscountValue) || 20,
-        maxDiscountAmount: formMaxDiscount ? Number(formMaxDiscount) : undefined,
+        discountValue: discountNum,
+        maxDiscountAmount: maxDiscountNum,
         minOrderAmount: 0,
-        maxUses: Number(formUsageLimit) || 500,
+        maxUses: maxUsesNum,
         maxUsesPerUser: formFirstTimeOnly ? 1 : 5,
-        validFrom: new Date().toISOString(),
+        applicablePlanId: formApplicablePlanId || undefined,
+        validFrom: formValidFrom ? new Date(formValidFrom).toISOString() : new Date().toISOString(),
+        validUntil: formValidUntil ? new Date(formValidUntil).toISOString() : undefined,
         isActive: formActiveImmediately,
       });
-      if (res?.coupon?.id) {
-        setCouponsList((prev) =>
-          prev.map((c) => (c.id === tempId ? { ...c, id: res.coupon!.id } : c))
-        );
+
+      if (!res.success || !res.coupon) {
+        showToast(res.error || 'Failed to create coupon on backend.');
+        setIsSubmittingCoupon(false);
+        return;
       }
-    } catch (err) {
-      console.warn('Failed to save coupon to database:', err);
+
+      await loadCoupons();
+      showToast(`Coupon "${res.coupon.code}" created successfully!`);
+      setFormCode('');
+      setFormTitle('');
+      setFormDescription('');
+      setFormDiscountValue('20');
+      setFormMaxDiscount('');
+      setFormApplicablePlanId('');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Error creating coupon.');
+    } finally {
+      setIsSubmittingCoupon(false);
     }
   };
 
@@ -503,14 +537,23 @@ export const AdminCoupons: React.FC = () => {
 
   // Delete Coupon
   const handleDeleteCoupon = async (id: number | string) => {
-    setCouponsList((prev) => prev.filter((c) => c.id !== id));
-    showToast('Coupon removed.');
+    if (isDeletingCouponId === id) return;
+    setIsDeletingCouponId(id);
     setActiveMenuId(null);
 
     try {
-      await api.deleteAdminCoupon(String(id));
-    } catch (err) {
-      console.warn('Failed to delete coupon from database:', err);
+      const res = await api.deleteAdminCoupon(String(id));
+      if (!res.success) {
+        showToast(res.error || 'Failed to delete coupon on backend.');
+        setIsDeletingCouponId(null);
+        return;
+      }
+      setCouponsList((prev) => prev.filter((c) => c.id !== id));
+      showToast('Coupon removed successfully.');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Error deleting coupon.');
+    } finally {
+      setIsDeletingCouponId(null);
     }
   };
 
@@ -1152,68 +1195,23 @@ export const AdminCoupons: React.FC = () => {
               </div>
             </div>
 
-            {/* Applicable Plans checkboxes */}
+            {/* Applicable Plan Dropdown */}
             <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1.5 block">
-                Applicable Plans <span className="text-rose-500">*</span>
+              <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                Applicable Plan <span className="text-rose-500">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formPlanBasic}
-                    onChange={(e) => {
-                      setFormPlanBasic(e.target.checked);
-                      if (e.target.checked) setFormPlanAll(false);
-                    }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
-                  />
-                  <span className="text-slate-700">Basic Plan</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formPlanPro}
-                    onChange={(e) => {
-                      setFormPlanPro(e.target.checked);
-                      if (e.target.checked) setFormPlanAll(false);
-                    }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
-                  />
-                  <span className="text-slate-700">Pro Plan</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formPlanUltimate}
-                    onChange={(e) => {
-                      setFormPlanUltimate(e.target.checked);
-                      if (e.target.checked) setFormPlanAll(false);
-                    }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
-                  />
-                  <span className="text-slate-700">Ultimate Plan</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formPlanAll}
-                    onChange={(e) => {
-                      setFormPlanAll(e.target.checked);
-                      if (e.target.checked) {
-                        setFormPlanBasic(false);
-                        setFormPlanPro(false);
-                        setFormPlanUltimate(false);
-                      }
-                    }}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
-                  />
-                  <span className="text-slate-700 font-semibold">All Plans</span>
-                </label>
-              </div>
+              <select
+                value={formApplicablePlanId}
+                onChange={(e) => setFormApplicablePlanId(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+              >
+                <option value="">All Plans</option>
+                {availablePlans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} (₹{p.price})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Usage Limit */}
@@ -1233,21 +1231,30 @@ export const AdminCoupons: React.FC = () => {
               />
             </div>
 
-            {/* Validity Period */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                Validity Period <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex items-center border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 bg-white gap-2 justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>01 Sep 2026</span>
-                </div>
-                <span className="text-slate-400">→</span>
-                <div className="flex items-center gap-1.5">
-                  <span>30 Sep 2026</span>
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                </div>
+            {/* Validity Period (Real Date Inputs) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                  Valid From <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={formValidFrom}
+                  onChange={(e) => setFormValidFrom(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                  Valid Until (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={formValidUntil}
+                  onChange={(e) => setFormValidUntil(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
               </div>
             </div>
 
@@ -1318,6 +1325,9 @@ export const AdminCoupons: React.FC = () => {
                   setFormDescription('Get 50% off on your first subscription.');
                   setFormDiscountValue('50');
                   setFormMaxDiscount('100');
+                  setFormApplicablePlanId('');
+                  setFormValidFrom(todayDateStr);
+                  setFormValidUntil('');
                   showToast('Form reset.');
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -1326,9 +1336,10 @@ export const AdminCoupons: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                disabled={isSubmittingCoupon}
+                className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                Create Coupon
+                {isSubmittingCoupon ? 'Creating...' : 'Create Coupon'}
               </button>
             </div>
           </form>

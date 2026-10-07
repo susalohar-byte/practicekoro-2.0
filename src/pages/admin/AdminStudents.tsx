@@ -34,7 +34,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { api } from '@/services/api';
-import type { AdminStudentRow } from '@/types';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import type { AdminStudentRow, AdminStudentDetails, TestAttempt } from '@/types';
 import { cn } from '@/lib/utils';
 
 // ============================================================================
@@ -74,9 +75,9 @@ export interface EnrichedStudent {
   subscriptionValidTill?: string;
   subscriptionMonthsLeft?: string;
   testsAttempted: number;
-  avgScore: number;
-  bestScore?: number;
-  daysActive?: number;
+  avgScore?: number | null;
+  bestScore?: number | null;
+  daysActive?: number | null;
   lastActive: string;
   status: StudentStatus;
   joinedDate: string;
@@ -594,10 +595,12 @@ function mapDbRowToStudent(row: AdminStudentRow, index: number): EnrichedStudent
       ? `${Math.max(0, Math.ceil((new Date(row.expiresAt).getTime() - Date.now()) / 86400000))} days left`
       : 'Unavailable',
     testsAttempted: row.totalAttempts || 0,
-    avgScore: 72,
-    bestScore: 85,
-    daysActive: 12,
-    lastActive: row.lastActive ? 'Recently' : '2 days ago',
+    avgScore: row.avgScore ?? null,
+    bestScore: null,
+    daysActive: null,
+    lastActive: row.lastActive
+      ? new Date(row.lastActive).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      : 'Unavailable',
     status:
       row.accountStatus === 'active'
         ? 'Active'
@@ -610,24 +613,10 @@ function mapDbRowToStudent(row: AdminStudentRow, index: number): EnrichedStudent
           month: 'short',
           year: 'numeric',
         })
-      : '12 Aug 2026',
+      : 'Unavailable',
     location: row.district ? `${row.district}, WB` : 'West Bengal, India',
     targetExam: row.targetExamTitle || 'WBP Constable',
-    activities: [
-      {
-        id: `act-db-${row.id}-1`,
-        type: 'completed',
-        title: `Completed: ${row.targetExamTitle || 'WBP Full Mock 1'}`,
-        subtitle: 'Score: 76% (65/85)',
-        time: '2 days ago',
-      },
-      {
-        id: `act-db-${row.id}-2`,
-        type: 'registration',
-        title: 'Registered on PracticeKoro',
-        time: '12 Aug 2026',
-      },
-    ],
+    activities: [],
   };
 }
 
@@ -761,6 +750,142 @@ export const AdminStudents: React.FC = () => {
     return students.find((s) => s.id === selectedStudentId) || null;
   }, [students, selectedStudentId]);
 
+  // Real backend student details & notes
+  const [selectedStudentDetails, setSelectedStudentDetails] = useState<AdminStudentDetails | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [studentNotes, setStudentNotes] = useState<{ id: string; author: string; text: string; createdAt: string }[]>([]);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+
+  useEffect(() => {
+    if (!selectedStudentId) {
+      setSelectedStudentDetails(null);
+      setStudentNotes([]);
+      return;
+    }
+    let isMounted = true;
+    setIsLoadingDetails(true);
+    setIsLoadingNotes(true);
+
+    api
+      .getAdminStudentDetails(selectedStudentId)
+      .then((details) => {
+        if (isMounted) setSelectedStudentDetails(details);
+      })
+      .catch((err) => console.warn('Could not load student details:', err))
+      .finally(() => {
+        if (isMounted) setIsLoadingDetails(false);
+      });
+
+    api
+      .getStudentNotes(selectedStudentId)
+      .then((notes) => {
+        if (isMounted) setStudentNotes(notes);
+      })
+      .catch((err) => console.warn('Could not load student notes:', err))
+      .finally(() => {
+        if (isMounted) setIsLoadingNotes(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedStudentId]);
+
+  // Compute metrics from actual completed attempts
+  const studentMetrics = useMemo(() => {
+    if (!selectedStudentDetails || !selectedStudentDetails.recentAttempts) {
+      return {
+        testsAttempted: selectedStudent?.testsAttempted || 0,
+        avgScore: selectedStudent?.avgScore ?? null,
+        bestScore: null,
+        daysActive: null,
+        completedAttempts: [] as TestAttempt[],
+        derivedActivities: [] as StudentActivity[],
+      };
+    }
+
+    const attempts = selectedStudentDetails.recentAttempts;
+    const completed = attempts.filter((a) => a.status === 'completed' || (a.score != null && a.score > 0));
+
+    let avgScore: number | null = null;
+    let bestScore: number | null = null;
+    let daysActive: number | null = null;
+
+    if (completed.length > 0) {
+      const percentageScores = completed.map((a) => {
+        if (a.totalMarks && a.totalMarks > 0) {
+          return Math.min(100, Math.max(0, (a.score / a.totalMarks) * 100));
+        }
+        return Math.min(100, Math.max(0, a.score));
+      });
+      const sum = percentageScores.reduce((acc, score) => acc + score, 0);
+      avgScore = Math.round(sum / percentageScores.length);
+      bestScore = Math.round(Math.max(...percentageScores));
+
+      const datesSet = new Set(
+        attempts
+          .map((a) => {
+            try {
+              return new Date(a.createdAt).toISOString().split('T')[0];
+            } catch {
+              return '';
+            }
+          })
+          .filter(Boolean)
+      );
+      daysActive = datesSet.size;
+    }
+
+    const derivedActivities: StudentActivity[] = [];
+    completed.slice(0, 5).forEach((att, idx) => {
+      const pct = att.totalMarks > 0 ? Math.round((att.score / att.totalMarks) * 100) : att.score;
+      derivedActivities.push({
+        id: `att-act-${att.id || idx}`,
+        type: 'completed',
+        title: `Completed: ${att.testTitle || 'Mock Test'}`,
+        subtitle: `Score: ${pct}% (${att.score}/${att.totalMarks || 100})`,
+        time: att.createdAt
+          ? new Date(att.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+          : 'Recently',
+      });
+    });
+
+    if (selectedStudentDetails.subscriptionHistory) {
+      selectedStudentDetails.subscriptionHistory.forEach((sub, idx) => {
+        derivedActivities.push({
+          id: `sub-act-${sub.id || idx}`,
+          type: 'purchase',
+          title: `Subscription: ${sub.planTitle || 'Pro Plan'} (${sub.status})`,
+          time: sub.createdAt
+            ? new Date(sub.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+            : 'Recently',
+        });
+      });
+    }
+
+    if (selectedStudentDetails.createdAt) {
+      derivedActivities.push({
+        id: `reg-act-${selectedStudentDetails.id}`,
+        type: 'registration',
+        title: 'Registered on PracticeKoro',
+        time: new Date(selectedStudentDetails.createdAt).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+      });
+    }
+
+    return {
+      testsAttempted: completed.length,
+      avgScore,
+      bestScore,
+      daysActive,
+      completedAttempts: attempts,
+      derivedActivities,
+    };
+  }, [selectedStudentDetails, selectedStudent]);
+
   // Keep Edit Form updated when selectedStudent changes
   useEffect(() => {
     if (selectedStudent) {
@@ -893,7 +1018,7 @@ export const AdminStudents: React.FC = () => {
       s.phone,
       s.subscriptionPlan,
       s.testsAttempted,
-      `${s.avgScore}%`,
+      s.avgScore != null ? `${s.avgScore}%` : 'Unavailable',
       s.lastActive,
       s.status,
       s.joinedDate,
@@ -1159,100 +1284,143 @@ export const AdminStudents: React.FC = () => {
     }
   };
 
-  // Reset Password
-  const handleResetPassword = () => {
-    if (!selectedStudent) return;
-    setIsResetPasswordModalOpen(false);
-    showToast('success', `Password reset instructions sent to ${selectedStudent.email}`);
+  // Reset Password using Supabase Auth recovery flow
+  const handleResetPassword = async () => {
+    if (!selectedStudent || isWorking) return;
+    setIsWorking(true);
+    try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.auth.resetPasswordForEmail(selectedStudent.email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+      }
+      setIsResetPasswordModalOpen(false);
+      showToast('success', `Password recovery email initiated for ${selectedStudent.email}`);
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to send password recovery email.');
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Send Notification
-  const handleSendNotification = (e: React.FormEvent) => {
+  // Send Notification persisted to database for intended student
+  const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStudent) return;
+    if (!selectedStudent || isWorking) return;
     if (!notificationText.title.trim()) {
       showToast('error', 'Notification title is required.');
       return;
     }
+    if (!notificationText.message.trim()) {
+      showToast('error', 'Notification message is required.');
+      return;
+    }
 
-    // Add activity record to student
-    const updated = students.map((s) => {
-      if (s.id === selectedStudent.id) {
-        return {
-          ...s,
-          activities: [
-            {
-              id: `act-notif-${Date.now()}`,
-              type: 'registration' as const,
-              title: `Notification sent: "${notificationText.title}"`,
-              subtitle: notificationText.message || undefined,
-              time: 'Just now',
-            },
-            ...s.activities,
-          ],
-        };
+    setIsWorking(true);
+    try {
+      const res = await api.createTargetedNotification({
+        title: notificationText.title.trim(),
+        message: notificationText.message.trim(),
+        channel: 'in_app',
+        userIds: [selectedStudent.id],
+      });
+
+      if (!res.success) {
+        showToast('error', res.error || 'Failed to deliver notification.');
+        return;
       }
-      return s;
-    });
 
-    saveStudents(updated);
-    setIsNotificationModalOpen(false);
-    showToast('success', `Notification sent to ${selectedStudent.fullName}!`);
-    setNotificationText({ title: '', message: '' });
+      setIsNotificationModalOpen(false);
+      showToast('success', `In-app notification sent to ${selectedStudent.fullName}!`);
+      setNotificationText({ title: '', message: '' });
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Notification failed to deliver.');
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Save Note for Student
-  const handleSaveNote = () => {
-    if (!selectedStudent) return;
+  // Save Internal Note to backend database
+  const handleSaveNote = async () => {
+    if (!selectedStudent || isWorking) return;
     if (!newNoteText.trim()) return;
 
-    const newNote: StudentNote = {
-      id: `note-${Date.now()}`,
-      author: 'Admin',
-      text: newNoteText.trim(),
-      createdAt: 'Today',
-    };
-
-    const updated = students.map((s) => {
-      if (s.id === selectedStudent.id) {
-        return {
-          ...s,
-          notes: [newNote, ...(s.notes || [])],
-        };
+    setIsWorking(true);
+    try {
+      const res = await api.createStudentNote(selectedStudent.id, newNoteText.trim(), 'Staff Admin');
+      if (!res.success || !res.note) {
+        showToast('error', res.error || 'Failed to persist note.');
+        return;
       }
-      return s;
-    });
 
-    saveStudents(updated);
-    setNewNoteText('');
-    showToast('success', `Note saved for ${selectedStudent.fullName}!`);
+      setStudentNotes((prev) => [res.note, ...prev]);
+      setNewNoteText('');
+      showToast('success', `Note saved for ${selectedStudent.fullName}!`);
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Note creation failed.');
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Grant / Upgrade Subscription directly from Subscriptions tab
-  const handleQuickGrantPlan = (plan: SubscriptionTier) => {
-    if (!selectedStudent) return;
-    const updated = students.map((s) => {
-      if (s.id === selectedStudent.id) {
-        return {
-          ...s,
-          subscriptionPlan: plan,
-          subscriptionValidTill: '05 Nov 2027',
-          subscriptionMonthsLeft: '12 months left',
-          activities: [
-            {
-              id: `act-sub-${Date.now()}`,
-              type: 'purchase' as const,
-              title: `Subscription updated to ${plan} Plan by Admin`,
-              time: 'Just now',
-            },
-            ...s.activities,
-          ],
-        };
+  // Delete Note for Student
+  const handleDeleteNote = async (noteId: string) => {
+    if (isWorking) return;
+    setIsWorking(true);
+    try {
+      const res = await api.deleteStudentNote(noteId);
+      if (!res.success) {
+        showToast('error', res.error || 'Failed to delete note.');
+        return;
       }
-      return s;
-    });
-    saveStudents(updated);
-    showToast('success', `${selectedStudent.fullName}'s plan updated to ${plan}!`);
+      setStudentNotes((prev) => prev.filter((n) => n.id !== noteId));
+      showToast('success', 'Internal note removed.');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to delete note.');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  // Grant / Upgrade Subscription directly from Subscriptions tab via real backend API
+  const handleQuickGrantPlan = async (tier: SubscriptionTier) => {
+    if (!selectedStudent || isWorking) return;
+    setIsWorking(true);
+    try {
+      const plans = await api.getSubscriptionPlans(true);
+      const targetDays = tier === '1 Year' ? 365 : tier === '6 Months' ? 180 : 30;
+      const matchedPlan =
+        plans.find((p) => p.durationDays === targetDays) ||
+        plans.find((p) => p.id !== 'plan_free') ||
+        plans[0];
+      if (!matchedPlan) {
+        showToast('error', 'No active subscription plans configured.');
+        return;
+      }
+
+      const res = await api.createAdminSubscription({
+        studentEmail: selectedStudent.email,
+        planId: matchedPlan.id,
+        studentName: selectedStudent.fullName,
+        planTitle: matchedPlan.title,
+      });
+      if (!res.success) {
+        showToast('error', res.error || 'Failed to grant plan.');
+        return;
+      }
+
+      showToast('success', `${matchedPlan.title} access granted to ${selectedStudent.fullName}!`);
+      // Reload details and students list
+      const details = await api.getAdminStudentDetails(selectedStudent.id);
+      if (details) setSelectedStudentDetails(details);
+      const data = await api.getAllAdminStudents();
+      if (data) setStudents(data.map((row, i) => mapDbRowToStudent(row, i)));
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to grant plan.');
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   // Close row menu when clicking outside
@@ -1267,11 +1435,11 @@ export const AdminStudents: React.FC = () => {
   const activeStudentsCount = students.filter((s) => s.status === 'Active').length;
   const paidStudentsCount = students.filter((s) => s.subscriptionPlan !== 'Free').length;
   const newStudentsCount = students.length;
-  const scoredStudents = students.filter((s) => s.avgScore > 0);
+  const scoredStudents = students.filter((s) => s.avgScore != null && s.avgScore > 0);
   const avgTestScoreFormatted =
     scoredStudents.length > 0
-      ? `${Math.round(scoredStudents.reduce((sum, s) => sum + s.avgScore, 0) / scoredStudents.length)}%`
-      : '0%';
+      ? `${Math.round(scoredStudents.reduce((sum, s) => sum + (s.avgScore || 0), 0) / scoredStudents.length)}%`
+      : 'Unavailable';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 pb-16 font-sans">
@@ -1733,7 +1901,7 @@ export const AdminStudents: React.FC = () => {
 
                           {/* Avg. Score */}
                           <td className="py-3 px-2 text-center font-medium text-slate-700">
-                            {student.avgScore}%
+                            {student.avgScore != null ? `${student.avgScore}%` : 'Unavailable'}
                           </td>
 
                           {/* Last Active */}
@@ -2068,7 +2236,7 @@ export const AdminStudents: React.FC = () => {
                           : 'text-slate-500 hover:text-slate-700'
                       )}
                     >
-                      Notes ({selectedStudent.notes?.length || 0})
+                      Notes ({studentNotes.length})
                     </button>
                   </div>
 
@@ -2089,7 +2257,7 @@ export const AdminStudents: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1.5 truncate">
                             <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{selectedStudent.phone}</span>
+                            <span>{selectedStudent.phone || '—'}</span>
                           </div>
                           <div className="flex items-center gap-1.5 truncate">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -2103,7 +2271,7 @@ export const AdminStudents: React.FC = () => {
                         {/* Tests Attempted */}
                         <div className="bg-[#F0F7FF] rounded-lg p-2.5 text-center">
                           <span className="text-base font-bold text-[#026BFC] block leading-tight">
-                            {selectedStudent.testsAttempted}
+                            {studentMetrics.testsAttempted}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Tests Attempted
@@ -2112,8 +2280,8 @@ export const AdminStudents: React.FC = () => {
 
                         {/* Avg. Score */}
                         <div className="bg-[#F0FDF4] rounded-lg p-2.5 text-center">
-                          <span className="text-base font-bold text-[#16A34A] block leading-tight">
-                            {selectedStudent.avgScore}%
+                          <span className="text-xs sm:text-base font-bold text-[#16A34A] block leading-tight">
+                            {studentMetrics.avgScore != null ? `${studentMetrics.avgScore}%` : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Avg. Score
@@ -2122,8 +2290,8 @@ export const AdminStudents: React.FC = () => {
 
                         {/* Best Score */}
                         <div className="bg-[#FAF5FF] rounded-lg p-2.5 text-center">
-                          <span className="text-base font-bold text-[#9333EA] block leading-tight">
-                            {selectedStudent.bestScore || 85}%
+                          <span className="text-xs sm:text-base font-bold text-[#9333EA] block leading-tight">
+                            {studentMetrics.bestScore != null ? `${studentMetrics.bestScore}%` : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Best Score
@@ -2132,8 +2300,8 @@ export const AdminStudents: React.FC = () => {
 
                         {/* Days Active */}
                         <div className="bg-[#FFFBEB] rounded-lg p-2.5 text-center">
-                          <span className="text-base font-bold text-[#D97706] block leading-tight">
-                            {selectedStudent.daysActive || 12}
+                          <span className="text-xs sm:text-base font-bold text-[#D97706] block leading-tight">
+                            {studentMetrics.daysActive != null ? studentMetrics.daysActive : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Days Active
@@ -2156,12 +2324,16 @@ export const AdminStudents: React.FC = () => {
                                 {selectedStudent.subscriptionPlan} Plan
                               </span>
                               <span className="text-[11px] text-slate-500 block mt-0.5 leading-tight">
-                                Valid Till: {selectedStudent.subscriptionValidTill || '12 Feb 2027'}{' '}
-                                (
-                                <span className="text-[#D97706] font-medium">
-                                  {selectedStudent.subscriptionMonthsLeft || '4 months left'}
-                                </span>
-                                )
+                                Valid Till: {selectedStudent.subscriptionValidTill || 'Unavailable'}{' '}
+                                {selectedStudent.subscriptionMonthsLeft && selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
+                                  <>
+                                    (
+                                    <span className="text-[#D97706] font-medium">
+                                      {selectedStudent.subscriptionMonthsLeft}
+                                    </span>
+                                    )
+                                  </>
+                                ) : null}
                               </span>
                             </div>
                           </div>
@@ -2188,12 +2360,12 @@ export const AdminStudents: React.FC = () => {
                         </div>
 
                         <div className="space-y-2.5">
-                          {selectedStudent.activities.length === 0 ? (
+                          {studentMetrics.derivedActivities.length === 0 ? (
                             <p className="text-[11px] text-slate-400 py-2">
-                              No recent activity recorded.
+                              No recent activity recorded for this student.
                             </p>
                           ) : (
-                            selectedStudent.activities.map((act) => {
+                            studentMetrics.derivedActivities.map((act) => {
                               return (
                                 <div
                                   key={act.id}
@@ -2247,53 +2419,64 @@ export const AdminStudents: React.FC = () => {
                     <div className="space-y-3 text-xs py-1">
                       <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
                         <span className="font-bold text-slate-800 block text-xs">
-                          Completed Tests ({selectedStudent.testsAttempted})
+                          Completed Tests ({studentMetrics.testsAttempted})
                         </span>
                         <span className="text-[11px] text-slate-500">
-                          Average score across all test attempts: {selectedStudent.avgScore}% •
-                          Best: {selectedStudent.bestScore || 85}%
+                          {studentMetrics.avgScore != null
+                            ? `Average score across completed attempts: ${studentMetrics.avgScore}% • Best: ${studentMetrics.bestScore}%`
+                            : 'No completed test attempts recorded yet.'}
                         </span>
                       </div>
                       <div className="space-y-2">
-                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
-                          <div>
-                            <span className="font-semibold block text-slate-900">
-                              WBP Constable Full Mock 1
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              66/85 Marks (78%) • Rank #14 in District
-                            </span>
+                        {isLoadingDetails ? (
+                          <div className="flex items-center justify-center py-6 text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            <span>Loading attempts...</span>
                           </div>
-                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] font-bold">
-                            Passed
-                          </span>
-                        </div>
-                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
-                          <div>
-                            <span className="font-semibold block text-slate-900">
-                              General Science - Heat & Temperature
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              18/30 Marks (60%) • Topic Test
-                            </span>
+                        ) : studentMetrics.completedAttempts.length === 0 ? (
+                          <div className="p-4 text-center text-slate-400 bg-white border border-slate-100 rounded-lg text-xs">
+                            No test attempts found for this student.
                           </div>
-                          <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold">
-                            Completed
-                          </span>
-                        </div>
-                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
-                          <div>
-                            <span className="font-semibold block text-slate-900">
-                              WBP Constable Speed Test (Arithmetic)
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              22/25 Marks (88%) • Rank #4
-                            </span>
-                          </div>
-                          <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-[11px] font-bold">
-                            Top 5%
-                          </span>
-                        </div>
+                        ) : (
+                          studentMetrics.completedAttempts.map((att) => {
+                            const pct =
+                              att.totalMarks > 0
+                                ? Math.round((att.score / att.totalMarks) * 100)
+                                : att.score;
+                            const isPassed = pct >= 40;
+                            return (
+                              <div
+                                key={att.id}
+                                className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs"
+                              >
+                                <div>
+                                  <span className="font-semibold block text-slate-900">
+                                    {att.testTitle || 'Mock Test'}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500">
+                                    {att.score}/{att.totalMarks || 100} Marks ({pct}%)
+                                    {att.accuracy != null ? ` • Accuracy: ${Math.round(att.accuracy)}%` : ''}
+                                    {att.rank ? ` • Rank #${att.rank}` : ''}
+                                  </span>
+                                </div>
+                                <span
+                                  className={cn(
+                                    'px-2 py-0.5 rounded text-[11px] font-bold',
+                                    isPassed
+                                      ? 'text-emerald-700 bg-emerald-50'
+                                      : 'text-amber-700 bg-amber-50'
+                                  )}
+                                >
+                                  {att.status === 'completed'
+                                    ? isPassed
+                                      ? 'Passed'
+                                      : 'Completed'
+                                    : att.status}
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   )}
@@ -2307,27 +2490,44 @@ export const AdminStudents: React.FC = () => {
                         </span>
                         <span className="text-[11px] text-emerald-700 block mt-0.5">
                           Status: Active • Valid till{' '}
-                          {selectedStudent.subscriptionValidTill || '12 Feb 2027'} (
-                          {selectedStudent.subscriptionMonthsLeft || '4 months left'})
+                          {selectedStudent.subscriptionValidTill || 'Unavailable'}{' '}
+                          {selectedStudent.subscriptionMonthsLeft && selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
+                            <>({selectedStudent.subscriptionMonthsLeft})</>
+                          ) : null}
                         </span>
                       </div>
 
-                      <div className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs">
-                        <span className="font-bold text-slate-900 block text-xs">
-                          Order Details
-                        </span>
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span>Order ID:</span>
-                          <span className="font-mono text-slate-800">#ORD-98231</span>
-                        </div>
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span>Amount Paid:</span>
-                          <span className="font-bold text-slate-900">₹499 (Online)</span>
-                        </div>
-                        <div className="flex justify-between text-[11px] text-slate-600">
-                          <span>Payment Gateway:</span>
-                          <span>Razorpay UPI</span>
-                        </div>
+                      <div className="space-y-2">
+                        {isLoadingDetails ? (
+                          <div className="flex items-center justify-center py-4 text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            <span>Loading orders...</span>
+                          </div>
+                        ) : selectedStudentDetails?.paymentHistory && selectedStudentDetails.paymentHistory.length > 0 ? (
+                          selectedStudentDetails.paymentHistory.map((pmt) => (
+                            <div key={pmt.id} className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs">
+                              <span className="font-bold text-slate-900 block text-xs">
+                                Order Details ({pmt.status})
+                              </span>
+                              <div className="flex justify-between text-[11px] text-slate-600">
+                                <span>Transaction ID:</span>
+                                <span className="font-mono text-slate-800">{pmt.transactionId || pmt.orderId || '—'}</span>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-slate-600">
+                                <span>Amount Paid:</span>
+                                <span className="font-bold text-slate-900">₹{pmt.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-slate-600">
+                                <span>Payment Gateway:</span>
+                                <span>{pmt.gateway || 'Online'}</span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 border border-slate-100 rounded-xl bg-slate-50 text-[11px] text-slate-500">
+                            No direct payment transactions recorded for this student.
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2 border-t border-slate-100">
@@ -2337,13 +2537,15 @@ export const AdminStudents: React.FC = () => {
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => handleQuickGrantPlan('6 Months')}
-                            className="p-2 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold text-center"
+                            disabled={isWorking}
+                            className="p-2 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold text-center disabled:opacity-50"
                           >
                             Grant 6 Months
                           </button>
                           <button
                             onClick={() => handleQuickGrantPlan('1 Year')}
-                            className="p-2 border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold text-center"
+                            disabled={isWorking}
+                            className="p-2 border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold text-center disabled:opacity-50"
                           >
                             Grant 1 Year Pro
                           </button>
@@ -2357,7 +2559,7 @@ export const AdminStudents: React.FC = () => {
                     <div className="space-y-3 text-xs py-1">
                       <div>
                         <label className="block text-slate-700 font-semibold mb-1">
-                          Add Internal Note
+                          Add Internal Staff Note
                         </label>
                         <textarea
                           rows={3}
@@ -2369,10 +2571,11 @@ export const AdminStudents: React.FC = () => {
                         <div className="flex justify-end mt-1.5">
                           <button
                             onClick={handleSaveNote}
-                            disabled={!newNoteText.trim()}
-                            className="px-3 py-1.5 bg-[#026BFC] hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-colors"
+                            disabled={!newNoteText.trim() || isWorking}
+                            className="px-3 py-1.5 bg-[#026BFC] hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5"
                           >
-                            Save Note
+                            {isWorking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            <span>Save Note</span>
                           </button>
                         </div>
                       </div>
@@ -2381,23 +2584,38 @@ export const AdminStudents: React.FC = () => {
                         <span className="font-bold text-slate-800 block text-xs">
                           Notes History:
                         </span>
-                        {!selectedStudent.notes || selectedStudent.notes.length === 0 ? (
+                        {isLoadingNotes ? (
+                          <div className="flex items-center justify-center py-4 text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            <span>Loading notes...</span>
+                          </div>
+                        ) : studentNotes.length === 0 ? (
                           <p className="text-slate-400 text-[11px] py-2">
-                            No notes added for this student yet.
+                            No internal notes added for this student yet.
                           </p>
                         ) : (
-                          selectedStudent.notes.map((note) => (
+                          studentNotes.map((note) => (
                             <div
                               key={note.id}
-                              className="p-2.5 bg-slate-50 rounded-lg border border-slate-200"
+                              className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-start justify-between gap-2"
                             >
-                              <p className="text-slate-800 text-[11px] leading-relaxed">
-                                {note.text}
-                              </p>
-                              <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
-                                <span>By: {note.author}</span>
-                                <span>{note.createdAt}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-slate-800 text-[11px] leading-relaxed">
+                                  {note.text}
+                                </p>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+                                  <span>By: {note.author}</span>
+                                  <span>{note.createdAt}</span>
+                                </div>
                               </div>
+                              <button
+                                onClick={() => handleDeleteNote(note.id)}
+                                disabled={isWorking}
+                                title="Delete note"
+                                className="text-slate-400 hover:text-red-500 p-1 shrink-0"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           ))
                         )}
@@ -2860,9 +3078,10 @@ export const AdminStudents: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isWorking}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Send Now
+                  {isWorking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isWorking ? 'Sending…' : 'Send In-App Notification'}</span>
                 </button>
               </div>
             </form>
@@ -2894,9 +3113,11 @@ export const AdminStudents: React.FC = () => {
               </button>
               <button
                 onClick={handleResetPassword}
-                className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm"
+                disabled={isWorking}
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm disabled:opacity-50 flex items-center gap-1.5"
               >
-                Send Reset Link
+                {isWorking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isWorking ? 'Sending…' : 'Send Reset Link'}</span>
               </button>
             </div>
           </div>

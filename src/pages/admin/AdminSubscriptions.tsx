@@ -23,11 +23,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
-import type { AdminSubscriptionRow, PaymentStatus } from '@/types';
+import type { AdminSubscriptionRow, PaymentStatus, SubscriptionPlan } from '@/types';
 import {
   formatRecordedAmount,
   getRecordedSubscriptionRevenue,
 } from '@/utils/adminFinancialDisplay';
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return fallback;
+}
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -35,6 +41,7 @@ import {
 
 export interface SubscriptionRecord {
   id: number | string;
+  userId?: string;
   studentName: string;
   studentEmail: string;
   studentPhone?: string;
@@ -82,6 +89,7 @@ export function mapAdminSubscriptionRow(d: AdminSubscriptionRow): SubscriptionRe
           : '—';
   return {
     id: d.id,
+    userId: d.userId,
     studentName: d.studentName || 'Student Aspirant',
     studentEmail: d.studentEmail || '',
     studentPhone: d.studentPhone,
@@ -504,14 +512,33 @@ export const AdminSubscriptions: React.FC = () => {
   const [isChangePlanModalOpen, setIsChangePlanModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
-  // Create Form states
+  // Available database plans
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
   const [formStudentName, setFormStudentName] = useState('');
   const [formStudentEmail, setFormStudentEmail] = useState('');
-  const [formPlan, setFormPlan] = useState('6 Months');
-  const [formAmount, setFormAmount] = useState('');
-  const [formMethod, setFormMethod] = useState<'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card'>(
-    'Razorpay'
-  );
+  const [formSelectedPlanId, setFormSelectedPlanId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+
+  // Fetch configured plans from database
+  useEffect(() => {
+    let mounted = true;
+    api
+      .getSubscriptionPlans(true)
+      .then((plans) => {
+        if (mounted && plans && plans.length > 0) {
+          const active = plans.filter((p) => p.isActive);
+          setAvailablePlans(active);
+          if (active.length > 0) {
+            setFormSelectedPlanId(active[0].id);
+          }
+        }
+      })
+      .catch((err) => console.warn('Could not load subscription plans:', err));
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(msg);
@@ -611,32 +638,37 @@ export const AdminSubscriptions: React.FC = () => {
   // Create Subscription Submit
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formStudentName.trim() || !formStudentEmail.trim()) {
-      showToast('Please fill student name and email.');
+    if (!formStudentEmail.trim()) {
+      showToast('Please enter registered student email.', 'error');
+      return;
+    }
+    if (!formSelectedPlanId) {
+      showToast('Please select a valid subscription plan.', 'error');
       return;
     }
 
     try {
+      setIsSubmitting(true);
       const res = await api.createAdminSubscription({
-        studentName: formStudentName.trim(),
+        studentName: formStudentName.trim() || undefined,
         studentEmail: formStudentEmail.trim(),
-        planTitle: formPlan,
-        amount: formAmount.trim() ? Number(formAmount) : undefined,
-        paymentMethod: formMethod,
-        durationDays: 180,
+        planId: formSelectedPlanId,
       });
       if (!res.success) {
-        showToast(res.error || 'Subscription creation failed.');
+        showToast(res.error || 'Subscription creation failed.', 'error');
         return;
       }
       const records = await api.getAllAdminSubscriptions();
       setSubscriptionsList(records.map(mapAdminSubscriptionRow));
       if (res.subscriptionId) setSelectedRowId(res.subscriptionId);
       setIsCreateModalOpen(false);
-      showToast(`Subscription activated for ${formStudentName.trim()}!`);
+      setFormStudentName('');
+      setFormStudentEmail('');
+      showToast(`Subscription activated successfully for ${formStudentEmail.trim()}!`);
     } catch (err) {
-      console.warn('Subscription creation error:', err);
-      showToast('Could not save or reload the subscription. Please refresh and verify.');
+      showToast(getErrorMessage(err, 'Could not save the subscription.'), 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -681,29 +713,128 @@ export const AdminSubscriptions: React.FC = () => {
 
   // Extend Subscription Action
   const handleExtendConfirm = async (days: number) => {
-    if (!selectedSubscription) return;
+    if (!selectedSubscription || isSubmitting) return;
     const targetId = selectedSubscription.id;
-    setSubscriptionsList((prev) =>
-      prev.map((s) =>
-        s.id === targetId
-          ? {
-              ...s,
-              status: 'Active',
-              statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-              daysLeft: (s.daysLeft || 0) + days,
-              endDate: '12 Aug 2027',
-            }
-          : s
-      )
-    );
-    setIsExtendModalOpen(false);
-    showToast(`Extended subscription by ${days} days for ${selectedSubscription.studentName}.`);
-
-    // Persist to database
     try {
-      await api.extendSubscription(targetId, days);
+      setIsSubmitting(true);
+      const res = await api.extendSubscription(targetId, days);
+      if (!res.success) {
+        showToast(res.error || 'Failed to extend subscription.', 'error');
+        return;
+      }
+
+      const formattedNewEnd = res.newExpiresAt
+        ? new Date(res.newExpiresAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })
+        : selectedSubscription.endDate;
+
+      const newDaysLeft = res.newExpiresAt
+        ? Math.max(0, Math.ceil((new Date(res.newExpiresAt).getTime() - Date.now()) / 86400000))
+        : (selectedSubscription.daysLeft || 0) + days;
+
+      setSubscriptionsList((prev) =>
+        prev.map((s) =>
+          s.id === targetId
+            ? {
+                ...s,
+                status: 'Active',
+                statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
+                daysLeft: newDaysLeft,
+                endDate: formattedNewEnd,
+              }
+            : s
+        )
+      );
+      setIsExtendModalOpen(false);
+      showToast(`Extended subscription by ${days} days for ${selectedSubscription.studentName}.`);
     } catch (err) {
-      console.warn('Failed to extend subscription in database:', err);
+      showToast(getErrorMessage(err, 'Failed to extend subscription in database.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Change Plan Action
+  const handleChangePlanConfirm = async (plan: SubscriptionPlan) => {
+    if (!selectedSubscription || isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      const res = await api.changeSubscriptionPlan(selectedSubscription.id, plan.id);
+      if (!res.success) {
+        showToast(res.error || 'Failed to update plan.', 'error');
+        return;
+      }
+
+      const formattedNewEnd = res.newExpiresAt
+        ? new Date(res.newExpiresAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })
+        : selectedSubscription.endDate;
+
+      const newDaysLeft = res.newExpiresAt
+        ? Math.max(0, Math.ceil((new Date(res.newExpiresAt).getTime() - Date.now()) / 86400000))
+        : selectedSubscription.daysLeft;
+
+      setSubscriptionsList((prev) =>
+        prev.map((s) =>
+          s.id === selectedSubscription.id
+            ? {
+                ...s,
+                plan: res.planTitle || plan.title,
+                planFullTitle: res.planTitle || plan.title,
+                endDate: formattedNewEnd,
+                daysLeft: newDaysLeft,
+                status: 'Active',
+                statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
+              }
+            : s
+        )
+      );
+      setIsChangePlanModalOpen(false);
+      showToast(`Plan upgraded to "${res.planTitle || plan.title}" for ${selectedSubscription.studentName}!`);
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to change subscription plan.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Send Notification Action
+  const handleSendReminder = async () => {
+    if (!selectedSubscription || isSubmitting) return;
+    const msg =
+      notificationMessage.trim() ||
+      `Hello ${selectedSubscription.studentName}, your PracticeKoro ${selectedSubscription.planFullTitle} has ${selectedSubscription.daysLeft ?? 0} days remaining. Renew today to maintain uninterrupted mock test access!`;
+
+    if (!selectedSubscription.userId) {
+      showToast('Student user profile ID is missing.', 'error');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await api.createTargetedNotification({
+        title: 'Subscription Reminder',
+        message: msg,
+        channel: 'in_app',
+        userIds: [selectedSubscription.userId],
+      });
+      if (!res.success) {
+        showToast(res.error || 'Failed to send notification.', 'error');
+        return;
+      }
+      setIsNotificationModalOpen(false);
+      setNotificationMessage('');
+      showToast(`In-app notification sent to ${selectedSubscription.studentName}!`);
+    } catch (err) {
+      showToast(getErrorMessage(err, 'Failed to send notification.'), 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -758,8 +889,7 @@ export const AdminSubscriptions: React.FC = () => {
             onClick={() => {
               setFormStudentName('');
               setFormStudentEmail('');
-              setFormPlan('6 Months');
-              setFormAmount('99');
+              setFormSelectedPlanId(availablePlans[0]?.id || '');
               setIsCreateModalOpen(true);
             }}
             className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -1640,66 +1770,54 @@ export const AdminSubscriptions: React.FC = () => {
               <div className="grid grid-cols-2 gap-3.5">
                 <div>
                   <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                    Subscription Plan
+                    Subscription Plan <span className="text-rose-500">*</span>
                   </label>
                   <select
-                    value={formPlan}
-                    onChange={(e) => setFormPlan(e.target.value)}
+                    value={formSelectedPlanId}
+                    onChange={(e) => setFormSelectedPlanId(e.target.value)}
+                    required
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none"
                   >
-                    <option value="1 Month">1 Month</option>
-                    <option value="3 Months">3 Months</option>
-                    <option value="6 Months">6 Months</option>
-                    <option value="1 Year">1 Year</option>
+                    {availablePlans.length === 0 ? (
+                      <option value="">No active plans found</option>
+                    ) : (
+                      availablePlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} ({p.durationDays} days - ₹{p.price})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
                 <div>
                   <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                    Reference Amount (₹)
+                    Access Type
                   </label>
-                  <input
-                    type="number"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none"
-                  />
+                  <div className="border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-600 bg-slate-50 font-medium">
+                    Manual Admin Grant
+                  </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    A manual grant is not a collected payment. Revenue requires a linked completed
-                    payment record.
+                    Direct access grant. Does not fabricate financial revenue or fake gateway orders.
                   </p>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                  Payment Method
-                </label>
-                <select
-                  value={formMethod}
-                  onChange={(e) => setFormMethod(e.target.value as any)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none"
-                >
-                  <option value="Razorpay">Razorpay</option>
-                  <option value="UPI">UPI</option>
-                  <option value="PhonePe">PhonePe</option>
-                  <option value="Credit Card">Credit Card</option>
-                </select>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs"
+                  disabled={isSubmitting || availablePlans.length === 0}
+                  className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs disabled:opacity-50 cursor-pointer"
                 >
-                  Activate Subscription
+                  {isSubmitting ? 'Activating…' : 'Activate Subscription'}
                 </button>
               </div>
             </form>
@@ -1723,20 +1841,23 @@ export const AdminSubscriptions: React.FC = () => {
 
             <div className="grid grid-cols-3 gap-2 mb-5">
               <button
+                disabled={isSubmitting}
                 onClick={() => handleExtendConfirm(30)}
-                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors"
+                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 +30 Days
               </button>
               <button
+                disabled={isSubmitting}
                 onClick={() => handleExtendConfirm(90)}
-                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors"
+                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 +90 Days
               </button>
               <button
+                disabled={isSubmitting}
                 onClick={() => handleExtendConfirm(180)}
-                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors"
+                className="py-2.5 px-2 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-xs font-bold text-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 +180 Days
               </button>
@@ -1744,7 +1865,8 @@ export const AdminSubscriptions: React.FC = () => {
 
             <button
               onClick={() => setIsExtendModalOpen(false)}
-              className="text-xs font-semibold text-slate-500 hover:underline"
+              disabled={isSubmitting}
+              className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
             >
               Cancel
             </button>
@@ -1757,41 +1879,52 @@ export const AdminSubscriptions: React.FC = () => {
       {/* ==================================================================== */}
       {isChangePlanModalOpen && selectedSubscription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-sm overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
               <Crown className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-900 mb-1">Change Tier Plan</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Select upgraded subscription tier for {selectedSubscription.studentName}
+              Select upgraded subscription tier for <strong>{selectedSubscription.studentName}</strong>
             </p>
 
-            <div className="space-y-2 mb-5 text-left text-xs">
-              {['Pro Plan (₹199 / 6 months)', 'Ultimate Plan (₹399 / 12 months)'].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setSubscriptionsList((prev) =>
-                      prev.map((s) =>
-                        s.id === selectedSubscription.id
-                          ? { ...s, plan: p.split(' ')[0], planFullTitle: p }
-                          : s
-                      )
-                    );
-                    setIsChangePlanModalOpen(false);
-                    showToast(`Plan updated for ${selectedSubscription.studentName}!`);
-                  }}
-                  className="w-full p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center justify-between font-medium text-slate-800"
-                >
-                  <span>{p}</span>
-                  <Check className="w-4 h-4 text-blue-500" />
-                </button>
-              ))}
+            <div className="space-y-2.5 mb-5 text-left text-xs">
+              {availablePlans.length === 0 ? (
+                <div className="p-3 text-center text-slate-400">No active plans available</div>
+              ) : (
+                availablePlans.map((plan) => {
+                  const duration = plan.durationDays || 30;
+                  const futureDate = new Date(Date.now() + duration * 86400000).toLocaleDateString(
+                    'en-GB',
+                    { day: '2-digit', month: 'short', year: 'numeric' }
+                  );
+                  return (
+                    <button
+                      key={plan.id}
+                      disabled={isSubmitting}
+                      onClick={() => handleChangePlanConfirm(plan)}
+                      className="w-full p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 flex items-center justify-between font-medium text-slate-800 transition-colors cursor-pointer disabled:opacity-50 text-left"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900">{plan.title}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {duration} days validity • New expiry: {futureDate}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-blue-600 text-sm">₹{plan.price}</span>
+                        <div className="text-[10px] text-slate-400">Apply</div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             <button
               onClick={() => setIsChangePlanModalOpen(false)}
-              className="text-xs font-semibold text-slate-500 hover:underline"
+              disabled={isSubmitting}
+              className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
             >
               Close
             </button>
@@ -1806,31 +1939,38 @@ export const AdminSubscriptions: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden p-6 animate-in zoom-in-95 duration-200">
             <h3 className="text-sm font-bold text-slate-900 mb-1">Send Subscription Reminder</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Email & In-App push notification to {selectedSubscription.studentEmail}
+            <p className="text-xs text-slate-500 mb-3">
+              Direct in-app notification delivered to <strong>{selectedSubscription.studentName}</strong>
             </p>
 
             <textarea
-              rows={3}
-              defaultValue={`Hello ${selectedSubscription.studentName}, your PracticeKoro ${selectedSubscription.planFullTitle} has ${selectedSubscription.daysLeft} days remaining. Renew today to maintain uninterrupted mock test access!`}
-              className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-4"
+              rows={4}
+              value={
+                notificationMessage ||
+                `Hello ${selectedSubscription.studentName}, your PracticeKoro ${selectedSubscription.planFullTitle} has ${selectedSubscription.daysLeft ?? 0} days remaining. Renew today to maintain uninterrupted mock test access!`
+              }
+              onChange={(e) => setNotificationMessage(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mb-3"
             />
+
+            <p className="text-[11px] text-slate-400 mb-4">
+              Stored directly in the student's notification center.
+            </p>
 
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsNotificationModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                disabled={isSubmitting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsNotificationModalOpen(false);
-                  showToast(`Notification sent to ${selectedSubscription.studentEmail}`);
-                }}
-                className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs"
+                onClick={handleSendReminder}
+                disabled={isSubmitting}
+                className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs disabled:opacity-50 cursor-pointer"
               >
-                Send Now
+                {isSubmitting ? 'Sending…' : 'Send Reminder'}
               </button>
             </div>
           </div>
