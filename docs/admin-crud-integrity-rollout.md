@@ -2,9 +2,21 @@
 
 ## Release status
 
-This code is not proof of a production deployment. The integrity migration has
-**not been applied to production by this change**, and no Hostinger files have
-been uploaded. GitHub push alone does not update the live website.
+The backend migrations were applied to the production Supabase project
+`prycanbnxuihxhskallw` with explicit approval. Supabase generated these ledger
+versions; repository filenames now match them to prevent duplicate application:
+
+- `20261007084500_student_internal_notes.sql` → `20261007102947_student_internal_notes.sql`
+- `20261007100000_admin_crud_integrity.sql` → `20261007102959_admin_crud_integrity.sql`
+
+SQL bodies were unchanged. Post-apply catalog checks confirmed all 14 metadata
+columns, RLS on the three new tables, 44 restrictive write guards, and no anon
+EXECUTE grant on the nine mutating RPCs. The read-only authorization helper
+remains executable for policy evaluation. These checks do not establish live
+end-to-end CRUD success or certify all existing project security advisories.
+
+**The matching Hostinger frontend has not been deployed by this work.** GitHub
+push alone does not update the live website.
 
 The work was reconciled with concurrent `main` commit `908508b`, preserving its
 financial displays, actual-plan selection, student performance/notes work,
@@ -56,9 +68,9 @@ not a replacement for account administration.
    `20261007073444_admin_management_persistence.sql` is already present. Do not
    blindly replay old migrations, reset roles, or run a database reset.
 3. Check whether the concurrent-main migration
-   `20261007084500_student_internal_notes.sql` is present; apply **only if missing**.
+   `20261007102947_student_internal_notes.sql` is present; apply **only if missing**.
 4. Review and apply the new migration
-   `20261007100000_admin_crud_integrity.sql` **only after explicit deployment
+   `20261007102959_admin_crud_integrity.sql` **only after explicit deployment
    approval**. It adds supported metadata/cutoff schema, scoped staff mutation
    guards and confirmed transactional RPCs. It does not rewrite signup triggers,
    erase student history, reset roles, or require a browser service-role key.
@@ -142,5 +154,6 @@ failures are distinguished from new regressions rather than called a green suite
 - Final targeted run including student persistence: **32 passed**.
 - Disposable PostgreSQL migration/authorization/rollback assertions: passed.
 
-No production records were deleted, no real student emails were sent during
-verification, and no production migration/function or Hostinger upload was run.
+No production records were deleted and no real student emails were sent during
+verification. The backend migrations were subsequently applied with explicit
+approval as recorded above; no Hostinger frontend upload was run.

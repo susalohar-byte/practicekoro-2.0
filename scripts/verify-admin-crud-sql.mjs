@@ -38,10 +38,10 @@ CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::
     `CREATE TABLE IF NOT EXISTS public.exam_categories(id text PRIMARY KEY,name text UNIQUE NOT NULL,order_index integer DEFAULT 0,created_at timestamptz DEFAULT now());`
   );
   await db.exec(
-    fs.readFileSync(`${root}/supabase/migrations/20261007084500_student_internal_notes.sql`, 'utf8')
+    fs.readFileSync(`${root}/supabase/migrations/20261007102947_student_internal_notes.sql`, 'utf8')
   );
   await db.exec(
-    fs.readFileSync(`${root}/supabase/migrations/20261007100000_admin_crud_integrity.sql`, 'utf8')
+    fs.readFileSync(`${root}/supabase/migrations/20261007102959_admin_crud_integrity.sql`, 'utf8')
   );
   console.log('crud_migration_loaded');
   await db.exec('ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS recipient_ids uuid[];');
