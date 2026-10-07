@@ -6,7 +6,7 @@ release. A Git push alone does not enable the new backend operations.
 ## Deployment order
 
 1. Back up the database and test against a staging project first.
-2. Apply `supabase/migrations/20261004090000_admin_management_persistence.sql`
+2. Apply `supabase/migrations/20261007073444_admin_management_persistence.sql`
    after the existing baseline migrations, including admin roles (029) and the
    primary-admin role correction (033). Review the project's migration history
    before running `supabase db push`; do not blindly replay older migrations.
