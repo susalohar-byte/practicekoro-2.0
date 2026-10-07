@@ -699,49 +699,65 @@ export const AdminLayout: React.FC = () => {
           ))}
         </div>
 
-        {/* Bottom User Info Area (Shadcn NavUser Style) */}
-        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0">
+        {/* Bottom User Info & Quick Action Area (Shadcn NavUser Style) */}
+        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0 space-y-2">
+          {/* Quick View Student Portal Link (Only when expanded) */}
+          {!isCollapsed && (
+            <Link
+              to="/dashboard"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] hover:border-blue-500/30 text-slate-400 hover:text-blue-300 text-[11px] font-medium transition-all duration-150 group"
+              title="Open Student App Dashboard in new tab"
+            >
+              <span className="flex items-center gap-2 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="truncate">Student App Portal</span>
+              </span>
+              <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </Link>
+          )}
+
           {/* User Profile Card Button */}
           <button
             type="button"
             onClick={() => setIsSidebarUserOpen(!isSidebarUserOpen)}
             className={cn(
               'group w-full flex items-center rounded-xl transition-all duration-150 text-left select-none cursor-pointer',
-              'bg-[#0E1738]/90 hover:bg-[#142048] border border-[#1A2A56] hover:border-slate-700/80',
+              'bg-[#0E1738] hover:bg-[#142048] border border-[#1A2A56] hover:border-slate-700/80',
               'active:scale-[0.98] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
               isCollapsed ? 'justify-center p-2' : 'gap-3 p-2'
             )}
-            title={isCollapsed ? `${user?.fullName || 'Admin'} (${user?.email || 'admin@practicekoro.online'})` : undefined}
+            title={isCollapsed ? `${user?.fullName || 'Susanta Lohar'} (${user?.email || 'admin@practicekoro.online'})` : undefined}
             aria-expanded={isSidebarUserOpen}
             aria-label="User profile menu"
           >
-            {/* Avatar */}
-            <div className="relative shrink-0 w-8.5 h-8.5 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-sm ring-1 ring-white/10">
-              {user?.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.fullName || 'Admin'}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                user?.fullName?.charAt(0).toUpperCase() || 'A'
-              )}
+            {/* Avatar - Rounded square (rounded-lg) matching shadcn nav-user */}
+            <div className="relative shrink-0 w-8 h-8 rounded-lg overflow-hidden bg-slate-800 text-white font-bold flex items-center justify-center text-xs shadow-sm ring-1 ring-white/10">
+              <img
+                src={user?.avatarUrl || '/images/student_avatar_hd.png'}
+                alt={user?.fullName || 'Susanta Lohar'}
+                className="w-full h-full object-cover rounded-lg"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/images/student_avatar_hd.png';
+                }}
+              />
             </div>
 
             {!isCollapsed && (
               <>
                 {/* Name & Email */}
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="text-xs font-semibold text-white truncate leading-tight">
-                    {user?.fullName || 'Admin'}
-                  </p>
-                  <p className="text-[11px] font-normal text-slate-400 truncate leading-tight mt-0.5">
+                <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                  <span className="truncate font-semibold text-white text-sm">
+                    {user?.fullName || 'Susanta Lohar'}
+                  </span>
+                  <span className="truncate text-xs text-slate-400 font-normal">
                     {user?.email || 'admin@practicekoro.online'}
-                  </p>
+                  </span>
                 </div>
 
                 {/* Chevrons Up Down */}
-                <ChevronsUpDown className="w-4 h-4 text-slate-400 shrink-0 ml-auto transition-colors group-hover:text-slate-200" />
+                <ChevronsUpDown className="ml-auto w-4 h-4 text-slate-400 shrink-0 group-hover:text-slate-200 transition-colors" />
               </>
             )}
           </button>
@@ -752,30 +768,29 @@ export const AdminLayout: React.FC = () => {
               className={cn(
                 'absolute z-50 rounded-xl bg-[#0B132B] border border-[#1E2D5A] shadow-2xl p-1.5 text-xs font-medium animate-in fade-in-50 duration-150',
                 isCollapsed
-                  ? 'left-[calc(100%+8px)] bottom-2 w-60'
-                  : 'bottom-[calc(100%+8px)] left-2 right-2'
+                  ? 'left-[calc(100%+8px)] bottom-2 w-64'
+                  : 'bottom-[calc(100%+8px)] left-2.5 right-2.5'
               )}
             >
               {/* Header inside popup */}
               <div className="flex items-center gap-2.5 p-2 border-b border-[#182650]/80 mb-1">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm ring-1 ring-white/10">
-                  {user?.avatarUrl ? (
-                    <img
-                      src={user.avatarUrl}
-                      alt={user.fullName || 'Admin'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    user?.fullName?.charAt(0).toUpperCase() || 'A'
-                  )}
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-800 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm ring-1 ring-white/10">
+                  <img
+                    src={user?.avatarUrl || '/images/student_avatar_hd.png'}
+                    alt={user?.fullName || 'Susanta Lohar'}
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/student_avatar_hd.png';
+                    }}
+                  />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-white truncate leading-tight">
-                    {user?.fullName || 'Admin'}
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+                <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                  <span className="truncate font-semibold text-white text-xs">
+                    {user?.fullName || 'Susanta Lohar'}
+                  </span>
+                  <span className="truncate text-[10px] text-slate-400 font-normal">
                     {user?.email || 'admin@practicekoro.online'}
-                  </p>
+                  </span>
                 </div>
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
                   {adminRole === 'content_writer'

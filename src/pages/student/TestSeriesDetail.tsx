@@ -108,7 +108,7 @@ export const TestSeriesDetail: React.FC = () => {
 
         if (found) {
           if (mounted) setSeries(found);
-          let [seriesTests, report] = await Promise.all([
+          const [fetchedTests, report] = await Promise.all([
             api.getSeriesTestsForStudent(found.id).catch(() => []),
             api.getTestSeriesAnalytics(found.id).catch((err) => {
               console.error('Failed to load test series analytics:', err);
@@ -116,6 +116,7 @@ export const TestSeriesDetail: React.FC = () => {
               return null;
             }),
           ]);
+          let seriesTests = fetchedTests;
 
           if ((!seriesTests || seriesTests.length === 0) && localTests.length > 0) {
             const matching = localTests.filter(
