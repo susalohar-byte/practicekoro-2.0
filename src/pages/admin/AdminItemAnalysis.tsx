@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -150,7 +151,8 @@ export const AdminItemAnalysis: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-6">
       {/* ─── 1. TOP HEADER ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
@@ -401,14 +403,7 @@ export const AdminItemAnalysis: React.FC = () => {
       </div>
 
       {/* ─── 4. ITEM ANALYSIS QUESTIONS LIST ─── */}
-      {isLoading ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-3" />
-          <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
-            Computing psychometric item analytics...
-          </p>
-        </div>
-      ) : items.length === 0 ? (
+      {isLoading ? <AdminSectionSkeleton label="Loading records…" variant="table" className="p-4" /> : items.length === 0 ? (
         <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
             <Filter className="w-6 h-6" />
@@ -692,7 +687,8 @@ export const AdminItemAnalysis: React.FC = () => {
           })}
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading item analysis…', variant: 'dashboard' }
   );
 };
 export default AdminItemAnalysis;

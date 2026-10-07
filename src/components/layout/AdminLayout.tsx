@@ -1,3 +1,4 @@
+import { AdminRouteSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -989,7 +990,9 @@ export const AdminLayout: React.FC = () => {
         {/* Content body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-7 bg-slate-50 dark:bg-[#030712]">
           <div className="max-w-[1560px] mx-auto">
-            <Outlet />
+            <React.Suspense fallback={<AdminRouteSkeleton />}>
+              <Outlet />
+            </React.Suspense>
           </div>
         </main>
       </div>

@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
@@ -1026,7 +1027,8 @@ export const AdminBanners: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    loading,
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 pb-16 font-sans">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1298,14 +1300,7 @@ export const AdminBanners: React.FC = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-400">
-                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#026BFC] mb-2" />
-                        <span>Loading banners...</span>
-                      </td>
-                    </tr>
-                  ) : visibleBanners.length === 0 ? (
+                  {loading ? <tr><td colSpan={11} className="p-4"><AdminSectionSkeleton label="Loading banners..." variant="table" /></td></tr> : visibleBanners.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="py-12 text-center text-slate-400">
                         No banners match the selected criteria.
@@ -2251,7 +2246,8 @@ export const AdminBanners: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading banners…', variant: 'table' }
   );
 };
 export default AdminBanners;

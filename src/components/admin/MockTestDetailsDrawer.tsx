@@ -1,3 +1,4 @@
+import { AdminSectionSkeleton } from './AdminSkeleton';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -562,11 +563,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
                   </Button>
                 </div>
 
-                {isLoadingQuestions ? (
-                  <div className="py-12 text-center text-xs text-slate-400">
-                    Loading questions...
-                  </div>
-                ) : assignedQuestions.length === 0 ? (
+                {isLoadingQuestions ? <AdminSectionSkeleton label="Loading questions..." variant="table" className="p-4" /> : assignedQuestions.length === 0 ? (
                   <div className="py-12 px-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-3">
                     <FileText className="w-8 h-8 mx-auto text-slate-400" />
                     <div>
@@ -958,11 +955,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
                   <div className="px-3.5 py-2.5 bg-slate-100/70 dark:bg-[#070D1E] text-xs font-bold text-slate-700 dark:text-slate-300">
                     Recent Candidate Attempts
                   </div>
-                  {isLoadingAttempts ? (
-                    <div className="py-8 text-center text-xs text-slate-400">
-                      Loading attempt records...
-                    </div>
-                  ) : attempts.length === 0 ? (
+                  {isLoadingAttempts ? <AdminSectionSkeleton label="Loading attempt records..." variant="table" className="p-4" /> : attempts.length === 0 ? (
                     <div className="py-8 text-center text-xs text-slate-400">
                       No candidate attempts recorded yet.
                     </div>

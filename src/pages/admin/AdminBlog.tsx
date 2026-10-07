@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
@@ -485,7 +486,8 @@ export const AdminBlog: React.FC = () => {
     else toast.success(gone.size + ' deleted.');
   };
 
-  return (
+  return withAdminSkeleton(
+    loading,
     <div className="min-h-screen bg-slate-50/60 pb-16">
       {/* Top Header Row */}
       <div className="px-6 py-6 border-b border-slate-200 bg-white">
@@ -861,16 +863,7 @@ export const AdminBlog: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-500">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                          <span className="text-xs">Loading blog posts...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : paginatedPosts.length === 0 ? (
+                  {loading ? <tr><td colSpan={11} className="p-4"><AdminSectionSkeleton label="Loading blog posts..." variant="table" /></td></tr> : paginatedPosts.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="py-12 text-center text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-2">
@@ -1764,7 +1757,8 @@ export const AdminBlog: React.FC = () => {
           <span>{toastNotification.message}</span>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading blog…', variant: 'table' }
   );
 };
 

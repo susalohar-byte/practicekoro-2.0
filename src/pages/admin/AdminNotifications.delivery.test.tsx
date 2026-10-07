@@ -70,7 +70,7 @@ it('applies the Last 7 Days preset rather than silently treating it as All Time'
   ];
   render(<AdminNotifications />);
   expect(await screen.findByText('Old Notice')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'All Time' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'All Time' }));
   fireEvent.click(screen.getByRole('button', { name: 'Last 7 Days' }));
   expect(screen.getByText('Current Notice')).toBeInTheDocument();
   expect(screen.queryByText('Old Notice')).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ it('does not report zero deliveries when no delivery tracking is available', asy
 });
 it('rejects reversed custom date ranges', async () => {
   render(<AdminNotifications />);
-  fireEvent.click(screen.getByRole('button', { name: 'All Time' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'All Time' }));
   fireEvent.click(screen.getByRole('button', { name: 'Custom Range' }));
   fireEvent.change(screen.getByLabelText('Notification date from'), {
     target: { value: '2026-10-08' },
@@ -106,7 +106,7 @@ it('does not fabricate today timestamps for undated records under a date filter'
   ];
   render(<AdminNotifications />);
   expect(await screen.findByText('Undated Notice')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'All Time' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'All Time' }));
   fireEvent.click(screen.getByRole('button', { name: 'Last 7 Days' }));
   expect(screen.queryByText('Undated Notice')).not.toBeInTheDocument();
 });

@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -245,7 +246,8 @@ export const AdminRevenueAnalytics: React.FC = () => {
     { id: 'custom', label: 'Custom' },
   ];
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-8 pb-16">
       {/* ─── Page Header ────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1163,6 +1165,7 @@ export const AdminRevenueAnalytics: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading revenue analytics…', variant: 'dashboard' }
   );
 };

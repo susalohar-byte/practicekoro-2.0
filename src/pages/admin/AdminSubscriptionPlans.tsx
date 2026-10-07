@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import React, { useState, useEffect } from 'react';
 import {
@@ -294,6 +295,7 @@ const COMPARISON_ROWS = [
 // ============================================================================
 
 export const AdminSubscriptionPlans: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [plans, setPlans] = useState<SubscriptionPlanItem[]>(() => {
     if (isSupabaseConfigured) return [];
     try {
@@ -314,6 +316,7 @@ export const AdminSubscriptionPlans: React.FC = () => {
   }, [plans]);
 
   const loadPlans = async () => {
+    setPageLoading(true);
     try {
       const remote = await api.getSubscriptionPlans(true);
       if (isSupabaseConfigured && (!remote || !remote.length)) setPlans([]);
@@ -357,6 +360,8 @@ export const AdminSubscriptionPlans: React.FC = () => {
       }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Subscription plans could not be loaded.');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -597,7 +602,8 @@ export const AdminSubscriptionPlans: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1596,6 +1602,7 @@ export const AdminSubscriptionPlans: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading subscription plans…', variant: 'cards' }
   );
 };

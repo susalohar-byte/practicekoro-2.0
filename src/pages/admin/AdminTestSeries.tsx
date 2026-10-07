@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
@@ -1039,7 +1040,8 @@ export const AdminTestSeries: React.FC = () => {
     });
   }, [allAvailableTests, assignSearchTerm, assignTypeFilter]);
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">
       {/* Toast Notification Banner */}
       {actionNotice && (
@@ -1988,8 +1990,8 @@ export const AdminTestSeries: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
                         {isLoadingDrawerTests ? (
                           <tr>
-                            <td colSpan={5} className="p-4 text-center text-slate-400">
-                              <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
+                            <td colSpan={5} className="p-4">
+                              <AdminSectionSkeleton variant="table" label="Loading series tests…" />
                             </td>
                           </tr>
                         ) : (
@@ -2286,7 +2288,10 @@ export const AdminTestSeries: React.FC = () => {
                     rows={3}
                     value={drawerSettingsForm.description}
                     onChange={(e) =>
-                      setDrawerSettingsForm({ ...drawerSettingsForm, description: e.target.value })
+                      setDrawerSettingsForm({
+                        ...drawerSettingsForm,
+                        description: e.target.value,
+                      })
                     }
                     className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B]"
                   />
@@ -2992,6 +2997,7 @@ export const AdminTestSeries: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </div>,
+    { label: 'Loading test series…', variant: 'table' }
   );
 };

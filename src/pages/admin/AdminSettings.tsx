@@ -1,3 +1,4 @@
+import { AdminPageSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -494,7 +495,8 @@ export const AdminSettings: React.FC = () => {
   };
 
   // Do not expose editable defaults when the authoritative load failed or is pending.
-  if (isLoadingSettings) return <div role="status">Loading saved settings…</div>;
+  if (isLoadingSettings)
+    return <AdminPageSkeleton label="Loading saved settings…" variant="form" />;
   if (settingsLoadError)
     return (
       <div className="space-y-3">

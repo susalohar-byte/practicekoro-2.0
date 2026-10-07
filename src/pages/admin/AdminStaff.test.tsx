@@ -33,7 +33,7 @@ beforeEach(() => {
   ]);
 });
 async function openStaffMenu() {
-  fireEvent.click(screen.getByRole('button', { name: /Admin Users/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /Admin Users/ }));
   const row = (await screen.findByText('Existing Staff')).closest('tr')!;
   fireEvent.click(within(row).getByRole('button'));
   return row;

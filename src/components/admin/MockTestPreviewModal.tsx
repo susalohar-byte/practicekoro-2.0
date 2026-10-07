@@ -1,3 +1,4 @@
+import { AdminSectionSkeleton } from './AdminSkeleton';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -99,11 +100,7 @@ export const MockTestPreviewModal: React.FC<MockTestPreviewModalProps> = ({
         </div>
 
         {/* Content Area */}
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center text-xs text-slate-400">
-            Loading mock test examination preview...
-          </div>
-        ) : questions.length === 0 ? (
+        {isLoading ? <AdminSectionSkeleton label="Loading mock test examination preview..." variant="table" className="p-4" /> : questions.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
             <FileText className="w-12 h-12 text-slate-400" />
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">

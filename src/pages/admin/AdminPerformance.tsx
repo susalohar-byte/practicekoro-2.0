@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -56,6 +57,7 @@ export interface ExamMetricItem {
 // ============================================================================
 
 export const AdminPerformance: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const navigate = useNavigate();
 
   // Live Database State
@@ -76,6 +78,8 @@ export const AdminPerformance: React.FC = () => {
         }
       } catch (err) {
         console.warn('Failed to load performance analytics:', err);
+      } finally {
+        if (isMounted) setPageLoading(false);
       }
     }
     loadData();
@@ -183,7 +187,14 @@ export const AdminPerformance: React.FC = () => {
   // Subject data with vertical bars
   const subjectBars = useMemo(() => {
     const subs = analyticsData?.questionInsights?.weakestSubjects || [];
-    const colors = ['bg-sky-500', 'bg-emerald-500', 'bg-amber-400', 'bg-purple-500', 'bg-pink-400', 'bg-teal-500'];
+    const colors = [
+      'bg-sky-500',
+      'bg-emerald-500',
+      'bg-amber-400',
+      'bg-purple-500',
+      'bg-pink-400',
+      'bg-teal-500',
+    ];
     return subs.slice(0, 6).map((bar, idx) => ({
       name: bar.subjectName,
       score: Math.round(bar.accuracyRate),
@@ -194,18 +205,18 @@ export const AdminPerformance: React.FC = () => {
   // Heatmap hourly data: 7 days x 24 hours
   const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-4 pb-12 animate-in fade-in duration-300 font-sans">
       {/* ==================================================================== */}
       {/* 1. HEADER & DATE PICKER */}
       {/* ==================================================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-            Performance
-          </h1>
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">Performance</h1>
           <p className="text-xs font-normal text-[#64748B] mt-0.5">
-            Analyze student performance, identify strengths and weaknesses, and track progress across exams, subjects and topics.
+            Analyze student performance, identify strengths and weaknesses, and track progress
+            across exams, subjects and topics.
           </p>
         </div>
 
@@ -231,7 +242,9 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Total Students</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{totalStudents.toLocaleString()}</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {totalStudents.toLocaleString()}
+              </span>
               {totalStudents > 0 && (
                 <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                   Live
@@ -250,7 +263,9 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Tests Attempted</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{testsAttempted.toLocaleString()}</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {testsAttempted.toLocaleString()}
+              </span>
               {testsAttempted > 0 && (
                 <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                   Live
@@ -269,7 +284,9 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Questions Answered</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{questionsAnswered.toLocaleString()}</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {questionsAnswered.toLocaleString()}
+              </span>
               {questionsAnswered > 0 && (
                 <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                   Live
@@ -288,7 +305,9 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Overall Accuracy</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{overallAccuracy}%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {overallAccuracy}%
+              </span>
               {overallAccuracy > 0 && (
                 <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                   Live
@@ -362,19 +381,41 @@ export const AdminPerformance: React.FC = () => {
               <line x1="30" y1="160" x2="510" y2="160" stroke="#E2E8F0" />
 
               {/* Y Axis Left labels */}
-              <text x="5" y="24" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">2,000</text>
-              <text x="5" y="59" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">1,500</text>
-              <text x="5" y="94" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">1,000</text>
-              <text x="12" y="129" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">500</text>
-              <text x="20" y="163" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">0</text>
+              <text x="5" y="24" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                2,000
+              </text>
+              <text x="5" y="59" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                1,500
+              </text>
+              <text x="5" y="94" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                1,000
+              </text>
+              <text x="12" y="129" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                500
+              </text>
+              <text x="20" y="163" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                0
+              </text>
 
               {/* Y Axis Right labels */}
-              <text x="515" y="24" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">100%</text>
-              <text x="515" y="59" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">80%</text>
-              <text x="515" y="94" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">60%</text>
-              <text x="515" y="129" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">40%</text>
-              <text x="515" y="148" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">20%</text>
-              <text x="515" y="163" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">0%</text>
+              <text x="515" y="24" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                100%
+              </text>
+              <text x="515" y="59" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                80%
+              </text>
+              <text x="515" y="94" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                60%
+              </text>
+              <text x="515" y="129" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                40%
+              </text>
+              <text x="515" y="148" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                20%
+              </text>
+              <text x="515" y="163" fill="#94A3B8" fontSize="9" fontFamily="sans-serif">
+                0%
+              </text>
 
               {/* Curve 1: Accuracy (Green) */}
               <path
@@ -472,12 +513,24 @@ export const AdminPerformance: React.FC = () => {
           {/* Bar Chart Container */}
           <div className="relative h-[220px] w-full flex items-end pt-4 pb-2">
             {/* Y Axis Guide lines */}
-            <div className="absolute inset-x-0 top-6 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">100%</div>
-            <div className="absolute inset-x-0 top-16 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">80%</div>
-            <div className="absolute inset-x-0 top-26 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">60%</div>
-            <div className="absolute inset-x-0 top-36 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">40%</div>
-            <div className="absolute inset-x-0 top-46 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">20%</div>
-            <div className="absolute inset-x-0 bottom-6 border-b border-slate-200 flex items-center justify-start text-[8px] text-slate-400">0%</div>
+            <div className="absolute inset-x-0 top-6 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">
+              100%
+            </div>
+            <div className="absolute inset-x-0 top-16 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">
+              80%
+            </div>
+            <div className="absolute inset-x-0 top-26 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">
+              60%
+            </div>
+            <div className="absolute inset-x-0 top-36 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">
+              40%
+            </div>
+            <div className="absolute inset-x-0 top-46 border-b border-dashed border-slate-100 flex items-center justify-start text-[8px] text-slate-400">
+              20%
+            </div>
+            <div className="absolute inset-x-0 bottom-6 border-b border-slate-200 flex items-center justify-start text-[8px] text-slate-400">
+              0%
+            </div>
 
             {/* Vertical Bars */}
             <div className="w-full h-full flex items-end justify-around pl-5 pr-1 z-10 pb-6">
@@ -545,7 +598,12 @@ export const AdminPerformance: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded border', q.subjectColor)}>
+                    <span
+                      className={cn(
+                        'text-[9px] font-bold px-1.5 py-0.5 rounded border',
+                        q.subjectColor
+                      )}
+                    >
                       {q.subject}
                     </span>
                     <div className="text-right leading-none">
@@ -596,13 +654,16 @@ export const AdminPerformance: React.FC = () => {
                         {t.topic}
                       </td>
                       <td className="py-2">
-                        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
+                        <span
+                          className={cn(
+                            'text-[9px] font-bold px-1.5 py-0.5 rounded',
+                            t.subjectBadgeColor
+                          )}
+                        >
                           {t.subject}
                         </span>
                       </td>
-                      <td className="py-2 text-right font-black text-rose-600">
-                        {t.avgScore}%
-                      </td>
+                      <td className="py-2 text-right font-black text-rose-600">{t.avgScore}%</td>
                     </tr>
                   ))
                 )}
@@ -648,13 +709,16 @@ export const AdminPerformance: React.FC = () => {
                         {t.topic}
                       </td>
                       <td className="py-2">
-                        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
+                        <span
+                          className={cn(
+                            'text-[9px] font-bold px-1.5 py-0.5 rounded',
+                            t.subjectBadgeColor
+                          )}
+                        >
                           {t.subject}
                         </span>
                       </td>
-                      <td className="py-2 text-right font-black text-emerald-600">
-                        {t.avgScore}%
-                      </td>
+                      <td className="py-2 text-right font-black text-emerald-600">{t.avgScore}%</td>
                     </tr>
                   ))
                 )}
@@ -712,7 +776,9 @@ export const AdminPerformance: React.FC = () => {
                               (e.target as HTMLElement).style.display = 'none';
                             }}
                           />
-                          <span className="font-bold text-slate-800 truncate max-w-[90px]">{ex.exam}</span>
+                          <span className="font-bold text-slate-800 truncate max-w-[90px]">
+                            {ex.exam}
+                          </span>
                         </div>
                       </td>
                       <td className="py-2 text-center font-semibold text-slate-600">
@@ -760,7 +826,7 @@ export const AdminPerformance: React.FC = () => {
                       // Generate heat map intensities matching screenshot (blue peaks from 9 AM to 10 PM)
                       let heatClass = 'bg-blue-50';
                       if (hIdx >= 8 && hIdx <= 22) {
-                        const intensity = ((dIdx * 3 + hIdx * 7) % 5);
+                        const intensity = (dIdx * 3 + hIdx * 7) % 5;
                         if (intensity === 4) heatClass = 'bg-[#1D4ED8]';
                         else if (intensity === 3) heatClass = 'bg-[#2563EB]';
                         else if (intensity === 2) heatClass = 'bg-[#3B82F6]';
@@ -771,7 +837,10 @@ export const AdminPerformance: React.FC = () => {
                       return (
                         <div
                           key={hIdx}
-                          className={cn('rounded-[2px] transition-colors hover:ring-1 hover:ring-blue-400', heatClass)}
+                          className={cn(
+                            'rounded-[2px] transition-colors hover:ring-1 hover:ring-blue-400',
+                            heatClass
+                          )}
                           title={`${day} ${hIdx}:00`}
                         />
                       );
@@ -828,20 +897,67 @@ export const AdminPerformance: React.FC = () => {
             <div className="relative w-28 h-28 my-1 flex items-center justify-center">
               <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                 {/* 90-100%: 12% */}
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#10B981" strokeWidth="4.5" strokeDasharray="12 88" strokeDashoffset="0" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="4.5"
+                  strokeDasharray="12 88"
+                  strokeDashoffset="0"
+                />
                 {/* 70-89%: 28% */}
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#84CC16" strokeWidth="4.5" strokeDasharray="28 72" strokeDashoffset="-12" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#84CC16"
+                  strokeWidth="4.5"
+                  strokeDasharray="28 72"
+                  strokeDashoffset="-12"
+                />
                 {/* 50-69%: 34% */}
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#FBBF24" strokeWidth="4.5" strokeDasharray="34 66" strokeDashoffset="-40" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#FBBF24"
+                  strokeWidth="4.5"
+                  strokeDasharray="34 66"
+                  strokeDashoffset="-40"
+                />
                 {/* 30-49%: 18% */}
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#F97316" strokeWidth="4.5" strokeDasharray="18 82" strokeDashoffset="-74" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#F97316"
+                  strokeWidth="4.5"
+                  strokeDasharray="18 82"
+                  strokeDashoffset="-74"
+                />
                 {/* 0-29%: 8% */}
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#EF4444" strokeWidth="4.5" strokeDasharray="8 92" strokeDashoffset="-92" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="4.5"
+                  strokeDasharray="8 92"
+                  strokeDashoffset="-92"
+                />
               </svg>
 
               {/* Donut Center */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-xs font-black text-slate-900 leading-tight">{totalStudents.toLocaleString()}</span>
+                <span className="text-xs font-black text-slate-900 leading-tight">
+                  {totalStudents.toLocaleString()}
+                </span>
                 <span className="text-[9px] text-slate-400 font-medium">Students</span>
               </div>
             </div>
@@ -955,7 +1071,9 @@ export const AdminPerformance: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="text-base font-extrabold text-slate-900">Most Frequently Failed Questions</h3>
+              <h3 className="text-base font-extrabold text-slate-900">
+                Most Frequently Failed Questions
+              </h3>
               <button
                 onClick={() => setIsWrongQuestionsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700"
@@ -971,13 +1089,18 @@ export const AdminPerformance: React.FC = () => {
                 </div>
               ) : (
                 wrongQuestions.map((q) => (
-                  <div key={q.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                  <div
+                    key={q.id}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                           Question #{q.id} • {q.subject}
                         </span>
-                        <h4 className="font-bold text-slate-900 text-sm mt-0.5">{q.questionText}</h4>
+                        <h4 className="font-bold text-slate-900 text-sm mt-0.5">
+                          {q.questionText}
+                        </h4>
                         {q.questionTextBn && (
                           <p className="text-xs text-slate-600 mt-0.5">{q.questionTextBn}</p>
                         )}
@@ -1035,10 +1158,15 @@ export const AdminPerformance: React.FC = () => {
                 </div>
               ) : (
                 weakestTopics.map((t) => (
-                  <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div
+                    key={t.rank}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between"
+                  >
                     <div>
                       <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
-                      <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
+                      <p className="text-[10px] text-slate-500">
+                        {t.subject} • {t.attempts.toLocaleString()} Attempts
+                      </p>
                     </div>
                     <span className="bg-rose-100 text-rose-800 font-black text-xs px-2 py-0.5 rounded">
                       {t.avgScore}% Avg
@@ -1083,10 +1211,15 @@ export const AdminPerformance: React.FC = () => {
                 </div>
               ) : (
                 topPerformingTopics.map((t) => (
-                  <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div
+                    key={t.rank}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between"
+                  >
                     <div>
                       <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
-                      <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
+                      <p className="text-[10px] text-slate-500">
+                        {t.subject} • {t.attempts.toLocaleString()} Attempts
+                      </p>
                     </div>
                     <span className="bg-emerald-100 text-emerald-800 font-black text-xs px-2 py-0.5 rounded">
                       {t.avgScore}% Avg
@@ -1117,7 +1250,9 @@ export const AdminPerformance: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-bold text-slate-900">All Exams Performance Metrics</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  All Exams Performance Metrics
+                </h3>
               </div>
               <button
                 onClick={() => setIsExamPerformanceModalOpen(false)}
@@ -1129,18 +1264,20 @@ export const AdminPerformance: React.FC = () => {
 
             <div className="space-y-2">
               {examPerformance.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No exams found.
-                </div>
+                <div className="py-8 text-center text-slate-400 text-xs">No exams found.</div>
               ) : (
                 examPerformance.map((ex) => (
-                  <div key={ex.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div
+                    key={ex.rank}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between"
+                  >
                     <div className="flex items-center gap-2.5">
                       <img src={ex.logo} alt={ex.exam} className="w-6 h-6 object-contain" />
                       <div>
                         <p className="font-bold text-slate-900 text-xs">{ex.exam}</p>
                         <p className="text-[10px] text-slate-500">
-                          {ex.students.toLocaleString()} Students • {ex.testsAttempted.toLocaleString()} Attempts
+                          {ex.students.toLocaleString()} Students •{' '}
+                          {ex.testsAttempted.toLocaleString()} Attempts
                         </p>
                       </div>
                     </div>
@@ -1173,6 +1310,7 @@ export const AdminPerformance: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading performance…', variant: 'dashboard' }
   );
 };

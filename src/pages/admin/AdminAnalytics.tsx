@@ -1,3 +1,4 @@
+import { AdminDataBoundary } from '@/components/admin/AdminSkeleton';
 import { useEffect, useMemo, useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { api } from '@/services/api';
@@ -161,12 +162,20 @@ export const AdminAnalytics = () => {
           </button>
         </div>
       </header>
+      <AdminDataBoundary
+        loading={loading}
+        label="Loading complete analytics records…"
+        variant="dashboard"
+        showHeader={false}
+        preserveContent={false}
+        className="space-y-5"
+      >
       <p className="text-xs text-slate-500">
         {period}. Activity and revenue use the selected period. Total students and active Pro
         students are current snapshots. Retained revenue excludes pending/failed payments and
         recorded refunds; it is not a refund cash-flow report.
       </p>
-      {loading && <p role="status">Loading complete analytics records…</p>}
+
       {error && (
         <div role="alert" className="rounded-xl p-4 border border-red-200 text-red-700">
           Analytics unavailable: {error}{' '}
@@ -293,8 +302,8 @@ export const AdminAnalytics = () => {
               {showAll('students', data.studentRankings.length)}
             </div>
             <p className="text-xs text-slate-500 mb-3">
-              Completed-attempt score totals, then recorded answer accuracy. No synthetic trends or
-              inactive demo students.
+                Completed-attempt score totals, then recorded answer accuracy. No synthetic trends
+                or inactive demo students.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -401,8 +410,8 @@ export const AdminAnalytics = () => {
             <h2 className="font-bold mb-2">Unavailable Analytics Features</h2>
             <p className="text-xs text-slate-500 mb-3">
               Gender distributions and historical subject trends are not available in this report.
-              No estimates are displayed. Practice-pack delivery requires a dedicated targeting and
-              delivery workflow.
+                No estimates are displayed. Practice-pack delivery requires a dedicated targeting
+                and delivery workflow.
             </p>
             <button disabled className="border rounded-lg p-2 text-xs opacity-50">
               Dispatch Topic Practice Pack — unavailable
@@ -410,6 +419,7 @@ export const AdminAnalytics = () => {
           </section>
         </>
       )}
+      </AdminDataBoundary>
     </div>
   );
 };

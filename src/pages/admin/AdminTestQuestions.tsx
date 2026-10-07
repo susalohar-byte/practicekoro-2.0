@@ -1,3 +1,4 @@
+import { AdminPageSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -59,6 +60,7 @@ export const AdminTestQuestions: React.FC = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [referencesLoading, setReferencesLoading] = useState(true);
 
   // View Mode: 'assigned' (Questions currently in test) vs 'select' (Question Bank selector)
   const [activeTab, setActiveTab] = useState<'assigned' | 'select'>('assigned');
@@ -118,6 +120,7 @@ export const AdminTestQuestions: React.FC = () => {
   // Load tests list
   useEffect(() => {
     const fetchTests = async () => {
+      setReferencesLoading(true);
       try {
         const tests = await api.getAllAdminTests();
         setAllTests(tests);
@@ -126,6 +129,8 @@ export const AdminTestQuestions: React.FC = () => {
         }
       } catch (err) {
         console.error('Error loading tests list:', err);
+      } finally {
+        setReferencesLoading(false);
       }
     };
     fetchTests();
@@ -735,19 +740,7 @@ export const AdminTestQuestions: React.FC = () => {
 
   const totalAssignedMarks = assignedQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
 
-  if (isLoading) {
-    return (
-      <div className="p-20 text-center text-slate-400 space-y-4">
-        <div className="w-10 h-10 border-3 border-[#0075FF] border-t-transparent rounded-full animate-spin mx-auto shadow-lg shadow-[#0075FF]/20" />
-        <div className="space-y-1">
-          <p className="text-sm font-bold text-slate-800 dark:text-white">Loading Test Workspace</p>
-          <p className="text-xs text-slate-500">
-            Preparing contextual questions & scoring engine...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading || referencesLoading) return <AdminPageSkeleton label="Loading Test Workspace" variant="detail" />;
 
   if (!test) {
     return (

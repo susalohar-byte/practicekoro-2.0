@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
@@ -840,7 +841,8 @@ export const AdminSubscriptions: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    recordsLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {recordsError && (
         <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
@@ -1897,7 +1899,11 @@ export const AdminSubscriptions: React.FC = () => {
                   const duration = plan.durationDays || 30;
                   const futureDate = new Date(Date.now() + duration * 86400000).toLocaleDateString(
                     'en-GB',
-                    { day: '2-digit', month: 'short', year: 'numeric' }
+                    {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    }
                   );
                   return (
                     <button
@@ -1978,6 +1984,7 @@ export const AdminSubscriptions: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading subscriptions…', variant: 'table' }
   );
 };

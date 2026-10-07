@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -467,7 +468,8 @@ export const AdminTopicManage: React.FC = () => {
     return pages;
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-5">
       {/* ── Page Header ───────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -810,18 +812,7 @@ export const AdminTopicManage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-16">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        Loading topics…
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : pagedTopics.length === 0 ? (
+              {isLoading ? <tr><td colSpan={7} className="p-4"><AdminSectionSkeleton label="Loading topics…" variant="table" /></td></tr> : pagedTopics.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-16">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
@@ -1529,7 +1520,8 @@ export const AdminTopicManage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading topic manage…', variant: 'table' }
   );
 };
 

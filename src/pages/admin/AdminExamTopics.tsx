@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -168,7 +169,8 @@ export const AdminExamTopics: React.FC = () => {
     })
     .filter((group) => group.topics.length > 0 || searchTerm === '');
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-6">
       {/* Sub-Navigation Tabs: Manage Exams & Syllabus Mapping */}
       <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
@@ -203,7 +205,8 @@ export const AdminExamTopics: React.FC = () => {
               <Network className="w-5 h-5" />
             </span>
             <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              Exam <span className="text-indigo-600 dark:text-indigo-400">↔</span> Topic Scope (Optional)
+              Exam <span className="text-indigo-600 dark:text-indigo-400">↔</span> Topic Scope
+              (Optional)
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -290,7 +293,9 @@ export const AdminExamTopics: React.FC = () => {
         <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
           <div>
             Active Exam:{' '}
-            <strong className="text-slate-900 dark:text-white font-bold">{selectedExam?.title || 'None'}</strong>
+            <strong className="text-slate-900 dark:text-white font-bold">
+              {selectedExam?.title || 'None'}
+            </strong>
           </div>
           <div className="flex items-center gap-2 font-medium">
             <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-500/20 text-[11px]">
@@ -309,14 +314,19 @@ export const AdminExamTopics: React.FC = () => {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((n) => (
-            <div key={n} className="h-36 bg-slate-100 dark:bg-slate-800/40 animate-pulse rounded-2xl" />
+            <div
+              key={n}
+              className="h-36 bg-slate-100 dark:bg-slate-800/40 animate-pulse rounded-2xl"
+            />
           ))}
         </div>
       ) : filteredSubjects.length === 0 ? (
         <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
           <BookOpen className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
           <p className="text-sm font-bold text-slate-800 dark:text-slate-300">No topics found</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Try changing your search keyword.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Try changing your search keyword.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -335,7 +345,9 @@ export const AdminExamTopics: React.FC = () => {
                       {subject.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">{subject.name}</h3>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        {subject.name}
+                      </h3>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {checkedCount} / {topics.length} topics mapped to {selectedExam?.title}
                       </p>
@@ -400,6 +412,7 @@ export const AdminExamTopics: React.FC = () => {
           })}
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading exam topics…', variant: 'table' }
   );
 };

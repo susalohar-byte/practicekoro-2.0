@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   MessageSquare,
@@ -558,6 +559,7 @@ const getPriorityBadgeClass = (priority: TicketPriority) => {
 // ============================================================================
 
 export const AdminSupport: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [ticketsList, setTicketsList] = useState<TicketRecord[]>(() => {
     if (isSupabaseConfigured) return [];
     try {
@@ -580,6 +582,7 @@ export const AdminSupport: React.FC = () => {
   // Load live support tickets from Supabase database on mount
   useEffect(() => {
     let isMounted = true;
+    setPageLoading(true);
     api
       .getSupportTickets()
       .then((remote) => {
@@ -603,6 +606,9 @@ export const AdminSupport: React.FC = () => {
         setToastMessage(
           err instanceof Error ? err.message : 'Support tickets could not be loaded.'
         );
+      })
+      .finally(() => {
+        if (isMounted) setPageLoading(false);
       });
     return () => {
       isMounted = false;
@@ -868,7 +874,8 @@ export const AdminSupport: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1057,7 +1064,10 @@ export const AdminSupport: React.FC = () => {
                   name: 'Resolved',
                   count: ticketsList.filter((t) => t.status === 'Resolved').length,
                 },
-                { name: 'Closed', count: ticketsList.filter((t) => t.status === 'Closed').length },
+                {
+                  name: 'Closed',
+                  count: ticketsList.filter((t) => t.status === 'Closed').length,
+                },
               ].map((item) => {
                 const isChecked = filterStatus.includes(item.name);
                 return (
@@ -1112,7 +1122,10 @@ export const AdminSupport: React.FC = () => {
                   name: 'Refund Request',
                   count: ticketsList.filter((t) => t.category === 'Refund Request').length,
                 },
-                { name: 'Other', count: ticketsList.filter((t) => t.category === 'Other').length },
+                {
+                  name: 'Other',
+                  count: ticketsList.filter((t) => t.category === 'Other').length,
+                },
               ].map((item) => {
                 const isChecked = filterCategory.includes(item.name);
                 return (
@@ -1406,7 +1419,9 @@ export const AdminSupport: React.FC = () => {
             <>
               {/* Header Line */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <span className="font-bold text-sm text-slate-900">{activeTicket.ticketNumber}</span>
+                <span className="font-bold text-sm text-slate-900">
+                  {activeTicket.ticketNumber}
+                </span>
 
                 <div className="flex items-center gap-2">
                   {/* Status Dropdown */}
@@ -1427,7 +1442,8 @@ export const AdminSupport: React.FC = () => {
 
                     {isStatusDropdownOpen && (
                       <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                        {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map((st) => (
+                        {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map(
+                          (st) => (
                           <button
                             key={st}
                             onClick={() => {
@@ -1437,9 +1453,12 @@ export const AdminSupport: React.FC = () => {
                             className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between"
                           >
                             <span>{st}</span>
-                            {activeTicket.status === st && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                              {activeTicket.status === st && (
+                                <Check className="w-3.5 h-3.5 text-blue-600" />
+                              )}
                           </button>
-                        ))}
+                          )
+                        )}
                       </div>
                     )}
                   </div>
@@ -1808,6 +1827,7 @@ export const AdminSupport: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading support…', variant: 'detail' }
   );
 };

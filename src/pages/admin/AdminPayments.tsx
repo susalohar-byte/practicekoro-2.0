@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
@@ -567,7 +568,8 @@ export const AdminPayments: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    recordsLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {recordsError && (
         <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
@@ -1487,6 +1489,7 @@ export const AdminPayments: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </div>,
+    { label: 'Loading payments…', variant: 'dashboard' }
   );
 };

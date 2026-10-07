@@ -1,3 +1,4 @@
+import { AdminPageSkeleton } from '@/components/admin/AdminSkeleton';
 import React from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -41,13 +42,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children, requiredPermis
   const location = useLocation();
   const navigate = useNavigate();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
-      </div>
-    );
-  }
+  if (loading) return <AdminPageSkeleton label="Loading admin session…" variant="dashboard" />;
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;

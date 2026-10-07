@@ -1,3 +1,4 @@
+import { AppRouteLoadingFallback } from '@/components/admin/AdminSkeleton';
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -243,7 +244,6 @@ const AdminBlog = lazyWithRetry(() =>
   }))
 );
 
-
 /**
  * RootRoute:
  * - Always renders the public Landing Page at `/` — this is the first page
@@ -258,16 +258,7 @@ const RootRoute: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <React.Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600"
-            aria-label="Loading page"
-          />
-        </div>
-      }
-    >
+    <React.Suspense fallback={<AppRouteLoadingFallback />}>
       <Routes>
         {/* Root Route (public Landing Page for guests and signed-in users alike) */}
         <Route path="/" element={<RootRoute />} />
@@ -323,7 +314,14 @@ export const App: React.FC = () => {
           />
           <Route path="practice" element={<Practice />} />
           <Route path="practice/*" element={<Practice />} />
-          <Route path="live-test" element={<ProtectedRoute><LiveTest /></ProtectedRoute>} />
+          <Route
+            path="live-test"
+            element={
+              <ProtectedRoute>
+                <LiveTest />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="results"
             element={
@@ -565,7 +563,6 @@ export const App: React.FC = () => {
             }
           />
 
-
           {/* 3. STUDENTS */}
           <Route
             path="students"
@@ -719,7 +716,10 @@ export const App: React.FC = () => {
           {/* Backward compatibility & Consolidation Aliases */}
           <Route path="overview" element={<Navigate to="/admin" replace />} />
           <Route path="questions" element={<Navigate to="/admin/question-bank" replace />} />
-          <Route path="full-mock-questions" element={<Navigate to="/admin/question-bank" replace />} />
+          <Route
+            path="full-mock-questions"
+            element={<Navigate to="/admin/question-bank" replace />}
+          />
           <Route path="topic-manage" element={<Navigate to="/admin/topics" replace />} />
           <Route path="chapters" element={<Navigate to="/admin/topics" replace />} />
           <Route path="exam-topics" element={<Navigate to="/admin/topics" replace />} />

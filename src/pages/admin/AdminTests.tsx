@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -776,7 +777,8 @@ export const AdminTests: React.FC = () => {
     );
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-5">
       {/* 1. Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1088,16 +1090,7 @@ export const AdminTests: React.FC = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {isLoading && pagedTests.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-400">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                          <span>Loading tests...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : pagedTests.length === 0 ? (
+                  {isLoading && pagedTests.length === 0 ? <tr><td colSpan={10} className="p-4"><AdminSectionSkeleton label="Loading tests..." variant="table" /></td></tr> : pagedTests.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-400">
                         No tests found matching the selected filters.
@@ -2037,6 +2030,7 @@ export const AdminTests: React.FC = () => {
         chapters={chapters}
         onImportComplete={loadAllData}
       />
-    </div>
+    </div>,
+    { label: 'Loading tests…', variant: 'table' }
   );
 };

@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { requireSuccess } from '@/services/domains/admin.mutations';
 import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -629,7 +630,7 @@ export const AdminQuestionBank: React.FC = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Chapter[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Top Upload Mode Filter: 'all' | 'exam' | 'subject'
   const [activeUploadMode, setActiveUploadMode] = useState<'all' | 'exam' | 'subject'>('all');
@@ -1565,7 +1566,8 @@ export const AdminQuestionBank: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-300">
       {/* Floating Toast Notification */}
       {toastMessage && (
@@ -2498,11 +2500,8 @@ export const AdminQuestionBank: React.FC = () => {
             {/* Footer Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-slate-200/80 text-xs gap-3">
               <span className="font-semibold text-slate-500">
-                Showing{' '}
-                {filteredQuestions.length === 0
-                  ? 0
-                  : (currentPage - 1) * pageSize + 1}
-                –{Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
+                Showing {filteredQuestions.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+                {Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
                 {filteredQuestions.length.toLocaleString('en-IN')} questions
               </span>
 
@@ -3542,6 +3541,7 @@ export const AdminQuestionBank: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading question bank…', variant: 'table' }
   );
 };

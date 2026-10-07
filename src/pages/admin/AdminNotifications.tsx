@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
@@ -886,7 +887,7 @@ export const AdminNotifications: React.FC = () => {
     return INITIAL_NOTIFICATIONS_42;
   });
 
-  const [, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Sync state to local storage
   useEffect(() => {
@@ -1297,7 +1298,8 @@ export const AdminNotifications: React.FC = () => {
   const displayPreviewMessage =
     formMessage.trim() || activePreviewItem?.message || 'Notification message will appear here...';
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -2614,6 +2616,7 @@ export const AdminNotifications: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading notifications…', variant: 'table' }
   );
 };

@@ -1,3 +1,4 @@
+import { AdminSectionSkeleton } from './AdminSkeleton';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -255,11 +256,7 @@ export const AddQuestionsToTestModal: React.FC<AddQuestionsToTestModalProps> = (
 
         {/* Question List - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-          {isLoading ? (
-            <div className="py-16 text-center text-xs text-slate-400">
-              Loading questions from Question Bank...
-            </div>
-          ) : questions.length === 0 ? (
+          {isLoading ? <AdminSectionSkeleton label="Loading questions from Question Bank..." variant="table" className="p-4" /> : questions.length === 0 ? (
             <div className="py-16 text-center text-xs text-slate-400">
               No questions found matching the selected filters.
             </div>

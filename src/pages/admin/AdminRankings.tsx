@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -80,9 +81,24 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 82, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'WBP Constable Full Mock 1', scorePercent: 88, timeAgo: '2 hours ago', iconBg: 'bg-amber-100 text-amber-600' },
-      { title: 'General Science - Heat & Temperature', scorePercent: 92, timeAgo: '1 day ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'Indian Polity - Constitution', scorePercent: 84, timeAgo: '2 days ago', iconBg: 'bg-rose-100 text-rose-600' },
+      {
+        title: 'WBP Constable Full Mock 1',
+        scorePercent: 88,
+        timeAgo: '2 hours ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
+      {
+        title: 'General Science - Heat & Temperature',
+        scorePercent: 92,
+        timeAgo: '1 day ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'Indian Polity - Constitution',
+        scorePercent: 84,
+        timeAgo: '2 days ago',
+        iconBg: 'bg-rose-100 text-rose-600',
+      },
     ],
   },
   {
@@ -105,9 +121,24 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 80, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Geography Full Mock 1', scorePercent: 89, timeAgo: '4 hours ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'WBP Constable Full Mock 1', scorePercent: 84, timeAgo: '1 day ago', iconBg: 'bg-amber-100 text-amber-600' },
-      { title: 'Indian Polity - Test 02', scorePercent: 82, timeAgo: '3 days ago', iconBg: 'bg-rose-100 text-rose-600' },
+      {
+        title: 'Geography Full Mock 1',
+        scorePercent: 89,
+        timeAgo: '4 hours ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'WBP Constable Full Mock 1',
+        scorePercent: 84,
+        timeAgo: '1 day ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
+      {
+        title: 'Indian Polity - Test 02',
+        scorePercent: 82,
+        timeAgo: '3 days ago',
+        iconBg: 'bg-rose-100 text-rose-600',
+      },
     ],
   },
   {
@@ -130,9 +161,24 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 78, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Reasoning Full Mock 1', scorePercent: 85, timeAgo: '1 day ago', iconBg: 'bg-purple-100 text-purple-600' },
-      { title: 'WBP Constable PYQ 2024', scorePercent: 82, timeAgo: '2 days ago', iconBg: 'bg-amber-100 text-amber-600' },
-      { title: 'Blood Relations - Test 01', scorePercent: 79, timeAgo: '4 days ago', iconBg: 'bg-blue-100 text-blue-600' },
+      {
+        title: 'Reasoning Full Mock 1',
+        scorePercent: 85,
+        timeAgo: '1 day ago',
+        iconBg: 'bg-purple-100 text-purple-600',
+      },
+      {
+        title: 'WBP Constable PYQ 2024',
+        scorePercent: 82,
+        timeAgo: '2 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
+      {
+        title: 'Blood Relations - Test 01',
+        scorePercent: 79,
+        timeAgo: '4 days ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
     ],
   },
   {
@@ -155,8 +201,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 76, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'WBP Constable PYQ 2024', scorePercent: 80, timeAgo: '1 day ago', iconBg: 'bg-rose-100 text-rose-600' },
-      { title: 'Modern India - Test 01', scorePercent: 82, timeAgo: '3 days ago', iconBg: 'bg-amber-100 text-amber-600' },
+      {
+        title: 'WBP Constable PYQ 2024',
+        scorePercent: 80,
+        timeAgo: '1 day ago',
+        iconBg: 'bg-rose-100 text-rose-600',
+      },
+      {
+        title: 'Modern India - Test 01',
+        scorePercent: 82,
+        timeAgo: '3 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
     ],
   },
   {
@@ -179,8 +235,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 74, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Indian Polity - Test 02', scorePercent: 78, timeAgo: '2 days ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'WBP Constable Full Mock 2', scorePercent: 79, timeAgo: '4 days ago', iconBg: 'bg-amber-100 text-amber-600' },
+      {
+        title: 'Indian Polity - Test 02',
+        scorePercent: 78,
+        timeAgo: '2 days ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'WBP Constable Full Mock 2',
+        scorePercent: 79,
+        timeAgo: '4 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
     ],
   },
   {
@@ -203,8 +269,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 72, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Heat & Temperature - Test 01', scorePercent: 80, timeAgo: '2 days ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'WBP Constable PYQ 2023', scorePercent: 75, timeAgo: '5 days ago', iconBg: 'bg-rose-100 text-rose-600' },
+      {
+        title: 'Heat & Temperature - Test 01',
+        scorePercent: 80,
+        timeAgo: '2 days ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'WBP Constable PYQ 2023',
+        scorePercent: 75,
+        timeAgo: '5 days ago',
+        iconBg: 'bg-rose-100 text-rose-600',
+      },
     ],
   },
   {
@@ -227,8 +303,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 68, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Environment - Test 01', scorePercent: 74, timeAgo: '3 days ago', iconBg: 'bg-emerald-100 text-emerald-600' },
-      { title: 'WBP Constable Full Mock 1', scorePercent: 72, timeAgo: '6 days ago', iconBg: 'bg-amber-100 text-amber-600' },
+      {
+        title: 'Environment - Test 01',
+        scorePercent: 74,
+        timeAgo: '3 days ago',
+        iconBg: 'bg-emerald-100 text-emerald-600',
+      },
+      {
+        title: 'WBP Constable Full Mock 1',
+        scorePercent: 72,
+        timeAgo: '6 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
     ],
   },
   {
@@ -252,8 +338,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 66, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Blood Relations - Test 01', scorePercent: 70, timeAgo: '3 days ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'WBP Constable PYQ 2022', scorePercent: 71, timeAgo: '5 days ago', iconBg: 'bg-rose-100 text-rose-600' },
+      {
+        title: 'Blood Relations - Test 01',
+        scorePercent: 70,
+        timeAgo: '3 days ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'WBP Constable PYQ 2022',
+        scorePercent: 71,
+        timeAgo: '5 days ago',
+        iconBg: 'bg-rose-100 text-rose-600',
+      },
     ],
   },
   {
@@ -277,8 +373,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 65, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Mathematics Speed Test', scorePercent: 68, timeAgo: '4 days ago', iconBg: 'bg-blue-100 text-blue-600' },
-      { title: 'WBP Constable Full Mock 1', scorePercent: 69, timeAgo: '6 days ago', iconBg: 'bg-amber-100 text-amber-600' },
+      {
+        title: 'Mathematics Speed Test',
+        scorePercent: 68,
+        timeAgo: '4 days ago',
+        iconBg: 'bg-blue-100 text-blue-600',
+      },
+      {
+        title: 'WBP Constable Full Mock 1',
+        scorePercent: 69,
+        timeAgo: '6 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
     ],
   },
   {
@@ -301,8 +407,18 @@ export const INITIAL_STUDENTS: RankingStudent[] = [
       { subject: 'Geography', scorePercent: 64, barColor: 'bg-rose-500' },
     ],
     recentAttempts: [
-      { title: 'Reasoning Mock Test 02', scorePercent: 67, timeAgo: '4 days ago', iconBg: 'bg-purple-100 text-purple-600' },
-      { title: 'WBP Constable Mock 03', scorePercent: 66, timeAgo: '7 days ago', iconBg: 'bg-amber-100 text-amber-600' },
+      {
+        title: 'Reasoning Mock Test 02',
+        scorePercent: 67,
+        timeAgo: '4 days ago',
+        iconBg: 'bg-purple-100 text-purple-600',
+      },
+      {
+        title: 'WBP Constable Mock 03',
+        scorePercent: 66,
+        timeAgo: '7 days ago',
+        iconBg: 'bg-amber-100 text-amber-600',
+      },
     ],
   },
 ];
@@ -315,7 +431,9 @@ export const AdminRankings: React.FC = () => {
   const navigate = useNavigate();
 
   // Scope Tab: Overall | By Exam | By Subject | By Topic | By Test Series
-  const [scopeTab, setScopeTab] = useState<'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series'>('Overall');
+  const [scopeTab, setScopeTab] = useState<
+    'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series'
+  >('Overall');
 
   // Filter Toolbar State
   const [selectedExam, setSelectedExam] = useState('All Exams');
@@ -330,7 +448,7 @@ export const AdminRankings: React.FC = () => {
 
   // Live rankings list loaded from Supabase
   const [studentsList, setStudentsList] = useState<RankingStudent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Selected Student for Details Widget
   const [selectedStudentRank, setSelectedStudentRank] = useState<number>(1);
@@ -408,7 +526,9 @@ export const AdminRankings: React.FC = () => {
   }, [fetchRankings]);
 
   // Handle Scope Tab Changes
-  const handleScopeChange = (newScope: 'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series') => {
+  const handleScopeChange = (
+    newScope: 'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series'
+  ) => {
     setScopeTab(newScope);
     setCurrentPage(1);
     fetchRankings({ scope: newScope });
@@ -426,13 +546,19 @@ export const AdminRankings: React.FC = () => {
 
   // Top 3 Podium Students
   const top1Student = useMemo(() => {
-    return studentsList.find((s) => s.rank === 1) || (studentsList.length > 0 ? studentsList[0] : null);
+    return (
+      studentsList.find((s) => s.rank === 1) || (studentsList.length > 0 ? studentsList[0] : null)
+    );
   }, [studentsList]);
   const top2Student = useMemo(() => {
-    return studentsList.find((s) => s.rank === 2) || (studentsList.length > 1 ? studentsList[1] : null);
+    return (
+      studentsList.find((s) => s.rank === 2) || (studentsList.length > 1 ? studentsList[1] : null)
+    );
   }, [studentsList]);
   const top3Student = useMemo(() => {
-    return studentsList.find((s) => s.rank === 3) || (studentsList.length > 2 ? studentsList[2] : null);
+    return (
+      studentsList.find((s) => s.rank === 3) || (studentsList.length > 2 ? studentsList[2] : null)
+    );
   }, [studentsList]);
 
   // Row Action Dropdown Popover
@@ -469,7 +595,9 @@ export const AdminRankings: React.FC = () => {
     let list = studentsList;
     if (selectedSubject !== 'All Subjects') {
       const subFiltered = list.filter((student) =>
-        student.subjectPerformance.some((sp) => sp.subject.toLowerCase().includes(selectedSubject.toLowerCase()))
+        student.subjectPerformance.some((sp) =>
+          sp.subject.toLowerCase().includes(selectedSubject.toLowerCase())
+        )
       );
       if (subFiltered.length > 0) {
         list = subFiltered;
@@ -572,18 +700,18 @@ export const AdminRankings: React.FC = () => {
     });
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-4 pb-12 animate-in fade-in duration-300 font-sans">
       {/* ==================================================================== */}
       {/* 1. PAGE HEADER */}
       {/* ==================================================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-            Rankings
-          </h1>
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">Rankings</h1>
           <p className="text-xs font-normal text-[#64748B] mt-0.5">
-            View student rankings based on test performance. Filter by exam, subject, topic or test series.
+            View student rankings based on test performance. Filter by exam, subject, topic or test
+            series.
           </p>
         </div>
 
@@ -646,7 +774,9 @@ export const AdminRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Top Rank Score</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{topRankScore}%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {topRankScore}%
+              </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Highest accuracy</p>
           </div>
@@ -685,7 +815,12 @@ export const AdminRankings: React.FC = () => {
               : 'text-[#64748B] hover:text-[#0F172A]'
           )}
         >
-          <span className={cn('w-1.5 h-1.5 rounded-full', scopeTab === 'Overall' ? 'bg-white' : 'bg-transparent')} />
+          <span
+            className={cn(
+              'w-1.5 h-1.5 rounded-full',
+              scopeTab === 'Overall' ? 'bg-white' : 'bg-transparent'
+            )}
+          />
           <span>Overall</span>
         </button>
 
@@ -745,7 +880,9 @@ export const AdminRankings: React.FC = () => {
       <div className="bg-white border border-[#E2E8F0] rounded-2xl p-3.5 shadow-xs flex flex-wrap items-end gap-3">
         {/* Search Student Input */}
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Search Student</label>
+          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">
+            Search Student
+          </label>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -792,7 +929,9 @@ export const AdminRankings: React.FC = () => {
 
         {/* Select Subject */}
         <div className="w-[150px]">
-          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Select Subject</label>
+          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">
+            Select Subject
+          </label>
           <div className="relative">
             <select
               value={selectedSubject}
@@ -823,7 +962,9 @@ export const AdminRankings: React.FC = () => {
 
         {/* Select Test Type */}
         <div className="w-[130px]">
-          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Select Test Type</label>
+          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">
+            Select Test Type
+          </label>
           <div className="relative">
             <select
               value={selectedTestType}
@@ -957,9 +1098,7 @@ export const AdminRankings: React.FC = () => {
                           </div>
                         )}
                         {student.rank > 3 && (
-                          <span className="font-bold text-[#64748B]">
-                            {student.rank}
-                          </span>
+                            <span className="font-bold text-[#64748B]">{student.rank}</span>
                         )}
                       </td>
 
@@ -1025,7 +1164,9 @@ export const AdminRankings: React.FC = () => {
                       >
                         <button
                           onClick={() =>
-                            setOpenActionRank(openActionRank === student.rank ? null : student.rank)
+                              setOpenActionRank(
+                                openActionRank === student.rank ? null : student.rank
+                              )
                           }
                           className="p-1 rounded-md text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors"
                         >
@@ -1083,7 +1224,11 @@ export const AdminRankings: React.FC = () => {
           {/* Pagination Footer */}
           <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-[#64748B] font-medium">
-              Showing {filteredStudents.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredStudents.length)}`} of {filteredStudents.length.toLocaleString('en-IN')} students
+              Showing{' '}
+              {filteredStudents.length === 0
+                ? '0'
+                : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredStudents.length)}`}{' '}
+              of {filteredStudents.length.toLocaleString('en-IN')} students
             </span>
 
             {/* Pagination Controls */}
@@ -1160,8 +1305,10 @@ export const AdminRankings: React.FC = () => {
             </div>
 
             {/* 3 Podium Cards Side by Side */}
-            {(!top1Student && !top2Student && !top3Student) ? (
-              <div className="py-8 text-center text-slate-400 text-xs">No rankings available yet.</div>
+            {!top1Student && !top2Student && !top3Student ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                No rankings available yet.
+              </div>
             ) : (
               <div className="grid grid-cols-3 gap-2.5 items-end pt-1">
                 {/* 2nd Place */}
@@ -1189,16 +1336,20 @@ export const AdminRankings: React.FC = () => {
                       {top2Student.name}
                     </h3>
                     <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                      <span className="font-semibold text-slate-800">{top2Student.accuracy}%</span> Accuracy
+                      <span className="font-semibold text-slate-800">{top2Student.accuracy}%</span>{' '}
+                      Accuracy
                     </p>
                     <p className="text-[10px] text-[#64748B] leading-tight">
-                      <span className="font-semibold text-slate-800">{top2Student.avgScore}%</span> Avg. Score
+                      <span className="font-semibold text-slate-800">{top2Student.avgScore}%</span>{' '}
+                      Avg. Score
                     </p>
                     <span className="bg-[#DBEAFE] text-[#1D4ED8] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
                       2nd
                     </span>
                   </div>
-                ) : <div />}
+                ) : (
+                  <div />
+                )}
 
                 {/* 1st Place */}
                 {top1Student ? (
@@ -1225,16 +1376,20 @@ export const AdminRankings: React.FC = () => {
                       {top1Student.name}
                     </h3>
                     <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                      <span className="font-semibold text-slate-800">{top1Student.accuracy}%</span> Accuracy
+                      <span className="font-semibold text-slate-800">{top1Student.accuracy}%</span>{' '}
+                      Accuracy
                     </p>
                     <p className="text-[10px] text-[#64748B] leading-tight">
-                      <span className="font-semibold text-slate-800">{top1Student.avgScore}%</span> Avg. Score
+                      <span className="font-semibold text-slate-800">{top1Student.avgScore}%</span>{' '}
+                      Avg. Score
                     </p>
                     <span className="bg-[#FEF3C7] text-[#B45309] font-bold text-[10px] px-2.5 py-0.5 rounded-full mt-1.5 inline-block">
                       1st
                     </span>
                   </div>
-                ) : <div />}
+                ) : (
+                  <div />
+                )}
 
                 {/* 3rd Place */}
                 {top3Student ? (
@@ -1261,16 +1416,20 @@ export const AdminRankings: React.FC = () => {
                       {top3Student.name}
                     </h3>
                     <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                      <span className="font-semibold text-slate-800">{top3Student.accuracy}%</span> Accuracy
+                      <span className="font-semibold text-slate-800">{top3Student.accuracy}%</span>{' '}
+                      Accuracy
                     </p>
                     <p className="text-[10px] text-[#64748B] leading-tight">
-                      <span className="font-semibold text-slate-800">{top3Student.avgScore}%</span> Avg. Score
+                      <span className="font-semibold text-slate-800">{top3Student.avgScore}%</span>{' '}
+                      Avg. Score
                     </p>
                     <span className="bg-[#FFEDD5] text-[#C2410C] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
                       3rd
                     </span>
                   </div>
-                ) : <div />}
+                ) : (
+                  <div />
+                )}
               </div>
             )}
           </div>
@@ -1376,9 +1535,7 @@ export const AdminRankings: React.FC = () => {
                     <p className="text-sm font-extrabold text-[#0F172A] leading-none">
                       {activeStudent.accuracy}%
                     </p>
-                    <p className="text-[10px] text-[#64748B] mt-1 leading-none">
-                      Accuracy
-                    </p>
+                        <p className="text-[10px] text-[#64748B] mt-1 leading-none">Accuracy</p>
                   </div>
                 </div>
 
@@ -1391,9 +1548,7 @@ export const AdminRankings: React.FC = () => {
                     <p className="text-sm font-extrabold text-[#0F172A] leading-none">
                       {activeStudent.avgScore}%
                     </p>
-                    <p className="text-[10px] text-[#64748B] mt-1 leading-none">
-                      Avg. Score
-                    </p>
+                        <p className="text-[10px] text-[#64748B] mt-1 leading-none">Avg. Score</p>
                   </div>
                 </div>
               </div>
@@ -1401,9 +1556,7 @@ export const AdminRankings: React.FC = () => {
               {/* Student-wise Performance */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-[#0F172A]">
-                    Student-wise Performance
-                  </h4>
+                      <h4 className="text-xs font-bold text-[#0F172A]">Student-wise Performance</h4>
                   <button
                     onClick={() => setIsPerformanceModalOpen(true)}
                     className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer"
@@ -1435,9 +1588,7 @@ export const AdminRankings: React.FC = () => {
               {/* Recent Test Attempts */}
               <div className="pt-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-[#0F172A]">
-                    Recent Test Attempts
-                  </h4>
+                      <h4 className="text-xs font-bold text-[#0F172A]">Recent Test Attempts</h4>
                   <button
                     onClick={() => setIsRecentAttemptsModalOpen(true)}
                     className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer"
@@ -1469,9 +1620,7 @@ export const AdminRankings: React.FC = () => {
                         <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded">
                           {attempt.scorePercent}%
                         </span>
-                        <span className="text-[10px] text-[#94A3B8]">
-                          {attempt.timeAgo}
-                        </span>
+                            <span className="text-[10px] text-[#94A3B8]">{attempt.timeAgo}</span>
                       </div>
                     </div>
                   ))}
@@ -1479,9 +1628,7 @@ export const AdminRankings: React.FC = () => {
               </div>
               </>
               ) : (
-                <div className="py-16 text-center text-slate-400 text-xs">
-                  No student selected.
-                </div>
+                <div className="py-16 text-center text-slate-400 text-xs">No student selected.</div>
               )}
             </div>
           )}
@@ -1589,12 +1736,16 @@ export const AdminRankings: React.FC = () => {
               )}
               <div>
                 <h4 className="text-base font-black text-slate-900">{activeStudent.name}</h4>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">ID: {activeStudent.studentId}</p>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  ID: {activeStudent.studentId}
+                </p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="bg-amber-100 text-amber-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
                     State Rank #{activeStudent.rank}
                   </span>
-                  <span className="text-xs text-slate-600 font-medium">📍 {activeStudent.location}</span>
+                  <span className="text-xs text-slate-600 font-medium">
+                    📍 {activeStudent.location}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1602,7 +1753,9 @@ export const AdminRankings: React.FC = () => {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 bg-white border border-slate-200 rounded-xl">
                 <span className="text-slate-400 text-[10px]">Tests Attempted</span>
-                <p className="text-sm font-black text-slate-900 mt-0.5">{activeStudent.testsAttempted}</p>
+                <p className="text-sm font-black text-slate-900 mt-0.5">
+                  {activeStudent.testsAttempted}
+                </p>
               </div>
               <div className="p-3 bg-white border border-slate-200 rounded-xl">
                 <span className="text-slate-400 text-[10px]">Questions Answered</span>
@@ -1612,7 +1765,9 @@ export const AdminRankings: React.FC = () => {
               </div>
               <div className="p-3 bg-white border border-slate-200 rounded-xl">
                 <span className="text-slate-400 text-[10px]">Accuracy Rate</span>
-                <p className="text-sm font-black text-emerald-600 mt-0.5">{activeStudent.accuracy}%</p>
+                <p className="text-sm font-black text-emerald-600 mt-0.5">
+                  {activeStudent.accuracy}%
+                </p>
               </div>
               <div className="p-3 bg-white border border-slate-200 rounded-xl">
                 <span className="text-slate-400 text-[10px]">Average Score</span>
@@ -1750,6 +1905,7 @@ export const AdminRankings: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading rankings…', variant: 'table' }
   );
 };

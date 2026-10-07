@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -1269,9 +1270,9 @@ export const AdminSubjects: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
-      {isLoading && <p role="status">Loading complete subject records…</p>}
       {loadError && (
         <div role="alert" className="p-3 rounded-xl border border-rose-200 text-rose-700">
           Subjects unavailable: {loadError}{' '}
@@ -1906,7 +1907,10 @@ export const AdminSubjects: React.FC = () => {
                 [
                   { key: 'overview', label: 'Overview' },
                   { key: 'topics', label: `Topics (${selectedSubject.topicsCount})` },
-                  { key: 'topic_tests', label: `Topic Tests (${selectedSubject.topicTestsCount})` },
+                  {
+                    key: 'topic_tests',
+                    label: `Topic Tests (${selectedSubject.topicTestsCount})`,
+                  },
                 ] as const
               ).map((tab) => (
                 <button
@@ -2571,6 +2575,7 @@ export const AdminSubjects: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading complete subject records…', variant: 'table' }
   );
 };

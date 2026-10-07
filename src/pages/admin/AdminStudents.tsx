@@ -1,3 +1,4 @@
+import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { parseStudentCsv } from '@/utils/parseStudentCsv';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
@@ -632,7 +633,7 @@ export const AdminStudents: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'Overview' | 'Test History' | 'Subscriptions' | 'Notes'
   >('Overview');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
     type: 'success' | 'error';
@@ -1465,7 +1466,8 @@ export const AdminStudents: React.FC = () => {
       ? `${Math.round(scoredStudents.reduce((sum, s) => sum + (s.avgScore || 0), 0) / scoredStudents.length)}%`
       : 'Unavailable';
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 pb-16 font-sans">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1809,14 +1811,7 @@ export const AdminStudents: React.FC = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-400">
-                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#026BFC] mb-2" />
-                        <span>Loading students...</span>
-                      </td>
-                    </tr>
-                  ) : visibleStudents.length === 0 ? (
+                  {isLoading ? <tr><td colSpan={10} className="p-4"><AdminSectionSkeleton label="Loading students..." variant="table" /></td></tr> : visibleStudents.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-400">
                         No students match the selected criteria.
@@ -2460,10 +2455,7 @@ export const AdminStudents: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         {isLoadingDetails ? (
-                          <div className="flex items-center justify-center py-6 text-slate-400">
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            <span>Loading attempts...</span>
-                          </div>
+                          <AdminSectionSkeleton label="Loading attempts…" />
                         ) : studentMetrics.completedAttempts.length === 0 ? (
                           <div className="p-4 text-center text-slate-400 bg-white border border-slate-100 rounded-lg text-xs">
                             No test attempts found for this student.
@@ -2533,10 +2525,7 @@ export const AdminStudents: React.FC = () => {
 
                       <div className="space-y-2">
                         {isLoadingDetails ? (
-                          <div className="flex items-center justify-center py-4 text-slate-400">
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            <span>Loading orders...</span>
-                          </div>
+                          <AdminSectionSkeleton label="Loading orders…" />
                         ) : selectedStudentDetails?.paymentHistory &&
                           selectedStudentDetails.paymentHistory.length > 0 ? (
                           selectedStudentDetails.paymentHistory.map((pmt) => (
@@ -2625,10 +2614,7 @@ export const AdminStudents: React.FC = () => {
                           Notes History:
                         </span>
                         {isLoadingNotes ? (
-                          <div className="flex items-center justify-center py-4 text-slate-400">
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            <span>Loading notes...</span>
-                          </div>
+                          <AdminSectionSkeleton label="Loading notes…" />
                         ) : studentNotes.length === 0 ? (
                           <p className="text-slate-400 text-[11px] py-2">
                             No internal notes added for this student yet.
@@ -3198,7 +3184,8 @@ export const AdminStudents: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading students…', variant: 'table' }
   );
 };
 

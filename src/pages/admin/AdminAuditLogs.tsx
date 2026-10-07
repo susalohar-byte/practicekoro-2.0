@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileText,
@@ -72,11 +73,13 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Susanta Lohar',
     adminEmail: 'susanta@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
     action: 'Created',
     resource: 'Question',
     details: 'Added new question in In...',
-    fullDetails: 'Added new question in Indus Valley Civilization with options, explanation and short notes.',
+    fullDetails:
+      'Added new question in Indus Valley Civilization with options, explanation and short notes.',
     resourceId: 'QST-10485',
     ipAddress: '117.247.32.91',
     browser: 'Chrome 128.0.6613.120',
@@ -100,7 +103,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Puja Namata',
     adminEmail: 'puja@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
     action: 'Updated',
     resource: 'Test Series',
     details: 'Updated test series "WBP ...',
@@ -126,7 +130,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Rohit Kumar',
     adminEmail: 'rohit@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
     action: 'Deleted',
     resource: 'Mock Test',
     details: 'Deleted mock test "WBP ...',
@@ -158,7 +163,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     action: 'Created',
     resource: 'Coupon',
     details: 'Created coupon "DIWALI50"',
-    fullDetails: 'Created promotional discount coupon "DIWALI50" with 50% discount and 500 max usage.',
+    fullDetails:
+      'Created promotional discount coupon "DIWALI50" with 50% discount and 500 max usage.',
     resourceId: 'CPN-DIWALI50',
     ipAddress: '117.247.32.91',
     browser: 'Chrome 128.0.6613.120',
@@ -210,7 +216,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Moumita Das',
     adminEmail: 'moumita@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     action: 'Login',
     resource: 'System',
     details: 'Admin logged in',
@@ -242,7 +249,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     action: 'Updated',
     resource: 'Student',
     details: 'Updated student profile (I...',
-    fullDetails: 'Updated student profile (ID: STU-8492) email verification flag and district preference.',
+    fullDetails:
+      'Updated student profile (ID: STU-8492) email verification flag and district preference.',
     resourceId: 'STU-8492',
     ipAddress: '49.36.112.84',
     browser: 'Chrome 128.0.6613.120',
@@ -264,7 +272,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Rohit Kumar',
     adminEmail: 'rohit@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
     action: 'Viewed',
     resource: 'Payment',
     details: 'Viewed payment details',
@@ -289,7 +298,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Puja Namata',
     adminEmail: 'puja@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
     action: 'Refunded',
     resource: 'Payment',
     details: 'Processed refund for TXN...',
@@ -322,7 +332,8 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     action: 'Changed',
     resource: 'Settings',
     details: 'Updated platform settings',
-    fullDetails: 'Updated platform settings: Maintenance mode configuration, payment gateway toggle.',
+    fullDetails:
+      'Updated platform settings: Maintenance mode configuration, payment gateway toggle.',
     resourceId: 'SYS-CONF-GLOBAL',
     ipAddress: '49.36.112.84',
     browser: 'Chrome 128.0.6613.120',
@@ -344,11 +355,13 @@ const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     adminName: 'Susanta Lohar',
     adminEmail: 'susanta@example.com',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
     action: 'Created',
     resource: 'Subject',
     details: 'Added new subject "Indus ...',
-    fullDetails: 'Added new subject "Ancient History & Indus Civilization" under West Bengal Police Exams.',
+    fullDetails:
+      'Added new subject "Ancient History & Indus Civilization" under West Bengal Police Exams.',
     resourceId: 'SUB-HIST-01',
     ipAddress: '117.247.32.91',
     browser: 'Chrome 128.0.6613.120',
@@ -432,6 +445,7 @@ const getSeverityBadge = (sev: AuditSeverity) => {
 // ============================================================================
 
 export const AdminAuditLogs: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [logsList, setLogsList] = useState<AuditLogItem[]>(
     isSupabaseConfigured ? [] : INITIAL_AUDIT_LOGS
   );
@@ -443,6 +457,7 @@ export const AdminAuditLogs: React.FC = () => {
   // Fetch real audit logs on mount
   useEffect(() => {
     let isMounted = true;
+    setPageLoading(true);
     api
       .getAdminAuditLogs({ limit: 100 })
       .then(({ logs }) => {
@@ -472,7 +487,8 @@ export const AdminAuditLogs: React.FC = () => {
           const actionFormatted: AuditLogItem['action'] =
             log.action.toLowerCase().includes('create') || log.action.toLowerCase().includes('add')
               ? 'Created'
-              : log.action.toLowerCase().includes('delete') || log.action.toLowerCase().includes('revoke')
+              : log.action.toLowerCase().includes('delete') ||
+                  log.action.toLowerCase().includes('revoke')
               ? 'Deleted'
               : log.action.toLowerCase().includes('refund')
               ? 'Refunded'
@@ -527,8 +543,12 @@ export const AdminAuditLogs: React.FC = () => {
             avatarTextColor: 'text-blue-600',
             action: actionFormatted,
             resource: resourceFormatted,
-            details: log.entityName ? `${log.action} ${log.entityName}`.slice(0, 30) + '...' : log.action,
-            fullDetails: log.entityName ? `${log.action}: ${log.entityName}` : JSON.stringify(log.details || {}),
+            details: log.entityName
+              ? `${log.action} ${log.entityName}`.slice(0, 30) + '...'
+              : log.action,
+            fullDetails: log.entityName
+              ? `${log.action}: ${log.entityName}`
+              : JSON.stringify(log.details || {}),
             resourceId: log.entityId,
             ipAddress: log.ipAddress || '127.0.0.1',
             severity: log.action.toLowerCase().includes('delete') ? 'Warning' : 'Info',
@@ -551,6 +571,9 @@ export const AdminAuditLogs: React.FC = () => {
       })
       .catch((err) => {
         console.warn('[AdminAuditLogs] Failed to fetch real logs:', err);
+      })
+      .finally(() => {
+        if (isMounted) setPageLoading(false);
       });
 
     return () => {
@@ -649,14 +672,22 @@ export const AdminAuditLogs: React.FC = () => {
 
   const handleToggleRow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   // Export CSV
   const handleExportLogs = () => {
-    const headers = ['Date', 'Time', 'Admin', 'Email', 'Action', 'Resource', 'Details', 'IP Address', 'Severity'];
+    const headers = [
+      'Date',
+      'Time',
+      'Admin',
+      'Email',
+      'Action',
+      'Resource',
+      'Details',
+      'IP Address',
+      'Severity',
+    ];
     const rows = filteredLogs.map((l) => [
       l.date,
       l.time,
@@ -668,7 +699,9 @@ export const AdminAuditLogs: React.FC = () => {
       l.ipAddress,
       l.severity,
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -699,7 +732,8 @@ export const AdminAuditLogs: React.FC = () => {
     showToast('Audit log filters reset.');
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -756,7 +790,9 @@ export const AdminAuditLogs: React.FC = () => {
                 Live
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">recorded actions</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              recorded actions
+            </span>
           </div>
         </div>
 
@@ -775,7 +811,9 @@ export const AdminAuditLogs: React.FC = () => {
                 Active
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">performed actions</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              performed actions
+            </span>
           </div>
         </div>
 
@@ -806,10 +844,17 @@ export const AdminAuditLogs: React.FC = () => {
             <span className="text-[11px] font-medium text-slate-500 block">Critical Actions</span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
-                {logsList.filter((l) => l.severity === 'High' || l.action === 'Deleted' || l.action === 'Refunded').length}
+                {
+                  logsList.filter(
+                    (l) =>
+                      l.severity === 'High' || l.action === 'Deleted' || l.action === 'Refunded'
+                  ).length
+                }
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">require attention</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              require attention
+            </span>
           </div>
         </div>
       </div>
@@ -957,8 +1002,7 @@ export const AdminAuditLogs: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={
-                          selectedIds.length > 0 &&
-                          selectedIds.length === filteredLogs.length
+                          selectedIds.length > 0 && selectedIds.length === filteredLogs.length
                         }
                         onChange={handleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
@@ -983,7 +1027,9 @@ export const AdminAuditLogs: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
+                    filteredLogs
+                      .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                      .map((row) => {
                     const isSelected = Boolean(isDetailsPanelOpen && selectedLogId === row.id);
                     const isChecked = selectedIds.includes(row.id);
 
@@ -1022,7 +1068,9 @@ export const AdminAuditLogs: React.FC = () => {
                         {/* Date & Time */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className="font-normal text-slate-800 block">{row.date}</span>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">{row.time}</span>
+                              <span className="text-[11px] text-slate-400 block mt-0.5">
+                                {row.time}
+                              </span>
                         </td>
 
                         {/* Admin */}
@@ -1146,7 +1194,8 @@ export const AdminAuditLogs: React.FC = () => {
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
                 Showing {filteredLogs.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
-                {Math.min(filteredLogs.length, currentPage * rowsPerPage)} of {filteredLogs.length} logs
+                {Math.min(filteredLogs.length, currentPage * rowsPerPage)} of {filteredLogs.length}{' '}
+                logs
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1311,7 +1360,9 @@ export const AdminAuditLogs: React.FC = () => {
               {/* Resource ID */}
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-normal">Resource ID</span>
-                <span className="font-mono text-slate-700">{selectedLog.resourceId || 'QST-10485'}</span>
+                <span className="font-mono text-slate-700">
+                  {selectedLog.resourceId || 'QST-10485'}
+                </span>
               </div>
 
               {/* Details */}
@@ -1331,19 +1382,25 @@ export const AdminAuditLogs: React.FC = () => {
               {/* Browser */}
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-normal">Browser</span>
-                <span className="font-medium text-slate-800">{selectedLog.browser || 'Chrome 128.0.6613.120'}</span>
+                <span className="font-medium text-slate-800">
+                  {selectedLog.browser || 'Chrome 128.0.6613.120'}
+                </span>
               </div>
 
               {/* Device */}
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-normal">Device</span>
-                <span className="font-medium text-slate-800">{selectedLog.device || 'Mac (macOS 14.6)'}</span>
+                <span className="font-medium text-slate-800">
+                  {selectedLog.device || 'Mac (macOS 14.6)'}
+                </span>
               </div>
 
               {/* Location */}
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-normal">Location</span>
-                <span className="font-medium text-slate-800">{selectedLog.location || 'Kolkata, West Bengal, India'}</span>
+                <span className="font-medium text-slate-800">
+                  {selectedLog.location || 'Kolkata, West Bengal, India'}
+                </span>
               </div>
 
               {/* Severity */}
@@ -1369,7 +1426,11 @@ export const AdminAuditLogs: React.FC = () => {
                   className="text-slate-400 hover:text-slate-700 p-1 rounded transition-colors cursor-pointer"
                   title="Copy JSON"
                 >
-                  {isCopiedJson ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {isCopiedJson ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
 
@@ -1382,6 +1443,7 @@ export const AdminAuditLogs: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    { label: 'Loading audit logs…', variant: 'table' }
   );
 };

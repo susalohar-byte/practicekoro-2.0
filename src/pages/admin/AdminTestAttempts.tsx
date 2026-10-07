@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { requireSuccess, runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -722,6 +723,7 @@ const STORAGE_KEY = 'practicekoro_test_attempts_v1';
 // ============================================================================
 
 export const AdminTestAttempts: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const navigate = useNavigate();
 
   // State: Attempts list loaded from LocalStorage or seeded
@@ -750,6 +752,7 @@ export const AdminTestAttempts: React.FC = () => {
   // Load real test attempts from Supabase database
   useEffect(() => {
     let isMounted = true;
+    setPageLoading(true);
     api
       .getAllAdminTestAttempts()
       .then((remote) => {
@@ -766,6 +769,9 @@ export const AdminTestAttempts: React.FC = () => {
       })
       .catch((err) => {
         console.warn('Failed to fetch real test attempts from database:', err);
+      })
+      .finally(() => {
+        if (isMounted) setPageLoading(false);
       });
     return () => {
       isMounted = false;
@@ -1050,7 +1056,8 @@ export const AdminTestAttempts: React.FC = () => {
     );
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-4 pb-12 animate-in fade-in duration-300 font-sans">
       {/* ==================================================================== */}
       {/* 1. TOP HEADER & DATE RANGE / EXPORT ACTIONS */}
@@ -2522,6 +2529,7 @@ export const AdminTestAttempts: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading test attempts…', variant: 'table' }
   );
 };

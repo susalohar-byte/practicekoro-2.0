@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
@@ -256,6 +257,7 @@ const backendRoleToUiRole = (role?: string): SystemAdminRole => {
 // ============================================================================
 
 export const AdminStaff: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const { user: currentAdmin } = useAuth();
 
   // Master admins list with localStorage persistence
@@ -281,6 +283,7 @@ export const AdminStaff: React.FC = () => {
   // Load real staff members from database/backend
   useEffect(() => {
     let isMounted = true;
+    setPageLoading(true);
     api
       .getStaffMembers()
       .then((members) => {
@@ -330,6 +333,9 @@ export const AdminStaff: React.FC = () => {
           setToastError(true);
           setToastMessage('Staff records could not be loaded. Please refresh and try again.');
         }
+      })
+      .finally(() => {
+        if (isMounted) setPageLoading(false);
       });
 
     return () => {
@@ -359,7 +365,9 @@ export const AdminStaff: React.FC = () => {
 
   // Side Panel state: Create New Admin (Neutral initial state - closed by default)
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
-  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>('Basic Info');
+  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>(
+    'Basic Info'
+  );
 
   // Form Fields
   const [formName, setFormName] = useState('');
@@ -544,7 +552,8 @@ export const AdminStaff: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1457,6 +1466,7 @@ export const AdminStaff: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading staff…', variant: 'cards' }
   );
 };

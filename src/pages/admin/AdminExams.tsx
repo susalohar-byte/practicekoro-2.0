@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
@@ -64,9 +65,6 @@ export function saveExamLogoCache(examId: string, logoUrl: string) {
     // localStorage unavailable
   }
 }
-
-
-
 
 // Exam row data model with rich display fields
 interface EnrichedExamRow extends Exam {
@@ -558,7 +556,7 @@ export const AdminExams: React.FC = () => {
   const [, setDbTests] = useState<MockTest[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [testSeriesList, setTestSeriesList] = useState<TestSeries[]>([]);
-  const [, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
 
@@ -1073,7 +1071,8 @@ export const AdminExams: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    isLoading,
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
       {formError && !isModalOpen && (
         <div role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">
@@ -2646,6 +2645,7 @@ export const AdminExams: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading exams…', variant: 'table' }
   );
 };

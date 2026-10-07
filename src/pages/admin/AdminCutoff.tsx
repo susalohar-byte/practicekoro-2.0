@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import type { Exam } from '@/types';
 import { requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -354,6 +355,7 @@ const ExamLogoEmblem: React.FC<{ examName: string }> = ({ examName }) => {
 // ============================================================================
 
 export const AdminCutoff: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [availableExams, setAvailableExams] = useState<Exam[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   useEffect(() => {
@@ -387,6 +389,7 @@ export const AdminCutoff: React.FC = () => {
   // Load live cutoff records from database on mount
   useEffect(() => {
     let isMounted = true;
+    setPageLoading(true);
     api
       .getCutoffRecords()
       .then((records) => {
@@ -437,6 +440,9 @@ export const AdminCutoff: React.FC = () => {
           setCutoffsList([]);
           setSelectedRowId('');
         }
+      })
+      .finally(() => {
+        if (isMounted) setPageLoading(false);
       });
     return () => {
       isMounted = false;
@@ -698,7 +704,8 @@ export const AdminCutoff: React.FC = () => {
   const activeComparisonData =
     YEAR_WISE_COMPARISON[comparisonCategory] || YEAR_WISE_COMPARISON['General'];
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
@@ -1879,6 +1886,7 @@ export const AdminCutoff: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading cutoff…', variant: 'table' }
   );
 };

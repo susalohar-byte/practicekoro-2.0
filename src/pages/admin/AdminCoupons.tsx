@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Ticket,
@@ -237,6 +238,7 @@ const INITIAL_COUPONS: CouponRowItem[] = [
 // ============================================================================
 
 export const AdminCoupons: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [couponsList, setCouponsList] = useState<CouponRowItem[]>(() => {
     if (isSupabaseConfigured) return [];
     try {
@@ -280,6 +282,7 @@ export const AdminCoupons: React.FC = () => {
   const [recordsError, setRecordsError] = useState('');
   const loadCoupons = useCallback(async () => {
     setRecordsError('');
+    setPageLoading(true);
     try {
       const remote = await api.getAdminCoupons();
       if (!remote || remote.length === 0) {
@@ -340,6 +343,8 @@ export const AdminCoupons: React.FC = () => {
       if (isSupabaseConfigured) setCouponsList([]);
       setRecordsError(err instanceof Error ? err.message : 'Coupons could not be loaded.');
       return false;
+    } finally {
+      setPageLoading(false);
     }
   }, [availablePlans]);
 
@@ -639,7 +644,8 @@ export const AdminCoupons: React.FC = () => {
     setActiveMenuId(null);
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {recordsError && (
         <div role="alert" className="p-3 text-sm text-red-700">
@@ -1478,6 +1484,7 @@ export const AdminCoupons: React.FC = () => {
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    { label: 'Loading coupons…', variant: 'table' }
   );
 };

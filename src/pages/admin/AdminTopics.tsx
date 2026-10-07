@@ -1,3 +1,4 @@
+import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -511,6 +512,7 @@ const CANONICAL_TOPICS_PRESET: EnrichedTopicRow[] = [
 ];
 
 export const AdminTopics: React.FC = () => {
+  const [pageLoading, setPageLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // State
@@ -588,6 +590,7 @@ export const AdminTopics: React.FC = () => {
 
   // Load Data and merge with database
   const loadData = useCallback(async () => {
+    setPageLoading(true);
     try {
       const [subs, rows] = await Promise.all([
         api.getAllAdminSubjects(),
@@ -618,6 +621,8 @@ export const AdminTopics: React.FC = () => {
         type: 'error',
         message: getErrorMessage(err, 'Topics could not be loaded.'),
       });
+    } finally {
+      setPageLoading(false);
     }
   }, []);
 
@@ -1032,7 +1037,8 @@ export const AdminTopics: React.FC = () => {
     }
   };
 
-  return (
+  return withAdminSkeleton(
+    pageLoading,
     <div className="space-y-4 pb-12 animate-in fade-in duration-300">
       {/* 1. Page Header with Title and Top Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1449,7 +1455,8 @@ export const AdminTopics: React.FC = () => {
                             );
                             const isChecked = selectedTopicIds.has(topic.id);
                             const isPublished = topic.statusLabel === 'Published';
-                            const rowNumber = topicRowNumberMap.get(topic.id) ?? (startIndex + tIdx + 1);
+                              const rowNumber =
+                                topicRowNumberMap.get(topic.id) ?? startIndex + tIdx + 1;
 
                             return (
                               <tr
@@ -1471,7 +1478,10 @@ export const AdminTopics: React.FC = () => {
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={(evt) =>
-                                      toggleSelectRow(topic.id, evt as unknown as React.MouseEvent)
+                                        toggleSelectRow(
+                                          topic.id,
+                                          evt as unknown as React.MouseEvent
+                                        )
                                     }
                                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                                   />
@@ -1650,7 +1660,8 @@ export const AdminTopics: React.FC = () => {
                           })}
                       </React.Fragment>
                     );
-                  }))}
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2570,7 +2581,8 @@ export const AdminTopics: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    { label: 'Loading topics…', variant: 'table' }
   );
 };
 

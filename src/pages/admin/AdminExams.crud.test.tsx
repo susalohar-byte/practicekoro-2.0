@@ -39,7 +39,7 @@ const mount = () =>
     </MemoryRouter>
   );
 const form = () => screen.getByPlaceholderText('e.g. WBP Constable').closest('form')!;
-const openCreate = () => fireEvent.click(screen.getByRole('button', { name: 'Create Exam' }));
+const openCreate = async () => fireEvent.click(await screen.findByRole('button', { name: 'Create Exam' }));
 const openActions = async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Actions for Disposable Exam' }));
 };
@@ -80,7 +80,7 @@ describe('AdminExams backend-first workflow', () => {
   });
   it('adds using the backend record, persists after remount and remains editable', async () => {
     const mounted = mount();
-    openCreate();
+    await openCreate();
     fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
       target: { value: 'Saved Exam' },
     });
@@ -107,7 +107,7 @@ describe('AdminExams backend-first workflow', () => {
   it('failed add preserves inputs and creates no phantom row', async () => {
     mocks.create.mockRejectedValue(new Error('Duplicate slug'));
     mount();
-    openCreate();
+    await openCreate();
     fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
       target: { value: 'Keep this' },
     });
@@ -171,7 +171,7 @@ describe('AdminExams backend-first workflow', () => {
         })
     );
     mount();
-    openCreate();
+    await openCreate();
     fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
       target: { value: 'Pending' },
     });
@@ -229,7 +229,7 @@ describe('Exam save and delete feedback regressions', () => {
 it('confirmed create remains visible and editable when list refresh fails', async () => {
   mount();
   await waitFor(() => expect(mocks.load).toHaveBeenCalled());
-  openCreate();
+  await openCreate();
   fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
     target: { value: 'Saved despite reload' },
   });

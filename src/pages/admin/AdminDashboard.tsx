@@ -1,3 +1,4 @@
+import { AdminDataBoundary } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -592,7 +593,13 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-
+      <AdminDataBoundary
+        loading={isLoading}
+        label="Loading authoritative Dashboard data…"
+        variant="dashboard"
+        showHeader={false}
+        className="space-y-6"
+      >
       {/* Error notification banner */}
       {loadError && (
         <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-between gap-3 text-rose-800 dark:text-rose-200 text-xs">
@@ -609,11 +616,10 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {isLoading && <p role="status">Loading authoritative Dashboard data…</p>}
       {isStale && stats && (
         <p className="text-amber-700">
-          Showing the last complete snapshot: {snapshotLabel}. Selected filters may not match until
-          Retry succeeds.
+            Showing the last complete snapshot: {snapshotLabel}. Selected filters may not match
+            until Retry succeeds.
         </p>
       )}
       {/* ─── 6 TOP KPI METRIC CARDS ─── */}
@@ -1284,7 +1290,10 @@ export const AdminDashboard: React.FC = () => {
                     </tr>
                   ) : (
                     topStudents.map((st) => (
-                      <tr key={st.rank} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <tr
+                          key={st.rank}
+                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                        >
                         <td className="py-2.5">
                           {st.badge === 'gold' && (
                             <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-bold flex items-center justify-center text-[10px]">
@@ -1310,7 +1319,9 @@ export const AdminDashboard: React.FC = () => {
                         <td className="py-2.5 font-bold text-slate-900 dark:text-white">
                           {st.name}
                         </td>
-                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{st.location}</td>
+                          <td className="py-2.5 text-slate-500 dark:text-slate-400">
+                            {st.location}
+                          </td>
                         <td className="py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
                           {st.score}
                         </td>
@@ -1326,7 +1337,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-
+      </AdminDataBoundary>
     </div>
   );
 };
