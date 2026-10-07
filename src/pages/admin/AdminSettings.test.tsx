@@ -270,8 +270,8 @@ describe('AdminSettings & Maintenance Mode System', () => {
   });
 
   describe('Service Layer: Payment Gateway Credentials Management', () => {
-    it('persists Key ID but never stores secrets (secrets live in Edge Function env)', async () => {
-      // Even if a caller passes secrets, they must be dropped, not stored.
+    it('rejects client secrets and persists public Key IDs without them', async () => {
+      // Secret fields must be rejected explicitly, not silently presented as saved.
       const res1 = await adminApi.updatePaymentGatewayConfig({
         gateway: 'razorpay',
         keyId: 'rzp_test_sample',
@@ -279,10 +279,11 @@ describe('AdminSettings & Maintenance Mode System', () => {
         webhookSecret: 'whsec_should_be_dropped',
         isActive: true,
       });
-      expect(res1.success).toBe(true);
+      expect(res1.success).toBe(false);
+      expect(res1.error).toMatch(/server-side/);
 
       const cfg1 = await adminApi.getPaymentGatewayConfig('razorpay');
-      expect(cfg1.keyId).toBe('rzp_test_sample');
+      expect(cfg1.keyId).not.toBe('rzp_test_sample');
       expect(cfg1.hasSecret).toBe(false);
       expect(cfg1.secretPreview).toBeNull();
       expect(cfg1.hasWebhookSecret).toBe(false);
@@ -290,13 +291,13 @@ describe('AdminSettings & Maintenance Mode System', () => {
       // Key ID updates still work without any secrets involved.
       const res2 = await adminApi.updatePaymentGatewayConfig({
         gateway: 'razorpay',
-        keyId: 'rzp_live_new_key',
+        keyId: 'rzp_live_newkey',
         isActive: true,
       });
       expect(res2.success).toBe(true);
 
       const cfg2 = await adminApi.getPaymentGatewayConfig('razorpay');
-      expect(cfg2.keyId).toBe('rzp_live_new_key');
+      expect(cfg2.keyId).toBe('rzp_live_newkey');
       expect(cfg2.hasSecret).toBe(false);
     });
   });

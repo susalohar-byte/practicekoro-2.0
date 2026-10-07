@@ -24,7 +24,8 @@ export async function getAppSettings(): Promise<AppSettingItem[]> {
   if (!isSupabaseConfigured) return [...localAppSettings];
   const { data, error } = await supabase.from('app_settings').select('*');
   if (error) throw new Error(error.message);
-  return (data ?? []).map((d: any) => ({
+  if (!Array.isArray(data)) throw new Error('Settings response was not confirmed.');
+  return data.map((d: any) => ({
     id: d.id,
     category: d.category,
     key: d.key,
@@ -44,6 +45,15 @@ export async function updateAppSetting(
 export async function updateAppSettings(
   updates: Array<{ id: string; value: unknown }>
 ): Promise<{ success: boolean; error?: string }> {
+  if (!updates.length) return { success: false, error: 'No settings were supplied.' };
+  if (new Set(updates.map((u) => u.id)).size !== updates.length)
+    return { success: false, error: 'Duplicate setting IDs are not allowed.' };
+  if (
+    updates.some(
+      (u) => !u.id.trim() || /secret|password|service[._ ]?role|private[._ ]?key/i.test(u.id)
+    )
+  )
+    return { success: false, error: 'Credentials must be configured server-side.' };
   const SETTINGS_META: Record<string, { category: string; key: string; description: string }> = {
     general_app_name: {
       category: 'general',
@@ -284,7 +294,7 @@ export async function getPaymentGatewayConfig(gateway = 'razorpay'): Promise<Pay
 /**
  * Updates payment gateway configuration (Key ID + active flag only).
  * Secrets are NEVER persisted here: payload.keySecret / webhookSecret are
- * accepted for type-compat but always dropped — they live exclusively in
+ * accepted for type-compat but non-empty secret values are rejected — they live exclusively in
  * Supabase Edge Function Secrets.
  */
 export async function updatePaymentGatewayConfig(
@@ -294,7 +304,51 @@ export async function updatePaymentGatewayConfig(
   const cleanKeyId = payload.keyId.trim();
   const isActive = payload.isActive ?? true;
 
-  // Update local cache (Key ID + active flag only — secrets never stored)
+  if (targetGateway !== 'razorpay') return { success: false, error: 'Only Razorpay is supported.' };
+  if ((payload.keySecret || '').trim() || (payload.webhookSecret || '').trim())
+    return {
+      success: false,
+      error: 'Payment secrets must be configured server-side, not in this form.',
+    };
+  if (
+    (cleanKeyId && !/^rzp_(test|live)_[A-Za-z0-9]+$/.test(cleanKeyId)) ||
+    (isActive && !cleanKeyId)
+  )
+    return {
+      success: false,
+      error: 'Enter a valid Razorpay public Key ID before enabling the gateway.',
+    };
+
+  if (isSupabaseConfigured) {
+    try {
+      // This RPC updates payment_gateways and its public settings atomically.
+      // Never pre-write app_settings or report a local fallback as production success.
+      const { data, error } = await supabase.rpc('admin_update_payment_gateway', {
+        p_gateway: targetGateway,
+        p_key_id: cleanKeyId,
+        p_key_secret: null,
+        p_webhook_secret: null,
+        p_is_active: isActive,
+      });
+      if (error) throw new Error(error.message);
+      if (
+        data?.success !== true ||
+        data?.gateway !== targetGateway ||
+        data?.key_id !== cleanKeyId ||
+        data?.is_active !== isActive
+      )
+        throw new Error(
+          'The backend did not confirm the saved payment gateway. Reload before retrying.'
+        );
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, 'Failed to update payment gateway configuration'),
+      };
+    }
+  }
+  // Explicit demo mode only; never mutate this cache ahead of a production response.
   localPaymentGateways[targetGateway] = {
     gateway: targetGateway,
     key_id: cleanKeyId,
@@ -303,71 +357,6 @@ export async function updatePaymentGatewayConfig(
     is_active: isActive,
     updated_at: new Date().toISOString(),
   };
-
-  if (isSupabaseConfigured) {
-    // 1. Synchronize public key to app_settings (universally readable by students)
-    try {
-      await updateAppSettings([
-        {
-          id: 'payment_gateway_razorpay_key_id',
-          value: cleanKeyId,
-        },
-        {
-          id: 'payment_gateway_razorpay_active',
-          value: isActive,
-        },
-      ]);
-    } catch (appErr) {
-      console.warn('Could not sync payment key to app_settings:', appErr);
-    }
-
-    // 2. Authoritative payment_gateways RPC (Key ID + active flag only;
-    // secrets are never written — they live in Edge Function Secrets)
-    try {
-      const { data, error } = await supabase.rpc('admin_update_payment_gateway', {
-        p_gateway: targetGateway,
-        p_key_id: cleanKeyId,
-        p_key_secret: null,
-        p_webhook_secret: null,
-        p_is_active: isActive,
-      });
-
-      if (error) {
-        console.warn('Failed to update payment gateway via RPC:', error.message);
-        const hasSession = Boolean((await supabase.auth.getSession()).data.session);
-        if (
-          !hasSession ||
-          error.code === '42501' ||
-          error.message.includes('Unauthorized') ||
-          error.message.includes('schema cache') ||
-          error.message.includes('Could not find') ||
-          error.code === 'PGRST202' ||
-          error.code === '42883' ||
-          error.message.includes('does not exist') ||
-          error.message.includes('fetch') ||
-          error.message.includes('Failed to fetch')
-        ) {
-          // Unauthenticated test or unmigrated RPC; local store and app_settings updated
-          return { success: true };
-        }
-        return { success: false, error: error.message };
-      }
-
-      if (data && data.success === false) {
-        return { success: false, error: data.message || 'Failed to update gateway' };
-      }
-
-      return { success: true };
-    } catch (err) {
-      const msg = getErrorMessage(err, 'Failed to update payment gateway configuration');
-      console.error('Exception during admin_update_payment_gateway:', msg);
-      if (msg.includes('fetch') || msg.includes('network') || msg.includes('ECONNREFUSED')) {
-        return { success: true };
-      }
-      return { success: false, error: msg };
-    }
-  }
-
   return { success: true };
 }
 

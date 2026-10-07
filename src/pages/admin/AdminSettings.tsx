@@ -3,6 +3,12 @@ import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { cn } from '@/lib/utils';
+import {
+  validateGeneralSettings,
+  validateBrandColors,
+  validateSmtpReference,
+  validateSettingsImage,
+} from '@/services/domains/admin.settingsForm';
 import { uploadQuestionImage } from '@/services/domains/admin.questions';
 import {
   Settings,
@@ -27,8 +33,6 @@ import {
   Moon,
   Monitor,
   ChevronDown,
-  Eye,
-  EyeOff,
   AlertTriangle,
   RotateCcw,
   CheckCircle2,
@@ -115,7 +119,11 @@ const SETTINGS_TABS: TabConfig[] = [
 ];
 
 export const AdminSettings: React.FC = () => {
-  const { user: currentAdmin } = useAuth();
+  const { user: currentAdmin, adminRole } = useAuth();
+  const canManageSettings = adminRole === 'super_admin' && currentAdmin?.role === 'admin';
+  const operationRef = useRef(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [toastKind, setToastKind] = useState<'success' | 'error' | 'info'>('info');
   const { checkMaintenanceMode } = useMaintenance();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -129,12 +137,12 @@ export const AdminSettings: React.FC = () => {
   // --------------------------------------------------------------------------
   const [platformName, setPlatformName] = useState('PracticeKoro');
   const [websiteUrl, setWebsiteUrl] = useState('https://practicekoro.online');
-  const [adminEmail, setAdminEmail] = useState('support@practicekoro.online');
-  const [supportEmail, setSupportEmail] = useState('help@practicekoro.online');
-  const [contactPhone, setContactPhone] = useState('+91 98765 43210');
-  const [address, setAddress] = useState('Kolkata, West Bengal, India');
-  const [timezone, setTimezone] = useState('Asia/Kolkata (GMT +5:30)');
-  const [language, setLanguage] = useState('English');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [timezone] = useState('Asia/Kolkata (GMT +5:30)');
+  const [language] = useState('English');
   const [platformDescription, setPlatformDescription] = useState(
     'PracticeKoro is a mock test platform for West Bengal and other Government exams. Practice smart, prepare better and achieve your goal.'
   );
@@ -146,58 +154,51 @@ export const AdminSettings: React.FC = () => {
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
   // --------------------------------------------------------------------------
-  // Feature Toggles State (Exact match to reference image)
+  // Feature Toggles (Unavailable) State (Exact match to reference image)
   // --------------------------------------------------------------------------
-  const [featureToggles, setFeatureToggles] = useState({
-    studentRegistration: true,
-    mockTests: true,
-    topicTests: true,
-    leaderboards: true,
+  const featureToggles = {
+    studentRegistration: false,
+    mockTests: false,
+    topicTests: false,
+    leaderboards: false,
     blogStudyNotes: false,
-    paidSubscriptions: true,
-    couponsOffers: true,
-    notifications: true,
+    paidSubscriptions: false,
+    couponsOffers: false,
+    notifications: false,
     referralProgram: false,
     appDownloadLinks: false,
-  });
-
-  const toggleFeature = (key: keyof typeof featureToggles) => {
-    setFeatureToggles((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      showToast(`${key} toggle ${next[key] ? 'enabled' : 'disabled'}`);
-      return next;
-    });
   };
-
+  const toggleFeature = (_key: keyof typeof featureToggles) => {
+    showToast('Feature switches are unavailable: runtime enforcement is not implemented.', 'info');
+  };
   // --------------------------------------------------------------------------
   // Theme & Branding State
   // --------------------------------------------------------------------------
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [secondaryColor, setSecondaryColor] = useState('#10B981');
   const [accentColor, setAccentColor] = useState('#8B5CF6');
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
-  const [fontFamily, setFontFamily] = useState('Inter (Default)');
+  const [themeMode] = useState<'light' | 'dark' | 'system'>('light');
+  const fontFamily = 'Managed by deployed theme';
 
   // --------------------------------------------------------------------------
   // Email SMTP Configuration
   // --------------------------------------------------------------------------
   const [smtpProvider, setSmtpProvider] = useState('Custom SMTP');
-  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
+  const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('587');
   const [smtpEncryption, setSmtpEncryption] = useState('TLS');
-  const [smtpUsername, setSmtpUsername] = useState('your-email@gmail.com');
-  const [smtpPassword, setSmtpPassword] = useState('••••••••••••');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [smtpUsername, setSmtpUsername] = useState('');
+  const isSendingTestEmail = false;
+  const [appVersion, setAppVersion] = useState('Not configured');
 
   // --------------------------------------------------------------------------
   // Payments State (Razorpay Gateway)
   // --------------------------------------------------------------------------
-  const [rzpKeyId, setRzpKeyId] = useState('rzp_live_8Fh9102Xkd91k');
+  const [rzpKeyId, setRzpKeyId] = useState('');
   const [rzpIsActive, setRzpIsActive] = useState(true);
-  const [currency, setCurrency] = useState('INR');
-  const [taxPercent, setTaxPercent] = useState('18');
-  const [invoicePrefix, setInvoicePrefix] = useState('PK-INV-');
+  const [currency] = useState('INR');
+  const taxPercent = '';
+  const invoicePrefix = '';
 
   // --------------------------------------------------------------------------
   // Clear Cache Dialog Modal
@@ -206,11 +207,26 @@ export const AdminSettings: React.FC = () => {
   const [isClearingCache, setIsClearingCache] = useState(false);
 
   // Helper toast notification
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, kind: 'success' | 'error' | 'info' = 'error') => {
+    clearTimeout(toastTimerRef.current);
+    setToastKind(kind);
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 5000);
+  };
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
+  const beginOperation = () => {
+    if (operationRef.current) return false;
+    if (!canManageSettings) {
+      showToast('Only an active Super Admin can change settings.');
+      return false;
+    }
+    operationRef.current = true;
+    setIsSaving(true);
+    return true;
+  };
+  const endOperation = () => {
+    operationRef.current = false;
+    setIsSaving(false);
   };
 
   // --------------------------------------------------------------------------
@@ -240,6 +256,19 @@ export const AdminSettings: React.FC = () => {
           if (s.key === 'maintenance_mode' || s.id === 'sys_maintenance_mode') {
             setMaintenanceMode(val === true || val === 'true');
           }
+          if (s.id === 'platform_description' || s.key === 'platform_description')
+            setPlatformDescription(String(val ?? ''));
+          if (s.id === 'general_platform_logo' || s.key === 'general_platform_logo')
+            setPlatformLogo(val ? String(val) : null);
+          if (s.id === 'general_favicon' || s.key === 'general_favicon')
+            setFavicon(val ? String(val) : null);
+          if (s.id === 'smtp_provider') setSmtpProvider(String(val ?? 'Custom SMTP'));
+          if (s.id === 'smtp_host') setSmtpHost(String(val ?? ''));
+          if (s.id === 'smtp_port') setSmtpPort(String(val ?? '587'));
+          if (s.id === 'smtp_encryption') setSmtpEncryption(String(val ?? 'TLS'));
+          if (s.id === 'smtp_username') setSmtpUsername(String(val ?? ''));
+          if (s.id === 'sys_app_version' || s.key === 'app_version')
+            setAppVersion(String(val ?? 'Not configured'));
           if (s.id === 'primary_color' || s.key === 'primary_color') setPrimaryColor(String(val));
           if (s.id === 'secondary_color' || s.key === 'secondary_color')
             setSecondaryColor(String(val));
@@ -248,7 +277,7 @@ export const AdminSettings: React.FC = () => {
       }
 
       if (gatewayConfig) {
-        if (gatewayConfig.keyId) setRzpKeyId(gatewayConfig.keyId);
+        setRzpKeyId(gatewayConfig.keyId || '');
         setRzpIsActive(gatewayConfig.isActive);
       }
     } catch (err) {
@@ -267,8 +296,17 @@ export const AdminSettings: React.FC = () => {
   // --------------------------------------------------------------------------
   const handleSaveGeneral = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!beginOperation()) return;
     try {
-      setIsSaving(true);
+      validateGeneralSettings({
+        name: platformName,
+        website: websiteUrl,
+        adminEmail,
+        supportEmail,
+      });
+      validateBrandColors([primaryColor, secondaryColor, accentColor]);
+      if (platformDescription.length > 300)
+        throw new Error('Platform description may not exceed 300 characters.');
       const res = await api.updateAppSettings([
         { id: 'general_app_name', value: platformName },
         { id: 'general_website_url', value: websiteUrl },
@@ -288,25 +326,36 @@ export const AdminSettings: React.FC = () => {
         return;
       }
 
-      await checkMaintenanceMode();
-
-      if (currentAdmin) {
-        await api.logAdminActivity({
-          action: 'SETTINGS_UPDATE',
-          entityType: 'settings',
-          entityId: 'general_settings',
-          entityName: 'General Platform Settings',
-          details: { platformName, websiteUrl, adminEmail, maintenanceMode },
-          adminUser: currentAdmin,
-        });
+      try {
+        await checkMaintenanceMode();
+      } catch {
+        showToast(
+          'Settings were saved, but the live settings refresh failed. Refresh the page.',
+          'info'
+        );
+        return;
       }
 
-      showToast('Settings saved successfully! Configuration saved in the database.');
+      if (currentAdmin) {
+        try {
+          await api.logAdminActivity({
+            action: 'SETTINGS_UPDATE',
+            entityType: 'settings',
+            entityId: 'general_settings',
+            entityName: 'General Platform Settings',
+            details: { platformName, websiteUrl, maintenanceMode },
+            adminUser: currentAdmin,
+          });
+        } catch {
+          /* Persistence already succeeded; audit delivery must not report a false save failure. */
+        }
+      }
+      showToast('Settings saved successfully! Configuration saved in the database.', 'success');
     } catch (err: unknown) {
       console.error(err);
       showToast(err instanceof Error ? err.message : 'Failed to save settings. Please try again.');
     } finally {
-      setIsSaving(false);
+      endOperation();
     }
   };
 
@@ -314,8 +363,9 @@ export const AdminSettings: React.FC = () => {
   // Save SMTP Settings
   // --------------------------------------------------------------------------
   const handleSaveSMTP = async () => {
+    if (!beginOperation()) return;
     try {
-      setIsSaving(true);
+      validateSmtpReference(smtpHost, smtpPort);
       const res = await api.updateAppSettings([
         { id: 'smtp_provider', value: smtpProvider },
         { id: 'smtp_host', value: smtpHost },
@@ -329,88 +379,117 @@ export const AdminSettings: React.FC = () => {
         return;
       }
 
-      showToast('SMTP Configuration saved successfully!');
+      showToast(
+        'SMTP reference settings saved. Email delivery is not enabled by this form.',
+        'success'
+      );
     } catch (err: unknown) {
       console.error(err);
       showToast(err instanceof Error ? err.message : 'Failed to save SMTP configuration.');
     } finally {
-      setIsSaving(false);
+      endOperation();
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Send Test Email Simulation
-  // --------------------------------------------------------------------------
-  const handleSendTestEmail = () => {
-    setIsSendingTestEmail(true);
-    showToast(
-      'Live test email sending requires a configured server-side mail provider (e.g. Resend / SendGrid Edge Function).'
-    );
-    setTimeout(() => {
-      setIsSendingTestEmail(false);
-    }, 1500);
+  const handleSaveBranding = async () => {
+    if (!beginOperation()) return;
+    try {
+      validateBrandColors([primaryColor, secondaryColor, accentColor]);
+      const result = await api.updateAppSettings([
+        { id: 'primary_color', value: primaryColor },
+        { id: 'secondary_color', value: secondaryColor },
+        { id: 'accent_color', value: accentColor },
+      ]);
+      if (!result.success) throw new Error(result.error || 'Brand colors were not saved.');
+      showToast(
+        'Brand preview colors saved. Global site styling is controlled by the deployed theme.',
+        'success'
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Branding save failed.');
+    } finally {
+      endOperation();
+    }
   };
-
-  // --------------------------------------------------------------------------
-  // Clear System Cache Action
-  // --------------------------------------------------------------------------
+  const handleSavePayment = async () => {
+    if (!beginOperation()) return;
+    try {
+      const result = await api.updatePaymentGatewayConfig({
+        gateway: 'razorpay',
+        keyId: rzpKeyId,
+        isActive: rzpIsActive,
+      });
+      if (!result.success) throw new Error(result.error || 'Payment configuration was not saved.');
+      showToast('Payment gateway settings saved and confirmed by the backend.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Payment save failed.');
+    } finally {
+      endOperation();
+    }
+  };
+  const handleSendTestEmail = () =>
+    showToast('Email delivery is not configured through this page. No message was sent.', 'info');
   const handleConfirmClearCache = () => {
+    if (!beginOperation()) return;
     setIsClearingCache(true);
-    setTimeout(() => {
-      try {
-        localStorage.removeItem('practicekoro_offline_cache');
-        sessionStorage.clear();
-      } catch {
-        // ignore
-      }
-      setIsClearingCache(false);
-      setShowClearCacheModal(false);
-      showToast('Local admin browser cache and temporary session data cleared successfully.');
-    }, 600);
-  };
-
-  // --------------------------------------------------------------------------
-  // Image Upload Handlers for Logo & Favicon (Durable Backend Storage)
-  // --------------------------------------------------------------------------
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
     try {
-      setIsSaving(true);
-      const durableUrl = await uploadQuestionImage(file);
-      const res = await api.updateAppSettings([{ id: 'general_platform_logo', value: durableUrl }]);
-      if (res.success) {
-        setPlatformLogo(durableUrl);
-        showToast('Platform logo uploaded to durable storage and saved successfully!');
-      } else {
-        showToast(res.error || 'Failed to save uploaded logo to database.');
-      }
-    } catch (err: unknown) {
-      console.error(err);
-      showToast(err instanceof Error ? err.message : 'Failed to upload logo.');
+      localStorage.removeItem('practicekoro_offline_cache');
+      sessionStorage.removeItem('practicekoro_offline_cache');
+      setShowClearCacheModal(false);
+      showToast(
+        'Local offline cache cleared. Sign-in sessions and server caches were not changed.',
+        'success'
+      );
+    } catch {
+      showToast('Browser storage could not be cleared. No success was confirmed.');
     } finally {
-      setIsSaving(false);
+      setIsClearingCache(false);
+      endOperation();
     }
   };
-
-  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const persistAsset = async (kind: 'logo' | 'favicon', value: string | null) => {
+    const result = await api.updateAppSettings([
+      { id: kind === 'logo' ? 'general_platform_logo' : 'general_favicon', value },
+    ]);
+    if (!result.success) throw new Error(result.error || 'Asset setting was not saved.');
+    if (kind === 'logo') setPlatformLogo(value);
+    else setFavicon(value);
+  };
+  const uploadAsset = async (e: React.ChangeEvent<HTMLInputElement>, kind: 'logo' | 'favicon') => {
+    const input = e.currentTarget,
+      file = input.files?.[0];
+    if (!file || !beginOperation()) return;
     try {
-      setIsSaving(true);
-      const durableUrl = await uploadQuestionImage(file);
-      const res = await api.updateAppSettings([{ id: 'general_favicon', value: durableUrl }]);
-      if (res.success) {
-        setFavicon(durableUrl);
-        showToast('Favicon uploaded to durable storage and saved successfully!');
-      } else {
-        showToast(res.error || 'Failed to save uploaded favicon to database.');
-      }
-    } catch (err: unknown) {
-      console.error(err);
-      showToast(err instanceof Error ? err.message : 'Failed to upload favicon.');
+      validateSettingsImage(file, kind);
+      const url = await uploadQuestionImage(file);
+      if (!url.startsWith('https://'))
+        throw new Error('Upload did not return a durable HTTPS storage URL.');
+      await persistAsset(kind, url);
+      showToast(
+        'Asset uploaded and saved. Site-wide asset rendering is controlled by the deployed layout.',
+        'success'
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Asset upload failed.');
     } finally {
-      setIsSaving(false);
+      input.value = '';
+      endOperation();
+    }
+  };
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => uploadAsset(e, 'logo');
+  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => uploadAsset(e, 'favicon');
+  const removeAsset = async (kind: 'logo' | 'favicon') => {
+    if (!beginOperation()) return;
+    try {
+      await persistAsset(kind, null);
+      showToast(
+        'Asset setting removed from the database. Stored files were not deleted.',
+        'success'
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Asset removal failed.');
+    } finally {
+      endOperation();
     }
   };
 
@@ -438,24 +517,42 @@ export const AdminSettings: React.FC = () => {
     <div className="space-y-6 pb-16">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div
+          role={toastKind === 'error' ? 'alert' : 'status'}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          {toastKind === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          )}
           <span className="text-xs font-semibold">{toastMessage}</span>
         </div>
       )}
 
+      {!canManageSettings && (
+        <p role="status">
+          Read-only: an active Super Admin is required to change platform settings.
+        </p>
+      )}
+      <p className="text-xs text-slate-500">
+        Only confirmed backend saves are reported as successful. Unimplemented controls are disabled
+        and labeled.
+      </p>
       {/* Hidden file inputs */}
       <input
+        disabled={!canManageSettings || isSaving}
         ref={logoInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/svg+xml"
+        accept="image/png,image/jpeg"
         className="hidden"
         onChange={handleLogoUpload}
       />
       <input
+        disabled={!canManageSettings || isSaving}
         ref={faviconInputRef}
         type="file"
-        accept="image/png,image/x-icon,image/vnd.microsoft.icon"
+        accept="image/png"
         className="hidden"
         onChange={handleFaviconUpload}
       />
@@ -523,7 +620,7 @@ export const AdminSettings: React.FC = () => {
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ================================================================ */}
-          {/* LEFT COLUMN: General Settings & Feature Toggles                  */}
+          {/* LEFT COLUMN: General Settings & Feature Toggles (Unavailable)                  */}
           {/* ================================================================ */}
           <div className="lg:col-span-7 space-y-6">
             {/* Card 1: General Settings */}
@@ -538,7 +635,8 @@ export const AdminSettings: React.FC = () => {
                     General Settings
                   </h2>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                    Basic platform information and configuration.
+                    Basic platform information and configuration. Timezone and UI language are
+                    deployment-managed.
                   </p>
                 </div>
               </div>
@@ -552,6 +650,8 @@ export const AdminSettings: React.FC = () => {
                       Platform Name <span className="text-rose-500">*</span>
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Platform Name"
                       type="text"
                       value={platformName}
                       onChange={(e) => setPlatformName(e.target.value)}
@@ -564,6 +664,8 @@ export const AdminSettings: React.FC = () => {
                       Website URL <span className="text-rose-500">*</span>
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Website URL"
                       type="text"
                       value={websiteUrl}
                       onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -576,6 +678,8 @@ export const AdminSettings: React.FC = () => {
                       Admin Email <span className="text-rose-500">*</span>
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Admin Email"
                       type="email"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
@@ -588,6 +692,8 @@ export const AdminSettings: React.FC = () => {
                       Support Email
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Support Email"
                       type="email"
                       value={supportEmail}
                       onChange={(e) => setSupportEmail(e.target.value)}
@@ -600,6 +706,8 @@ export const AdminSettings: React.FC = () => {
                       Contact Phone
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Contact Phone"
                       type="text"
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
@@ -612,6 +720,8 @@ export const AdminSettings: React.FC = () => {
                       Address (Optional)
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Address (Optional)"
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
@@ -627,7 +737,8 @@ export const AdminSettings: React.FC = () => {
                       <div className="relative">
                         <select
                           value={timezone}
-                          onChange={(e) => setTimezone(e.target.value)}
+                          disabled
+                          title="Not wired to runtime settings"
                           className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
                         >
                           <option value="Asia/Kolkata (GMT +5:30)">Asia/Kolkata (GMT +5:30)</option>
@@ -648,7 +759,8 @@ export const AdminSettings: React.FC = () => {
                       <div className="relative">
                         <select
                           value={language}
-                          onChange={(e) => setLanguage(e.target.value)}
+                          disabled
+                          title="Not wired to runtime settings"
                           className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
                         >
                           <option value="English">English</option>
@@ -687,10 +799,11 @@ export const AdminSettings: React.FC = () => {
                           Recommended size: 512 × 512 px
                         </p>
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-                          PNG, JPG or SVG (Max 2MB)
+                          PNG or JPG (Max 2MB)
                         </p>
                         <div className="flex items-center gap-2.5 pt-1">
                           <button
+                            disabled={!canManageSettings || isSaving}
                             type="button"
                             onClick={() => logoInputRef.current?.click()}
                             className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
@@ -698,11 +811,10 @@ export const AdminSettings: React.FC = () => {
                             Change Logo
                           </button>
                           <button
+                            disabled={!canManageSettings || isSaving}
                             type="button"
-                            onClick={() => {
-                              setPlatformLogo(null);
-                              showToast('Logo removed');
-                            }}
+                            aria-label="Remove platform logo"
+                            onClick={() => void removeAsset('logo')}
                             className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
                           >
                             Remove
@@ -736,6 +848,7 @@ export const AdminSettings: React.FC = () => {
                         </p>
                         <div className="flex items-center gap-2.5 pt-0.5">
                           <button
+                            disabled={!canManageSettings || isSaving}
                             type="button"
                             onClick={() => faviconInputRef.current?.click()}
                             className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
@@ -743,11 +856,10 @@ export const AdminSettings: React.FC = () => {
                             Change Favicon
                           </button>
                           <button
+                            disabled={!canManageSettings || isSaving}
                             type="button"
-                            onClick={() => {
-                              setFavicon(null);
-                              showToast('Favicon removed');
-                            }}
+                            aria-label="Remove favicon"
+                            onClick={() => void removeAsset('favicon')}
                             className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
                           >
                             Remove
@@ -763,6 +875,8 @@ export const AdminSettings: React.FC = () => {
                       Platform Description
                     </label>
                     <textarea
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="Platform Description"
                       rows={3}
                       maxLength={300}
                       value={platformDescription}
@@ -787,7 +901,11 @@ export const AdminSettings: React.FC = () => {
                       </p>
                     </div>
                     <button
+                      disabled={!canManageSettings || isSaving}
                       type="button"
+                      role="switch"
+                      aria-label="Toggle maintenance mode"
+                      aria-checked={maintenanceMode}
                       onClick={() => setMaintenanceMode(!maintenanceMode)}
                       className={cn(
                         'w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -808,7 +926,7 @@ export const AdminSettings: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleSaveGeneral()}
-                      disabled={isSaving}
+                      disabled={!canManageSettings || isSaving || isSaving}
                       className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {isSaving ? 'Saving...' : 'Save Changes'}
@@ -818,7 +936,7 @@ export const AdminSettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Card 2: Feature Toggles */}
+            {/* Card 2: Feature Toggles (Unavailable) */}
             <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
               {/* Card Header */}
               <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
@@ -827,7 +945,7 @@ export const AdminSettings: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                    Feature Toggles
+                    Feature Toggles (Unavailable)
                   </h2>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Enable or disable features across the platform.
@@ -843,6 +961,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('studentRegistration')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -875,6 +995,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('mockTests')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -905,6 +1027,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('topicTests')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -935,6 +1059,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('leaderboards')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -967,6 +1093,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('blogStudyNotes')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1002,6 +1130,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('paidSubscriptions')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1034,6 +1164,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('couponsOffers')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1066,6 +1198,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('notifications')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1098,6 +1232,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('referralProgram')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1130,6 +1266,8 @@ export const AdminSettings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Feature enforcement is not implemented"
                       onClick={() => toggleFeature('appDownloadLinks')}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -1195,6 +1333,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                       <div className="flex items-center gap-2.5">
                         <input
+                          disabled={!canManageSettings || isSaving}
                           type="color"
                           value={primaryColor}
                           onChange={(e) => setPrimaryColor(e.target.value)}
@@ -1216,6 +1355,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                       <div className="flex items-center gap-2.5">
                         <input
+                          disabled={!canManageSettings || isSaving}
                           type="color"
                           value={secondaryColor}
                           onChange={(e) => setSecondaryColor(e.target.value)}
@@ -1237,6 +1377,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                       <div className="flex items-center gap-2.5">
                         <input
+                          disabled={!canManageSettings || isSaving}
                           type="color"
                           value={accentColor}
                           onChange={(e) => setAccentColor(e.target.value)}
@@ -1258,7 +1399,8 @@ export const AdminSettings: React.FC = () => {
                     <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
                       <button
                         type="button"
-                        onClick={() => setThemeMode('light')}
+                        disabled
+                        title="Global theme switching is not implemented here"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'light'
@@ -1272,7 +1414,8 @@ export const AdminSettings: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setThemeMode('dark')}
+                        disabled
+                        title="Global theme switching is not implemented here"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'dark'
@@ -1286,7 +1429,8 @@ export const AdminSettings: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setThemeMode('system')}
+                        disabled
+                        title="Global theme switching is not implemented here"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'system'
@@ -1308,9 +1452,11 @@ export const AdminSettings: React.FC = () => {
                     <div className="relative">
                       <select
                         value={fontFamily}
-                        onChange={(e) => setFontFamily(e.target.value)}
+                        disabled
+                        title="Not wired to runtime settings"
                         className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
                       >
+                        <option value="Managed by deployed theme">Managed by deployed theme</option>
                         <option value="Inter (Default)">Inter (Default)</option>
                         <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
                         <option value="Roboto">Roboto</option>
@@ -1358,6 +1504,7 @@ export const AdminSettings: React.FC = () => {
                         </p>
                         <div className="pt-2">
                           <button
+                            disabled={!canManageSettings || isSaving}
                             type="button"
                             className="px-2.5 py-1 rounded text-[9px] font-bold text-white shadow-xs"
                             style={{ backgroundColor: primaryColor }}
@@ -1439,7 +1586,8 @@ export const AdminSettings: React.FC = () => {
                     Email Configuration (SMTP)
                   </h2>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                    Configure SMTP for sending emails to students.
+                    Save non-secret SMTP reference metadata. Server-side setup is required for
+                    delivery.
                   </p>
                 </div>
               </div>
@@ -1454,6 +1602,7 @@ export const AdminSettings: React.FC = () => {
                     </label>
                     <div className="relative">
                       <select
+                        disabled={!canManageSettings || isSaving}
                         value={smtpProvider}
                         onChange={(e) => setSmtpProvider(e.target.value)}
                         className="w-full appearance-none px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-7"
@@ -1472,6 +1621,8 @@ export const AdminSettings: React.FC = () => {
                       SMTP Host
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="SMTP Host"
                       type="text"
                       value={smtpHost}
                       onChange={(e) => setSmtpHost(e.target.value)}
@@ -1484,6 +1635,8 @@ export const AdminSettings: React.FC = () => {
                       SMTP Port
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="SMTP Port"
                       type="text"
                       value={smtpPort}
                       onChange={(e) => setSmtpPort(e.target.value)}
@@ -1497,6 +1650,7 @@ export const AdminSettings: React.FC = () => {
                     </label>
                     <div className="relative">
                       <select
+                        disabled={!canManageSettings || isSaving}
                         value={smtpEncryption}
                         onChange={(e) => setSmtpEncryption(e.target.value)}
                         className="w-full appearance-none px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-7"
@@ -1517,6 +1671,8 @@ export const AdminSettings: React.FC = () => {
                       SMTP Username
                     </label>
                     <input
+                      disabled={!canManageSettings || isSaving}
+                      aria-label="SMTP Username"
                       type="text"
                       value={smtpUsername}
                       onChange={(e) => setSmtpUsername(e.target.value)}
@@ -1524,38 +1680,20 @@ export const AdminSettings: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      SMTP Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={smtpPassword}
-                        onChange={(e) => setSmtpPassword(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-9"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-3.5 h-3.5" />
-                        ) : (
-                          <Eye className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-xs text-amber-700">
+                    SMTP credentials are configured server-side. Do not enter passwords here. Saved
+                    values are reference metadata only; this page does not enable mail delivery.
+                  </p>
                 </div>
 
                 {/* Actions: Send Test Email & Save SMTP Settings */}
                 <div className="flex items-center justify-end gap-2.5 pt-2">
                   <button
                     type="button"
+                    disabled
+                    title="No server-side email delivery action is connected"
                     onClick={handleSendTestEmail}
-                    disabled={isSendingTestEmail}
+                    aria-disabled={isSendingTestEmail}
                     className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
@@ -1564,7 +1702,7 @@ export const AdminSettings: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveSMTP}
-                    disabled={isSaving}
+                    disabled={!canManageSettings || isSaving || isSaving}
                     className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Save SMTP Settings
@@ -1599,12 +1737,13 @@ export const AdminSettings: React.FC = () => {
                       Clear Cache
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                      Clear system cache and temporary files
+                      Clear local offline cache only; never sign-in sessions or server caches
                     </p>
                   </div>
                 </div>
 
                 <button
+                  disabled={!canManageSettings || isSaving}
                   type="button"
                   onClick={() => setShowClearCacheModal(true)}
                   className="px-4 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors shadow-2xs shrink-0 cursor-pointer"
@@ -1647,12 +1786,14 @@ export const AdminSettings: React.FC = () => {
                 </label>
                 <div className="flex items-center gap-2">
                   <input
+                    disabled={!canManageSettings || isSaving}
                     type="color"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
                     className="w-8 h-8 rounded border-0 p-0 cursor-pointer"
                   />
                   <input
+                    disabled={!canManageSettings || isSaving}
                     type="text"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
@@ -1666,12 +1807,14 @@ export const AdminSettings: React.FC = () => {
                 </label>
                 <div className="flex items-center gap-2">
                   <input
+                    disabled={!canManageSettings || isSaving}
                     type="color"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
                     className="w-8 h-8 rounded border-0 p-0 cursor-pointer"
                   />
                   <input
+                    disabled={!canManageSettings || isSaving}
                     type="text"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
@@ -1690,10 +1833,13 @@ export const AdminSettings: React.FC = () => {
                   Primary Font Family
                 </label>
                 <select
+                  aria-label="Primary Font Family"
                   value={fontFamily}
-                  onChange={(e) => setFontFamily(e.target.value)}
+                  disabled
+                  title="Not wired to runtime settings"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
                 >
+                  <option value="Managed by deployed theme">Managed by deployed theme</option>
                   <option value="Inter (Default)">Inter (Default)</option>
                   <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
                   <option value="Roboto">Roboto</option>
@@ -1709,10 +1855,10 @@ export const AdminSettings: React.FC = () => {
               <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center">
                 <Upload className="w-6 h-6 text-slate-400 mb-2" />
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Upload Vector SVG Logo
+                  PNG / JPEG assets are managed in General settings
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  High resolution for retina displays
+                  SVG uploads are not supported here.
                 </p>
               </div>
             </div>
@@ -1721,7 +1867,8 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => handleSaveGeneral()}
+              onClick={() => void handleSaveBranding()}
+              disabled={!canManageSettings || isSaving || isSaving}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save Branding Settings
@@ -1744,7 +1891,7 @@ export const AdminSettings: React.FC = () => {
                 SEO & Meta Configuration
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Optimize search rankings, Open Graph metadata, and indexing.
+                SEO is managed by page-level metadata and deployment. This editor is not connected.
               </p>
             </div>
           </div>
@@ -1755,8 +1902,10 @@ export const AdminSettings: React.FC = () => {
                 Default Meta Title
               </label>
               <input
+                aria-label="Default Meta Title"
                 type="text"
-                defaultValue="PracticeKoro - West Bengal & Govt Exam Mock Test Platform"
+                disabled
+                placeholder="Managed by page-level SEO metadata"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -1765,8 +1914,10 @@ export const AdminSettings: React.FC = () => {
                 Google Search Console Verification Tag
               </label>
               <input
+                aria-label="Google Search Console Verification Tag"
                 type="text"
-                placeholder="google-site-verification=..."
+                disabled
+                placeholder="Managed during deployment"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
               />
             </div>
@@ -1775,8 +1926,10 @@ export const AdminSettings: React.FC = () => {
                 Default Meta Description
               </label>
               <textarea
+                aria-label="Default Meta Description"
                 rows={3}
-                defaultValue="Practice smart, prepare better and achieve your goal with West Bengal government exam mock tests, previous year papers, and performance analytics."
+                disabled
+                placeholder="Managed by page-level SEO metadata"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -1785,7 +1938,8 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => showToast('SEO settings saved successfully!')}
+              disabled
+              title="SEO metadata is managed by page components and deployment, not this placeholder"
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save SEO Settings
@@ -1808,7 +1962,8 @@ export const AdminSettings: React.FC = () => {
                 Email Templates & Notifications
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Configure automated student emails, receipt triggers, and push delivery.
+                These templates are not connected to a delivery backend. No messages are sent by
+                this page.
               </p>
             </div>
           </div>
@@ -1821,7 +1976,11 @@ export const AdminSettings: React.FC = () => {
                 desc: 'Sent after completing mock tests',
                 active: true,
               },
-              { title: 'Subscription Receipt', desc: 'Sent upon successful payment', active: true },
+              {
+                title: 'Subscription Receipt',
+                desc: 'Sent upon successful payment',
+                active: true,
+              },
               {
                 title: 'Plan Expiry Reminder',
                 desc: 'Sent 7 days before subscription ends',
@@ -1837,7 +1996,7 @@ export const AdminSettings: React.FC = () => {
                   <p className="text-[11px] text-slate-400 mt-0.5">{tmpl.desc}</p>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                  Active
+                  Not managed here
                 </span>
               </div>
             ))}
@@ -1846,6 +2005,8 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
+              disabled
+              title="No server-side email delivery action is connected"
               onClick={handleSendTestEmail}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
@@ -1880,6 +2041,8 @@ export const AdminSettings: React.FC = () => {
                 Razorpay Key ID
               </label>
               <input
+                disabled={!canManageSettings || isSaving}
+                aria-label="Razorpay Key ID"
                 type="text"
                 value={rzpKeyId}
                 onChange={(e) => setRzpKeyId(e.target.value)}
@@ -1893,7 +2056,11 @@ export const AdminSettings: React.FC = () => {
               </label>
               <div className="flex items-center gap-3 pt-2">
                 <button
+                  disabled={!canManageSettings || isSaving}
                   type="button"
+                  role="switch"
+                  aria-label="Gateway enabled"
+                  aria-checked={rzpIsActive}
                   onClick={() => setRzpIsActive(!rzpIsActive)}
                   className={cn(
                     'w-11 h-6 rounded-full transition-colors relative cursor-pointer',
@@ -1908,7 +2075,9 @@ export const AdminSettings: React.FC = () => {
                   />
                 </button>
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {rzpIsActive ? 'Gateway Active (Live Mode)' : 'Gateway Inactive'}
+                  {rzpIsActive
+                    ? `Enabled configuration (${rzpKeyId.startsWith('rzp_test_') ? 'test' : 'live'} mode)`
+                    : 'Disabled configuration'}
                 </span>
               </div>
             </div>
@@ -1918,8 +2087,10 @@ export const AdminSettings: React.FC = () => {
                 Default Currency
               </label>
               <select
+                aria-label="Default Currency"
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
+                disabled
+                title="Checkout supports INR only"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               >
                 <option value="INR">INR (₹ Indian Rupee)</option>
@@ -1932,9 +2103,11 @@ export const AdminSettings: React.FC = () => {
                 GST / Tax Rate (%)
               </label>
               <input
+                aria-label="GST / Tax Rate (%)"
                 type="text"
                 value={taxPercent}
-                onChange={(e) => setTaxPercent(e.target.value)}
+                disabled
+                placeholder="Not managed here"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -1944,9 +2117,11 @@ export const AdminSettings: React.FC = () => {
                 Invoice Number Prefix
               </label>
               <input
+                aria-label="Invoice Number Prefix"
                 type="text"
                 value={invoicePrefix}
-                onChange={(e) => setInvoicePrefix(e.target.value)}
+                disabled
+                placeholder="Not managed here"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
               />
             </div>
@@ -1955,7 +2130,8 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => showToast('Payment gateway settings saved successfully!')}
+              onClick={() => void handleSavePayment()}
+              disabled={!canManageSettings || isSaving || isSaving}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save Payment Settings
@@ -1978,7 +2154,7 @@ export const AdminSettings: React.FC = () => {
                 Third-Party Integrations
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Connect external APIs, analytics suites, and messaging webhooks.
+                Connection status is not verified here. Configure integrations server-side.
               </p>
             </div>
           </div>
@@ -2016,7 +2192,8 @@ export const AdminSettings: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => showToast(`${integ.name} status updated`)}
+                  disabled
+                  title="Integration connectivity is not verified or managed by this page"
                   className={cn(
                     'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
                     integ.connected
@@ -2024,7 +2201,7 @@ export const AdminSettings: React.FC = () => {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   )}
                 >
-                  {integ.connected ? 'Configured' : 'Connect'}
+                  Not managed here
                 </button>
               </div>
             ))}
@@ -2046,7 +2223,8 @@ export const AdminSettings: React.FC = () => {
                 Platform Security & Access Protection
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Session durations, password policies, and brute-force defenses.
+                Auth protections must be configured server-side. These controls do not enforce
+                policies.
               </p>
             </div>
           </div>
@@ -2057,8 +2235,10 @@ export const AdminSettings: React.FC = () => {
                 Session Timeout (Minutes)
               </label>
               <input
+                aria-label="Session Timeout (Minutes)"
                 type="number"
-                defaultValue={120}
+                disabled
+                placeholder="Managed by Supabase Auth"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -2067,8 +2247,10 @@ export const AdminSettings: React.FC = () => {
                 Max Failed Login Attempts
               </label>
               <input
+                aria-label="Max Failed Login Attempts"
                 type="number"
-                defaultValue={5}
+                disabled
+                placeholder="Managed by Supabase Auth"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -2077,7 +2259,8 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => showToast('Security policies updated successfully!')}
+              disabled
+              title="Auth policies must be configured server-side"
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Update Security Policies
@@ -2108,19 +2291,21 @@ export const AdminSettings: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
               <p className="text-[11px] font-semibold text-slate-400">Platform Version</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">v2.0.0 Pro</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">{appVersion}</p>
             </div>
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
               <p className="text-[11px] font-semibold text-slate-400">Database Engine</p>
-              <p className="text-lg font-black text-blue-600 mt-1">Supabase PG15</p>
+              <p className="text-lg font-black text-blue-600 mt-1">Managed by Supabase</p>
             </div>
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
               <p className="text-[11px] font-semibold text-slate-400">Server Status</p>
-              <p className="text-lg font-black text-emerald-600 mt-1">Healthy (100%)</p>
+              <p className="text-lg font-black text-emerald-600 mt-1">Not monitored here</p>
             </div>
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
               <p className="text-[11px] font-semibold text-slate-400">Storage Buckets</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">2.4 GB Used</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white mt-1">
+                Not monitored here
+              </p>
             </div>
           </div>
         </div>
@@ -2147,13 +2332,14 @@ export const AdminSettings: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-              This action clears your local administrator browser cache and temporary session data
-              only. It does not delete or modify database records or affect student data on the
-              server.
+              This action clears the named local offline cache only. Sign-in sessions and other
+              browser storage are preserved. It does not delete or modify database records or affect
+              student data on the server.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
+                disabled={!canManageSettings || isSaving}
                 type="button"
                 onClick={() => setShowClearCacheModal(false)}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
@@ -2163,7 +2349,7 @@ export const AdminSettings: React.FC = () => {
               <button
                 type="button"
                 onClick={handleConfirmClearCache}
-                disabled={isClearingCache}
+                disabled={!canManageSettings || isSaving || isClearingCache}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isClearingCache ? 'Clearing...' : 'Yes, Clear Cache'}

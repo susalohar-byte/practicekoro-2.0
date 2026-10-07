@@ -14,7 +14,9 @@ vi.mock('@/services/api', () => ({
     logAdminActivity: mocks.log,
   },
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'test-admin', role: 'admin' }, adminRole: 'super_admin' }),
+}));
 vi.mock('@/context/MaintenanceContext', () => ({
   useMaintenance: () => ({ checkMaintenanceMode: vi.fn() }),
 }));
