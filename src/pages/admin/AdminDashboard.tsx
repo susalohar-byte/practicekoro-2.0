@@ -12,20 +12,17 @@ import {
   ChevronDown,
   ArrowUpRight,
   ArrowDownRight,
-  FileCheck,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import type { AdminDashboardV2Stats, Exam, MockTest, QuestionItemAnalysis } from '@/types';
+import type { AdminDashboardV2Stats, Exam, MockTest } from '@/types';
 import { cn } from '@/lib/utils';
 import { ExamEmblemBadge } from '@/components/common/ExamEmblemBadge';
 import type { DashboardPeriod } from '@/services/domains/admin.reporting';
 import {
   getDateRangeBounds,
   calculatePeriodGrowth,
-  normalizeActivityItems,
   type DateRangeBounds,
-  type NormalizedActivityItem,
 } from '@/services/domains/admin.dashboard';
 
 export const AdminDashboard: React.FC = () => {
@@ -43,10 +40,6 @@ export const AdminDashboard: React.FC = () => {
   const [testAttemptsRange, setTestAttemptsRange] = useState('Last 30 Days');
   const [revenueRange, setRevenueRange] = useState('Last 30 Days');
 
-  // Activity filter state
-  const [activityFilter, setActivityFilter] = useState('All Activities');
-  const [isActivityOpen, setIsActivityOpen] = useState(false);
-
   // Hover states for tooltips
   const [hoveredRevenueIndex, setHoveredRevenueIndex] = useState<number | null>(null);
   const [hoveredGrowthIndex, setHoveredGrowthIndex] = useState<number | null>(null);
@@ -62,8 +55,6 @@ export const AdminDashboard: React.FC = () => {
   const [dbExams, setDbExams] = useState<Exam[]>([]);
   const [dbTests, setDbTests] = useState<MockTest[]>([]);
   const [dbLeaderboard, setDbLeaderboard] = useState<any[]>([]);
-  const [dbAuditLogs, setDbAuditLogs] = useState<any[]>([]);
-  const [itemAnalysisList, setItemAnalysisList] = useState<QuestionItemAnalysis[]>([]);
   const [periodData, setPeriodData] = useState<DashboardPeriod | null>(null);
   const [chartPeriods, setChartPeriods] = useState<{
     growth: DashboardPeriod;
@@ -115,30 +106,24 @@ export const AdminDashboard: React.FC = () => {
         examsRes,
         testsRes,
         lbRes,
-        logsRes,
-        itemRes,
         currentPeriod,
         growthPeriod,
         attemptPeriod,
         revenuePeriod,
-        systemEvents,
       ] = await Promise.all([
         api.getAdminDashboardV2Stats(),
         api.getAllAdminExams(),
         api.getAllAdminTests(),
         api.getDashboardLeaderboard(bounds),
-        api.getDashboardAuditLogs(bounds),
-        api.getItemAnalysis({ startIso: bounds.startIso, endIso: bounds.endIso }),
         periodFor(dateRangePreset),
         periodFor(studentGrowthRange),
         periodFor(testAttemptsRange),
         periodFor(revenueRange),
-        api.getDashboardSystemActivity(bounds),
       ]);
       const counts = await api.getDashboardExamAttemptCounts(currentPeriod.attemptCounts);
       if (currentRequestId !== requestIdRef.current) return;
       // Publish one complete snapshot. A failed section preserves the previous complete one.
-      setStats({ ...statsRes, recentActivity: systemEvents });
+      setStats(statsRes);
       setDbExams(examsRes);
       setDbTests(
         testsRes.map((test) => ({
@@ -147,8 +132,6 @@ export const AdminDashboard: React.FC = () => {
         }))
       );
       setDbLeaderboard(lbRes);
-      setDbAuditLogs(logsRes.logs);
-      setItemAnalysisList(itemRes);
       setPeriodData(currentPeriod);
       setChartPeriods({ growth: growthPeriod, attempts: attemptPeriod, revenue: revenuePeriod });
       setExamAttemptCounts(counts);
@@ -499,102 +482,6 @@ export const AdminDashboard: React.FC = () => {
       };
     });
   }, [dbLeaderboard]);
-
-  // ─── MOST DIFFICULT QUESTIONS DATASET (FROM REAL ITEM ANALYSIS) ───
-  const difficultQuestions = useMemo(() => {
-    if (!itemAnalysisList || itemAnalysisList.length === 0) return [];
-
-    // Filter questions that were actually attempted (minimum sample rule: >= 1 attempt)
-    const attemptedQuestions = itemAnalysisList.filter((q) => q.totalAttempts > 0);
-    if (attemptedQuestions.length === 0) return [];
-
-    // Sort by lowest accuracy rate first, then highest failure rate, then questionId
-    attemptedQuestions.sort((a, b) => {
-      if (a.accuracyRate !== b.accuracyRate) return a.accuracyRate - b.accuracyRate;
-      if (b.failureRate !== a.failureRate) return b.failureRate - a.failureRate;
-      return a.questionId.localeCompare(b.questionId);
-    });
-
-    return attemptedQuestions.slice(0, 5).map((q, idx) => ({
-      id: String(idx + 1),
-      preview: q.questionBengali || q.questionText || 'Question item',
-      correctRate: `${q.accuracyRate.toFixed(1)}%`,
-      attempts: `${q.totalAttempts.toLocaleString('en-IN')}`,
-    }));
-  }, [itemAnalysisList]);
-
-  // ─── WEAKEST TOPICS DATASET (GROUPED BY TOPIC FROM ATTEMPTED QUESTIONS) ───
-  const weakestTopics = useMemo(() => {
-    if (!itemAnalysisList || itemAnalysisList.length === 0) return [];
-
-    const topicMap = new Map<
-      string,
-      { topic: string; subject: string; correct: number; total: number }
-    >();
-
-    for (const q of itemAnalysisList) {
-      if (q.totalAttempts <= 0) continue;
-      const topicName = q.chapterName || 'General Topic';
-      const topicKey = JSON.stringify([q.subjectId || q.subjectName, q.chapterId || q.chapterName]);
-      const subjectName = q.subjectName || 'General Subject';
-
-      if (!topicMap.has(topicKey)) {
-        topicMap.set(topicKey, {
-          topic: topicName,
-          subject: subjectName,
-          correct: 0,
-          total: 0,
-        });
-      }
-
-      const tStats = topicMap.get(topicKey)!;
-      tStats.correct += q.correctCount;
-      tStats.total += q.totalAttempts;
-    }
-
-    if (topicMap.size === 0) return [];
-
-    const topicList = Array.from(topicMap.values()).map((t) => ({
-      topic: t.topic,
-      subject: t.subject,
-      accuracy: Math.round((t.correct / t.total) * 100),
-      total: t.total,
-    }));
-
-    // Sort by lowest accuracy first, then total attempts DESC
-    topicList.sort((a, b) => {
-      if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
-      return b.total - a.total;
-    });
-
-    const colors = ['bg-rose-500', 'bg-amber-500', 'bg-amber-500', 'bg-blue-500', 'bg-blue-500'];
-
-    return topicList.slice(0, 5).map((top, idx) => ({
-      id: String(idx + 1),
-      topic: top.topic,
-      subject: top.subject,
-      accuracy: top.accuracy,
-      color: colors[idx % colors.length],
-    }));
-  }, [itemAnalysisList]);
-
-  // ─── RECENT ACTIVITY FEED (NORMALIZED & DEDUPLICATED) ───
-  const recentActivities: NormalizedActivityItem[] = useMemo(() => {
-    return normalizeActivityItems(stats?.recentActivity || [], dbAuditLogs || []);
-  }, [stats?.recentActivity, dbAuditLogs]);
-
-  const filteredActivities = useMemo(() => {
-    if (activityFilter === 'All Activities') return recentActivities.slice(0, 10);
-    if (activityFilter === 'Registrations')
-      return recentActivities.filter((a) => a.category === 'registration').slice(0, 10);
-    if (activityFilter === 'Subscriptions')
-      return recentActivities.filter((a) => a.category === 'subscription').slice(0, 10);
-    if (activityFilter === 'Tests')
-      return recentActivities.filter((a) => a.category === 'test').slice(0, 10);
-    if (activityFilter === 'Payments')
-      return recentActivities.filter((a) => a.category === 'payment').slice(0, 10);
-    return recentActivities.slice(0, 10);
-  }, [activityFilter, recentActivities]);
 
   if (!stats && loadError)
     return (
@@ -1440,242 +1327,6 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── BOTTOM GRID ROW 2: MOST DIFFICULT QUESTIONS, WEAKEST TOPICS, RECENT ACTIVITY ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Most Difficult Questions */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">
-                  Question Item Analysis & Quality Watch
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
-                    High Failure Rate (≥80% Wrong)
-                  </span>
-                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
-                    Time Traps (&gt;90s Avg Time)
-                  </span>
-                </div>
-              </div>
-              <Link
-                to="/admin/question-bank"
-                className="text-xs font-bold text-[#026BFC] hover:underline inline-flex items-center gap-1 shrink-0 ml-2"
-              >
-                <span>View All</span>
-                <span className="text-sm">→</span>
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto mt-3">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-800/60 pb-2">
-                    <th className="font-medium pb-2 w-7">#</th>
-                    <th className="font-medium pb-2">Question (Preview)</th>
-                    <th className="font-medium pb-2 text-center">Correct %</th>
-                    <th className="font-medium pb-2 text-right">Attempts</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {difficultQuestions.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
-                        No difficult questions recorded yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    difficultQuestions.map((q, idx) => (
-                      <tr
-                        key={q.id + idx}
-                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
-                      >
-                        <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
-                        <td className="py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
-                          {q.preview}
-                        </td>
-                        <td className="py-2.5 text-center font-bold text-rose-500">
-                          {q.correctRate}
-                        </td>
-                        <td className="py-2.5 text-right font-medium text-slate-500 dark:text-slate-400">
-                          {q.attempts}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Weakest Topics */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">
-                Weakest Topics
-              </h3>
-              <Link
-                to="/admin/topics"
-                className="text-xs font-bold text-[#026BFC] hover:underline inline-flex items-center gap-1"
-              >
-                <span>View All</span>
-                <span className="text-sm">→</span>
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto mt-3">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-800/60 pb-2">
-                    <th className="font-medium pb-2 w-7">#</th>
-                    <th className="font-medium pb-2">Topic</th>
-                    <th className="font-medium pb-2">Subject</th>
-                    <th className="font-medium pb-2 text-right">Tests</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {weakestTopics.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
-                        No weak topics identified yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    weakestTopics.map((top, idx) => (
-                      <tr
-                        key={top.id + idx}
-                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
-                      >
-                        <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
-                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">
-                          {top.topic}
-                        </td>
-                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{top.subject}</td>
-                        <td className="py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                style={{ width: `${Math.min(100, Math.max(0, top.accuracy))}%` }}
-                                className={cn('h-full rounded-full', top.color)}
-                              />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 w-8">
-                              {top.accuracy}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">
-                Recent Activity
-              </h3>
-              <div className="relative">
-                <button
-                  onClick={() => setIsActivityOpen(!isActivityOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
-                >
-                  <span>{activityFilter}</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {isActivityOpen && (
-                  <div className="absolute right-0 mt-1 w-36 rounded-xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 shadow-lg p-1 z-30 text-xs font-medium">
-                    {['All Activities', 'Registrations', 'Subscriptions', 'Tests', 'Payments'].map(
-                      (item) => (
-                        <button
-                          key={item}
-                          onClick={() => {
-                            setActivityFilter(item);
-                            setIsActivityOpen(false);
-                          }}
-                          className={cn(
-                            'w-full text-left px-2.5 py-1.5 rounded-lg transition-colors',
-                            activityFilter === item
-                              ? 'bg-[#026BFC] text-white font-bold'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                          )}
-                        >
-                          {item}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-3.5 mt-3.5">
-              {filteredActivities.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No matching events in the loaded recent activity window.
-                </div>
-              ) : (
-                filteredActivities.map((act) => {
-                  const actIcon =
-                    act.category === 'payment'
-                      ? IndianRupee
-                      : act.category === 'subscription'
-                        ? Crown
-                        : act.category === 'test'
-                          ? FileCheck
-                          : Users;
-
-                  const iconBg =
-                    act.category === 'payment'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]'
-                      : act.category === 'subscription'
-                        ? 'bg-rose-50 dark:bg-rose-950/60 text-[#F43F5E]'
-                        : act.category === 'test'
-                          ? 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]'
-                          : 'bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6]';
-
-                  const ActIcon = actIcon;
-
-                  return (
-                    <div key={act.id} className="flex items-start justify-between gap-3 text-xs">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <div
-                          className={cn(
-                            'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-                            iconBg
-                          )}
-                        >
-                          <ActIcon className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                            {act.title}
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                            {act.desc}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
-                        {act.time}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

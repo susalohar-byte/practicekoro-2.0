@@ -139,30 +139,14 @@ describe('AdminDashboard Component Tests', () => {
     );
   });
 
-  it('filters recent activity items by category (payments, tests, etc.)', async () => {
+  it('renders Top Students leaderboard accurately', async () => {
     render(
       <MemoryRouter>
         <AdminDashboard />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Recent Activity')).toBeInTheDocument();
-
-    // Find the activity filter dropdown button (defaults to "All Activities")
-    const filterBtn = screen.getByRole('button', { name: /All Activities/i });
-    expect(filterBtn).toBeInTheDocument();
-
-    // Open filter dropdown
-    fireEvent.click(filterBtn);
-
-    // Select Payments category
-    const paymentsBtn = screen.getByRole('button', { name: 'Payments' });
-    fireEvent.click(paymentsBtn);
-
-    // Filter dropdown trigger now says Payments
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Payments/i })).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Top Students')).toBeInTheDocument();
   });
 
   it('displays error state and provides a working retry button when API fails', async () => {
