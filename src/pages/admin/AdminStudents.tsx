@@ -88,7 +88,7 @@ export interface EnrichedStudent {
 const STORAGE_KEY = 'practicekoro_students_v2';
 
 // 25 Realistic Students for Multi-Page Navigation & Perfect Visual Match
-const PRESET_STUDENTS: EnrichedStudent[] = [
+export const PRESET_STUDENTS: EnrichedStudent[] = [
   // Page 1: Exact 10 Students from the Reference Screenshot
   {
     id: 'stu-1',
@@ -620,21 +620,9 @@ function mapDbRowToStudent(row: AdminStudentRow, index: number): EnrichedStudent
 // ============================================================================
 
 export const AdminStudents: React.FC = () => {
-  // State
-  const [students, setStudents] = useState<EnrichedStudent[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {
-      // Fallback
-    }
-    return PRESET_STUDENTS;
-  });
-
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('stu-1');
+  // State: pure database state, no fake preset records
+  const [students, setStudents] = useState<EnrichedStudent[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'Overview' | 'Test History' | 'Subscriptions' | 'Notes'>('Overview');
   const [isLoading, setIsLoading] = useState(false);
@@ -716,7 +704,7 @@ export const AdminStudents: React.FC = () => {
     }
   };
 
-  // Fetch from API and merge
+  // Fetch directly from API
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -724,21 +712,16 @@ export const AdminStudents: React.FC = () => {
         const data = await api.getAdminStudents(undefined, undefined, undefined, 200);
         if (data && data.length > 0) {
           const mapped = data.map((row, i) => mapDbRowToStudent(row, i));
-          // Merge with current state without losing preset details
-          setStudents((prev) => {
-            const merged = [...prev];
-            for (const m of mapped) {
-              if (!merged.some((p) => p.email.toLowerCase() === m.email.toLowerCase())) {
-                merged.push(m);
-              }
-            }
-            try {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-            } catch {
-              // ignore
-            }
-            return merged;
-          });
+          setStudents(mapped);
+          setSelectedStudentId((prev) => (prev && mapped.some((s) => s.id === prev) ? prev : mapped[0].id));
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+          } catch {
+            // ignore
+          }
+        } else {
+          setStudents([]);
+          setSelectedStudentId('');
         }
       } catch (err) {
         console.error('Error loading students from API:', err);
@@ -751,7 +734,7 @@ export const AdminStudents: React.FC = () => {
 
   // Currently Selected student
   const selectedStudent = useMemo(() => {
-    return students.find((s) => s.id === selectedStudentId) || students[0] || PRESET_STUDENTS[0];
+    return students.find((s) => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null);
   }, [students, selectedStudentId]);
 
   // Keep Edit Form updated when selectedStudent changes
@@ -828,7 +811,6 @@ export const AdminStudents: React.FC = () => {
   }, [students, appliedFilters]);
 
   // Pagination calculation
-  const totalStudentsCount = 12480; // Total count shown in the screenshot KPI & pagination
   const currentFilteredCount = filteredStudents.length;
   const totalPages = Math.max(1, Math.ceil(currentFilteredCount / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1074,6 +1056,7 @@ export const AdminStudents: React.FC = () => {
   // Edit Student Handler
   const handleEditStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent) return;
     if (!editStudentForm.fullName.trim() || !editStudentForm.email.trim()) {
       showToast('error', 'Name and email are required.');
       return;
@@ -1131,6 +1114,7 @@ export const AdminStudents: React.FC = () => {
 
   // Delete Student
   const handleDeleteStudent = async () => {
+    if (!selectedStudent) return;
     const idToDelete = selectedStudent.id;
     const name = selectedStudent.fullName;
     const remaining = students.filter((s) => s.id !== idToDelete);
@@ -1163,6 +1147,7 @@ export const AdminStudents: React.FC = () => {
 
   // Reset Password
   const handleResetPassword = () => {
+    if (!selectedStudent) return;
     setIsResetPasswordModalOpen(false);
     showToast('success', `Password reset instructions sent to ${selectedStudent.email}`);
   };
@@ -1170,6 +1155,7 @@ export const AdminStudents: React.FC = () => {
   // Send Notification
   const handleSendNotification = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent) return;
     if (!notificationText.title.trim()) {
       showToast('error', 'Notification title is required.');
       return;
@@ -1203,6 +1189,7 @@ export const AdminStudents: React.FC = () => {
 
   // Save Note for Student
   const handleSaveNote = () => {
+    if (!selectedStudent) return;
     if (!newNoteText.trim()) return;
 
     const newNote: StudentNote = {
@@ -1229,6 +1216,7 @@ export const AdminStudents: React.FC = () => {
 
   // Grant / Upgrade Subscription directly from Subscriptions tab
   const handleQuickGrantPlan = (plan: SubscriptionTier) => {
+    if (!selectedStudent) return;
     const updated = students.map((s) => {
       if (s.id === selectedStudent.id) {
         return {
@@ -1259,6 +1247,17 @@ export const AdminStudents: React.FC = () => {
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // Dynamic student metric counts calculated from real database state
+  const totalStudentsCount = students.length;
+  const activeStudentsCount = students.filter((s) => s.status === 'Active').length;
+  const paidStudentsCount = students.filter((s) => s.subscriptionPlan !== 'Free').length;
+  const newStudentsCount = students.length;
+  const scoredStudents = students.filter((s) => s.avgScore > 0);
+  const avgTestScoreFormatted =
+    scoredStudents.length > 0
+      ? `${Math.round(scoredStudents.reduce((sum, s) => sum + s.avgScore, 0) / scoredStudents.length)}%`
+      : '0%';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 pb-16 font-sans">
@@ -1359,7 +1358,7 @@ export const AdminStudents: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
-                  12,480
+                  {totalStudentsCount.toLocaleString('en-IN')}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ↑ 26%
@@ -1382,7 +1381,7 @@ export const AdminStudents: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
-                  8,640
+                  {activeStudentsCount.toLocaleString('en-IN')}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ↑ 18%
@@ -1405,7 +1404,7 @@ export const AdminStudents: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
-                  3,920
+                  {paidStudentsCount.toLocaleString('en-IN')}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ↑ 32%
@@ -1428,7 +1427,7 @@ export const AdminStudents: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
-                  850
+                  {newStudentsCount.toLocaleString('en-IN')}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ↑ 12%
@@ -1451,7 +1450,7 @@ export const AdminStudents: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
-                  68%
+                  {avgTestScoreFormatted}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ↑ 6%
@@ -1958,7 +1957,15 @@ export const AdminStudents: React.FC = () => {
                 </button>
               </div>
 
-              {/* Profile Card Header */}
+              {!selectedStudent ? (
+                <div className="py-16 text-center text-slate-400">
+                  <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                  <p className="text-sm font-semibold text-slate-600">No student selected</p>
+                  <p className="text-xs text-slate-400 mt-1">Select a student from the list to view their full details.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Profile Card Header */}
               <div className="flex items-center justify-between p-3 bg-slate-50/70 border border-slate-100 rounded-xl mb-4">
                 <div className="flex items-center gap-3 min-w-0">
                   {selectedStudent.avatarUrl ? (
@@ -2387,8 +2394,10 @@ export const AdminStudents: React.FC = () => {
                   <span>Delete Student</span>
                 </button>
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
         </div>
       </div>
 
@@ -2605,7 +2614,7 @@ export const AdminStudents: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-[#026BFC]" />
-                <span>Edit Student: {selectedStudent.fullName}</span>
+                <span>Edit Student: {selectedStudent?.fullName}</span>
               </h3>
               <button
                 onClick={() => setIsEditModalOpen(false)}
@@ -2764,7 +2773,7 @@ export const AdminStudents: React.FC = () => {
             <p className="text-xs text-slate-500 mb-4">
               Send a targeted push notification or in-app message to{' '}
               <span className="font-semibold text-slate-800">
-                {selectedStudent.fullName}
+                {selectedStudent?.fullName}
               </span>
               .
             </p>
@@ -2830,7 +2839,7 @@ export const AdminStudents: React.FC = () => {
             <p className="text-xs text-slate-500 mt-1">
               Are you sure you want to send password reset link to{' '}
               <span className="font-semibold text-slate-800">
-                {selectedStudent.email}
+                {selectedStudent?.email}
               </span>
               ?
             </p>
@@ -2866,7 +2875,7 @@ export const AdminStudents: React.FC = () => {
             <p className="text-xs text-slate-500 mt-1">
               Are you sure you want to permanently delete{' '}
               <span className="font-semibold text-slate-800">
-                "{selectedStudent.fullName}"
+                "{selectedStudent?.fullName}"
               </span>
               ? All attempt histories and subscription access will be revoked.
             </p>

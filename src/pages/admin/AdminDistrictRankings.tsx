@@ -293,12 +293,30 @@ export const AdminDistrictRankings: React.FC = () => {
 
   const actionMenuRef = useRef<HTMLDivElement>(null);
 
+  // Dynamic summary metrics
+  const totalStudentsCount = useMemo(() => {
+    return districtsList.reduce((sum, d) => sum + (d.totalStudents || 0), 0);
+  }, [districtsList]);
+
+  const totalTestsAttempted = useMemo(() => {
+    return districtsList.reduce((sum, d) => sum + (d.testsAttempted || 0), 0);
+  }, [districtsList]);
+
+  const averageAccuracy = useMemo(() => {
+    if (districtsList.length === 0) return 0;
+    const sum = districtsList.reduce((acc, d) => acc + (d.avgScore || 0), 0);
+    return Math.round(sum / districtsList.length);
+  }, [districtsList]);
+
+  const activeDistrictsCount = useMemo(() => {
+    return districtsList.filter((d) => (d.testsAttempted || 0) > 0 || (d.activeStudents || 0) > 0).length;
+  }, [districtsList]);
+
   // Active district resolved
   const activeDistrict = useMemo(() => {
     return (
       districtsList.find((d) => d.name === selectedDistrictName) ||
-      districtsList[0] ||
-      INITIAL_DISTRICTS[0]
+      (districtsList.length > 0 ? districtsList[0] : null)
     );
   }, [districtsList, selectedDistrictName]);
 
@@ -423,12 +441,14 @@ export const AdminDistrictRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Total Students</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">12,480</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {totalStudentsCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 26%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">from last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Total enrolled aspirants</p>
           </div>
         </div>
 
@@ -440,7 +460,9 @@ export const AdminDistrictRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Tests Attempted</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">3,24,680</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {totalTestsAttempted.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 32%
               </span>
@@ -456,7 +478,7 @@ export const AdminDistrictRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Avg. Accuracy</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">68%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{averageAccuracy}%</span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 8%
               </span>
@@ -472,7 +494,7 @@ export const AdminDistrictRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Active Districts</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">23</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{activeDistrictsCount}</span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">with test attempts</p>
           </div>
@@ -634,7 +656,14 @@ export const AdminDistrictRankings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {filteredDistricts.map((district) => {
+                  {filteredDistricts.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
+                        No district rankings found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredDistricts.map((district) => {
                     const isSelected = selectedDistrictName === district.name;
 
                     return (
@@ -774,7 +803,8 @@ export const AdminDistrictRankings: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -782,7 +812,7 @@ export const AdminDistrictRankings: React.FC = () => {
             {/* Pagination Footer */}
             <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <span className="text-[#64748B] font-medium">
-                Showing 1-10 of 23 districts
+                Showing {filteredDistricts.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredDistricts.length)}`} of {filteredDistricts.length} districts
               </span>
 
               {/* Pagination Controls */}
@@ -940,46 +970,54 @@ export const AdminDistrictRankings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {activeDistrict.topStudents.map((st) => (
-                    <tr key={st.rank} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 px-3 text-center font-bold text-slate-700">
-                        {st.rank === 1 && <Crown className="w-3.5 h-3.5 text-amber-500 inline mr-1" />}
-                        {st.rank}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={st.avatar}
-                            alt={st.name}
-                            className="w-7 h-7 rounded-full object-cover border border-slate-200"
-                          />
-                          <span className="font-bold text-[#0F172A]">{st.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-semibold text-slate-700">
-                        {st.testsAttempted}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="bg-[#DCFCE7] text-[#16A34A] text-[11px] font-bold px-2 py-0.5 rounded">
-                          {st.avgScore}%
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-bold text-slate-800">
-                        {st.bestScore}%
-                      </td>
-                      <td className="py-2.5 px-3 text-[#64748B] text-[11px]">
-                        {st.lastActive}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <button
-                          onClick={() => navigate('/admin/students')}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                  {!activeDistrict || activeDistrict.topStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
+                        No students data available for this district.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    activeDistrict.topStudents.map((st) => (
+                      <tr key={st.rank} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-700">
+                          {st.rank === 1 && <Crown className="w-3.5 h-3.5 text-amber-500 inline mr-1" />}
+                          {st.rank}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={st.avatar}
+                              alt={st.name}
+                              className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                            />
+                            <span className="font-bold text-[#0F172A]">{st.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-semibold text-slate-700">
+                          {st.testsAttempted}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="bg-[#DCFCE7] text-[#16A34A] text-[11px] font-bold px-2 py-0.5 rounded">
+                            {st.avgScore}%
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-800">
+                          {st.bestScore}%
+                        </td>
+                        <td className="py-2.5 px-3 text-[#64748B] text-[11px]">
+                          {st.lastActive}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            onClick={() => navigate('/admin/students')}
+                            className="p-1 rounded text-slate-400 hover:text-slate-700"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1019,12 +1057,14 @@ export const AdminDistrictRankings: React.FC = () => {
                 />
 
                 {/* Floating Tooltip positioned over Purulia */}
-                <div className="absolute top-[85px] left-1 z-10 bg-[#0F172A] text-white rounded-xl p-2.5 shadow-xl text-[10px] space-y-0.5 border border-slate-700">
-                  <p className="font-bold text-white text-[11px]">{activeDistrict.name}</p>
-                  <p className="text-slate-300">Students: {activeDistrict.totalStudents.toLocaleString()}</p>
-                  <p className="text-slate-300">Avg. Score: {activeDistrict.avgScore}%</p>
-                  <p className="text-slate-300">Tests: {activeDistrict.testsAttempted.toLocaleString()}</p>
-                </div>
+                {activeDistrict && (
+                  <div className="absolute top-[85px] left-1 z-10 bg-[#0F172A] text-white rounded-xl p-2.5 shadow-xl text-[10px] space-y-0.5 border border-slate-700">
+                    <p className="font-bold text-white text-[11px]">{activeDistrict.name}</p>
+                    <p className="text-slate-300">Students: {activeDistrict.totalStudents.toLocaleString()}</p>
+                    <p className="text-slate-300">Avg. Score: {activeDistrict.avgScore}%</p>
+                    <p className="text-slate-300">Tests: {activeDistrict.testsAttempted.toLocaleString()}</p>
+                  </div>
+                )}
               </div>
 
               {/* Legend on the right */}
@@ -1100,9 +1140,11 @@ export const AdminDistrictRankings: React.FC = () => {
           </div>
 
           {/* 3. DISTRICT DETAILS WIDGET */}
-          {isDetailsOpen && activeDistrict && (
+          {isDetailsOpen && (
             <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs space-y-4 animate-in fade-in duration-150">
-              {/* Header: Title & Close */}
+              {activeDistrict ? (
+                <>
+                  {/* Header: Title & Close */}
               <div className="flex items-center justify-between pb-1">
                 <h3 className="text-xs font-bold text-[#0F172A]">District Details</h3>
                 <button
@@ -1217,6 +1259,12 @@ export const AdminDistrictRankings: React.FC = () => {
                   </p>
                 </div>
               </div>
+              </>
+            ) : (
+              <div className="py-16 text-center text-slate-400 text-xs">
+                No district selected.
+              </div>
+            )}
             </div>
           )}
         </div>

@@ -55,7 +55,7 @@ export interface SubscriptionRecord {
 }
 
 // Initial dataset strictly matching screenshot media_1791202130865.jpg
-const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
+export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
   {
     id: 1,
     studentName: 'Rohit Kumar',
@@ -341,7 +341,7 @@ export const AdminSubscriptions: React.FC = () => {
     } catch {
       // ignore
     }
-    return INITIAL_SUBSCRIPTIONS;
+    return [];
   });
 
   useEffect(() => {
@@ -356,7 +356,11 @@ export const AdminSubscriptions: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     api.getAdminSubscriptions().then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
+      if (!isMounted) return;
+      if (!remote || remote.length === 0) {
+        setSubscriptionsList([]);
+        return;
+      }
       const mapped: SubscriptionRecord[] = remote.map((d, index) => {
         const isAct = d.status === 'active';
         const startFormatted = d.startsAt
@@ -399,9 +403,24 @@ export const AdminSubscriptions: React.FC = () => {
     return () => { isMounted = false; };
   }, []);
 
-  // Selected row (Defaults to row 1 Rohit Kumar matching screenshot)
+  // Selected row
   const [selectedRowId, setSelectedRowId] = useState<number | string>(1);
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
+
+  // Dynamic KPI computations
+  const totalSubscriptionsCount = subscriptionsList.length;
+  const activeSubscriptionsCount = useMemo(() => {
+    return subscriptionsList.filter((s) => s.status === 'Active').length;
+  }, [subscriptionsList]);
+  const expiringSoonCount = useMemo(() => {
+    return subscriptionsList.filter((s) => s.status === 'Active' && (s.daysLeft ?? 0) <= 7 && (s.daysLeft ?? 0) > 0).length;
+  }, [subscriptionsList]);
+  const expiredSubscriptionsCount = useMemo(() => {
+    return subscriptionsList.filter((s) => s.status === 'Expired').length;
+  }, [subscriptionsList]);
+  const totalRevenueAmount = useMemo(() => {
+    return subscriptionsList.reduce((acc, s) => acc + (s.amount || 0), 0);
+  }, [subscriptionsList]);
 
   // Checkbox selections
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<(number | string)[]>([]);
@@ -452,7 +471,7 @@ export const AdminSubscriptions: React.FC = () => {
 
   // Selected subscription
   const selectedSubscription = useMemo(() => {
-    return subscriptionsList.find((s) => s.id === selectedRowId) || subscriptionsList[0];
+    return subscriptionsList.find((s) => s.id === selectedRowId) || (subscriptionsList.length > 0 ? subscriptionsList[0] : null);
   }, [subscriptionsList, selectedRowId]);
 
   // Filtered rows
@@ -696,7 +715,9 @@ export const AdminSubscriptions: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Subscriptions</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">3,920</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {totalSubscriptionsCount.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 28%
               </span>
@@ -713,7 +734,9 @@ export const AdminSubscriptions: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Active Subscriptions</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">3,120</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {activeSubscriptionsCount.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 24%
               </span>
@@ -730,7 +753,9 @@ export const AdminSubscriptions: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Expiring Soon</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">280</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {expiringSoonCount.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 12%
               </span>
@@ -747,7 +772,9 @@ export const AdminSubscriptions: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Expired Subscriptions</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">520</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {expiredSubscriptionsCount.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
                 ↓ 16%
               </span>
@@ -764,7 +791,9 @@ export const AdminSubscriptions: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">₹3,86,420</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                ₹{totalRevenueAmount.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 32%
               </span>
@@ -900,7 +929,14 @@ export const AdminSubscriptions: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredRows.slice(0, 10).map((row, idx) => {
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-xs text-slate-400">
+                        No subscription records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.slice(0, 10).map((row, idx) => {
                     const isSelected = selectedRowId === row.id;
                     const isChecked = selectedCheckboxes.includes(row.id);
                     return (
@@ -1068,7 +1104,8 @@ export const AdminSubscriptions: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1076,7 +1113,7 @@ export const AdminSubscriptions: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing 1–{Math.min(filteredRows.length, 10)} of 3,920 subscriptions
+                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of {filteredRows.length.toLocaleString('en-IN')} subscriptions
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1145,9 +1182,11 @@ export const AdminSubscriptions: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: SUBSCRIPTION DETAILS DOCKED PANEL */}
-        {isDetailsPanelOpen && selectedSubscription && (
+        {isDetailsPanelOpen && (
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            {/* Header */}
+            {selectedSubscription ? (
+              <>
+                {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900">Subscription Details</h2>
               <button
@@ -1415,6 +1454,12 @@ export const AdminSubscriptions: React.FC = () => {
                   <span className="font-semibold block text-slate-800">Payment Verified</span>
                   <span className="text-[10px] text-slate-400">Via {selectedSubscription.paymentMethod}</span>
                 </div>
+              </div>
+            )}
+            </>
+            ) : (
+              <div className="py-16 text-center text-slate-400 text-xs">
+                No subscription record selected.
               </div>
             )}
           </div>

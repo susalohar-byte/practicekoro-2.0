@@ -72,7 +72,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // If user returned to the app without completing Google OAuth, clear loading
     if (state == AppLifecycleState.resumed && _isGoogleLoading) {
-      Future.delayed(const Duration(milliseconds: 1600), () {
+      Future.delayed(const Duration(milliseconds: 5000), () {
         if (mounted && _isGoogleLoading) {
           final isAuthed = ref.read(authRepositoryProvider).isAuthenticated;
           if (!isAuthed) {

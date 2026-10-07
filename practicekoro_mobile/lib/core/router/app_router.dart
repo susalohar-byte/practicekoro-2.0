@@ -29,6 +29,7 @@ import '../../features/notifications/notification_screen.dart';
 import '../../features/leaderboard/leaderboard_screen.dart';
 import '../../features/audio_books/audio_books_screen.dart';
 import '../../features/auth/login_screen.dart';
+import '../../features/auth/auth_callback_screen.dart';
 import '../../data/models/attempt_model.dart';
 
 final appRouter = GoRouter(
@@ -42,6 +43,17 @@ final appRouter = GoRouter(
     }
 
     final location = state.matchedLocation;
+
+    // Allow OAuth callback deep links to process without premature redirects
+    if (location == '/login-callback' ||
+        location == '/auth/mobile-callback' ||
+        location == '/app/login-callback') {
+      if (currentUser != null) {
+        return '/home';
+      }
+      return null;
+    }
+
     final requiresAuthentication =
         location.startsWith('/live-test/') ||
         location.startsWith('/result/') ||
@@ -75,6 +87,20 @@ final appRouter = GoRouter(
 
     // 3. Login Screen
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+
+    // 3.1 OAuth & Deep Link Callback Routes
+    GoRoute(
+      path: '/login-callback',
+      builder: (context, state) => const AuthCallbackScreen(),
+    ),
+    GoRoute(
+      path: '/auth/mobile-callback',
+      builder: (context, state) => const AuthCallbackScreen(),
+    ),
+    GoRoute(
+      path: '/app/login-callback',
+      builder: (context, state) => const AuthCallbackScreen(),
+    ),
 
     // 4. Exam Selection
     GoRoute(

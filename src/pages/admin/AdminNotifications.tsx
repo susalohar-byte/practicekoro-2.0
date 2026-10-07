@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA TYPES & INTERFACES
@@ -872,6 +873,7 @@ export const AdminNotifications: React.FC = () => {
 
   // Master notification records initialized with 42 items matching screenshot numbers
   const [notificationsList, setNotificationsList] = useState<NotificationRecord[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_notifications_v5');
       if (stored) return JSON.parse(stored);
@@ -895,46 +897,53 @@ export const AdminNotifications: React.FC = () => {
     }
   }, [notificationsList]);
 
-  // Load real notifications from backend (Supabase / localStore) and merge seamlessly
+  // Load real notifications from backend (Supabase / localStore)
   const loadBackendNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
       const remote = await api.getNotifications();
-      if (remote && Array.isArray(remote) && remote.length > 0) {
-        setNotificationsList((prev) => {
-          const merged = [...prev];
-          remote.forEach((r, idx) => {
-            const exists = merged.some((m) => m.id === r.id);
-            if (!exists) {
-              const dateObj = r.sentAt ? new Date(r.sentAt) : new Date(r.createdAt || Date.now());
-              merged.unshift({
-                id: r.id,
-                num: merged.length + 1 + idx,
-                title: r.title,
-                message: r.message,
-                type: (r.channel === 'both' ? 'Update' : 'General') as NotificationCategory,
-                audience:
-                  r.targetAudience === 'all'
-                    ? 'All Students'
-                    : r.targetAudience === 'pro'
-                      ? 'Pro Members'
-                      : r.targetAudience || 'All Students',
-                audienceCount: '12,480',
-                status:
-                  r.status === 'sent' ? 'Sent' : r.status === 'scheduled' ? 'Scheduled' : 'Draft',
-                sentAtDate: `${dateObj.getDate()} Sep 2026`,
-                sentAtTime: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                stats:
-                  r.status === 'sent'
-                    ? { delivered: 98, opened: 76, clicked: 25 }
-                    : undefined,
-                sendPush: true,
-                sendEmail: r.channel === 'both',
-              });
-            }
-          });
-          return merged;
+      if (remote && Array.isArray(remote)) {
+        const mapped: NotificationRecord[] = remote.map((r, idx) => {
+          const dateObj = r.sentAt ? new Date(r.sentAt) : new Date(r.createdAt || Date.now());
+          return {
+            id: r.id,
+            num: idx + 1,
+            title: r.title,
+            message: r.message,
+            type: (r.channel === 'both' ? 'Update' : 'General') as NotificationCategory,
+            audience:
+              r.targetAudience === 'all'
+                ? 'All Students'
+                : r.targetAudience === 'pro'
+                  ? 'Pro Members'
+                  : r.targetAudience || 'All Students',
+            audienceCount: 'All',
+            status:
+              r.status === 'sent' ? 'Sent' : r.status === 'scheduled' ? 'Scheduled' : 'Draft',
+            sentAtDate: dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            sentAtTime: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            stats:
+              r.status === 'sent'
+                ? { delivered: 100, opened: 80, clicked: 25 }
+                : undefined,
+            sendPush: true,
+            sendEmail: r.channel === 'both',
+          };
         });
+
+        if (isSupabaseConfigured) {
+          setNotificationsList(mapped);
+        } else {
+          setNotificationsList((prev) => {
+            const merged = [...prev];
+            mapped.forEach((item) => {
+              if (!merged.some((m) => m.id === item.id)) {
+                merged.unshift(item);
+              }
+            });
+            return merged;
+          });
+        }
       }
     } catch (err) {
       console.warn('Backend sync note:', err);
@@ -1092,6 +1101,16 @@ export const AdminNotifications: React.FC = () => {
   // Top metric numbers computed or referencing default benchmark
   const metrics = useMemo(() => {
     const sentCount = notificationsList.filter((n) => n.status === 'Sent').length;
+    if (isSupabaseConfigured) {
+      return {
+        totalSentFormatted: sentCount.toLocaleString('en-IN'),
+        deliveredFormatted: sentCount > 0 ? (sentCount * 0.96).toFixed(0) : '0',
+        openedFormatted: sentCount > 0 ? (sentCount * 0.79).toFixed(0) : '0',
+        clickedFormatted: sentCount > 0 ? (sentCount * 0.20).toFixed(0) : '0',
+        failedFormatted: '0',
+        sentNoticesCount: sentCount,
+      };
+    }
     return {
       totalSentFormatted: '1,24,860',
       deliveredFormatted: '1,20,450',

@@ -39,14 +39,32 @@ export const AdminDashboard: React.FC = () => {
 
   // Live Database Sync States
   const [stats, setStats] = useState<AdminDashboardV2Stats | null>(null);
+  const [dbExams, setDbExams] = useState<any[]>([]);
+  const [dbTests, setDbTests] = useState<any[]>([]);
+  const [dbLeaderboard, setDbLeaderboard] = useState<any[]>([]);
+  const [dbAuditLogs, setDbAuditLogs] = useState<any[]>([]);
+  const [dbQuestions, setDbQuestions] = useState<any[]>([]);
+  const [dbChapters, setDbChapters] = useState<any[]>([]);
 
   // Load real backend data
   const loadPlatformData = useCallback(async () => {
     try {
-      const statsRes = await api.getAdminDashboardV2Stats();
-      if (statsRes) {
-        setStats(statsRes);
-      }
+      const [statsRes, examsRes, testsRes, lbRes, logsRes, qRes, chRes] = await Promise.all([
+        api.getAdminDashboardV2Stats().catch(() => null),
+        api.getAllAdminExams().catch(() => []),
+        api.getAllAdminTests().catch(() => []),
+        api.getAppLeaderboard('west_bengal').catch(() => []),
+        api.getAdminAuditLogs({ limit: 10 }).catch(() => ({ logs: [] })),
+        api.getAllAdminQuestions().catch(() => []),
+        api.getAllAdminChapters().catch(() => []),
+      ]);
+      if (statsRes) setStats(statsRes);
+      if (examsRes) setDbExams(examsRes);
+      if (testsRes) setDbTests(testsRes);
+      if (lbRes) setDbLeaderboard(lbRes);
+      if (logsRes?.logs) setDbAuditLogs(logsRes.logs);
+      if (qRes) setDbQuestions(qRes);
+      if (chRes) setDbChapters(chRes);
     } catch (err) {
       console.warn('Dashboard data fetch notification:', err);
     }
@@ -58,12 +76,12 @@ export const AdminDashboard: React.FC = () => {
 
   // Metric Cards Data
   const metricCards = useMemo(() => {
-    const totalStudents = stats?.totalStudents || 18452;
-    const activeStudents = stats?.activeStudents || 6921;
-    const testsAttempted = stats?.testsAttempted || 124580;
-    const questionsSolved = stats?.questionsAnswered || 1892430;
-    const activeSubscriptions = stats?.activeSubscriptions || 2834;
-    const totalRevenue = stats?.totalRevenue || 248920;
+    const totalStudents = stats?.totalStudents ?? 0;
+    const activeStudents = stats?.activeStudents ?? 0;
+    const testsAttempted = stats?.testsAttempted ?? 0;
+    const questionsSolved = stats?.questionsAnswered ?? 0;
+    const activeSubscriptions = stats?.activeSubscriptions ?? 0;
+    const totalRevenue = stats?.totalRevenue ?? 0;
 
     return [
       {
@@ -136,293 +154,157 @@ export const AdminDashboard: React.FC = () => {
   }, [stats]);
 
   // Student Growth Chart Dataset
-  const studentGrowthData = useMemo(() => [
-    { label: 'Sep 1', newStudents: 450, activeStudents: 220 },
-    { label: 'Sep 3', newStudents: 520, activeStudents: 260 },
-    { label: 'Sep 5', newStudents: 680, activeStudents: 310 },
-    { label: 'Sep 7', newStudents: 740, activeStudents: 360 },
-    { label: 'Sep 10', newStudents: 690, activeStudents: 350 },
-    { label: 'Sep 12', newStudents: 780, activeStudents: 400 },
-    { label: 'Sep 15', newStudents: 850, activeStudents: 460 },
-    { label: 'Sep 17', newStudents: 980, activeStudents: 520 },
-    { label: 'Sep 20', newStudents: 1120, activeStudents: 580 },
-    { label: 'Sep 22', newStudents: 1250, activeStudents: 640 },
-    { label: 'Sep 25', newStudents: 1540, activeStudents: 790 },
-    { label: 'Sep 27', newStudents: 1380, activeStudents: 720 },
-    { label: 'Sep 30', newStudents: 1650, activeStudents: 840 },
-  ], []);
+  const studentGrowthData = useMemo(() => {
+    const days = ['Sep 1', 'Sep 5', 'Sep 10', 'Sep 15', 'Sep 20', 'Sep 25', 'Sep 30'];
+    const total = stats?.totalStudents ?? 0;
+    const active = stats?.activeStudents ?? 0;
+    return days.map((label) => ({
+      label,
+      newStudents: total > 0 ? Math.round(total / days.length) : 0,
+      activeStudents: active > 0 ? Math.round(active / days.length) : 0,
+    }));
+  }, [stats]);
 
   // Revenue Chart Dataset (Sep 1 to Sep 30)
-  const revenueData = useMemo(() => [
-    { label: 'Sep 1', amount: 15800 },
-    { label: 'Sep 3', amount: 16400 },
-    { label: 'Sep 5', amount: 22100 },
-    { label: 'Sep 8', amount: 19800 },
-    { label: 'Sep 10', amount: 18200 },
-    { label: 'Sep 12', amount: 28500 },
-    { label: 'Sep 15', amount: 21000 },
-    { label: 'Sep 18', amount: 33400 },
-    { label: 'Sep 20', amount: 31200 },
-    { label: 'Sep 22', amount: 41600 },
-    { label: 'Sep 24', amount: 62480, highlighted: true },
-    { label: 'Sep 25', amount: 48900 },
-    { label: 'Sep 28', amount: 45200 },
-    { label: 'Sep 30', amount: 56800 },
-  ], []);
+  const revenueData = useMemo(() => {
+    if (stats?.revenueTrend && stats.revenueTrend.length > 0) {
+      return stats.revenueTrend.map((rt) => ({
+        label: rt.label,
+        amount: rt.amount || 0,
+        highlighted: false,
+      }));
+    }
+    const days = ['Sep 1', 'Sep 3', 'Sep 5', 'Sep 8', 'Sep 10', 'Sep 12', 'Sep 15', 'Sep 18', 'Sep 20', 'Sep 22', 'Sep 24', 'Sep 25', 'Sep 28', 'Sep 30'];
+    const totalRev = stats?.totalRevenue ?? 0;
+    return days.map((label, idx) => ({
+      label,
+      amount: totalRev > 0 ? Math.round(totalRev / days.length) : 0,
+      highlighted: idx === 10 && totalRev > 0,
+    }));
+  }, [stats]);
 
   // Most Popular Exams Dataset
-  const popularExams = useMemo(() => [
-    {
-      id: 'wbp-constable',
-      name: 'WBP Constable',
-      attempts: '8,420 attempts',
-      percentage: 28,
-      code: 'WBP',
-      bg: 'bg-blue-900',
-      badgeText: 'text-amber-400',
-    },
-    {
-      id: 'wbssc-group-c',
-      name: 'WBSSC Group C',
-      attempts: '5,980 attempts',
-      percentage: 20,
-      code: 'SSC',
-      bg: 'bg-slate-800',
-      badgeText: 'text-slate-200',
-    },
-    {
-      id: 'wbssc-group-d',
-      name: 'WBSSC Group D',
-      attempts: '4,520 attempts',
-      percentage: 15,
-      code: 'D',
-      bg: 'bg-slate-700',
-      badgeText: 'text-amber-300',
-    },
-    {
-      id: 'railway-ntpc',
-      name: 'Railway (NTPC)',
-      attempts: '3,860 attempts',
-      percentage: 13,
-      code: 'RRB',
-      bg: 'bg-red-900',
-      badgeText: 'text-rose-200',
-    },
-    {
-      id: 'icds',
-      name: 'ICDS',
-      attempts: '2,940 attempts',
-      percentage: 10,
-      code: 'ICDS',
-      bg: 'bg-pink-800',
-      badgeText: 'text-pink-200',
-    },
-  ], []);
+  const popularExams = useMemo(() => {
+    if (!dbExams || dbExams.length === 0) return [];
+    return dbExams.slice(0, 5).map((exam, idx) => {
+      const examTests = dbTests.filter((t) => t.examId === exam.id);
+      const attemptsCount = examTests.reduce((acc, t) => acc + (t.attemptsCount || 0), 0);
+      const colors = [
+        { bg: 'bg-blue-900', badgeText: 'text-amber-400' },
+        { bg: 'bg-slate-800', badgeText: 'text-slate-200' },
+        { bg: 'bg-slate-700', badgeText: 'text-amber-300' },
+        { bg: 'bg-red-900', badgeText: 'text-rose-200' },
+        { bg: 'bg-pink-800', badgeText: 'text-pink-200' },
+      ];
+      const clr = colors[idx % colors.length];
+      const pct = stats?.testsAttempted && stats.testsAttempted > 0
+        ? Math.round((attemptsCount / stats.testsAttempted) * 100)
+        : Math.round(100 / Math.max(1, dbExams.length));
+      return {
+        id: exam.id,
+        name: exam.title,
+        attempts: `${attemptsCount.toLocaleString('en-IN')} attempts`,
+        percentage: pct,
+        code: (exam.title || 'EXAM').split(' ')[0],
+        bg: clr.bg,
+        badgeText: clr.badgeText,
+      };
+    });
+  }, [dbExams, dbTests, stats]);
 
   // Most Attempted Tests Dataset
-  const mostAttemptedTests = useMemo(() => [
-    {
-      id: '1',
-      title: 'WBP Constable Full Mock 01',
-      exam: 'WBP Constable',
-      attempts: '2,842 attempts',
-      iconBg: 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]',
-    },
-    {
-      id: '2',
-      title: 'WBP Constable Full Mock 02',
-      exam: 'WBP Constable',
-      attempts: '2,450 attempts',
-      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]',
-    },
-    {
-      id: '3',
-      title: 'WBSSC Group C Full Mock 01',
-      exam: 'WBSSC Group C',
-      attempts: '1,986 attempts',
-      iconBg: 'bg-rose-50 dark:bg-rose-950/60 text-[#F43F5E]',
-    },
-    {
-      id: '4',
-      title: 'Railway NTPC Full Mock 01',
-      exam: 'Railway (NTPC)',
-      attempts: '1,642 attempts',
-      iconBg: 'bg-amber-50 dark:bg-amber-950/60 text-[#F59E0B]',
-    },
-    {
-      id: '5',
-      title: 'General Science Topic Test',
-      exam: 'WBP Constable',
-      attempts: '1,420 attempts',
-      iconBg: 'bg-pink-50 dark:bg-pink-950/60 text-[#EC4899]',
-    },
-  ], []);
+  const mostAttemptedTests = useMemo(() => {
+    if (!dbTests || dbTests.length === 0) return [];
+    const colors = [
+      'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]',
+      'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]',
+      'bg-rose-50 dark:bg-rose-950/60 text-[#F43F5E]',
+      'bg-amber-50 dark:bg-amber-950/60 text-[#F59E0B]',
+      'bg-pink-50 dark:bg-pink-950/60 text-[#EC4899]',
+    ];
+    return dbTests.slice(0, 5).map((test, idx) => ({
+      id: test.id,
+      title: test.title,
+      exam: test.examTitle || test.examName || 'Mock Test',
+      attempts: `${(test.attemptsCount || 0).toLocaleString('en-IN')} attempts`,
+      iconBg: colors[idx % colors.length],
+    }));
+  }, [dbTests]);
 
   // Top Performing Students Dataset
-  const topStudents = useMemo(() => [
-    {
-      rank: 1,
-      name: 'Rohan Das',
-      exam: 'WBP Constable',
-      score: '82 / 85',
-      accuracy: '96%',
-      badge: 'gold',
-    },
-    {
-      rank: 2,
-      name: 'Arpita Sen',
-      exam: 'WBSSC Group C',
-      score: '78 / 85',
-      accuracy: '92%',
-      badge: 'silver',
-    },
-    {
-      rank: 3,
-      name: 'Sambit Roy',
-      exam: 'Railway (NTPC)',
-      score: '76 / 85',
-      accuracy: '89%',
-      badge: 'bronze',
-    },
-    {
-      rank: 4,
-      name: 'Priya Mondal',
-      exam: 'WBP Constable',
-      score: '74 / 85',
-      accuracy: '87%',
-      badge: 'regular',
-    },
-    {
-      rank: 5,
-      name: 'Imran Ali',
-      exam: 'WBSSC Group D',
-      score: '72 / 85',
-      accuracy: '85%',
-      badge: 'regular',
-    },
-  ], []);
+  const topStudents = useMemo(() => {
+    if (!dbLeaderboard || dbLeaderboard.length === 0) return [];
+    return dbLeaderboard.slice(0, 5).map((st, idx) => {
+      let badge: 'gold' | 'silver' | 'bronze' | 'regular' = 'regular';
+      if (idx === 0) badge = 'gold';
+      else if (idx === 1) badge = 'silver';
+      else if (idx === 2) badge = 'bronze';
+      return {
+        rank: st.rank || idx + 1,
+        name: st.display_name || 'Aspirant',
+        exam: st.exam_title || st.district || 'West Bengal',
+        score: `${st.score || Math.round(st.average_percentage || 0)} / 100`,
+        accuracy: `${Math.round(st.average_percentage || 0)}%`,
+        badge,
+      };
+    });
+  }, [dbLeaderboard]);
 
   // Most Difficult Questions Dataset
-  const difficultQuestions = useMemo(() => [
-    {
-      id: '1',
-      preview: 'ভারতের প্রথম গভর্নর-জেনারেল কে ছিলেন?',
-      correctRate: '32%',
-      attempts: '2,480',
-    },
-    {
-      id: '2',
-      preview: 'H₂O এর রাসায়নিক নাম কি?',
-      correctRate: '38%',
-      attempts: '2,120',
-    },
-    {
-      id: '3',
-      preview: 'সংবিধানের কততম অনুচ্ছেদে জরুরী...',
-      correctRate: '41%',
-      attempts: '1,980',
-    },
-    {
-      id: '4',
-      preview: '2 + 3 × 4 = ?',
-      correctRate: '45%',
-      attempts: '1,860',
-    },
-    {
-      id: '5',
-      preview: 'নীল চাষ কোন সময়কালে শুরু হয়?',
-      correctRate: '46%',
-      attempts: '1,740',
-    },
-  ], []);
+  const difficultQuestions = useMemo(() => {
+    if (!dbQuestions || dbQuestions.length === 0) return [];
+    return dbQuestions.slice(0, 5).map((q, idx) => ({
+      id: String(idx + 1),
+      preview: q.questionBengaliText || q.questionText || 'Question item',
+      correctRate: `${q.accuracyRate || 40}%`,
+      attempts: (q.attemptsCount || 0).toLocaleString('en-IN'),
+    }));
+  }, [dbQuestions]);
 
   // Weakest Topics Dataset
-  const weakestTopics = useMemo(() => [
-    {
-      id: '1',
-      topic: 'Heat & Temperature',
-      subject: 'General Science',
-      accuracy: 48,
-      color: 'bg-rose-500',
-    },
-    {
-      id: '2',
-      topic: 'Modern India',
-      subject: 'History',
-      accuracy: 52,
-      color: 'bg-amber-500',
-    },
-    {
-      id: '3',
-      topic: 'Indian Constitution',
-      subject: 'Indian Polity',
-      accuracy: 55,
-      color: 'bg-amber-500',
-    },
-    {
-      id: '4',
-      topic: 'Percentage',
-      subject: 'Mathematics',
-      accuracy: 58,
-      color: 'bg-blue-500',
-    },
-    {
-      id: '5',
-      topic: 'Geography of India',
-      subject: 'Geography',
-      accuracy: 61,
-      color: 'bg-blue-500',
-    },
-  ], []);
+  const weakestTopics = useMemo(() => {
+    if (!dbChapters || dbChapters.length === 0) return [];
+    const colors = ['bg-rose-500', 'bg-amber-500', 'bg-amber-500', 'bg-blue-500', 'bg-blue-500'];
+    return dbChapters.slice(0, 5).map((ch, idx) => ({
+      id: String(idx + 1),
+      topic: ch.name,
+      subject: ch.subjectName || 'General',
+      accuracy: ch.avgAccuracy || 50,
+      color: colors[idx % colors.length],
+    }));
+  }, [dbChapters]);
 
   // Recent Activity Feed
-  const recentActivities = useMemo(() => [
-    {
-      id: 'act_1',
-      category: 'student',
-      title: 'New student registered',
-      desc: 'Priya Mondal joined the platform',
-      time: '5 minutes ago',
-      iconBg: 'bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6]',
-      icon: Users,
-    },
-    {
-      id: 'act_2',
-      category: 'subscription',
-      title: 'New subscription',
-      desc: 'Arpita Sen purchased 1 Year Plan (₹499)',
-      time: '12 minutes ago',
-      iconBg: 'bg-amber-50 dark:bg-amber-950/60 text-[#F59E0B]',
-      icon: Crown,
-    },
-    {
-      id: 'act_3',
-      category: 'test',
-      title: 'Test attempt submitted',
-      desc: 'Rohan Das completed WBP Constable Full Mock 01',
-      time: '18 minutes ago',
-      iconBg: 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]',
-      icon: FileCheck,
-    },
-    {
-      id: 'act_4',
-      category: 'payment',
-      title: 'New payment',
-      desc: '₹499 received via Razorpay',
-      time: '25 minutes ago',
-      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]',
-      icon: IndianRupee,
-    },
-    {
-      id: 'act_5',
-      category: 'question',
-      title: 'Question published',
-      desc: '50 new questions added to General Science',
-      time: '40 minutes ago',
-      iconBg: 'bg-amber-50 dark:bg-amber-950/60 text-[#F59E0B]',
-      icon: Database,
-    },
-  ], []);
+  const recentActivities = useMemo(() => {
+    if (dbAuditLogs && dbAuditLogs.length > 0) {
+      return dbAuditLogs.slice(0, 5).map((log, idx) => {
+        const timeAgo = new Date(log.createdAt).toLocaleDateString('en-GB');
+        const actType = (log.action || '').toLowerCase();
+        let icon = Users;
+        let iconBg = 'bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6]';
+        let category = 'student';
+        if (actType.includes('test')) {
+          icon = FileCheck;
+          iconBg = 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]';
+          category = 'test';
+        } else if (actType.includes('pay') || actType.includes('sub')) {
+          icon = IndianRupee;
+          iconBg = 'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]';
+          category = 'payment';
+        }
+        return {
+          id: log.id || `act_${idx}`,
+          category,
+          title: log.action || 'Activity',
+          desc: log.details?.description || `${log.adminName || 'User'} performed ${log.action}`,
+          time: timeAgo,
+          iconBg,
+          icon,
+        };
+      });
+    }
+    return [];
+  }, [dbAuditLogs]);
 
   // Filtered Activity
   const filteredActivities = useMemo(() => {
@@ -879,44 +761,50 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-4 mt-4">
-              {popularExams.map((exam, index) => (
-                <div key={exam.id} className="flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold text-slate-400 w-3 text-center">
-                      {index + 1}
-                    </span>
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs',
-                        exam.bg,
-                        exam.badgeText
-                      )}
-                    >
-                      {exam.code}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                        {exam.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {exam.attempts}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="w-20 sm:w-24 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                      <div
-                        style={{ width: `${exam.percentage * 3.5}%` }}
-                        className="h-full bg-[#026BFC] rounded-full"
-                      />
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 w-7 text-right">
-                      {exam.percentage}%
-                    </span>
-                  </div>
+              {popularExams.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No exams found.
                 </div>
-              ))}
+              ) : (
+                popularExams.map((exam, index) => (
+                  <div key={exam.id} className="flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-bold text-slate-400 w-3 text-center">
+                        {index + 1}
+                      </span>
+                      <div
+                        className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs',
+                          exam.bg,
+                          exam.badgeText
+                        )}
+                      >
+                        {exam.code}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {exam.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {exam.attempts}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-20 sm:w-24 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${exam.percentage * 3.5}%` }}
+                          className="h-full bg-[#026BFC] rounded-full"
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 w-7 text-right">
+                        {exam.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -938,37 +826,43 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-3.5 mt-4">
-              {mostAttemptedTests.map((test, index) => (
-                <div key={test.id} className="flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold text-slate-400 w-3 text-center">
-                      {index + 1}
-                    </span>
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                        test.iconBg
-                      )}
-                    >
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                        {test.title}
-                      </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {test.exam}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 text-right">
-                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                      {test.attempts}
-                    </span>
-                  </div>
+              {mostAttemptedTests.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No attempted tests yet.
                 </div>
-              ))}
+              ) : (
+                mostAttemptedTests.map((test, index) => (
+                  <div key={test.id} className="flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-bold text-slate-400 w-3 text-center">
+                        {index + 1}
+                      </span>
+                      <div
+                        className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                          test.iconBg
+                        )}
+                      >
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {test.title}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {test.exam}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        {test.attempts}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -1001,44 +895,52 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {topStudents.map((st) => (
-                    <tr key={st.rank} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                      <td className="py-2.5">
-                        {st.badge === 'gold' && (
-                          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-bold flex items-center justify-center text-[10px]">
-                            1
-                          </span>
-                        )}
-                        {st.badge === 'silver' && (
-                          <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold flex items-center justify-center text-[10px]">
-                            2
-                          </span>
-                        )}
-                        {st.badge === 'bronze' && (
-                          <span className="w-5 h-5 rounded-full bg-amber-200/70 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 font-bold flex items-center justify-center text-[10px]">
-                            3
-                          </span>
-                        )}
-                        {st.badge === 'regular' && (
-                          <span className="text-slate-400 font-semibold text-center block w-5">
-                            {st.rank}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 font-bold text-slate-900 dark:text-white">
-                        {st.name}
-                      </td>
-                      <td className="py-2.5 text-slate-500 dark:text-slate-400">
-                        {st.exam}
-                      </td>
-                      <td className="py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
-                        {st.score}
-                      </td>
-                      <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                        {st.accuracy}
+                  {topStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                        No student performance records yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    topStudents.map((st) => (
+                      <tr key={st.rank} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="py-2.5">
+                          {st.badge === 'gold' && (
+                            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-bold flex items-center justify-center text-[10px]">
+                              1
+                            </span>
+                          )}
+                          {st.badge === 'silver' && (
+                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold flex items-center justify-center text-[10px]">
+                              2
+                            </span>
+                          )}
+                          {st.badge === 'bronze' && (
+                            <span className="w-5 h-5 rounded-full bg-amber-200/70 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 font-bold flex items-center justify-center text-[10px]">
+                              3
+                            </span>
+                          )}
+                          {st.badge === 'regular' && (
+                            <span className="text-slate-400 font-semibold text-center block w-5">
+                              {st.rank}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">
+                          {st.name}
+                        </td>
+                        <td className="py-2.5 text-slate-500 dark:text-slate-400">
+                          {st.exam}
+                        </td>
+                        <td className="py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                          {st.score}
+                        </td>
+                        <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                          {st.accuracy}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1075,20 +977,28 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {difficultQuestions.map((q) => (
-                    <tr key={q.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                      <td className="py-2.5 text-slate-400 font-semibold">{q.id}</td>
-                      <td className="py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
-                        {q.preview}
-                      </td>
-                      <td className="py-2.5 text-center font-bold text-rose-500">
-                        {q.correctRate}
-                      </td>
-                      <td className="py-2.5 text-right font-medium text-slate-500 dark:text-slate-400">
-                        {q.attempts}
+                  {difficultQuestions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
+                        No difficult questions recorded yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    difficultQuestions.map((q) => (
+                      <tr key={q.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="py-2.5 text-slate-400 font-semibold">{q.id}</td>
+                        <td className="py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
+                          {q.preview}
+                        </td>
+                        <td className="py-2.5 text-center font-bold text-rose-500">
+                          {q.correctRate}
+                        </td>
+                        <td className="py-2.5 text-right font-medium text-slate-500 dark:text-slate-400">
+                          {q.attempts}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1122,30 +1032,38 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {weakestTopics.map((top) => (
-                    <tr key={top.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                      <td className="py-2.5 text-slate-400 font-semibold">{top.id}</td>
-                      <td className="py-2.5 font-bold text-slate-900 dark:text-white">
-                        {top.topic}
-                      </td>
-                      <td className="py-2.5 text-slate-500 dark:text-slate-400">
-                        {top.subject}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              style={{ width: `${top.accuracy}%` }}
-                              className={cn('h-full rounded-full', top.color)}
-                            />
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 w-8">
-                            {top.accuracy}%
-                          </span>
-                        </div>
+                  {weakestTopics.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
+                        No weak topics identified yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    weakestTopics.map((top) => (
+                      <tr key={top.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="py-2.5 text-slate-400 font-semibold">{top.id}</td>
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">
+                          {top.topic}
+                        </td>
+                        <td className="py-2.5 text-slate-500 dark:text-slate-400">
+                          {top.subject}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${top.accuracy}%` }}
+                                className={cn('h-full rounded-full', top.color)}
+                              />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 w-8">
+                              {top.accuracy}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1193,34 +1111,40 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-3.5 mt-3.5">
-              {filteredActivities.map((act) => {
-                const ActIcon = act.icon;
-                return (
-                  <div key={act.id} className="flex items-start justify-between gap-3 text-xs">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div
-                        className={cn(
-                          'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-                          act.iconBg
-                        )}
-                      >
-                        <ActIcon className="w-3.5 h-3.5" />
+              {filteredActivities.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No recent activities recorded.
+                </div>
+              ) : (
+                filteredActivities.map((act) => {
+                  const ActIcon = act.icon;
+                  return (
+                    <div key={act.id} className="flex items-start justify-between gap-3 text-xs">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div
+                          className={cn(
+                            'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
+                            act.iconBg
+                          )}
+                        >
+                          <ActIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                            {act.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
+                            {act.desc}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                          {act.title}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                          {act.desc}
-                        </p>
-                      </div>
+                      <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
+                        {act.time}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
-                      {act.time}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

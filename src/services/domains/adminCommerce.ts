@@ -422,8 +422,8 @@ export const adminCommerceApi = {
         const activeSubscriptions = proSubRes.count || 0;
         const proStudents = activeSubscriptions;
         const freeStudents = Math.max(0, totalStudents - proStudents);
-        const testsAttempted = (attemptsRes as any)?.count || 1420;
-        const questionsAnswered = testsAttempted > 0 ? testsAttempted * 35 : 49700;
+        const testsAttempted = (attemptsRes as any)?.count ?? 0;
+        const questionsAnswered = testsAttempted > 0 ? testsAttempted * 35 : 0;
 
         let totalRevenue = 0;
         let todayRevenue = 0;
@@ -2262,12 +2262,7 @@ export const adminCommerceApi = {
     let totalWrong = attempts.reduce((acc, curr) => acc + Number(curr.wrong_count || 0), 0);
     let questionsAnswered = totalCorrect + totalWrong;
 
-    if (!isSupabaseConfigured && questionsAnswered === 0) {
-      // Deterministic fallback for dev/demo
-      totalCorrect = 1420;
-      totalWrong = 380;
-      questionsAnswered = 1800;
-    }
+    // questionsAnswered, totalCorrect, totalWrong directly from real attempts data
 
     const overallAccuracy =
       questionsAnswered > 0 ? Number(((totalCorrect / questionsAnswered) * 100).toFixed(1)) : 0;

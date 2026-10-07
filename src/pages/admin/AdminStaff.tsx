@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -258,6 +259,7 @@ export const AdminStaff: React.FC = () => {
 
   // Master admins list with localStorage persistence
   const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_staff_users_v2');
       if (stored) return JSON.parse(stored);
@@ -281,7 +283,11 @@ export const AdminStaff: React.FC = () => {
     api
       .getStaffMembers()
       .then((members) => {
-        if (!isMounted || !members || members.length === 0) return;
+        if (!isMounted) return;
+        if (!members || members.length === 0) {
+          if (isSupabaseConfigured) setAdminUsers([]);
+          return;
+        }
         const mapped: AdminUserRecord[] = members.map((m, idx) => {
           const initials = (m.fullName || m.email || 'Admin')
             .split(' ')
@@ -307,11 +313,15 @@ export const AdminStaff: React.FC = () => {
           };
         });
 
-        setAdminUsers((prev) => {
-          const serverEmails = new Set(mapped.map((x) => x.email.toLowerCase()));
-          const remainingLocal = prev.filter((x) => !serverEmails.has(x.email.toLowerCase()));
-          return [...mapped, ...remainingLocal];
-        });
+        if (isSupabaseConfigured) {
+          setAdminUsers(mapped);
+        } else {
+          setAdminUsers((prev) => {
+            const serverEmails = new Set(mapped.map((x) => x.email.toLowerCase()));
+            const remainingLocal = prev.filter((x) => !serverEmails.has(x.email.toLowerCase()));
+            return [...mapped, ...remainingLocal];
+          });
+        }
       })
       .catch((err) => {
         console.warn('[AdminStaff] Failed to fetch staff members:', err);
@@ -541,12 +551,14 @@ export const AdminStaff: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Admins</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">8</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {adminUsers.length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 14%
+                Active
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">active users</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">platform users</span>
           </div>
         </div>
 
@@ -558,7 +570,9 @@ export const AdminStaff: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Roles</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">5</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {SYSTEM_ROLES.length}
+              </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">system roles</span>
           </div>
@@ -572,9 +586,11 @@ export const AdminStaff: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Active Admins</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">7</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {adminUsers.filter((a) => a.status === 'Active').length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 17%
+                Online
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
@@ -589,9 +605,8 @@ export const AdminStaff: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Inactive Admins</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">1</span>
-              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                ↓ 50%
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {adminUsers.filter((a) => a.status === 'Inactive').length}
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">deactivated</span>
@@ -818,7 +833,14 @@ export const AdminStaff: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredAdmins.slice(0, 10).map((row) => {
+                  {filteredAdmins.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        No admin staff members found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAdmins.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
                     const isChecked = selectedIds.includes(row.id);
 
                     return (
@@ -980,7 +1002,8 @@ export const AdminStaff: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>

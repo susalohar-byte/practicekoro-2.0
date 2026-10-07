@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
@@ -14,13 +14,15 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
+import type { PlatformAnalyticsData } from '@/types';
 
 // ============================================================================
 // DATA MODELS & TYPES
 // ============================================================================
 
 export interface WrongQuestionItem {
-  id: number;
+  id: number | string;
   questionText: string;
   questionTextBn?: string;
   subject: string;
@@ -49,96 +51,38 @@ export interface ExamMetricItem {
   avgScore: number;
 }
 
-// Initial datasets strictly matching screenshot media_1791200542429.jpg
-const WRONG_QUESTIONS: WrongQuestionItem[] = [
-  {
-    id: 1,
-    questionText: 'Under which article of the Constitution of India is the Right to Constitutional Remedies guaranteed?',
-    questionTextBn: 'ভারতের সংবিধানের কোন অনুচ্ছেদে সাংবিধানিক প্রতিকারের অধিকার নিশ্চিত করা হয়েছে?',
-    subject: 'Polity',
-    subjectColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    wrongPercentage: 82,
-    totalAttempts: 18450,
-    correctOption: 'Article 32',
-    explanation: 'Article 32 gives the right to individuals to move to the Supreme Court to seek justice when they feel that their right has been '
-      + 'unduly deprived. Dr. B.R. Ambedkar termed it the "Heart and Soul of the Constitution".',
-  },
-  {
-    id: 2,
-    questionText: 'Which of the following is a molecule with a double covalent bond?',
-    questionTextBn: 'নিচের কোনটি একটি দ্বিবন্ধনযুক্ত অণু?',
-    subject: 'General Science',
-    subjectColor: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    wrongPercentage: 78,
-    totalAttempts: 16210,
-    correctOption: 'Oxygen (O2)',
-    explanation: 'Oxygen (O2) forms a double covalent bond (O=O) by sharing two pairs of electrons between the two oxygen atoms.',
-  },
-  {
-    id: 3,
-    questionText: 'What is the LCM of 12 and 18?',
-    questionTextBn: '১২ এবং ১৮ এর ল.সা.গু কত?',
-    subject: 'Math',
-    subjectColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    wrongPercentage: 76,
-    totalAttempts: 21400,
-    correctOption: '36',
-    explanation: 'Multiples of 12: 12, 24, 36, 48... Multiples of 18: 18, 36, 54... The lowest common multiple is 36.',
-  },
-  {
-    id: 4,
-    questionText: 'Who was the first woman President of India?',
-    questionTextBn: 'ভারতের প্রথম নারী রাষ্ট্রপতি কে?',
-    subject: 'History',
-    subjectColor: 'bg-rose-50 text-rose-700 border-rose-200',
-    wrongPercentage: 74,
-    totalAttempts: 19800,
-    correctOption: 'Pratibha Patil',
-    explanation: 'Smt. Pratibha Devisingh Patil served as the 12th President of India from 2007 to 2012, being the first woman to hold the office.',
-  },
-  {
-    id: 5,
-    questionText: 'What is the primary factor responsible for the internal meandering of rivers?',
-    questionTextBn: 'নদীর অভ্যন্তরীণ প্রবাহের প্রধান কারণ কী?',
-    subject: 'Geography',
-    subjectColor: 'bg-sky-50 text-sky-700 border-sky-200',
-    wrongPercentage: 72,
-    totalAttempts: 15920,
-    correctOption: 'Centrifugal force & lateral erosion',
-    explanation: 'Lateral erosion combined with reduced velocity and gradient causes winding course formations in the mature and old stages of a river.',
-  },
-];
-
-const WEAKEST_TOPICS: TopicMetricItem[] = [
-  { rank: 1, topic: 'Constitution & Fundamental Rights', subject: 'Polity', subjectBadgeColor: 'bg-amber-50 text-amber-700', avgScore: 42, attempts: 24500 },
-  { rank: 2, topic: 'Chemical Reactions', subject: 'General Science', subjectBadgeColor: 'bg-cyan-50 text-cyan-700', avgScore: 48, attempts: 19800 },
-  { rank: 3, topic: 'Percentage', subject: 'Math', subjectBadgeColor: 'bg-emerald-50 text-emerald-700', avgScore: 52, attempts: 31200 },
-  { rank: 4, topic: 'Medieval India', subject: 'History', subjectBadgeColor: 'bg-purple-50 text-purple-700', avgScore: 54, attempts: 22100 },
-  { rank: 5, topic: 'Blood Relations', subject: 'Reasoning', subjectBadgeColor: 'bg-indigo-50 text-indigo-700', avgScore: 56, attempts: 27800 },
-];
-
-const TOP_PERFORMING_TOPICS: TopicMetricItem[] = [
-  { rank: 1, topic: 'Forces and Motion', subject: 'General Science', subjectBadgeColor: 'bg-cyan-50 text-cyan-700', avgScore: 88, attempts: 28400 },
-  { rank: 2, topic: 'Indian Geography', subject: 'Geography', subjectBadgeColor: 'bg-emerald-50 text-emerald-700', avgScore: 86, attempts: 32100 },
-  { rank: 3, topic: 'Simplification', subject: 'Math', subjectBadgeColor: 'bg-amber-50 text-amber-700', avgScore: 84, attempts: 41200 },
-  { rank: 4, topic: 'Coding-Decoding', subject: 'Reasoning', subjectBadgeColor: 'bg-purple-50 text-purple-700', avgScore: 82, attempts: 35600 },
-  { rank: 5, topic: 'Modern India', subject: 'History', subjectBadgeColor: 'bg-rose-50 text-rose-700', avgScore: 80, attempts: 29400 },
-];
-
-const EXAM_PERFORMANCE: ExamMetricItem[] = [
-  { rank: 1, exam: 'WBP Constable', logo: '/images/exams/emblem_wbp_shield.png', students: 8240, testsAttempted: 214560, avgScore: 72 },
-  { rank: 2, exam: 'WBSSC Group C', logo: '/images/exams/emblem_wbpsc_coin.png', students: 2480, testsAttempted: 62430, avgScore: 64 },
-  { rank: 3, exam: 'WBSSC Group D', logo: '/images/exams/emblem_wbpsc.png', students: 1760, testsAttempted: 41890, avgScore: 58 },
-  { rank: 4, exam: 'ICDS', logo: '/images/exams/emblem_ssc_crest.png', students: 980, testsAttempted: 22680, avgScore: 62 },
-  { rank: 5, exam: 'Railway', logo: '/images/popular_exams/bg_wbpsc.png', students: 720, testsAttempted: 18240, avgScore: 66 },
-];
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export const AdminPerformance: React.FC = () => {
   const navigate = useNavigate();
+
+  // Live Database State
+  const [analyticsData, setAnalyticsData] = useState<PlatformAnalyticsData | null>(null);
+  const [examsList, setExamsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [overview, exams] = await Promise.all([
+          api.getPlatformAnalyticsOverview('this_month'),
+          api.getAllAdminExams(),
+        ]);
+        if (isMounted) {
+          setAnalyticsData(overview);
+          setExamsList(exams || []);
+        }
+      } catch (err) {
+        console.warn('Failed to load performance analytics:', err);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Date range modal
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
@@ -155,18 +99,97 @@ export const AdminPerformance: React.FC = () => {
   const [isTopTopicsModalOpen, setIsTopTopicsModalOpen] = useState(false);
   const [isExamPerformanceModalOpen, setIsExamPerformanceModalOpen] = useState(false);
 
+  // Computed live metrics
+  const totalStudents = analyticsData?.studentPerformance?.totalStudents ?? 0;
+  const testsAttempted = analyticsData?.studentPerformance?.testsAttempted ?? 0;
+  const questionsAnswered = analyticsData?.studentPerformance?.questionsAnswered ?? 0;
+  const overallAccuracy = analyticsData?.studentPerformance?.overallAccuracy ?? 0;
+
+  // Most wrong questions from live analytics
+  const wrongQuestions: WrongQuestionItem[] = useMemo(() => {
+    const raw = analyticsData?.questionInsights?.mostWrongQuestions || [];
+    const colors = [
+      'bg-blue-50 text-blue-700 border-blue-200',
+      'bg-cyan-50 text-cyan-700 border-cyan-200',
+      'bg-amber-50 text-amber-700 border-amber-200',
+      'bg-rose-50 text-rose-700 border-rose-200',
+      'bg-sky-50 text-sky-700 border-sky-200',
+    ];
+    return raw.slice(0, 5).map((q, idx) => ({
+      id: idx + 1,
+      questionText: q.questionText,
+      questionTextBn: q.questionBengaliText,
+      subject: q.subjectName,
+      subjectColor: colors[idx % colors.length],
+      wrongPercentage: Math.round(q.failureRate),
+      totalAttempts: q.totalAttempts,
+      correctOption: 'Option A',
+      explanation: 'Official explanation and solution rationale as recorded in the question bank.',
+    }));
+  }, [analyticsData]);
+
+  // Weakest topics from live analytics
+  const weakestTopics: TopicMetricItem[] = useMemo(() => {
+    const raw = analyticsData?.questionInsights?.weakestTopics || [];
+    const badgeColors = [
+      'bg-amber-50 text-amber-700',
+      'bg-cyan-50 text-cyan-700',
+      'bg-emerald-50 text-emerald-700',
+      'bg-purple-50 text-purple-700',
+      'bg-indigo-50 text-indigo-700',
+    ];
+    return raw.slice(0, 5).map((t, idx) => ({
+      rank: idx + 1,
+      topic: t.chapterName,
+      subject: t.subjectName,
+      subjectBadgeColor: badgeColors[idx % badgeColors.length],
+      avgScore: Math.round(t.accuracyRate),
+      attempts: t.totalQuestionsAttempted,
+    }));
+  }, [analyticsData]);
+
+  // Top performing topics from live analytics
+  const topPerformingTopics: TopicMetricItem[] = useMemo(() => {
+    const raw = [...(analyticsData?.questionInsights?.weakestTopics || [])].reverse();
+    const badgeColors = [
+      'bg-cyan-50 text-cyan-700',
+      'bg-emerald-50 text-emerald-700',
+      'bg-amber-50 text-amber-700',
+      'bg-purple-50 text-purple-700',
+      'bg-rose-50 text-rose-700',
+    ];
+    return raw.slice(0, 5).map((t, idx) => ({
+      rank: idx + 1,
+      topic: t.chapterName,
+      subject: t.subjectName,
+      subjectBadgeColor: badgeColors[idx % badgeColors.length],
+      avgScore: Math.round(t.accuracyRate),
+      attempts: t.totalQuestionsAttempted,
+    }));
+  }, [analyticsData]);
+
+  // Exam performance from live exams list
+  const examPerformance: ExamMetricItem[] = useMemo(() => {
+    return examsList.slice(0, 5).map((ex, idx) => ({
+      rank: idx + 1,
+      exam: ex.title || ex.name || 'Exam',
+      logo: ex.icon || '/images/exams/emblem_wbp_shield.png',
+      students: ex.totalStudents || 0,
+      testsAttempted: ex.testsAttempted || 0,
+      avgScore: ex.avgScore || 0,
+    }));
+  }, [examsList]);
+
   // Subject data with vertical bars
-  const subjectBars = useMemo(
-    () => [
-      { name: 'General Science', score: 82, color: 'bg-sky-500' },
-      { name: 'General Knowledge', score: 76, color: 'bg-emerald-500' },
-      { name: 'Math', score: 68, color: 'bg-amber-400' },
-      { name: 'Reasoning', score: 62, color: 'bg-purple-500' },
-      { name: 'English', score: 58, color: 'bg-pink-400' },
-      { name: 'Bengali', score: 54, color: 'bg-teal-500' },
-    ],
-    []
-  );
+  const subjectBars = useMemo(() => {
+    const subs = analyticsData?.questionInsights?.weakestSubjects || [];
+    const colors = ['bg-sky-500', 'bg-emerald-500', 'bg-amber-400', 'bg-purple-500', 'bg-pink-400', 'bg-teal-500'];
+    return subs.slice(0, 6).map((bar, idx) => ({
+      name: bar.subjectName,
+      score: Math.round(bar.accuracyRate),
+      color: colors[idx % colors.length],
+    }));
+  }, [analyticsData]);
 
   // Heatmap hourly data: 7 days x 24 hours
   const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -208,12 +231,14 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Total Students</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">12,480</span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 26%
-              </span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{totalStudents.toLocaleString()}</span>
+              {totalStudents > 0 && (
+                <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  Live
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">vs last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Registered Aspirants</p>
           </div>
         </div>
 
@@ -225,12 +250,14 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Tests Attempted</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">3,24,680</span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 32%
-              </span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{testsAttempted.toLocaleString()}</span>
+              {testsAttempted > 0 && (
+                <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  Live
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">vs last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">All Submissions</p>
           </div>
         </div>
 
@@ -242,12 +269,14 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Questions Answered</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">8,45,320</span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 28%
-              </span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{questionsAnswered.toLocaleString()}</span>
+              {questionsAnswered > 0 && (
+                <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  Live
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">vs last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Total Questions</p>
           </div>
         </div>
 
@@ -259,12 +288,14 @@ export const AdminPerformance: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Overall Accuracy</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">68%</span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 6%
-              </span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{overallAccuracy}%</span>
+              {overallAccuracy > 0 && (
+                <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  Live
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">vs last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Platform Average</p>
           </div>
         </div>
       </div>
@@ -489,36 +520,42 @@ export const AdminPerformance: React.FC = () => {
           </div>
 
           <div className="space-y-3 pt-2 text-xs">
-            {WRONG_QUESTIONS.map((q) => (
-              <div key={q.id} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span
-                    className={cn(
-                      'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0',
-                      q.id === 1 && 'bg-rose-100 text-rose-600',
-                      q.id === 2 && 'bg-blue-100 text-blue-600',
-                      q.id === 3 && 'bg-amber-100 text-amber-600',
-                      q.id > 3 && 'bg-slate-100 text-slate-600'
-                    )}
-                  >
-                    {q.id}
-                  </span>
-                  <p className="font-semibold text-slate-800 text-[11px] truncate">
-                    {q.questionTextBn || q.questionText}
-                  </p>
-                </div>
+            {wrongQuestions.length === 0 ? (
+              <div className="py-6 text-center text-slate-400 text-xs">
+                No frequently failed questions recorded yet.
+              </div>
+            ) : (
+              wrongQuestions.map((q) => (
+                <div key={q.id} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0',
+                        Number(q.id) === 1 && 'bg-rose-100 text-rose-600',
+                        Number(q.id) === 2 && 'bg-blue-100 text-blue-600',
+                        Number(q.id) === 3 && 'bg-amber-100 text-amber-600',
+                        Number(q.id) > 3 && 'bg-slate-100 text-slate-600'
+                      )}
+                    >
+                      {q.id}
+                    </span>
+                    <p className="font-semibold text-slate-800 text-[11px] truncate">
+                      {q.questionTextBn || q.questionText}
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded border', q.subjectColor)}>
-                    {q.subject}
-                  </span>
-                  <div className="text-right leading-none">
-                    <p className="text-[10px] font-black text-rose-600">{q.wrongPercentage}%</p>
-                    <p className="text-[8px] text-rose-400">wrong</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded border', q.subjectColor)}>
+                      {q.subject}
+                    </span>
+                    <div className="text-right leading-none">
+                      <p className="text-[10px] font-black text-rose-600">{q.wrongPercentage}%</p>
+                      <p className="text-[8px] text-rose-400">wrong</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -545,22 +582,30 @@ export const AdminPerformance: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {WEAKEST_TOPICS.map((t) => (
-                  <tr key={t.rank} className="text-[11px]">
-                    <td className="py-2 font-bold text-slate-500">{t.rank}</td>
-                    <td className="py-2 font-semibold text-slate-800 truncate max-w-[140px]">
-                      {t.topic}
-                    </td>
-                    <td className="py-2">
-                      <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
-                        {t.subject}
-                      </span>
-                    </td>
-                    <td className="py-2 text-right font-black text-rose-600">
-                      {t.avgScore}%
+                {weakestTopics.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                      No weak topic metrics recorded yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  weakestTopics.map((t) => (
+                    <tr key={t.rank} className="text-[11px]">
+                      <td className="py-2 font-bold text-slate-500">{t.rank}</td>
+                      <td className="py-2 font-semibold text-slate-800 truncate max-w-[140px]">
+                        {t.topic}
+                      </td>
+                      <td className="py-2">
+                        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
+                          {t.subject}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right font-black text-rose-600">
+                        {t.avgScore}%
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -589,22 +634,30 @@ export const AdminPerformance: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {TOP_PERFORMING_TOPICS.map((t) => (
-                  <tr key={t.rank} className="text-[11px]">
-                    <td className="py-2 font-bold text-slate-500">{t.rank}</td>
-                    <td className="py-2 font-semibold text-slate-800 truncate max-w-[140px]">
-                      {t.topic}
-                    </td>
-                    <td className="py-2">
-                      <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
-                        {t.subject}
-                      </span>
-                    </td>
-                    <td className="py-2 text-right font-black text-emerald-600">
-                      {t.avgScore}%
+                {topPerformingTopics.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                      No top performing topics recorded yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  topPerformingTopics.map((t) => (
+                    <tr key={t.rank} className="text-[11px]">
+                      <td className="py-2 font-bold text-slate-500">{t.rank}</td>
+                      <td className="py-2 font-semibold text-slate-800 truncate max-w-[140px]">
+                        {t.topic}
+                      </td>
+                      <td className="py-2">
+                        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t.subjectBadgeColor)}>
+                          {t.subject}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right font-black text-emerald-600">
+                        {t.avgScore}%
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -639,44 +692,52 @@ export const AdminPerformance: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {EXAM_PERFORMANCE.map((ex) => (
-                  <tr key={ex.rank} className="text-[11px]">
-                    <td className="py-2 font-bold text-slate-500">{ex.rank}</td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-1.5">
-                        <img
-                          src={ex.logo}
-                          alt={ex.exam}
-                          className="w-4 h-4 rounded-full object-contain shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <span className="font-bold text-slate-800 truncate max-w-[90px]">{ex.exam}</span>
-                      </div>
-                    </td>
-                    <td className="py-2 text-center font-semibold text-slate-600">
-                      {ex.students.toLocaleString()}
-                    </td>
-                    <td className="py-2 text-center font-semibold text-slate-600">
-                      {ex.testsAttempted.toLocaleString()}
-                    </td>
-                    <td className="py-2 text-right">
-                      <span
-                        className={cn(
-                          'text-[10px] font-bold px-1.5 py-0.5 rounded',
-                          ex.avgScore >= 70
-                            ? 'bg-[#DCFCE7] text-[#16A34A]'
-                            : ex.avgScore >= 60
-                            ? 'bg-[#FEF3C7] text-[#D97706]'
-                            : 'bg-[#FFEDD5] text-[#EA580C]'
-                        )}
-                      >
-                        {ex.avgScore}%
-                      </span>
+                {examPerformance.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                      No exam metrics available yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  examPerformance.map((ex) => (
+                    <tr key={ex.rank} className="text-[11px]">
+                      <td className="py-2 font-bold text-slate-500">{ex.rank}</td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-1.5">
+                          <img
+                            src={ex.logo}
+                            alt={ex.exam}
+                            className="w-4 h-4 rounded-full object-contain shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <span className="font-bold text-slate-800 truncate max-w-[90px]">{ex.exam}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 text-center font-semibold text-slate-600">
+                        {ex.students.toLocaleString()}
+                      </td>
+                      <td className="py-2 text-center font-semibold text-slate-600">
+                        {ex.testsAttempted.toLocaleString()}
+                      </td>
+                      <td className="py-2 text-right">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-1.5 py-0.5 rounded',
+                            ex.avgScore >= 70
+                              ? 'bg-[#DCFCE7] text-[#16A34A]'
+                              : ex.avgScore >= 60
+                              ? 'bg-[#FEF3C7] text-[#D97706]'
+                              : 'bg-[#FFEDD5] text-[#EA580C]'
+                          )}
+                        >
+                          {ex.avgScore}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -780,7 +841,7 @@ export const AdminPerformance: React.FC = () => {
 
               {/* Donut Center */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-xs font-black text-slate-900 leading-tight">12,480</span>
+                <span className="text-xs font-black text-slate-900 leading-tight">{totalStudents.toLocaleString()}</span>
                 <span className="text-[9px] text-slate-400 font-medium">Students</span>
               </div>
             </div>
@@ -904,33 +965,39 @@ export const AdminPerformance: React.FC = () => {
             </div>
 
             <div className="p-5 overflow-y-auto space-y-4 text-xs">
-              {WRONG_QUESTIONS.map((q) => (
-                <div key={q.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        Question #{q.id} • {q.subject}
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-sm mt-0.5">{q.questionText}</h4>
-                      {q.questionTextBn && (
-                        <p className="text-xs text-slate-600 mt-0.5">{q.questionTextBn}</p>
-                      )}
-                    </div>
-                    <span className="bg-rose-100 text-rose-800 text-xs font-black px-2 py-0.5 rounded-full shrink-0">
-                      {q.wrongPercentage}% Failed
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900">
-                    <span className="font-bold">Correct Answer:</span> {q.correctOption}
-                  </div>
-
-                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-700">
-                    <span className="font-bold block text-slate-900 mb-0.5">Explanation:</span>
-                    <p>{q.explanation}</p>
-                  </div>
+              {wrongQuestions.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No frequently failed questions recorded yet.
                 </div>
-              ))}
+              ) : (
+                wrongQuestions.map((q) => (
+                  <div key={q.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          Question #{q.id} • {q.subject}
+                        </span>
+                        <h4 className="font-bold text-slate-900 text-sm mt-0.5">{q.questionText}</h4>
+                        {q.questionTextBn && (
+                          <p className="text-xs text-slate-600 mt-0.5">{q.questionTextBn}</p>
+                        )}
+                      </div>
+                      <span className="bg-rose-100 text-rose-800 text-xs font-black px-2 py-0.5 rounded-full shrink-0">
+                        {q.wrongPercentage}% Failed
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900">
+                      <span className="font-bold">Correct Answer:</span> {q.correctOption}
+                    </div>
+
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-700">
+                      <span className="font-bold block text-slate-900 mb-0.5">Explanation:</span>
+                      <p>{q.explanation}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
@@ -962,17 +1029,23 @@ export const AdminPerformance: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              {WEAKEST_TOPICS.map((t) => (
-                <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
-                    <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
-                  </div>
-                  <span className="bg-rose-100 text-rose-800 font-black text-xs px-2 py-0.5 rounded">
-                    {t.avgScore}% Avg
-                  </span>
+              {weakestTopics.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No weak topic metrics recorded yet.
                 </div>
-              ))}
+              ) : (
+                weakestTopics.map((t) => (
+                  <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
+                      <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
+                    </div>
+                    <span className="bg-rose-100 text-rose-800 font-black text-xs px-2 py-0.5 rounded">
+                      {t.avgScore}% Avg
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="flex justify-end pt-2">
@@ -1004,17 +1077,23 @@ export const AdminPerformance: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              {TOP_PERFORMING_TOPICS.map((t) => (
-                <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
-                    <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
-                  </div>
-                  <span className="bg-emerald-100 text-emerald-800 font-black text-xs px-2 py-0.5 rounded">
-                    {t.avgScore}% Avg
-                  </span>
+              {topPerformingTopics.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No top performing topics recorded yet.
                 </div>
-              ))}
+              ) : (
+                topPerformingTopics.map((t) => (
+                  <div key={t.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-slate-900 text-xs">{t.topic}</p>
+                      <p className="text-[10px] text-slate-500">{t.subject} • {t.attempts.toLocaleString()} Attempts</p>
+                    </div>
+                    <span className="bg-emerald-100 text-emerald-800 font-black text-xs px-2 py-0.5 rounded">
+                      {t.avgScore}% Avg
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="flex justify-end pt-2">
@@ -1049,22 +1128,28 @@ export const AdminPerformance: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              {EXAM_PERFORMANCE.map((ex) => (
-                <div key={ex.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <img src={ex.logo} alt={ex.exam} className="w-6 h-6 object-contain" />
-                    <div>
-                      <p className="font-bold text-slate-900 text-xs">{ex.exam}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {ex.students.toLocaleString()} Students • {ex.testsAttempted.toLocaleString()} Attempts
-                      </p>
-                    </div>
-                  </div>
-                  <span className="bg-emerald-100 text-emerald-800 font-black text-xs px-2 py-0.5 rounded">
-                    {ex.avgScore}% Avg
-                  </span>
+              {examPerformance.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No exams found.
                 </div>
-              ))}
+              ) : (
+                examPerformance.map((ex) => (
+                  <div key={ex.rank} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img src={ex.logo} alt={ex.exam} className="w-6 h-6 object-contain" />
+                      <div>
+                        <p className="font-bold text-slate-900 text-xs">{ex.exam}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {ex.students.toLocaleString()} Students • {ex.testsAttempted.toLocaleString()} Attempts
+                        </p>
+                      </div>
+                    </div>
+                    <span className="bg-emerald-100 text-emerald-800 font-black text-xs px-2 py-0.5 rounded">
+                      {ex.avgScore}% Avg
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="flex justify-between items-center pt-2">

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -353,6 +354,7 @@ const ExamLogoEmblem: React.FC<{ examName: string }> = ({ examName }) => {
 export const AdminCutoff: React.FC = () => {
   // Local storage persisted cutoffs list
   const [cutoffsList, setCutoffsList] = useState<CutoffItem[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_cutoffs_v2');
       if (stored) {
@@ -376,7 +378,14 @@ export const AdminCutoff: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     api.getCutoffRecords().then((records) => {
-      if (!isMounted || !records || records.length === 0) return;
+      if (!isMounted) return;
+      if (!records || records.length === 0) {
+        if (isSupabaseConfigured) {
+          setCutoffsList([]);
+          setSelectedRowId('');
+        }
+        return;
+      }
       const mapped: CutoffItem[] = records.map((r) => {
         let badgeClass = 'bg-[#DBEAFE] text-[#1E40AF]';
         const cat = String(r.category);
@@ -406,6 +415,10 @@ export const AdminCutoff: React.FC = () => {
       }
     }).catch((err) => {
       console.warn('Failed to load cutoff records from database:', err);
+      if (isSupabaseConfigured) {
+        setCutoffsList([]);
+        setSelectedRowId('');
+      }
     });
     return () => { isMounted = false; };
   }, []);
@@ -422,8 +435,10 @@ export const AdminCutoff: React.FC = () => {
     stage: 'Final Merit',
   });
 
-  // Selected Row state (Row 1 selected by default with soft blue highlight matching screenshot)
-  const [selectedRowId, setSelectedRowId] = useState<number | string>(1);
+  // Selected Row state
+  const [selectedRowId, setSelectedRowId] = useState<number | string>(() =>
+    isSupabaseConfigured ? '' : 1
+  );
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -746,7 +761,9 @@ export const AdminCutoff: React.FC = () => {
           </div>
           <div className="min-w-0">
             <span className="text-[11px] font-medium text-slate-500 block">Total Exams</span>
-            <div className="text-2xl font-bold text-slate-900 leading-tight">24</div>
+            <div className="text-2xl font-bold text-slate-900 leading-tight">
+              {new Set(cutoffsList.map((c) => c.exam)).size}
+            </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">with cutoff data</span>
           </div>
         </div>
@@ -758,8 +775,14 @@ export const AdminCutoff: React.FC = () => {
           </div>
           <div className="min-w-0">
             <span className="text-[11px] font-medium text-slate-500 block">Total Years</span>
-            <div className="text-2xl font-bold text-slate-900 leading-tight">5</div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">2021 – 2025</span>
+            <div className="text-2xl font-bold text-slate-900 leading-tight">
+              {new Set(cutoffsList.map((c) => c.year)).size}
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              {cutoffsList.length > 0
+                ? `${Math.min(...cutoffsList.map((c) => c.year))} – ${Math.max(...cutoffsList.map((c) => c.year))}`
+                : '—'}
+            </span>
           </div>
         </div>
 
@@ -770,7 +793,9 @@ export const AdminCutoff: React.FC = () => {
           </div>
           <div className="min-w-0">
             <span className="text-[11px] font-medium text-slate-500 block">Total Categories</span>
-            <div className="text-2xl font-bold text-slate-900 leading-tight">6</div>
+            <div className="text-2xl font-bold text-slate-900 leading-tight">
+              {new Set(cutoffsList.map((c) => c.category)).size}
+            </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">General, OBC, SC, ST, EWS, Others</span>
           </div>
         </div>
@@ -782,8 +807,12 @@ export const AdminCutoff: React.FC = () => {
           </div>
           <div className="min-w-0">
             <span className="text-[11px] font-medium text-slate-500 block">Latest Cutoff Added</span>
-            <div className="text-base font-bold text-slate-900 leading-tight truncate">WBP Constable 2024</div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">Added 12 Aug 2026</span>
+            <div className="text-base font-bold text-slate-900 leading-tight truncate">
+              {cutoffsList.length > 0 ? `${cutoffsList[0].exam} ${cutoffsList[0].year}` : '—'}
+            </div>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              {cutoffsList.length > 0 ? `Added ${cutoffsList[0].addedOn}` : 'No cutoff recorded'}
+            </span>
           </div>
         </div>
       </div>
@@ -916,9 +945,18 @@ export const AdminCutoff: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredRows.slice(0, 8).map((row, idx) => {
-                    const isSelected = selectedRowId === row.id;
-                    return (
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
+                        No cutoff records found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows
+                      .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                      .map((row, idx) => {
+                        const isSelected = selectedRowId === row.id;
+                        return (
                       <tr
                         key={row.id}
                         onClick={() => setSelectedRowId(row.id)}
@@ -1034,7 +1072,8 @@ export const AdminCutoff: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>
@@ -1042,7 +1081,8 @@ export const AdminCutoff: React.FC = () => {
             {/* Table Footer & Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing 1–{Math.min(filteredRows.length, 8)} of 48 records
+                Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
+                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length} records
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1134,35 +1174,43 @@ export const AdminCutoff: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {RECENT_UPDATES.map((item, idx) => (
-                    <tr
-                      key={item.id}
-                      onClick={() => {
-                        setFilterExam(item.exam);
-                        setFilterYear(String(item.year));
-                        setAppliedFilters((prev) => ({
-                          ...prev,
-                          exam: item.exam,
-                          year: String(item.year),
-                        }));
-                      }}
-                      className="hover:bg-slate-50/60 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3 px-3 text-center text-slate-500 font-normal">
-                        {idx + 1}
+                  {cutoffsList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                        No recent cutoff updates recorded
                       </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <ExamLogoEmblem examName={item.exam} />
-                          <span className="font-semibold text-slate-800">{item.exam}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 font-normal">{item.year}</td>
-                      <td className="py-3 px-3 text-slate-600 font-normal">{item.stage}</td>
-                      <td className="py-3 px-3 text-slate-600 font-normal">{item.addedOn}</td>
-                      <td className="py-3 px-3 text-slate-600 font-normal">{item.addedBy}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    cutoffsList.slice(0, 5).map((item, idx) => (
+                      <tr
+                        key={item.id}
+                        onClick={() => {
+                          setFilterExam(item.exam);
+                          setFilterYear(String(item.year));
+                          setAppliedFilters((prev) => ({
+                            ...prev,
+                            exam: item.exam,
+                            year: String(item.year),
+                          }));
+                        }}
+                        className="hover:bg-slate-50/60 transition-colors cursor-pointer"
+                      >
+                        <td className="py-3 px-3 text-center text-slate-500 font-normal">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <ExamLogoEmblem examName={item.exam} />
+                            <span className="font-semibold text-slate-800">{item.exam}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-normal">{item.year}</td>
+                        <td className="py-3 px-3 text-slate-600 font-normal">{item.stage}</td>
+                        <td className="py-3 px-3 text-slate-600 font-normal">{item.addedOn}</td>
+                        <td className="py-3 px-3 text-slate-600 font-normal">{item.addedBy}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

@@ -38,6 +38,7 @@ import type {
 } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { PopularTestSeriesEditModal } from '@/pages/admin/PopularTestSeriesEditModal';
 import {
   DEFAULT_POPULAR_TEST_SERIES,
@@ -178,7 +179,9 @@ const DEFAULT_WBP_SERIES_TESTS: MockTest[] = [
 ];
 
 export const AdminTestSeries: React.FC = () => {
-  const [seriesList, setSeriesList] = useState<TestSeries[]>(DEFAULT_SHOWCASE_SERIES);
+  const [seriesList, setSeriesList] = useState<TestSeries[]>(() =>
+    isSupabaseConfigured ? [] : DEFAULT_SHOWCASE_SERIES
+  );
   const [exams, setExams] = useState<Exam[]>([]);
   const [allAvailableTests, setAllAvailableTests] = useState<MockTest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,26 +196,32 @@ export const AdminTestSeries: React.FC = () => {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
   // Active / Opened Test Series in Right Details Drawer (Defaults to first row)
-  const [activeSeries, setActiveSeries] = useState<TestSeries | null>(DEFAULT_SHOWCASE_SERIES[0]);
+  const [activeSeries, setActiveSeries] = useState<TestSeries | null>(() =>
+    isSupabaseConfigured ? null : DEFAULT_SHOWCASE_SERIES[0]
+  );
   const [drawerTab, setDrawerTab] = useState<'overview' | 'tests' | 'settings' | 'analytics'>('overview');
-  const [activeSeriesTests, setActiveSeriesTests] = useState<MockTest[]>(DEFAULT_WBP_SERIES_TESTS);
+  const [activeSeriesTests, setActiveSeriesTests] = useState<MockTest[]>(() =>
+    isSupabaseConfigured ? [] : DEFAULT_WBP_SERIES_TESTS
+  );
   const [isLoadingDrawerTests, setIsLoadingDrawerTests] = useState(false);
 
   // Drawer Inline Edit Description State
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [drawerDescriptionText, setDrawerDescriptionText] = useState(DEFAULT_SHOWCASE_SERIES[0].description || '');
+  const [drawerDescriptionText, setDrawerDescriptionText] = useState(
+    isSupabaseConfigured ? '' : (DEFAULT_SHOWCASE_SERIES[0]?.description || '')
+  );
 
   // Drawer Settings State
   const [drawerSettingsForm, setDrawerSettingsForm] = useState({
-    title: DEFAULT_SHOWCASE_SERIES[0].title,
-    subtitle: DEFAULT_SHOWCASE_SERIES[0].subtitle || '',
-    examId: DEFAULT_SHOWCASE_SERIES[0].examId,
+    title: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.title || '',
+    subtitle: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.subtitle || '',
+    examId: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.examId || '',
     isPremium: false,
     isActive: true,
     orderIndex: 1,
     status: 'published' as TestSeriesStatus,
-    description: DEFAULT_SHOWCASE_SERIES[0].description || '',
-    iconUrl: DEFAULT_SHOWCASE_SERIES[0].iconUrl || '/images/exams/logo_wbp.png',
+    description: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.description || '',
+    iconUrl: isSupabaseConfigured ? '/images/exams/logo_wbp.png' : DEFAULT_SHOWCASE_SERIES[0]?.iconUrl || '/images/exams/logo_wbp.png',
     bannerUrl: '',
   });
 
@@ -303,7 +312,7 @@ export const AdminTestSeries: React.FC = () => {
         api.getAllAdminExams().catch(() => []),
         api.getTestSeries().catch(() => []),
         api.getAllAdminTests().catch(() => []),
-        api.getPopularTestSeriesCards().catch(() => DEFAULT_POPULAR_TEST_SERIES),
+        api.getPopularTestSeriesCards().catch(() => (isSupabaseConfigured ? [] : DEFAULT_POPULAR_TEST_SERIES)),
       ]);
 
       if (allExams && allExams.length > 0) setExams(allExams);
@@ -317,6 +326,9 @@ export const AdminTestSeries: React.FC = () => {
           const matched = allSeries.find((s) => s.id === prev.id);
           return matched || allSeries[0];
         });
+      } else if (isSupabaseConfigured) {
+        setSeriesList([]);
+        setActiveSeries(null);
       }
     } catch (err) {
       console.warn('Backend load note:', err);
@@ -369,6 +381,8 @@ export const AdminTestSeries: React.FC = () => {
         const tests = await api.getSeriesTests(activeSeries.id);
         if (tests && tests.length > 0) {
           setActiveSeriesTests(tests);
+        } else if (isSupabaseConfigured) {
+          setActiveSeriesTests([]);
         } else if (activeSeries.id === 'wbp-prelims-2025') {
           setActiveSeriesTests(DEFAULT_WBP_SERIES_TESTS);
         } else {
@@ -439,7 +453,7 @@ export const AdminTestSeries: React.FC = () => {
         }
       } catch (err) {
         console.warn('Could not load series tests:', err);
-        setActiveSeriesTests(DEFAULT_WBP_SERIES_TESTS);
+        setActiveSeriesTests(isSupabaseConfigured ? [] : DEFAULT_WBP_SERIES_TESTS);
       } finally {
         setIsLoadingDrawerTests(false);
       }
@@ -2511,28 +2525,28 @@ export const AdminTestSeries: React.FC = () => {
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Total Attempts</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                      {((activeSeries.enrollmentCount || 1240) * 3.4).toFixed(0)}
+                      {activeSeries.enrollmentCount ? Math.round(activeSeries.enrollmentCount * 2.5) : 0}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Unique Students</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                      {(activeSeries.enrollmentCount || 1240).toLocaleString('en-IN')}
+                      {(activeSeries.enrollmentCount || 0).toLocaleString('en-IN')}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Average Score</p>
                     <p className="text-lg font-black text-blue-600 mt-0.5">
-                      {((activeSeries.avgAccuracy || 82) * 0.85).toFixed(1)} / 100
+                      {activeSeries.avgAccuracy ? `${(activeSeries.avgAccuracy * 0.85).toFixed(1)} / 100` : '—'}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Completion Rate</p>
                     <p className="text-lg font-black text-emerald-600 mt-0.5">
-                      {activeSeries.avgCompletion || 78}%
+                      {activeSeries.avgCompletion ? `${activeSeries.avgCompletion}%` : '—'}
                     </p>
                   </div>
                 </div>
@@ -2542,7 +2556,7 @@ export const AdminTestSeries: React.FC = () => {
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                     <span>Most Attempted Test:</span>
                     <span className="font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
-                      {activeSeries.title} Full Mock 1
+                      {activeSeriesTests.length > 0 ? activeSeriesTests[0].title : '—'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">

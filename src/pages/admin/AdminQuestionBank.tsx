@@ -28,6 +28,7 @@ import {
 import type { Question, Exam, Subject, Chapter } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export type UploadMode = 'exam' | 'subject';
 export type QuestionBankStatus = 'published' | 'draft' | 'under_review' | 'archived';
@@ -617,7 +618,9 @@ const INITIAL_DEMO_QUESTIONS: Question[] = [
 
 export const AdminQuestionBank: React.FC = () => {
   // Master Taxonomy & State
-  const [questions, setQuestions] = useState<Question[]>(INITIAL_DEMO_QUESTIONS);
+  const [questions, setQuestions] = useState<Question[]>(
+    isSupabaseConfigured ? [] : INITIAL_DEMO_QUESTIONS
+  );
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Chapter[]>([]);
@@ -641,17 +644,25 @@ export const AdminQuestionBank: React.FC = () => {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
   // Active / Opened Question in Right Drawer (Defaults to row 10421 matching reference image)
-  const [activeQuestion, setActiveQuestion] = useState<Question | null>(INITIAL_DEMO_QUESTIONS[0]);
+  const [activeQuestion, setActiveQuestion] = useState<Question | null>(
+    isSupabaseConfigured ? null : INITIAL_DEMO_QUESTIONS[0]
+  );
   const [drawerTab, setDrawerTab] = useState<'details' | 'explanation' | 'short_notes' | 'history'>('details');
 
   // Drawer Edit Form States
-  const [drawerBengaliText, setDrawerBengaliText] = useState(INITIAL_DEMO_QUESTIONS[0].questionBengaliText || '');
-  const [drawerOptions, setDrawerOptions] = useState<{ [key: string]: string }>({
-    A: INITIAL_DEMO_QUESTIONS[0].optionA,
-    B: INITIAL_DEMO_QUESTIONS[0].optionB,
-    C: INITIAL_DEMO_QUESTIONS[0].optionC,
-    D: INITIAL_DEMO_QUESTIONS[0].optionD,
-  });
+  const [drawerBengaliText, setDrawerBengaliText] = useState(
+    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].questionBengaliText || '')
+  );
+  const [drawerOptions, setDrawerOptions] = useState<{ [key: string]: string }>(
+    isSupabaseConfigured
+      ? { A: '', B: '', C: '', D: '' }
+      : {
+          A: INITIAL_DEMO_QUESTIONS[0].optionA,
+          B: INITIAL_DEMO_QUESTIONS[0].optionB,
+          C: INITIAL_DEMO_QUESTIONS[0].optionC,
+          D: INITIAL_DEMO_QUESTIONS[0].optionD,
+        }
+  );
   const [drawerCorrectOption, setDrawerCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [drawerUploadMode, setDrawerUploadMode] = useState<UploadMode>('exam');
   const [drawerExam, setDrawerExam] = useState('WBP Constable');
@@ -661,13 +672,19 @@ export const AdminQuestionBank: React.FC = () => {
   const [drawerYear, setDrawerYear] = useState<number | string>(2025);
   const [drawerSource, setDrawerSource] = useState('Official PYQ');
   const [drawerStatus, setDrawerStatus] = useState<QuestionBankStatus>('published');
-  const [drawerTags, setDrawerTags] = useState<string[]>(['WBP', 'Modern India', 'Governor General']);
+  const [drawerTags, setDrawerTags] = useState<string[]>(
+    isSupabaseConfigured ? [] : ['WBP', 'Modern India', 'Governor General']
+  );
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdatingDrawer, setIsUpdatingDrawer] = useState(false);
 
   // Drawer Explanation / Notes Edit States
-  const [editExplanation, setEditExplanation] = useState(INITIAL_DEMO_QUESTIONS[0].explanationBengali || '');
-  const [editShortNotes, setEditShortNotes] = useState(INITIAL_DEMO_QUESTIONS[0].shortNotes || '');
+  const [editExplanation, setEditExplanation] = useState(
+    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].explanationBengali || '')
+  );
+  const [editShortNotes, setEditShortNotes] = useState(
+    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].shortNotes || '')
+  );
 
   // Floating Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -758,14 +775,23 @@ export const AdminQuestionBank: React.FC = () => {
       if (allSubjects && allSubjects.length > 0) setSubjects(allSubjects);
       if (allChapters && allChapters.length > 0) setTopics(allChapters);
 
-      if (allQuestions && allQuestions.length > 0) {
-        // Merge without losing initial demo questions
-        const existingIds = new Set(INITIAL_DEMO_QUESTIONS.map((dq) => dq.id));
-        const merged = [
-          ...INITIAL_DEMO_QUESTIONS,
-          ...allQuestions.filter((q) => !existingIds.has(q.id)),
-        ];
-        setQuestions(merged);
+      if (isSupabaseConfigured) {
+        setQuestions(allQuestions || []);
+        if (allQuestions && allQuestions.length > 0) {
+          setActiveQuestion(allQuestions[0]);
+        } else {
+          setActiveQuestion(null);
+        }
+      } else {
+        if (allQuestions && allQuestions.length > 0) {
+          // Merge without losing initial demo questions
+          const existingIds = new Set(INITIAL_DEMO_QUESTIONS.map((dq) => dq.id));
+          const merged = [
+            ...INITIAL_DEMO_QUESTIONS,
+            ...allQuestions.filter((q) => !existingIds.has(q.id)),
+          ];
+          setQuestions(merged);
+        }
       }
     } catch (err) {
       console.warn('Backend load note:', err);
@@ -911,8 +937,32 @@ export const AdminQuestionBank: React.FC = () => {
     selectedSourceFilter,
   ]);
 
-  // Statistics calculation grounded to reference numbers
+  // Statistics calculation grounded to database numbers
   const stats = useMemo(() => {
+    if (isSupabaseConfigured) {
+      const total = questions.length;
+      const examQuestions = questions.filter(
+        (q) => q.uploadMode === 'exam' || Boolean(q.sourceExam)
+      ).length;
+      const subjectQuestions = questions.filter(
+        (q) => q.uploadMode === 'subject' || (!q.sourceExam && Boolean(q.subjectId || q.subjectName))
+      ).length;
+      const published = questions.filter(
+        (q) => (q.status || 'published') === 'published'
+      ).length;
+      const draft = questions.filter((q) => q.status === 'draft').length;
+      const underReview = questions.filter(
+        (q) => (q.status as string) === 'under_review' || (q.status as string) === 'review'
+      ).length;
+      return {
+        total,
+        examQuestions,
+        subjectQuestions,
+        published,
+        draft,
+        underReview,
+      };
+    }
     return {
       total: 12430,
       examQuestions: 7250,
@@ -921,7 +971,7 @@ export const AdminQuestionBank: React.FC = () => {
       draft: 320,
       underReview: 450,
     };
-  }, []);
+  }, [questions]);
 
   // Paginated List
   const totalPages = Math.ceil(filteredQuestions.length / pageSize) || 1;
@@ -2210,12 +2260,12 @@ export const AdminQuestionBank: React.FC = () => {
 
                           {/* Exam / Subject */}
                           <td className="py-3 px-3 text-slate-700">
-                            {isExamMode ? q.sourceExam || 'WBP Constable' : q.subjectName || 'General Science'}
+                            {isExamMode ? q.sourceExam || '—' : q.subjectName || '—'}
                           </td>
 
                           {/* Topic */}
                           <td className="py-3 px-3 text-slate-600">
-                            {q.topicName || q.chapterName || 'Modern India'}
+                            {q.topicName || q.chapterName || '—'}
                           </td>
 
                           {/* Type Badge */}

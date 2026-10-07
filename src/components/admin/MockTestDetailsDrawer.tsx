@@ -228,15 +228,15 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
   };
 
   // Metrics calculation
-  const totalAttemptsCount = attempts.length > 0 ? attempts.length : 1420;
+  const totalAttemptsCount = attempts.length;
   const avgScore =
     attempts.length > 0
       ? (attempts.reduce((sum, a) => sum + (a.score || 0), 0) / attempts.length).toFixed(1)
-      : '64.5';
+      : '0.0';
   const highestScore =
     attempts.length > 0
       ? Math.max(...attempts.map((a) => a.score || 0)).toFixed(1)
-      : '92.0';
+      : '0.0';
   const passRate =
     attempts.length > 0
       ? Math.round(
@@ -244,7 +244,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
             attempts.length) *
             100
         )
-      : 88;
+      : 0;
 
   // Type badge colors
   const getTypeBadge = (type: string) => {

@@ -56,7 +56,7 @@ export interface RankingStudent {
 }
 
 // Initial seeded student rankings matching exact reference screenshot media_1791199684215.jpg
-const INITIAL_STUDENTS: RankingStudent[] = [
+export const INITIAL_STUDENTS: RankingStudent[] = [
   {
     rank: 1,
     studentId: 'PK100312',
@@ -321,21 +321,24 @@ export const AdminRankings: React.FC = () => {
   const [timePeriod, setTimePeriod] = useState('All Time');
 
   // Live rankings list loaded from Supabase leaderboard
-  const [studentsList, setStudentsList] = useState<RankingStudent[]>(INITIAL_STUDENTS);
+  const [studentsList, setStudentsList] = useState<RankingStudent[]>([]);
 
   useEffect(() => {
     let isMounted = true;
     api.getAppLeaderboard('west_bengal').then((leaderboard) => {
-      if (!isMounted || !leaderboard || leaderboard.length === 0) return;
+      if (!isMounted) return;
+      if (!leaderboard || leaderboard.length === 0) {
+        setStudentsList([]);
+        return;
+      }
       const mapped: RankingStudent[] = leaderboard.map((row, index) => {
-        const initial = INITIAL_STUDENTS[index];
         return {
           rank: row.rank || index + 1,
           studentId: `PK${100000 + (row.rank || index + 1) * 37}`,
           name: row.display_name || 'Aspirant',
           district: row.district || 'West Bengal',
           location: row.district ? `${row.district}, West Bengal` : 'West Bengal',
-          avatar: initial?.avatar,
+          avatar: (row as any).avatar_url,
           initials: row.display_name ? row.display_name.slice(0, 2).toUpperCase() : 'ST',
           initialsBg: 'bg-emerald-100 text-emerald-600 border border-emerald-200',
           testsAttempted: row.tests_count || 1,
@@ -343,16 +346,19 @@ export const AdminRankings: React.FC = () => {
           accuracy: Math.round(row.average_percentage || 80),
           avgScore: Math.round(row.average_percentage || 80),
           lastActive: 'Active today',
-          subjectPerformance: initial?.subjectPerformance || [
+          subjectPerformance: [
             { subject: 'General Knowledge', scorePercent: Math.round(row.average_percentage || 80), barColor: 'bg-blue-600' },
             { subject: 'Mathematics', scorePercent: Math.round((row.average_percentage || 80) * 0.95), barColor: 'bg-cyan-500' },
           ],
-          recentAttempts: initial?.recentAttempts || [
+          recentAttempts: [
             { title: 'Full Mock Test 1', scorePercent: Math.round(row.average_percentage || 80), timeAgo: 'Today', iconBg: 'bg-blue-100 text-blue-600' },
           ],
         };
       });
       setStudentsList(mapped);
+      if (mapped.length > 0) {
+        setSelectedStudentRank(mapped[0].rank);
+      }
     }).catch((err) => {
       console.warn('Failed to load leaderboard from database:', err);
     });
@@ -366,6 +372,27 @@ export const AdminRankings: React.FC = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Dynamic KPI computations
+  const totalStudentsCount = studentsList.length;
+  const activeTestTakersCount = useMemo(() => {
+    return studentsList.filter((s) => s.testsAttempted > 0).length;
+  }, [studentsList]);
+  const topRankScore = useMemo(() => {
+    if (studentsList.length === 0) return 0;
+    return Math.max(...studentsList.map((s) => s.accuracy || 0));
+  }, [studentsList]);
+
+  // Top 3 Podium Students
+  const top1Student = useMemo(() => {
+    return studentsList.find((s) => s.rank === 1) || (studentsList.length > 0 ? studentsList[0] : null);
+  }, [studentsList]);
+  const top2Student = useMemo(() => {
+    return studentsList.find((s) => s.rank === 2) || (studentsList.length > 1 ? studentsList[1] : null);
+  }, [studentsList]);
+  const top3Student = useMemo(() => {
+    return studentsList.find((s) => s.rank === 3) || (studentsList.length > 2 ? studentsList[2] : null);
+  }, [studentsList]);
 
   // Row Action Dropdown Popover
   const [openActionRank, setOpenActionRank] = useState<number | null>(null);
@@ -381,8 +408,7 @@ export const AdminRankings: React.FC = () => {
   const activeStudent = useMemo(() => {
     return (
       studentsList.find((s) => s.rank === selectedStudentRank) ||
-      studentsList[0] ||
-      INITIAL_STUDENTS[0]
+      (studentsList.length > 0 ? studentsList[0] : null)
     );
   }, [studentsList, selectedStudentRank]);
 
@@ -495,12 +521,14 @@ export const AdminRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Total Students</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">12,480</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {totalStudentsCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 26%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">vs last month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Total enrolled aspirants</p>
           </div>
         </div>
 
@@ -512,11 +540,14 @@ export const AdminRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Active Test Takers</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">8,640</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {activeTestTakersCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 18%
               </span>
             </div>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Tested aspirants</p>
           </div>
         </div>
 
@@ -528,7 +559,7 @@ export const AdminRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Top Rank Score</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">98%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{topRankScore}%</span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Highest accuracy</p>
           </div>
@@ -542,7 +573,9 @@ export const AdminRankings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Students in Ranking</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">3,920</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {studentsList.length.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 32%
               </span>
@@ -752,7 +785,14 @@ export const AdminRankings: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
-                {filteredStudents.map((student) => {
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
+                      No rankings available.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((student) => {
                   const isSelected = selectedStudentRank === student.rank;
 
                   return (
@@ -902,7 +942,8 @@ export const AdminRankings: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
@@ -910,7 +951,7 @@ export const AdminRankings: React.FC = () => {
           {/* Pagination Footer */}
           <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-[#64748B] font-medium">
-              Showing 1-10 of 3,920 students
+              Showing {filteredStudents.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredStudents.length)}`} of {filteredStudents.length.toLocaleString('en-IN')} students
             </span>
 
             {/* Pagination Controls */}
@@ -1023,97 +1064,127 @@ export const AdminRankings: React.FC = () => {
             </div>
 
             {/* 3 Podium Cards Side by Side */}
-            <div className="grid grid-cols-3 gap-2.5 items-end pt-1">
-              {/* 2nd Place: Sneha Khatun */}
-              <div
-                onClick={() => {
-                  setSelectedStudentRank(2);
-                  setIsDetailsOpen(true);
-                }}
-                className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2.5 text-center flex flex-col items-center shadow-2xs hover:border-blue-300 transition-all cursor-pointer"
-              >
-                <Trophy className="w-3.5 h-3.5 text-slate-400 mb-1" />
-                <img
-                  src="/images/avatar_sneha.jpg"
-                  alt="Sneha Khatun"
-                  className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs"
-                />
-                <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
-                  Sneha Khatun
-                </h3>
-                <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                  <span className="font-semibold text-slate-800">89%</span> Accuracy
-                </p>
-                <p className="text-[10px] text-[#64748B] leading-tight">
-                  <span className="font-semibold text-slate-800">84%</span> Avg. Score
-                </p>
-                <span className="bg-[#DBEAFE] text-[#1D4ED8] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
-                  2nd
-                </span>
-              </div>
+            {(!top1Student && !top2Student && !top3Student) ? (
+              <div className="py-8 text-center text-slate-400 text-xs">No rankings available yet.</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2.5 items-end pt-1">
+                {/* 2nd Place */}
+                {top2Student ? (
+                  <div
+                    onClick={() => {
+                      setSelectedStudentRank(top2Student.rank);
+                      setIsDetailsOpen(true);
+                    }}
+                    className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2.5 text-center flex flex-col items-center shadow-2xs hover:border-blue-300 transition-all cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-slate-400 mb-1" />
+                    {top2Student.avatar ? (
+                      <img
+                        src={top2Student.avatar}
+                        alt={top2Student.name}
+                        className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shadow-2xs">
+                        {top2Student.initials || top2Student.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
+                      {top2Student.name}
+                    </h3>
+                    <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
+                      <span className="font-semibold text-slate-800">{top2Student.accuracy}%</span> Accuracy
+                    </p>
+                    <p className="text-[10px] text-[#64748B] leading-tight">
+                      <span className="font-semibold text-slate-800">{top2Student.avgScore}%</span> Avg. Score
+                    </p>
+                    <span className="bg-[#DBEAFE] text-[#1D4ED8] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
+                      2nd
+                    </span>
+                  </div>
+                ) : <div />}
 
-              {/* 1st Place: Rohit Kumar (Elevated) */}
-              <div
-                onClick={() => {
-                  setSelectedStudentRank(1);
-                  setIsDetailsOpen(true);
-                }}
-                className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-2.5 text-center flex flex-col items-center shadow-xs -mt-2 pb-3 hover:border-amber-400 transition-all cursor-pointer relative"
-              >
-                <Crown className="w-4 h-4 text-amber-500 mb-1" />
-                <img
-                  src="/images/leaderboard_rohit.jpg"
-                  alt="Rohit Kumar"
-                  className="w-11 h-11 rounded-full object-cover border-2 border-amber-300 shadow-xs"
-                />
-                <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
-                  Rohit Kumar
-                </h3>
-                <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                  <span className="font-semibold text-slate-800">92%</span> Accuracy
-                </p>
-                <p className="text-[10px] text-[#64748B] leading-tight">
-                  <span className="font-semibold text-slate-800">88%</span> Avg. Score
-                </p>
-                <span className="bg-[#FEF3C7] text-[#B45309] font-bold text-[10px] px-2.5 py-0.5 rounded-full mt-1.5 inline-block">
-                  1st
-                </span>
-              </div>
+                {/* 1st Place */}
+                {top1Student ? (
+                  <div
+                    onClick={() => {
+                      setSelectedStudentRank(top1Student.rank);
+                      setIsDetailsOpen(true);
+                    }}
+                    className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-2.5 text-center flex flex-col items-center shadow-xs -mt-2 pb-3 hover:border-amber-400 transition-all cursor-pointer relative"
+                  >
+                    <Crown className="w-4 h-4 text-amber-500 mb-1" />
+                    {top1Student.avatar ? (
+                      <img
+                        src={top1Student.avatar}
+                        alt={top1Student.name}
+                        className="w-11 h-11 rounded-full object-cover border-2 border-amber-300 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-amber-200 text-amber-800 font-bold text-xs flex items-center justify-center border-2 border-amber-300 shadow-xs">
+                        {top1Student.initials || top1Student.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
+                      {top1Student.name}
+                    </h3>
+                    <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
+                      <span className="font-semibold text-slate-800">{top1Student.accuracy}%</span> Accuracy
+                    </p>
+                    <p className="text-[10px] text-[#64748B] leading-tight">
+                      <span className="font-semibold text-slate-800">{top1Student.avgScore}%</span> Avg. Score
+                    </p>
+                    <span className="bg-[#FEF3C7] text-[#B45309] font-bold text-[10px] px-2.5 py-0.5 rounded-full mt-1.5 inline-block">
+                      1st
+                    </span>
+                  </div>
+                ) : <div />}
 
-              {/* 3rd Place: Subhankar Pal */}
-              <div
-                onClick={() => {
-                  setSelectedStudentRank(3);
-                  setIsDetailsOpen(true);
-                }}
-                className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2.5 text-center flex flex-col items-center shadow-2xs hover:border-blue-300 transition-all cursor-pointer"
-              >
-                <Trophy className="w-3.5 h-3.5 text-amber-700 mb-1" />
-                <img
-                  src="/images/avatar_abhishek.jpg"
-                  alt="Subhankar Pal"
-                  className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs"
-                />
-                <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
-                  Subhankar Pal
-                </h3>
-                <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
-                  <span className="font-semibold text-slate-800">87%</span> Accuracy
-                </p>
-                <p className="text-[10px] text-[#64748B] leading-tight">
-                  <span className="font-semibold text-slate-800">82%</span> Avg. Score
-                </p>
-                <span className="bg-[#FFEDD5] text-[#C2410C] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
-                  3rd
-                </span>
+                {/* 3rd Place */}
+                {top3Student ? (
+                  <div
+                    onClick={() => {
+                      setSelectedStudentRank(top3Student.rank);
+                      setIsDetailsOpen(true);
+                    }}
+                    className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2.5 text-center flex flex-col items-center shadow-2xs hover:border-blue-300 transition-all cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-700 mb-1" />
+                    {top3Student.avatar ? (
+                      <img
+                        src={top3Student.avatar}
+                        alt={top3Student.name}
+                        className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-800 font-bold text-xs flex items-center justify-center shadow-2xs">
+                        {top3Student.initials || top3Student.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <h3 className="text-xs font-bold text-[#0F172A] mt-1 truncate max-w-full">
+                      {top3Student.name}
+                    </h3>
+                    <p className="text-[10px] text-[#64748B] leading-tight mt-0.5">
+                      <span className="font-semibold text-slate-800">{top3Student.accuracy}%</span> Accuracy
+                    </p>
+                    <p className="text-[10px] text-[#64748B] leading-tight">
+                      <span className="font-semibold text-slate-800">{top3Student.avgScore}%</span> Avg. Score
+                    </p>
+                    <span className="bg-[#FFEDD5] text-[#C2410C] font-bold text-[10px] px-2 py-0.5 rounded-full mt-1.5 inline-block">
+                      3rd
+                    </span>
+                  </div>
+                ) : <div />}
               </div>
-            </div>
+            )}
           </div>
 
           {/* 2. STUDENT DETAILS CARD */}
-          {isDetailsOpen && activeStudent && (
+          {isDetailsOpen && (
             <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs space-y-4 animate-in fade-in duration-150">
-              {/* Header: Title & Close */}
+              {activeStudent ? (
+                <>
+                  {/* Header: Title & Close */}
               <div className="flex items-center justify-between pb-1">
                 <h2 className="text-sm font-bold text-[#0F172A]">Student Details</h2>
                 <button
@@ -1310,6 +1381,12 @@ export const AdminRankings: React.FC = () => {
                   ))}
                 </div>
               </div>
+              </>
+              ) : (
+                <div className="py-16 text-center text-slate-400 text-xs">
+                  No student selected.
+                </div>
+              )}
             </div>
           )}
         </div>

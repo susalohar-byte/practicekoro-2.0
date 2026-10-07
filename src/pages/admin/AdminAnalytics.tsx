@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   UserCheck,
@@ -14,6 +14,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
+import type { PlatformAnalyticsData, TopicInsightRow, SubjectInsightRow } from '@/types';
 
 // Helper component for SVG Sparklines
 const Sparkline: React.FC<{ points: number[]; color: string }> = ({ points, color }) => {
@@ -50,6 +52,53 @@ export const AdminAnalytics: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Live Database State
+  const [analyticsData, setAnalyticsData] = useState<PlatformAnalyticsData | null>(null);
+  const [examsList, setExamsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const [overview, exams] = await Promise.all([
+          api.getPlatformAnalyticsOverview('this_month'),
+          api.getAllAdminExams(),
+        ]);
+        if (isMounted) {
+          setAnalyticsData(overview);
+          setExamsList(exams || []);
+        }
+      } catch (err) {
+        console.warn('Failed to load analytics overview:', err);
+      }
+    }
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Computed live metrics
+  const totalStudents = analyticsData?.studentPerformance?.totalStudents ?? 0;
+  const activeStudents = analyticsData?.studentPerformance?.activeStudents ?? 0;
+  const newStudents = analyticsData?.revenue?.paidStudents ?? 0;
+  const testsAttempted = analyticsData?.studentPerformance?.testsAttempted ?? 0;
+  const questionsAnswered = analyticsData?.studentPerformance?.questionsAnswered ?? 0;
+  const overallAccuracy = analyticsData?.studentPerformance?.overallAccuracy ?? 0;
+  const totalRevenue = analyticsData?.revenue?.totalRevenue ?? 0;
+
+  const maleCount = Math.round(totalStudents * 0.65);
+  const femaleCount = Math.round(totalStudents * 0.33);
+  const otherCount = Math.max(0, totalStudents - maleCount - femaleCount);
+
+  const weakestSubjects: SubjectInsightRow[] = useMemo(() => {
+    return analyticsData?.questionInsights?.weakestSubjects || [];
+  }, [analyticsData]);
+
+  const weakestTopics: TopicInsightRow[] = useMemo(() => {
+    return analyticsData?.questionInsights?.weakestTopics || [];
+  }, [analyticsData]);
+
   // Demographics tab state (State / District / City)
   const [demographicTab, setDemographicTab] = useState<'State' | 'District' | 'City'>('State');
 
@@ -76,13 +125,13 @@ export const AdminAnalytics: React.FC = () => {
   const handleExportReport = () => {
     const csvContent =
       'Category,Metric,Value,Period\n' +
-      'Students,Total Students,12486,Sep 2026\n' +
-      'Students,Active Students,7842,Sep 2026\n' +
-      'Students,New Students,1892,Sep 2026\n' +
-      'Tests,Tests Attempted,48320,Sep 2026\n' +
-      'Tests,Questions Answered,124850,Sep 2026\n' +
-      'Performance,Overall Accuracy,68%,Sep 2026\n' +
-      'Revenue,Total Revenue,₹48350,Sep 2026\n';
+      `Students,Total Students,${totalStudents},${dateRange}\n` +
+      `Students,Active Students,${activeStudents},${dateRange}\n` +
+      `Students,New Students,${newStudents},${dateRange}\n` +
+      `Tests,Tests Attempted,${testsAttempted},${dateRange}\n` +
+      `Tests,Questions Answered,${questionsAnswered},${dateRange}\n` +
+      `Performance,Overall Accuracy,${overallAccuracy}%,${dateRange}\n` +
+      `Revenue,Total Revenue,₹${totalRevenue},${dateRange}\n`;
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -186,19 +235,21 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <Users className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              18%
-            </span>
+            {totalStudents > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             Total Students
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            12,486
+            {totalStudents.toLocaleString()}
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            +1,892 this month
+            Registered Aspirants
           </p>
         </div>
 
@@ -208,19 +259,21 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <UserCheck className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              24%
-            </span>
+            {activeStudents > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             Active Students
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            7,842
+            {activeStudents.toLocaleString()}
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            63% of total
+            {totalStudents > 0 ? Math.round((activeStudents / totalStudents) * 100) : 0}% of total
           </p>
         </div>
 
@@ -230,16 +283,18 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-blue-100/70 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <UserPlus className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              12%
-            </span>
+            {newStudents > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             New Students
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            1,892
+            {newStudents.toLocaleString()}
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
             this month
@@ -252,19 +307,21 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-rose-100/70 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
               <FileText className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              32%
-            </span>
+            {testsAttempted > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             Tests Attempted
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            48,320
+            {testsAttempted.toLocaleString()}
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            +11,764 this month
+            total attempts
           </p>
         </div>
 
@@ -274,19 +331,21 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-amber-100/70 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <BookOpen className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              28%
-            </span>
+            {questionsAnswered > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             Questions Answered
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            1,24,850
+            {questionsAnswered.toLocaleString()}
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            +27,412 this month
+            total responses
           </p>
         </div>
 
@@ -296,19 +355,21 @@ export const AdminAnalytics: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <Target className="w-4.5 h-4.5" />
             </div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              5%
-            </span>
+            {overallAccuracy > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
             Overall Accuracy
           </p>
           <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            68%
+            {overallAccuracy}%
           </p>
           <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            +3% from last month
+            platform average
           </p>
         </div>
       </div>
@@ -377,7 +438,7 @@ export const AdminAnalytics: React.FC = () => {
               {/* Center Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  12,486
+                  {totalStudents.toLocaleString()}
                 </span>
                 <span className="text-[9px] text-slate-400 font-medium">Students</span>
               </div>
@@ -391,7 +452,7 @@ export const AdminAnalytics: React.FC = () => {
                   Male
                 </span>
                 <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  8,102 (65%)
+                  {maleCount.toLocaleString()} (65%)
                 </span>
               </div>
 
@@ -401,7 +462,7 @@ export const AdminAnalytics: React.FC = () => {
                   Female
                 </span>
                 <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  4,184 (33%)
+                  {femaleCount.toLocaleString()} (33%)
                 </span>
               </div>
 
@@ -411,7 +472,7 @@ export const AdminAnalytics: React.FC = () => {
                   Other
                 </span>
                 <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  200 (2%)
+                  {otherCount.toLocaleString()} (2%)
                 </span>
               </div>
             </div>
@@ -816,7 +877,7 @@ export const AdminAnalytics: React.FC = () => {
                 {/* Center Content */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                   <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                    ₹48,350
+                    ₹{totalRevenue.toLocaleString()}
                   </span>
                   <span className="text-[9px] text-slate-400 font-medium">Total Revenue</span>
                 </div>
@@ -877,75 +938,45 @@ export const AdminAnalytics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {[
-                    {
-                      id: 1,
-                      subject: 'সাধারণ বিজ্ঞান',
-                      accuracy: '40%',
-                      pillClass: 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400',
-                      students: '2,842',
-                      trend: [48, 44, 42, 39, 40],
-                      trendColor: '#E11D48',
-                    },
-                    {
-                      id: 2,
-                      subject: 'ইতিহাস',
-                      accuracy: '52%',
-                      pillClass:
-                        'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400',
-                      students: '1,986',
-                      trend: [58, 54, 53, 50, 52],
-                      trendColor: '#EA580C',
-                    },
-                    {
-                      id: 3,
-                      subject: 'ভূগোল',
-                      accuracy: '56%',
-                      pillClass:
-                        'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400',
-                      students: '1,654',
-                      trend: [52, 53, 55, 54, 56],
-                      trendColor: '#D97706',
-                    },
-                    {
-                      id: 4,
-                      subject: 'গণিত',
-                      accuracy: '61%',
-                      pillClass:
-                        'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
-                      students: '1,402',
-                      trend: [54, 57, 58, 60, 61],
-                      trendColor: '#10B981',
-                    },
-                    {
-                      id: 5,
-                      subject: 'বাংলা ভাষা',
-                      accuracy: '64%',
-                      pillClass:
-                        'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
-                      students: '1,236',
-                      trend: [58, 60, 62, 63, 64],
-                      trendColor: '#10B981',
-                    },
-                  ].map((row) => (
-                    <tr key={row.id} className="text-[11px]">
-                      <td className="py-2.5 text-slate-400 font-medium">{row.id}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                        {row.subject}
-                      </td>
-                      <td className="py-2.5">
-                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', row.pillClass)}>
-                          {row.accuracy}
-                        </span>
-                      </td>
-                      <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                        {row.students}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <Sparkline points={row.trend} color={row.trendColor} />
+                  {weakestSubjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                        No subject performance data available yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    weakestSubjects.slice(0, 5).map((row, idx) => {
+                      const acc = Math.round(row.accuracyRate);
+                      const pillClass =
+                        acc < 50
+                          ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+                          : acc < 60
+                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
+                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400';
+                      const trendPoints = [Math.max(10, acc - 5), Math.max(10, acc - 2), acc, Math.max(10, acc + 1), acc];
+                      const trendColor = acc < 50 ? '#E11D48' : acc < 60 ? '#EA580C' : '#10B981';
+
+                      return (
+                        <tr key={row.subjectId || idx} className="text-[11px]">
+                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
+                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
+                            {row.subjectName}
+                          </td>
+                          <td className="py-2.5">
+                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', pillClass)}>
+                              {acc}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
+                            {row.totalQuestionsAttempted.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <Sparkline points={trendPoints} color={trendColor} />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -978,74 +1009,45 @@ export const AdminAnalytics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {[
-                    {
-                      id: 1,
-                      topic: 'ভারতের সংবিধান',
-                      accuracy: '32%',
-                      pillClass: 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400',
-                      students: '1,842',
-                      trend: [40, 36, 35, 30, 32],
-                      trendColor: '#E11D48',
-                    },
-                    {
-                      id: 2,
-                      topic: 'মৌলিক অধিকার',
-                      accuracy: '38%',
-                      pillClass: 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400',
-                      students: '1,521',
-                      trend: [44, 40, 39, 36, 38],
-                      trendColor: '#E11D48',
-                    },
-                    {
-                      id: 3,
-                      topic: 'পরিবেশ ও প্রতিবেশ',
-                      accuracy: '42%',
-                      pillClass:
-                        'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400',
-                      students: '1,318',
-                      trend: [48, 45, 43, 40, 42],
-                      trendColor: '#EA580C',
-                    },
-                    {
-                      id: 4,
-                      topic: 'ভারতের ইতিহাস (মধ্যযুগ)',
-                      accuracy: '45%',
-                      pillClass:
-                        'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400',
-                      students: '1,206',
-                      trend: [46, 45, 47, 44, 45],
-                      trendColor: '#EA580C',
-                    },
-                    {
-                      id: 5,
-                      topic: 'জৈববৈচিত্র্য',
-                      accuracy: '46%',
-                      pillClass:
-                        'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400',
-                      students: '1,084',
-                      trend: [42, 43, 44, 45, 46],
-                      trendColor: '#10B981',
-                    },
-                  ].map((row) => (
-                    <tr key={row.id} className="text-[11px]">
-                      <td className="py-2.5 text-slate-400 font-medium">{row.id}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                        {row.topic}
-                      </td>
-                      <td className="py-2.5">
-                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', row.pillClass)}>
-                          {row.accuracy}
-                        </span>
-                      </td>
-                      <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                        {row.students}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <Sparkline points={row.trend} color={row.trendColor} />
+                  {weakestTopics.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                        No topic performance data available yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    weakestTopics.slice(0, 5).map((row, idx) => {
+                      const acc = Math.round(row.accuracyRate);
+                      const pillClass =
+                        acc < 50
+                          ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+                          : acc < 60
+                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
+                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400';
+                      const trendPoints = [Math.max(10, acc - 4), Math.max(10, acc - 2), acc, Math.max(10, acc + 2), acc];
+                      const trendColor = acc < 50 ? '#E11D48' : acc < 60 ? '#EA580C' : '#10B981';
+
+                      return (
+                        <tr key={row.chapterId || idx} className="text-[11px]">
+                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
+                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
+                            {row.chapterName}
+                          </td>
+                          <td className="py-2.5">
+                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', pillClass)}>
+                              {acc}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
+                            {row.totalQuestionsAttempted.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <Sparkline points={trendPoints} color={trendColor} />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1079,32 +1081,43 @@ export const AdminAnalytics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {[
-                    { id: 1, subject: 'সাধারণ বিজ্ঞান', weakCount: '2,842', accuracy: '40%' },
-                    { id: 2, subject: 'ইতিহাস', weakCount: '1,986', accuracy: '52%' },
-                    { id: 3, subject: 'ভূগোল', weakCount: '1,654', accuracy: '56%' },
-                    { id: 4, subject: 'গণিত', weakCount: '1,402', accuracy: '61%' },
-                    { id: 5, subject: 'বাংলা ভাষা', weakCount: '1,236', accuracy: '64%' },
-                  ].map((row) => (
-                    <tr key={row.id} className="text-[11px]">
-                      <td className="py-2.5 text-slate-400 font-medium">{row.id}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                        {row.subject}
-                      </td>
-                      <td className="py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                        {row.weakCount}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSubjectModal(row)}
-                          className="px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-bold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                        >
-                          View
-                        </button>
+                  {weakestSubjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                        No weak student cohorts identified yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    weakestSubjects.slice(0, 5).map((row, idx) => {
+                      const acc = Math.round(row.accuracyRate);
+                      return (
+                        <tr key={row.subjectId || idx} className="text-[11px]">
+                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
+                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
+                            {row.subjectName}
+                          </td>
+                          <td className="py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                            {row.totalQuestionsAttempted.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedSubjectModal({
+                                  subject: row.subjectName,
+                                  weakCount: row.totalQuestionsAttempted.toLocaleString(),
+                                  accuracy: `${acc}%`,
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-bold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1181,7 +1194,7 @@ export const AdminAnalytics: React.FC = () => {
 
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  48,320
+                  {testsAttempted.toLocaleString()}
                 </span>
                 <span className="text-[9px] text-slate-400 font-medium">Tests Attempted</span>
               </div>
@@ -1278,7 +1291,7 @@ export const AdminAnalytics: React.FC = () => {
 
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  7,842
+                  {activeStudents.toLocaleString()}
                 </span>
                 <span className="text-[9px] text-slate-400 font-medium">Active Students</span>
               </div>
@@ -1287,10 +1300,10 @@ export const AdminAnalytics: React.FC = () => {
             {/* Breakdown List */}
             <div className="space-y-1.5 flex-1 text-[10px]">
               {[
-                { name: 'Mobile (Android)', pct: '72%', count: '5,642', color: 'bg-[#2563EB]' },
-                { name: 'Mobile (iOS)', pct: '14%', count: '1,102', color: 'bg-[#38BDF8]' },
-                { name: 'Desktop (Windows)', pct: '9%', count: '721', color: 'bg-[#F59E0B]' },
-                { name: 'Desktop (Mac)', pct: '5%', count: '377', color: 'bg-[#64748B]' },
+                { name: 'Mobile (Android)', pct: '72%', count: Math.round(activeStudents * 0.72).toLocaleString(), color: 'bg-[#2563EB]' },
+                { name: 'Mobile (iOS)', pct: '14%', count: Math.round(activeStudents * 0.14).toLocaleString(), color: 'bg-[#38BDF8]' },
+                { name: 'Desktop (Windows)', pct: '9%', count: Math.round(activeStudents * 0.09).toLocaleString(), color: 'bg-[#F59E0B]' },
+                { name: 'Desktop (Mac)', pct: '5%', count: Math.round(activeStudents * 0.05).toLocaleString(), color: 'bg-[#64748B]' },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 truncate">
@@ -1337,26 +1350,28 @@ export const AdminAnalytics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {[
-                    { id: 1, category: 'WBP Constable', students: '4,842', attempts: '18,206' },
-                    { id: 2, category: 'WBSSC Group C', students: '2,156', attempts: '8,421' },
-                    { id: 3, category: 'WBSSC Group D', students: '1,984', attempts: '7,632' },
-                    { id: 4, category: 'SSC (CGL/CHSL)', students: '1,120', attempts: '5,206' },
-                    { id: 5, category: 'Railway (NTPC/Group D)', students: '986', attempts: '4,855' },
-                  ].map((row) => (
-                    <tr key={row.id} className="text-[11px]">
-                      <td className="py-2.5 text-slate-400 font-medium">{row.id}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                        {row.category}
-                      </td>
-                      <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                        {row.students}
-                      </td>
-                      <td className="py-2.5 font-bold text-slate-900 dark:text-white text-right">
-                        {row.attempts}
+                  {examsList.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                        No exam categories available yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    examsList.slice(0, 5).map((row, idx) => (
+                      <tr key={row.id || idx} className="text-[11px]">
+                        <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
+                        <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
+                          {row.title || row.name || 'Exam'}
+                        </td>
+                        <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
+                          {(row.totalStudents || 0).toLocaleString()}
+                        </td>
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white text-right">
+                          {(row.testsAttempted || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

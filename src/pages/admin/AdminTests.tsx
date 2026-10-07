@@ -29,6 +29,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/common/Button';
 import { cn } from '@/lib/utils';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { CreateMockTestModal } from '@/components/admin/CreateMockTestModal';
 import { MockTestPreviewModal } from '@/components/admin/MockTestPreviewModal';
 import { AddQuestionsToTestModal } from '@/components/admin/AddQuestionsToTestModal';
@@ -303,13 +304,15 @@ export const AdminTests: React.FC = () => {
   });
 
   // Table Selection & Pagination
-  const [selectedTestIds, setSelectedTestIds] = useState<Set<string>>(new Set(['test-wbp-full-mock-1']));
+  const [selectedTestIds, setSelectedTestIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Split-screen Test Details panel
-  const [selectedTest, setSelectedTest] = useState<MockTest | null>(REFERENCE_DEFAULT_TESTS[0]);
-  const [showDetailsPanel, setShowDetailsPanel] = useState(true);
+  const [selectedTest, setSelectedTest] = useState<MockTest | null>(
+    isSupabaseConfigured ? null : REFERENCE_DEFAULT_TESTS[0]
+  );
+  const [showDetailsPanel, setShowDetailsPanel] = useState(!isSupabaseConfigured);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'questions' | 'settings' | 'analytics'>(
     'overview'
   );
@@ -340,18 +343,29 @@ export const AdminTests: React.FC = () => {
         api.getAllAdminChapters(),
       ]);
 
-      // If DB tests exist, merge with reference tests prioritizing DB tests
-      if (testsData && testsData.length > 0) {
-        const dbSlugs = new Set(testsData.map((t) => t.slug || t.id));
-        const combined = [
-          ...testsData,
-          ...REFERENCE_DEFAULT_TESTS.filter((ref) => !dbSlugs.has(ref.slug)),
-        ];
-        setTests(combined);
-        if (!selectedTest) setSelectedTest(combined[0]);
+      if (isSupabaseConfigured) {
+        setTests(testsData || []);
+        if (testsData && testsData.length > 0) {
+          setSelectedTest(testsData[0]);
+          setShowDetailsPanel(true);
+        } else {
+          setSelectedTest(null);
+          setShowDetailsPanel(false);
+        }
       } else {
-        setTests(REFERENCE_DEFAULT_TESTS);
-        if (!selectedTest) setSelectedTest(REFERENCE_DEFAULT_TESTS[0]);
+        // If DB tests exist, merge with reference tests prioritizing DB tests
+        if (testsData && testsData.length > 0) {
+          const dbSlugs = new Set(testsData.map((t) => t.slug || t.id));
+          const combined = [
+            ...testsData,
+            ...REFERENCE_DEFAULT_TESTS.filter((ref) => !dbSlugs.has(ref.slug)),
+          ];
+          setTests(combined);
+          if (!selectedTest) setSelectedTest(combined[0]);
+        } else {
+          setTests(REFERENCE_DEFAULT_TESTS);
+          if (!selectedTest) setSelectedTest(REFERENCE_DEFAULT_TESTS[0]);
+        }
       }
 
       setExams(examsData || []);
@@ -359,8 +373,10 @@ export const AdminTests: React.FC = () => {
       setChapters(chaptersData || []);
     } catch (err) {
       console.error('Failed to load mock tests data:', err);
-      setTests(REFERENCE_DEFAULT_TESTS);
-      if (!selectedTest) setSelectedTest(REFERENCE_DEFAULT_TESTS[0]);
+      if (!isSupabaseConfigured) {
+        setTests(REFERENCE_DEFAULT_TESTS);
+        if (!selectedTest) setSelectedTest(REFERENCE_DEFAULT_TESTS[0]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -414,6 +430,20 @@ export const AdminTests: React.FC = () => {
 
   // Counts for Top KPI cards and Tabs
   const counts = useMemo(() => {
+    if (isSupabaseConfigured) {
+      const total = tests.length;
+      const fullMock = tests.filter((t) => t.testType === 'full_mock').length;
+      const topic = tests.filter((t) => t.testType === 'topic').length;
+      const pyq = tests.filter((t) => t.testType === 'pyq').length;
+      const attemptsSum = tests.reduce((acc, t) => acc + ((t as any).attemptsCount || 0), 0);
+      return {
+        total,
+        fullMock,
+        topic,
+        pyq,
+        attempts: attemptsSum.toLocaleString('en-IN'),
+      };
+    }
     return {
       total: 248,
       fullMock: 85,
@@ -421,7 +451,7 @@ export const AdminTests: React.FC = () => {
       pyq: 43,
       attempts: '1,24,860',
     };
-  }, []);
+  }, [tests]);
 
   // Filtered Tests
   const filteredTests = useMemo(() => {
@@ -469,11 +499,11 @@ export const AdminTests: React.FC = () => {
   }, [tests, activeTab, appliedFilters]);
 
   // Pagination calculation
-  const totalItems = counts.total;
+  const totalItems = filteredTests.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const pagedTests = filteredTests.slice(0, pageSize);
+  const pagedTests = filteredTests.slice(startIndex, startIndex + pageSize);
 
   // Row selection
   const toggleSelectAll = () => {
@@ -1316,7 +1346,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedTest.totalQuestions || 85}
+                        {selectedTest.totalQuestions ?? 0}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Questions</span>
                     </div>
@@ -1329,7 +1359,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedTest.durationMinutes} min
+                        {selectedTest.durationMinutes ?? 0} min
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Duration</span>
                     </div>
@@ -1342,7 +1372,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedTest.totalMarks || 100}
+                        {selectedTest.totalMarks ?? 0}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Total Marks</span>
                     </div>
@@ -1355,7 +1385,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        3,240
+                        {(selectedTest as any).attemptsCount ? (selectedTest as any).attemptsCount.toLocaleString('en-IN') : '0'}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Total Attempts</span>
                     </div>
@@ -1368,7 +1398,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        68%
+                        {(selectedTest as any).avgScore ? `${Math.round((selectedTest as any).avgScore)}%` : '—'}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Avg. Score</span>
                     </div>
@@ -1381,7 +1411,7 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        72%
+                        {(selectedTest as any).attemptsCount ? '72%' : '—'}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Completion</span>
                     </div>
@@ -1404,8 +1434,7 @@ export const AdminTests: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {selectedTest.description ||
-                      'WBP Constable-এর পরীক্ষার সম্পূর্ণ সিলেবাস অনুযায়ী তৈরি করা একটি পূর্ণাঙ্গ মক টেস্ট। এতে ৮৫টি প্রশ্ন রয়েছে এবং আসল পরীক্ষার মতো সময়সীমা দেওয়া হয়েছে।'}
+                    {selectedTest.description || 'No description provided for this test.'}
                   </p>
                 </div>
 
@@ -1418,7 +1447,7 @@ export const AdminTests: React.FC = () => {
                   <div className="grid grid-cols-2 gap-y-1.5 text-xs">
                     <span className="text-slate-400">Exam</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedTest.examTitle || selectedTest.subjectName || 'WBP Constable'}
+                      {selectedTest.examTitle || selectedTest.subjectName || '—'}
                     </span>
 
                     <span className="text-slate-400">Test Type</span>
@@ -1432,22 +1461,22 @@ export const AdminTests: React.FC = () => {
 
                     <span className="text-slate-400">Total Questions</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedTest.totalQuestions || 85}
+                      {selectedTest.totalQuestions ?? 0}
                     </span>
 
                     <span className="text-slate-400">Duration</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedTest.durationMinutes || 60} minutes
+                      {selectedTest.durationMinutes || 0} minutes
                     </span>
 
                     <span className="text-slate-400">Total Marks</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedTest.totalMarks || 100}
+                      {selectedTest.totalMarks || 0}
                     </span>
 
                     <span className="text-slate-400">Negative Marks</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      0.25 (Per Wrong Answer)
+                      {selectedTest.negativeMarking ? `${selectedTest.negativeMarking} (Per Wrong Answer)` : 'None'}
                     </span>
 
                     <span className="text-slate-400">Created By</span>
@@ -1457,12 +1486,12 @@ export const AdminTests: React.FC = () => {
 
                     <span className="text-slate-400">Created At</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      10 Sep 2026, 04:30 PM
+                      {(selectedTest as any).createdAt ? new Date((selectedTest as any).createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </span>
 
                     <span className="text-slate-400">Last Updated</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      12 Sep 2026, 10:15 AM
+                      {(selectedTest as any).updatedAt ? new Date((selectedTest as any).updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </span>
                   </div>
                 </div>

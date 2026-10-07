@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -431,11 +432,15 @@ const getSeverityBadge = (sev: AuditSeverity) => {
 // ============================================================================
 
 export const AdminAuditLogs: React.FC = () => {
-  const [logsList, setLogsList] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+  const [logsList, setLogsList] = useState<AuditLogItem[]>(
+    isSupabaseConfigured ? [] : INITIAL_AUDIT_LOGS
+  );
 
   // Selected Log (Defaults to Row 1 Susanta Lohar matching screenshot)
-  const [selectedLogId, setSelectedLogId] = useState<string>('log-1');
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
+  const [selectedLogId, setSelectedLogId] = useState<string>(
+    isSupabaseConfigured ? '' : 'log-1'
+  );
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(!isSupabaseConfigured);
 
   // Fetch real audit logs on mount
   useEffect(() => {
@@ -443,7 +448,15 @@ export const AdminAuditLogs: React.FC = () => {
     api
       .getAdminAuditLogs({ limit: 100 })
       .then(({ logs }) => {
-        if (!isMounted || !logs || logs.length === 0) return;
+        if (!isMounted) return;
+        if (!logs || logs.length === 0) {
+          if (isSupabaseConfigured) {
+            setLogsList([]);
+            setSelectedLogId('');
+            setIsDetailsPanelOpen(false);
+          }
+          return;
+        }
         const mapped: AuditLogItem[] = logs.map((log, idx) => {
           const dt = new Date(log.createdAt);
           const dateStr = dt.toLocaleDateString('en-GB', {
@@ -535,6 +548,7 @@ export const AdminAuditLogs: React.FC = () => {
         setLogsList(mapped);
         if (mapped.length > 0) {
           setSelectedLogId(mapped[0].id);
+          setIsDetailsPanelOpen(true);
         }
       })
       .catch((err) => {
@@ -583,8 +597,25 @@ export const AdminAuditLogs: React.FC = () => {
 
   // Selected audit log record
   const selectedLog = useMemo(() => {
-    return logsList.find((l) => l.id === selectedLogId) || logsList[0];
+    return logsList.find((l) => l.id === selectedLogId) || (logsList.length > 0 ? logsList[0] : null);
   }, [logsList, selectedLogId]);
+
+  const mostActiveArea = useMemo(() => {
+    if (logsList.length === 0) return { area: 'None', count: 0 };
+    const counts: Record<string, number> = {};
+    for (const l of logsList) {
+      counts[l.resource] = (counts[l.resource] || 0) + 1;
+    }
+    let top = 'None';
+    let max = 0;
+    for (const [res, cnt] of Object.entries(counts)) {
+      if (cnt > max) {
+        max = cnt;
+        top = res;
+      }
+    }
+    return { area: top, count: max };
+  }, [logsList]);
 
   // Filtered rows
   const filteredLogs = useMemo(() => {
@@ -651,7 +682,7 @@ export const AdminAuditLogs: React.FC = () => {
 
   // Copy JSON details
   const handleCopyJson = () => {
-    if (selectedLog.jsonData) {
+    if (selectedLog?.jsonData) {
       navigator.clipboard.writeText(JSON.stringify(selectedLog.jsonData, null, 2));
       setIsCopiedJson(true);
       showToast('Copied JSON data to clipboard.');
@@ -719,12 +750,14 @@ export const AdminAuditLogs: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Logs</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">2,548</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {logsList.length.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 28%
+                Live
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">recorded actions</span>
           </div>
         </div>
 
@@ -736,9 +769,11 @@ export const AdminAuditLogs: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Active Admins</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">8</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {new Set(logsList.map((l) => l.adminEmail || l.adminName).filter(Boolean)).size}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 14%
+                Active
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">performed actions</span>
@@ -753,9 +788,13 @@ export const AdminAuditLogs: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Most Active Area</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">Questions</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {mostActiveArea.area}
+              </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">682 actions</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              {mostActiveArea.count > 0 ? `${mostActiveArea.count} actions` : 'No logs recorded'}
+            </span>
           </div>
         </div>
 
@@ -767,9 +806,8 @@ export const AdminAuditLogs: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Critical Actions</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">12</span>
-              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                ↓ 60%
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {logsList.filter((l) => l.severity === 'High' || l.action === 'Deleted' || l.action === 'Refunded').length}
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">require attention</span>
@@ -939,7 +977,14 @@ export const AdminAuditLogs: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredLogs.slice(0, 12).map((row) => {
+                  {filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        No audit logs recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
                     const isSelected = selectedLogId === row.id;
                     const isChecked = selectedIds.includes(row.id);
 
@@ -1092,7 +1137,8 @@ export const AdminAuditLogs: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>
@@ -1100,7 +1146,8 @@ export const AdminAuditLogs: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing 1–{Math.min(filteredLogs.length, 12)} of 2,548 logs
+                Showing {filteredLogs.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
+                {Math.min(filteredLogs.length, currentPage * rowsPerPage)} of {filteredLogs.length} logs
               </div>
 
               <div className="flex items-center gap-1.5">

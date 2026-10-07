@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA TYPES & INTERFACES
@@ -489,6 +490,7 @@ const getPriorityBadgeClass = (priority: TicketPriority) => {
 
 export const AdminSupport: React.FC = () => {
   const [ticketsList, setTicketsList] = useState<TicketRecord[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_support_v2');
       if (stored) return JSON.parse(stored);
@@ -510,7 +512,14 @@ export const AdminSupport: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     api.getSupportTickets().then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
+      if (!isMounted) return;
+      if (!remote || remote.length === 0) {
+        if (isSupabaseConfigured) {
+          setTicketsList([]);
+          setSelectedTicketId('');
+        }
+        return;
+      }
       const mapped: TicketRecord[] = remote.map((t, idx) => {
         let cat: TicketCategory = 'Payment Issue';
         const rawCat = String(t.category || '').toLowerCase();
@@ -571,8 +580,10 @@ export const AdminSupport: React.FC = () => {
     return () => { isMounted = false; };
   }, []);
 
-  // Selected Ticket in Right Panel (Defaults to row 1 #PKT-1048 Rohit Kumar)
-  const [selectedTicketId, setSelectedTicketId] = useState<string>('tkt-1');
+  // Selected Ticket in Right Panel
+  const [selectedTicketId, setSelectedTicketId] = useState<string>(
+    isSupabaseConfigured ? '' : 'tkt-1'
+  );
 
   // Search in filters
   const [filterSearch, setFilterSearch] = useState('');
@@ -628,7 +639,7 @@ export const AdminSupport: React.FC = () => {
 
   // Active selected ticket
   const activeTicket = useMemo(() => {
-    return ticketsList.find((t) => t.id === selectedTicketId) || ticketsList[0];
+    return ticketsList.find((t) => t.id === selectedTicketId) || (ticketsList.length > 0 ? ticketsList[0] : null);
   }, [ticketsList, selectedTicketId]);
 
   // Filtered tickets
@@ -727,6 +738,7 @@ export const AdminSupport: React.FC = () => {
 
   // Update Status of active ticket
   const handleUpdateStatus = (newStatus: TicketStatus) => {
+    if (!activeTicket) return;
     setTicketsList((prev) =>
       prev.map((t) => (t.id === activeTicket.id ? { ...t, status: newStatus } : t))
     );
@@ -740,7 +752,7 @@ export const AdminSupport: React.FC = () => {
 
   // Send Reply or Internal Note
   const handleSendReply = () => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !activeTicket) return;
 
     const newMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -895,12 +907,12 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Tickets</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">248</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">{ticketsList.length}</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 12%
+                Live
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">in system</span>
           </div>
         </div>
 
@@ -912,12 +924,16 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Resolved</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">198</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {ticketsList.filter((t) => t.status === 'Resolved' || t.status === 'Closed').length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 80%
+                {ticketsList.length > 0
+                  ? `${Math.round((ticketsList.filter((t) => t.status === 'Resolved' || t.status === 'Closed').length / ticketsList.length) * 100)}%`
+                  : '0%'}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">resolution rate</span>
           </div>
         </div>
 
@@ -929,12 +945,14 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Pending</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">32</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {ticketsList.filter((t) => t.status === 'Open').length}
+              </span>
               <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                ↓ 13%
+                Action req.
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">unassigned/open</span>
           </div>
         </div>
 
@@ -946,12 +964,14 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">In Progress</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">14</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {ticketsList.filter((t) => t.status === 'In Progress').length}
+              </span>
               <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                ↓ 6%
+                Active
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">under review</span>
           </div>
         </div>
 
@@ -963,12 +983,14 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Avg. Response Time</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">2.4 hours</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {ticketsList.length > 0 ? '12m' : '—'}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 40%
+                Optimal
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">sla response</span>
           </div>
         </div>
       </div>
@@ -998,11 +1020,11 @@ export const AdminSupport: React.FC = () => {
             <span className="text-xs font-bold text-slate-800 block">Status</span>
             <div className="space-y-1.5 text-xs">
               {[
-                { name: 'All', count: 248 },
-                { name: 'Open', count: 32 },
-                { name: 'In Progress', count: 14 },
-                { name: 'Resolved', count: 198 },
-                { name: 'Closed', count: 4 },
+                { name: 'All', count: ticketsList.length },
+                { name: 'Open', count: ticketsList.filter((t) => t.status === 'Open').length },
+                { name: 'In Progress', count: ticketsList.filter((t) => t.status === 'In Progress').length },
+                { name: 'Resolved', count: ticketsList.filter((t) => t.status === 'Resolved').length },
+                { name: 'Closed', count: ticketsList.filter((t) => t.status === 'Closed').length },
               ].map((item) => {
                 const isChecked = filterStatus.includes(item.name);
                 return (
@@ -1033,13 +1055,13 @@ export const AdminSupport: React.FC = () => {
             <span className="text-xs font-bold text-slate-800 block">Category</span>
             <div className="space-y-1.5 text-xs">
               {[
-                { name: 'Payment Issue', count: 68 },
-                { name: 'Subscription', count: 54 },
-                { name: 'Technical Issue', count: 46 },
-                { name: 'Content Related', count: 28 },
-                { name: 'Account Related', count: 20 },
-                { name: 'Refund Request', count: 18 },
-                { name: 'Other', count: 14 },
+                { name: 'Payment Issue', count: ticketsList.filter((t) => t.category === 'Payment Issue').length },
+                { name: 'Subscription', count: ticketsList.filter((t) => t.category === 'Subscription').length },
+                { name: 'Technical Issue', count: ticketsList.filter((t) => t.category === 'Technical Issue').length },
+                { name: 'Content Related', count: ticketsList.filter((t) => t.category === 'Content Related').length },
+                { name: 'Account Related', count: ticketsList.filter((t) => t.category === 'Account Related').length },
+                { name: 'Refund Request', count: ticketsList.filter((t) => t.category === 'Refund Request').length },
+                { name: 'Other', count: ticketsList.filter((t) => t.category === 'Other').length },
               ].map((item) => {
                 const isChecked = filterCategory.includes(item.name);
                 return (
@@ -1069,9 +1091,9 @@ export const AdminSupport: React.FC = () => {
             <div className="space-y-1.5 text-xs">
               {[
                 { name: 'All', count: null },
-                { name: 'High', count: 24 },
-                { name: 'Medium', count: 142 },
-                { name: 'Low', count: 82 },
+                { name: 'High', count: ticketsList.filter((t) => t.priority === 'High').length },
+                { name: 'Medium', count: ticketsList.filter((t) => t.priority === 'Medium').length },
+                { name: 'Low', count: ticketsList.filter((t) => t.priority === 'Low').length },
               ].map((item) => {
                 const isChecked = filterPriority.includes(item.name);
                 return (
@@ -1124,7 +1146,7 @@ export const AdminSupport: React.FC = () => {
           {/* Header Bar */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900">
-              Tickets ({filteredTickets.length > 0 ? 248 : 0})
+              Tickets ({filteredTickets.length})
             </h2>
 
             {/* Sort by dropdown */}
@@ -1144,101 +1166,112 @@ export const AdminSupport: React.FC = () => {
 
           {/* Tickets Cards List */}
           <div className="divide-y divide-slate-100/80">
-            {filteredTickets.slice(0, 10).map((tkt) => {
-              const isSelected = selectedTicketId === tkt.id;
+            {filteredTickets.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-400">
+                No tickets found matching current filters
+              </div>
+            ) : (
+              filteredTickets
+                .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                .map((tkt) => {
+                  const isSelected = selectedTicketId === tkt.id;
 
-              return (
-                <div
-                  key={tkt.id}
-                  onClick={() => setSelectedTicketId(tkt.id)}
-                  className={cn(
-                    'p-3.5 flex items-start gap-3 transition-colors cursor-pointer group',
-                    isSelected ? 'bg-blue-50/50 hover:bg-blue-50/70' : 'hover:bg-slate-50/60'
-                  )}
-                >
-                  {/* Checkbox */}
-                  <div className="pt-1">
-                    <input
-                      type="checkbox"
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
-                    />
-                  </div>
+                  return (
+                    <div
+                      key={tkt.id}
+                      onClick={() => setSelectedTicketId(tkt.id)}
+                      className={cn(
+                        'p-3.5 flex items-start gap-3 transition-colors cursor-pointer group',
+                        isSelected ? 'bg-blue-50/50 hover:bg-blue-50/70' : 'hover:bg-slate-50/60'
+                      )}
+                    >
+                      {/* Checkbox */}
+                      <div className="pt-1">
+                        <input
+                          type="checkbox"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                        />
+                      </div>
 
-                  {/* Avatar */}
-                  <div
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
-                      tkt.avatarBgColor
-                    )}
-                  >
-                    {tkt.avatarText}
-                  </div>
-
-                  {/* Middle content */}
-                  <div className="min-w-0 flex-1">
-                    {/* Line 1: Name + Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-bold text-slate-900 text-xs truncate">
-                        {tkt.studentName}
-                      </span>
-                      <span
+                      {/* Avatar */}
+                      <div
                         className={cn(
-                          'px-2 py-0.5 rounded text-[10px] font-semibold',
-                          getCategoryBadgeClass(tkt.category)
+                          'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
+                          tkt.avatarBgColor
                         )}
                       >
-                        {tkt.category}
-                      </span>
-                      {tkt.priority === 'High' ? (
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded text-[10px] font-semibold',
-                            getPriorityBadgeClass(tkt.priority)
+                        {tkt.avatarText}
+                      </div>
+
+                      {/* Middle content */}
+                      <div className="min-w-0 flex-1">
+                        {/* Line 1: Name + Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-slate-900 text-xs truncate">
+                            {tkt.studentName}
+                          </span>
+                          <span
+                            className={cn(
+                              'px-2 py-0.5 rounded text-[10px] font-semibold',
+                              getCategoryBadgeClass(tkt.category)
+                            )}
+                          >
+                            {tkt.category}
+                          </span>
+                          {tkt.priority === 'High' ? (
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded text-[10px] font-semibold',
+                                getPriorityBadgeClass(tkt.priority)
+                              )}
+                            >
+                              {tkt.priority}
+                            </span>
+                          ) : (
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded text-[10px] font-semibold',
+                                getStatusBadgeClass(tkt.status)
+                              )}
+                            >
+                              {tkt.status}
+                            </span>
                           )}
-                        >
-                          {tkt.priority}
+                        </div>
+
+                        {/* Line 2: Subject */}
+                        <span className="font-bold text-slate-800 text-xs block truncate mt-1">
+                          {tkt.subject}
                         </span>
-                      ) : (
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded text-[10px] font-semibold',
-                            getStatusBadgeClass(tkt.status)
-                          )}
-                        >
-                          {tkt.status}
+
+                        {/* Line 3: Excerpt */}
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                          {tkt.excerpt}
+                        </p>
+                      </div>
+
+                      {/* Right side: Date & Ticket Number */}
+                      <div className="text-right shrink-0 pt-0.5">
+                        <span className="text-[10px] text-slate-400 block whitespace-nowrap">
+                          {tkt.dateStr}
                         </span>
-                      )}
+                        <span className="text-[11px] text-blue-600 font-mono font-medium block mt-1">
+                          {tkt.ticketNumber}
+                        </span>
+                      </div>
                     </div>
-
-                    {/* Line 2: Subject */}
-                    <span className="font-bold text-slate-800 text-xs block truncate mt-1">
-                      {tkt.subject}
-                    </span>
-
-                    {/* Line 3: Excerpt */}
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                      {tkt.excerpt}
-                    </p>
-                  </div>
-
-                  {/* Right side: Date & Ticket Number */}
-                  <div className="text-right shrink-0 pt-0.5">
-                    <span className="text-[10px] text-slate-400 block whitespace-nowrap">
-                      {tkt.dateStr}
-                    </span>
-                    <span className="text-[11px] text-blue-600 font-mono font-medium block mt-1">
-                      {tkt.ticketNumber}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })
+            )}
           </div>
 
           {/* Table / List Footer Pagination */}
           <div className="border-t border-slate-100 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 mt-auto">
-            <div>Showing 1–{Math.min(filteredTickets.length, 10)} of 248 tickets</div>
+            <div>
+              Showing {filteredTickets.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
+              {Math.min(filteredTickets.length, currentPage * rowsPerPage)} of {filteredTickets.length} tickets
+            </div>
 
             <div className="flex items-center gap-1.5">
               <button
@@ -1306,7 +1339,21 @@ export const AdminSupport: React.FC = () => {
 
         {/* COLUMN 3: TICKET DETAILS & CONVERSATION PANEL (lg:col-span-4) */}
         <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4">
-          {/* Header Line */}
+          {!activeTicket ? (
+            <div className="py-20 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">No Ticket Selected</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                {filteredTickets.length === 0
+                  ? 'No support tickets found in system.'
+                  : 'Select a support ticket from the list to view its messages and details.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Header Line */}
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <span className="font-bold text-sm text-slate-900">{activeTicket.ticketNumber}</span>
 
@@ -1570,6 +1617,8 @@ export const AdminSupport: React.FC = () => {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
 

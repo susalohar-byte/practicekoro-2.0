@@ -92,7 +92,9 @@ class AuthRepository {
     return await client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: redirectTo ?? defaultRedirect,
-      authScreenLaunchMode: LaunchMode.platformDefault,
+      authScreenLaunchMode: kIsWeb
+          ? LaunchMode.platformDefault
+          : LaunchMode.externalApplication,
       queryParams: const {
         'access_type': 'offline',
         'prompt': 'consent',

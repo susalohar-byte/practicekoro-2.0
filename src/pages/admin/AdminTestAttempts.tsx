@@ -209,7 +209,7 @@ const generateMockQuestions = (
 };
 
 // Default seeded attempts strictly matching screenshot media_1791197748654.jpg
-const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
+export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
   {
     id: 'att_1',
     studentId: 'PK100245',
@@ -564,7 +564,7 @@ export const AdminTestAttempts: React.FC = () => {
     } catch (e) {
       console.warn('Failed to load saved attempts:', e);
     }
-    return INITIAL_ATTEMPTS;
+    return [];
   });
 
   // Save changes
@@ -580,7 +580,11 @@ export const AdminTestAttempts: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     api.getAllAdminTestAttempts().then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
+      if (!isMounted) return;
+      if (!remote || remote.length === 0) {
+        setAttempts([]);
+        return;
+      }
       setAttempts(remote);
       if (remote.length > 0) {
         setSelectedAttemptId(remote[0].id);
@@ -622,9 +626,31 @@ export const AdminTestAttempts: React.FC = () => {
   const [activeModalAttempt, setActiveModalAttempt] = useState<AdminTestAttempt | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
 
+  // Dynamic KPI computations
+  const totalAttemptsCount = attempts.length;
+  const completedCount = useMemo(() => {
+    return attempts.filter((a) => a.status === 'Completed').length;
+  }, [attempts]);
+  const notCompletedCount = useMemo(() => {
+    return attempts.filter((a) => a.status === 'Not Completed').length;
+  }, [attempts]);
+  const averageScore = useMemo(() => {
+    if (totalAttemptsCount === 0) return 0;
+    const sum = attempts.reduce(
+      (acc, a) => acc + (a.accuracy || (a.totalMarks ? (a.score / a.totalMarks) * 100 : 0)),
+      0
+    );
+    return Math.round(sum / totalAttemptsCount);
+  }, [attempts, totalAttemptsCount]);
+  const averageTimeMin = useMemo(() => {
+    if (totalAttemptsCount === 0) return 0;
+    const sumSec = attempts.reduce((acc, a) => acc + (a.timeTakenSeconds || 0), 0);
+    return Math.round(sumSec / totalAttemptsCount / 60);
+  }, [attempts, totalAttemptsCount]);
+
   // Active attempt resolved
   const selectedAttempt = useMemo(() => {
-    return attempts.find((a) => a.id === selectedAttemptId) || attempts[0] || INITIAL_ATTEMPTS[0];
+    return attempts.find((a) => a.id === selectedAttemptId) || (attempts.length > 0 ? attempts[0] : null);
   }, [attempts, selectedAttemptId]);
 
   // Dynamic question breakdown for selected attempt
@@ -899,12 +925,14 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Total Attempts</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">1,24,860</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {totalAttemptsCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 28%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">+27,412 this month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Total tests logged</p>
           </div>
         </div>
 
@@ -916,12 +944,16 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Completed</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">89,420</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {completedCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 16%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">72% of total</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
+              {totalAttemptsCount > 0 ? Math.round((completedCount / totalAttemptsCount) * 100) : 0}% of total
+            </p>
           </div>
         </div>
 
@@ -933,12 +965,16 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Not Completed</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">28,640</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {notCompletedCount.toLocaleString('en-IN')}
+              </span>
               <span className="bg-[#FEE2E2] text-[#B91C1C] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↓ 8%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">23% of total</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
+              {totalAttemptsCount > 0 ? Math.round((notCompletedCount / totalAttemptsCount) * 100) : 0}% of total
+            </p>
           </div>
         </div>
 
@@ -950,12 +986,12 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Average Score</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">68%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{averageScore}%</span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 5%
               </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">+5% this month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Overall test accuracy</p>
           </div>
         </div>
 
@@ -967,7 +1003,7 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Average Time</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">42 min</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">{averageTimeMin} min</span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↓ 12%
               </span>
@@ -1366,7 +1402,7 @@ export const AdminTestAttempts: React.FC = () => {
           {/* Pagination Footer */}
           <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-[#64748B] font-medium">
-              Showing 1-10 of 1,24,860 attempts
+              Showing {filteredAttempts.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredAttempts.length)}`} of {filteredAttempts.length.toLocaleString('en-IN')} attempts
             </span>
 
             {/* Pagination Controls */}
@@ -1475,9 +1511,11 @@ export const AdminTestAttempts: React.FC = () => {
         {/* ==================================================================== */}
         {/* 5. ATTEMPT DETAILS PANEL (RIGHT SIDE - EXACT MATCH) */}
         {/* ==================================================================== */}
-        {isPanelOpen && selectedAttempt && (
+        {isPanelOpen && (
           <div className="w-full xl:w-[380px] shrink-0 bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs flex flex-col space-y-4 animate-in fade-in duration-200">
-            {/* Header: Title & Close Button */}
+            {selectedAttempt ? (
+              <>
+                {/* Header: Title & Close Button */}
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-sm font-bold text-[#0F172A]">Attempt Details</h2>
               <button
@@ -1854,6 +1892,12 @@ export const AdminTestAttempts: React.FC = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            </>
+            ) : (
+              <div className="py-16 text-center text-slate-400 text-xs">
+                No attempt record selected.
               </div>
             )}
           </div>

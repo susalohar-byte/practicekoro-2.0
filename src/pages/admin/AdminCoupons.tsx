@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -236,6 +237,7 @@ const INITIAL_COUPONS: CouponRowItem[] = [
 
 export const AdminCoupons: React.FC = () => {
   const [couponsList, setCouponsList] = useState<CouponRowItem[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_coupons_v2');
       if (stored) return JSON.parse(stored);
@@ -257,7 +259,11 @@ export const AdminCoupons: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     api.getAdminCoupons().then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
+      if (!isMounted) return;
+      if (!remote || remote.length === 0) {
+        if (isSupabaseConfigured) setCouponsList([]);
+        return;
+      }
       const mapped: CouponRowItem[] = remote.map((c) => {
         const isPct = c.discountType === 'percentage';
         const validFromStr = c.validFrom ? new Date(c.validFrom).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '01 Sep 2026';
@@ -287,6 +293,7 @@ export const AdminCoupons: React.FC = () => {
       setCouponsList(mapped);
     }).catch((err) => {
       console.warn('Failed to load coupons from database:', err);
+      if (isSupabaseConfigured) setCouponsList([]);
     });
     return () => { isMounted = false; };
   }, []);
@@ -568,9 +575,9 @@ export const AdminCoupons: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Coupons</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 leading-tight">24</span>
+              <span className="text-2xl font-bold text-slate-900 leading-tight">{couponsList.length}</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 26%
+                Live
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">in system</span>
@@ -585,9 +592,11 @@ export const AdminCoupons: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Active Coupons</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 leading-tight">16</span>
+              <span className="text-2xl font-bold text-slate-900 leading-tight">
+                {couponsList.filter((c) => c.status === 'Active').length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 14%
+                Active
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
@@ -602,9 +611,11 @@ export const AdminCoupons: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Used Coupons</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 leading-tight">1,248</span>
+              <span className="text-2xl font-bold text-slate-900 leading-tight">
+                {couponsList.reduce((sum, c) => sum + (c.usedCount || 0), 0).toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 32%
+                Redeemed
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">total redemptions</span>
@@ -619,9 +630,13 @@ export const AdminCoupons: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Discount Given</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 leading-tight">₹86,420</span>
+              <span className="text-2xl font-bold text-slate-900 leading-tight">
+                ₹{couponsList
+                  .reduce((sum, c) => sum + (c.usedCount || 0) * (c.discountType === 'fixed' ? c.discountValue : 50), 0)
+                  .toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 28%
+                Saved
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">lifetime value</span>
@@ -776,13 +791,22 @@ export const AdminCoupons: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredRows.slice(0, 10).map((row, idx) => {
-                    const isChecked = selectedCheckboxes.includes(row.id);
-                    return (
-                      <tr
-                        key={row.id}
-                        className="hover:bg-slate-50/60 transition-colors group cursor-pointer"
-                        onClick={() => {
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-xs text-slate-400">
+                        No coupons found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows
+                      .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                      .map((row, idx) => {
+                        const isChecked = selectedCheckboxes.includes(row.id);
+                        return (
+                          <tr
+                            key={row.id}
+                            className="hover:bg-slate-50/60 transition-colors group cursor-pointer"
+                            onClick={() => {
                           setFormCode(row.code);
                           setFormTitle(row.title);
                           setFormDescription(row.description || row.subtitle);
@@ -926,7 +950,8 @@ export const AdminCoupons: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>
@@ -934,7 +959,8 @@ export const AdminCoupons: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing 1–{Math.min(filteredRows.length, 10)} of 24 coupons
+                Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
+                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length} coupons
               </div>
 
               <div className="flex items-center gap-1.5">

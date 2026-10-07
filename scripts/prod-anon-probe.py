@@ -1,6 +1,8 @@
 import re, urllib.request, urllib.error, json
 
-env = open('/Users/susantalohar/Documents/PracticeKoro 2.0.O/.env').read()
+import os
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+env = open(env_path).read()
 url = re.search(r'VITE_SUPABASE_URL="?https://([a-z0-9]+)\.supabase\.co', env).group(1)
 key = re.search(r'VITE_SUPABASE_ANON_KEY="?([A-Za-z0-9_\-.]+)', env).group(1)
 base = f'https://{url}.supabase.co/rest/v1'

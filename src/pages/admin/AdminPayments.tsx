@@ -56,258 +56,6 @@ export interface PaymentItem {
   subscriptionActive?: boolean;
 }
 
-// Initial dataset strictly matching screenshot media_1791200564726.jpg
-const INITIAL_PAYMENTS: PaymentItem[] = [
-  {
-    id: 1,
-    studentName: 'Rohit Kumar',
-    studentEmail: 'rohitkumar@gmail.com',
-    studentPhone: '+91 98765 43210',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-    plan: '6 Months',
-    planDuration: '6 Months Plan',
-    planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    amount: 99,
-    paymentMethod: 'Razorpay',
-    transactionId: 'pay_LmX8vP6QeH',
-    date: '12 Aug 2026',
-    time: '11:20 AM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_N8m7k2Pq',
-    paymentId: 'pay_LmX8vP6QeH',
-    bankReference: 'HDF000123456',
-    subscriptionValidTill: '12 Feb 2027',
-    subscriptionMonthsLeft: 4,
-    subscriptionActive: true,
-  },
-  {
-    id: 2,
-    studentName: 'Puja Roy',
-    studentEmail: 'pujaroy@gmail.com',
-    studentPhone: '+91 98765 43211',
-    avatarType: 'initials',
-    avatarInitials: 'PR',
-    avatarBgColor: 'bg-rose-100',
-    avatarTextColor: 'text-rose-600',
-    plan: '3 Months',
-    planDuration: '3 Months Plan',
-    planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
-    amount: 59,
-    paymentMethod: 'UPI',
-    transactionId: 'upi_7Gk9H2mQp',
-    date: '10 Aug 2026',
-    time: '09:14 AM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_K9p2m4Qw',
-    paymentId: 'upi_7Gk9H2mQp',
-    bankReference: 'SBI000987654',
-    subscriptionValidTill: '10 Nov 2026',
-    subscriptionMonthsLeft: 3,
-    subscriptionActive: true,
-  },
-  {
-    id: 3,
-    studentName: 'Suman Das',
-    studentEmail: 'suman.das@gmail.com',
-    studentPhone: '+91 98765 43212',
-    avatarType: 'initials',
-    avatarInitials: 'SK',
-    avatarBgColor: 'bg-purple-100',
-    avatarTextColor: 'text-purple-600',
-    plan: '1 Month',
-    planDuration: '1 Month Plan',
-    planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
-    amount: 29,
-    paymentMethod: 'PhonePe',
-    transactionId: 'pp_9K2mJ7pQd',
-    date: '05 Aug 2026',
-    time: '02:30 PM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_J2m5k9Pp',
-    paymentId: 'pp_9K2mJ7pQd',
-    bankReference: 'ICIC000543210',
-    subscriptionValidTill: '05 Sep 2026',
-    subscriptionMonthsLeft: 1,
-    subscriptionActive: true,
-  },
-  {
-    id: 4,
-    studentName: 'Sneha Khatun',
-    studentEmail: 'sneha.kt@gmail.com',
-    studentPhone: '+91 98765 43213',
-    avatarType: 'initials',
-    avatarInitials: 'SK',
-    avatarBgColor: 'bg-purple-100',
-    avatarTextColor: 'text-purple-600',
-    plan: '1 Year',
-    planDuration: '1 Year Annual Plan',
-    planBadgeClass: 'bg-[#FEF3C7] text-[#B45309]',
-    amount: 149,
-    paymentMethod: 'Credit Card',
-    transactionId: 'card_3Df9LmKq',
-    date: '01 Aug 2026',
-    time: '10:12 AM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_L4k8m2Qw',
-    paymentId: 'card_3Df9LmKq',
-    bankReference: 'AXIS000876543',
-    subscriptionValidTill: '01 Aug 2027',
-    subscriptionMonthsLeft: 12,
-    subscriptionActive: true,
-  },
-  {
-    id: 5,
-    studentName: 'Arijit Mondal',
-    studentEmail: 'arijitmondal@gmail.com',
-    studentPhone: '+91 98765 43214',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
-    plan: '6 Months',
-    planDuration: '6 Months Plan',
-    planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    amount: 99,
-    paymentMethod: 'Razorpay',
-    transactionId: 'pay_8Hk2mN9pQ',
-    date: '29 Jul 2026',
-    time: '05:44 PM',
-    status: 'Failed',
-    statusBadgeClass: 'bg-[#FEE2E2] text-[#DC2626]',
-    gatewayOrderId: 'order_H8k2mN9p',
-    paymentId: 'pay_8Hk2mN9pQ',
-    bankReference: '—',
-    subscriptionValidTill: '—',
-    subscriptionMonthsLeft: 0,
-    subscriptionActive: false,
-  },
-  {
-    id: 6,
-    studentName: 'Subhankar Pal',
-    studentEmail: 'subhankar.pal@gmail.com',
-    studentPhone: '+91 98765 43215',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    plan: '3 Months',
-    planDuration: '3 Months Plan',
-    planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
-    amount: 59,
-    paymentMethod: 'UPI',
-    transactionId: 'upi_4Gm7x2pQ',
-    date: '25 Jul 2026',
-    time: '09:18 AM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_M5n8k2Pq',
-    paymentId: 'upi_4Gm7x2pQ',
-    bankReference: 'PNB000234567',
-    subscriptionValidTill: '25 Oct 2026',
-    subscriptionMonthsLeft: 3,
-    subscriptionActive: true,
-  },
-  {
-    id: 7,
-    studentName: 'Moumita Sarkar',
-    studentEmail: 'moumita.s@gmail.com',
-    studentPhone: '+91 98765 43216',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-    plan: '1 Month',
-    planDuration: '1 Month Plan',
-    planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
-    amount: 29,
-    paymentMethod: 'PhonePe',
-    transactionId: 'pp_L9m2K8pQd',
-    date: '20 Jul 2026',
-    time: '01:26 PM',
-    status: 'Refunded',
-    statusBadgeClass: 'bg-[#FEF3C7] text-[#D97706]',
-    gatewayOrderId: 'order_P9m2K8pQ',
-    paymentId: 'pp_L9m2K8pQd',
-    bankReference: 'HDF000987123',
-    subscriptionValidTill: 'Cancelled',
-    subscriptionMonthsLeft: 0,
-    subscriptionActive: false,
-  },
-  {
-    id: 8,
-    studentName: 'Abhijit Dey',
-    studentEmail: 'abhijit.dey@gmail.com',
-    studentPhone: '+91 98765 43217',
-    avatarType: 'initials',
-    avatarInitials: 'AD',
-    avatarBgColor: 'bg-emerald-100',
-    avatarTextColor: 'text-emerald-600',
-    plan: 'Free Plan',
-    planDuration: 'Free Trial Plan',
-    planBadgeClass: 'bg-[#EDE9FE] text-[#6D28D9]',
-    amount: 0,
-    paymentMethod: '—',
-    transactionId: '—',
-    date: '12 Jul 2026',
-    time: '03:12 PM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: '—',
-    paymentId: '—',
-    bankReference: '—',
-    subscriptionValidTill: 'Lifetime Free',
-    subscriptionMonthsLeft: 99,
-    subscriptionActive: true,
-  },
-  {
-    id: 9,
-    studentName: 'Rakesh Shaw',
-    studentEmail: 'rakeshshaw@gmail.com',
-    studentPhone: '+91 98765 43218',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-    plan: '6 Months',
-    planDuration: '6 Months Plan',
-    planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    amount: 99,
-    paymentMethod: 'UPI',
-    transactionId: 'upi_7N2mQk9p',
-    date: '01 Jul 2026',
-    time: '11:05 AM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_Q7n2mQk9',
-    paymentId: 'upi_7N2mQk9p',
-    bankReference: 'CAN000456789',
-    subscriptionValidTill: '01 Jan 2027',
-    subscriptionMonthsLeft: 5,
-    subscriptionActive: true,
-  },
-  {
-    id: 10,
-    studentName: 'Taniya Ghosh',
-    studentEmail: 'taniya.ghosh@gmail.com',
-    studentPhone: '+91 98765 43219',
-    avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    plan: '3 Months',
-    planDuration: '3 Months Plan',
-    planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
-    amount: 59,
-    paymentMethod: 'Razorpay',
-    transactionId: 'pay_D5m8K2qP',
-    date: '28 Jun 2026',
-    time: '06:48 PM',
-    status: 'Success',
-    statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    gatewayOrderId: 'order_D5m8K2qP',
-    paymentId: 'pay_D5m8K2qP',
-    bankReference: 'BARB000789123',
-    subscriptionValidTill: '28 Sep 2026',
-    subscriptionMonthsLeft: 2,
-    subscriptionActive: true,
-  },
-];
-
 // Payment Method Logo helper
 const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
   if (method === 'Razorpay') {
@@ -334,7 +82,7 @@ const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
     return (
       <div className="flex items-center gap-1.5">
         <div className="w-4 h-4 bg-[#6739B7] text-white rounded-full flex items-center justify-center font-bold text-[9px]">
-          पे
+          পে
         </div>
         <span className="text-xs text-slate-700 font-medium">PhonePe</span>
       </div>
@@ -356,29 +104,20 @@ const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
 // ============================================================================
 
 export const AdminPayments: React.FC = () => {
-  const [paymentsList, setPaymentsList] = useState<PaymentItem[]>(() => {
-    try {
-      const stored = localStorage.getItem('practicekoro_admin_payments_v2');
-      if (stored) return JSON.parse(stored);
-    } catch {
-      // ignore
-    }
-    return INITIAL_PAYMENTS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('practicekoro_admin_payments_v2', JSON.stringify(paymentsList));
-    } catch {
-      // ignore
-    }
-  }, [paymentsList]);
+  const [paymentsList, setPaymentsList] = useState<PaymentItem[]>([]);
+  const [selectedRowId, setSelectedRowId] = useState<number | string>('');
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
 
   // Load real payments from database on mount
   useEffect(() => {
     let isMounted = true;
     api.getAdminPayments().then((remote) => {
-      if (!isMounted || !remote || remote.length === 0) return;
+      if (!isMounted) return;
+      if (!remote || remote.length === 0) {
+        setPaymentsList([]);
+        setSelectedRowId('');
+        return;
+      }
       const mapped: PaymentItem[] = remote.map((d, index) => {
         const dDate = new Date(d.createdAt || Date.now());
         const dateStr = dDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -428,13 +167,10 @@ export const AdminPayments: React.FC = () => {
       }
     }).catch((err) => {
       console.warn('Failed to load admin payments from database:', err);
+      if (isMounted) setPaymentsList([]);
     });
     return () => { isMounted = false; };
   }, []);
-
-  // Selected row for details panel (Defaults to row 1 Rohit Kumar matching screenshot)
-  const [selectedRowId, setSelectedRowId] = useState<number | string>(1);
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
 
   // Checkbox selection state
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<(number | string)[]>([]);
@@ -474,8 +210,53 @@ export const AdminPayments: React.FC = () => {
 
   // Selected payment record
   const selectedPayment = useMemo(() => {
-    return paymentsList.find((p) => p.id === selectedRowId) || paymentsList[0];
+    return paymentsList.find((p) => p.id === selectedRowId) || (paymentsList.length > 0 ? paymentsList[0] : null);
   }, [paymentsList, selectedRowId]);
+
+  // Computed summary metrics
+  const totalRevenue = useMemo(() => {
+    return paymentsList
+      .filter((p) => p.status === 'Success')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  }, [paymentsList]);
+
+  const totalPayments = paymentsList.length;
+
+  const successfulPayments = useMemo(() => {
+    return paymentsList.filter((p) => p.status === 'Success').length;
+  }, [paymentsList]);
+
+  const failedPayments = useMemo(() => {
+    return paymentsList.filter((p) => p.status === 'Failed').length;
+  }, [paymentsList]);
+
+  const refundedPayments = useMemo(() => {
+    return paymentsList.filter((p) => p.status === 'Refunded').length;
+  }, [paymentsList]);
+
+  const successRate = totalPayments > 0 ? `${Math.round((successfulPayments / totalPayments) * 100)}%` : '0%';
+
+  const methodStats = useMemo(() => {
+    const total = totalRevenue || 1;
+    const calc = (m: string) => {
+      const items = paymentsList.filter((p) => p.paymentMethod === m && p.status === 'Success');
+      const sum = items.reduce((acc, p) => acc + (p.amount || 0), 0);
+      const pct = totalRevenue > 0 ? Math.round((sum / total) * 100) : 0;
+      return { sum, pct };
+    };
+    return {
+      upi: calc('UPI'),
+      razorpay: calc('Razorpay'),
+      phonepe: calc('PhonePe'),
+      card: calc('Credit Card'),
+      other: {
+        sum: paymentsList
+          .filter((p) => !['UPI', 'Razorpay', 'PhonePe', 'Credit Card'].includes(p.paymentMethod) && p.status === 'Success')
+          .reduce((acc, p) => acc + (p.amount || 0), 0),
+        pct: 0,
+      },
+    };
+  }, [paymentsList, totalRevenue]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -639,7 +420,7 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">₹3,86,420</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">₹{totalRevenue.toLocaleString('en-IN')}</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 32%
               </span>
@@ -656,7 +437,7 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Payments</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">1,248</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">{totalPayments.toLocaleString('en-IN')}</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 26%
               </span>
@@ -673,9 +454,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Successful</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">1,182</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">{successfulPayments.toLocaleString('en-IN')}</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                95%
+                {successRate}
               </span>
             </div>
             <span className="text-[11px] text-slate-400 block mt-0.5 truncate">success rate</span>
@@ -690,7 +471,7 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Failed</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">42</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">{failedPayments.toLocaleString('en-IN')}</span>
               <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
                 ↓ 3%
               </span>
@@ -707,7 +488,7 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Refunded</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">24</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">{refundedPayments.toLocaleString('en-IN')}</span>
               <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                 ↓ 2%
               </span>
@@ -981,7 +762,7 @@ export const AdminPayments: React.FC = () => {
               {/* Donut Center Label */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-xs font-bold text-slate-900 leading-tight">
-                  ₹3,86,420
+                  ₹{totalRevenue.toLocaleString('en-IN')}
                 </span>
                 <span className="text-[9px] text-slate-400 font-normal">Total Revenue</span>
               </div>
@@ -995,8 +776,8 @@ export const AdminPayments: React.FC = () => {
                   <span className="text-slate-700 font-medium truncate">UPI</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-900">52%</span>
-                  <span className="text-[10px] text-slate-400 block">₹2,00,938</span>
+                  <span className="font-bold text-slate-900">{methodStats.upi.pct}%</span>
+                  <span className="text-[10px] text-slate-400 block">₹{methodStats.upi.sum.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1006,8 +787,8 @@ export const AdminPayments: React.FC = () => {
                   <span className="text-slate-700 font-medium truncate">Razorpay</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-900">28%</span>
-                  <span className="text-[10px] text-slate-400 block">₹1,08,198</span>
+                  <span className="font-bold text-slate-900">{methodStats.razorpay.pct}%</span>
+                  <span className="text-[10px] text-slate-400 block">₹{methodStats.razorpay.sum.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1017,8 +798,8 @@ export const AdminPayments: React.FC = () => {
                   <span className="text-slate-700 font-medium truncate">PhonePe</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-900">12%</span>
-                  <span className="text-[10px] text-slate-400 block">₹46,370</span>
+                  <span className="font-bold text-slate-900">{methodStats.phonepe.pct}%</span>
+                  <span className="text-[10px] text-slate-400 block">₹{methodStats.phonepe.sum.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1028,8 +809,8 @@ export const AdminPayments: React.FC = () => {
                   <span className="text-slate-700 font-medium truncate">Credit/Debit Card</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-900">6%</span>
-                  <span className="text-[10px] text-slate-400 block">₹23,185</span>
+                  <span className="font-bold text-slate-900">{methodStats.card.pct}%</span>
+                  <span className="text-[10px] text-slate-400 block">₹{methodStats.card.sum.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1039,8 +820,8 @@ export const AdminPayments: React.FC = () => {
                   <span className="text-slate-700 font-medium truncate">Other</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-slate-900">2%</span>
-                  <span className="text-[10px] text-slate-400 block">₹7,729</span>
+                  <span className="font-bold text-slate-900">{methodStats.other.pct}%</span>
+                  <span className="text-[10px] text-slate-400 block">₹{methodStats.other.sum.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>
@@ -1181,7 +962,14 @@ export const AdminPayments: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/70 text-xs">
-                  {filteredRows.slice(0, 10).map((row, idx) => {
+                  {filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-xs text-slate-400">
+                        No payment records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.slice(0, 10).map((row, idx) => {
                     const isSelected = selectedRowId === row.id;
                     const isChecked = selectedCheckboxes.includes(row.id);
                     return (
@@ -1345,7 +1133,8 @@ export const AdminPayments: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1353,7 +1142,7 @@ export const AdminPayments: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing 1–{Math.min(filteredRows.length, 10)} of 1,248 payments
+                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of {filteredRows.length.toLocaleString('en-IN')} payments
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1422,9 +1211,11 @@ export const AdminPayments: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: PAYMENT DETAILS PANEL */}
-        {isDetailsPanelOpen && selectedPayment && (
+        {isDetailsPanelOpen && (
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            {/* Header */}
+            {selectedPayment ? (
+              <>
+                {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900">Payment Details</h2>
               <button
@@ -1599,6 +1390,12 @@ export const AdminPayments: React.FC = () => {
                 <span>Cancel Payment</span>
               </button>
             </div>
+            </>
+            ) : (
+              <div className="py-16 text-center text-slate-400 text-xs">
+                No payment record selected.
+              </div>
+            )}
           </div>
         )}
       </div>
