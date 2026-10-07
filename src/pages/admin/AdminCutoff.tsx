@@ -1,3 +1,5 @@
+import type { Exam } from '@/types';
+import { requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   BookOpen,
@@ -60,7 +62,7 @@ const INITIAL_CUTOFFS: CutoffItem[] = [
     category: 'General',
     categoryBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
     cutoffMarks: 85.25,
-    totalPosts: '11,746',
+    totalPosts: '',
     addedOn: '12 Aug 2026',
     addedBy: 'Admin',
     source: 'WBPRB Official Notification Memo No. PRB/RECT/2024-89',
@@ -73,7 +75,7 @@ const INITIAL_CUTOFFS: CutoffItem[] = [
     stage: 'Final Merit',
     category: 'OBC-A',
     categoryBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-    cutoffMarks: 81.50,
+    cutoffMarks: 81.5,
     totalPosts: '11,746',
     addedOn: '12 Aug 2026',
     addedBy: 'Admin',
@@ -115,7 +117,7 @@ const INITIAL_CUTOFFS: CutoffItem[] = [
     stage: 'Final Merit',
     category: 'ST',
     categoryBadgeClass: 'bg-[#FFE4E6] text-[#BE123C]',
-    cutoffMarks: 68.50,
+    cutoffMarks: 68.5,
     totalPosts: '11,746',
     addedOn: '12 Aug 2026',
     addedBy: 'Admin',
@@ -129,7 +131,7 @@ const INITIAL_CUTOFFS: CutoffItem[] = [
     stage: 'Final Merit',
     category: 'EWS',
     categoryBadgeClass: 'bg-[#FEF9C3] text-[#A16207]',
-    cutoffMarks: 80.00,
+    cutoffMarks: 80.0,
     totalPosts: '11,746',
     addedOn: '12 Aug 2026',
     addedBy: 'Admin',
@@ -143,7 +145,7 @@ const INITIAL_CUTOFFS: CutoffItem[] = [
     stage: 'Final Merit',
     category: 'Female (General)',
     categoryBadgeClass: 'bg-[#E0E7FF] text-[#4338CA]',
-    cutoffMarks: 82.00,
+    cutoffMarks: 82.0,
     totalPosts: '11,746',
     addedOn: '12 Aug 2026',
     addedBy: 'Admin',
@@ -217,10 +219,10 @@ const RECENT_UPDATES: RecentUpdateItem[] = [
 
 // Cutoff Trend Data (WBP Constable – General) matching screenshot
 const GENERAL_TREND_DATA = [
-  { year: '2019', value: 67.50 },
+  { year: '2019', value: 67.5 },
   { year: '2020', value: 72.25 },
-  { year: '2021', value: 76.00 },
-  { year: '2022', value: 80.50 },
+  { year: '2021', value: 76.0 },
+  { year: '2022', value: 80.5 },
   { year: '2023', value: 83.75 },
   { year: '2024', value: 85.25 },
 ];
@@ -228,64 +230,64 @@ const GENERAL_TREND_DATA = [
 // Category-wise Cutoff horizontal bars (WBP Constable 2024) matching screenshot
 const CATEGORY_BARS_DATA = [
   { category: 'General', value: 85.25, color: '#2563EB' },
-  { category: 'OBC-A', value: 81.50, color: '#10B981' },
+  { category: 'OBC-A', value: 81.5, color: '#10B981' },
   { category: 'OBC-B', value: 78.75, color: '#F59E0B' },
   { category: 'SC', value: 73.25, color: '#8B5CF6' },
-  { category: 'ST', value: 68.50, color: '#FB7185' },
-  { category: 'EWS', value: 80.00, color: '#06B6D4' },
-  { category: 'Female (General)', value: 82.00, color: '#F43F5E' },
+  { category: 'ST', value: 68.5, color: '#FB7185' },
+  { category: 'EWS', value: 80.0, color: '#06B6D4' },
+  { category: 'Female (General)', value: 82.0, color: '#F43F5E' },
   { category: 'Female (SC)', value: 70.25, color: '#A855F7' },
 ];
 
 // Multi-category year-wise data for Comparison Widget
 const YEAR_WISE_COMPARISON: Record<string, { year: string; value: number; color: string }[]> = {
   General: [
-    { year: '2019', value: 67.50, color: '#60A5FA' },
+    { year: '2019', value: 67.5, color: '#60A5FA' },
     { year: '2020', value: 72.25, color: '#34D399' },
-    { year: '2021', value: 76.00, color: '#FBBF24' },
-    { year: '2022', value: 80.50, color: '#C084FC' },
+    { year: '2021', value: 76.0, color: '#FBBF24' },
+    { year: '2022', value: 80.5, color: '#C084FC' },
     { year: '2023', value: 83.75, color: '#FB7185' },
     { year: '2024', value: 85.25, color: '#2DD4BF' },
   ],
   'OBC-A': [
     { year: '2019', value: 63.25, color: '#60A5FA' },
-    { year: '2020', value: 68.00, color: '#34D399' },
-    { year: '2021', value: 71.50, color: '#FBBF24' },
+    { year: '2020', value: 68.0, color: '#34D399' },
+    { year: '2021', value: 71.5, color: '#FBBF24' },
     { year: '2022', value: 75.75, color: '#C084FC' },
     { year: '2023', value: 79.25, color: '#FB7185' },
-    { year: '2024', value: 81.50, color: '#2DD4BF' },
+    { year: '2024', value: 81.5, color: '#2DD4BF' },
   ],
   'OBC-B': [
-    { year: '2019', value: 60.50, color: '#60A5FA' },
+    { year: '2019', value: 60.5, color: '#60A5FA' },
     { year: '2020', value: 65.25, color: '#34D399' },
-    { year: '2021', value: 69.00, color: '#FBBF24' },
-    { year: '2022', value: 73.00, color: '#C084FC' },
-    { year: '2023', value: 76.50, color: '#FB7185' },
+    { year: '2021', value: 69.0, color: '#FBBF24' },
+    { year: '2022', value: 73.0, color: '#C084FC' },
+    { year: '2023', value: 76.5, color: '#FB7185' },
     { year: '2024', value: 78.75, color: '#2DD4BF' },
   ],
   SC: [
-    { year: '2019', value: 54.00, color: '#60A5FA' },
-    { year: '2020', value: 59.50, color: '#34D399' },
+    { year: '2019', value: 54.0, color: '#60A5FA' },
+    { year: '2020', value: 59.5, color: '#34D399' },
     { year: '2021', value: 63.75, color: '#FBBF24' },
     { year: '2022', value: 67.25, color: '#C084FC' },
-    { year: '2023', value: 70.80, color: '#FB7185' },
+    { year: '2023', value: 70.8, color: '#FB7185' },
     { year: '2024', value: 73.25, color: '#2DD4BF' },
   ],
   ST: [
     { year: '2019', value: 49.25, color: '#60A5FA' },
-    { year: '2020', value: 53.50, color: '#34D399' },
-    { year: '2021', value: 58.00, color: '#FBBF24' },
-    { year: '2022', value: 62.10, color: '#C084FC' },
+    { year: '2020', value: 53.5, color: '#34D399' },
+    { year: '2021', value: 58.0, color: '#FBBF24' },
+    { year: '2022', value: 62.1, color: '#C084FC' },
     { year: '2023', value: 65.75, color: '#FB7185' },
-    { year: '2024', value: 68.50, color: '#2DD4BF' },
+    { year: '2024', value: 68.5, color: '#2DD4BF' },
   ],
   EWS: [
-    { year: '2019', value: 61.00, color: '#60A5FA' },
-    { year: '2020', value: 66.50, color: '#34D399' },
+    { year: '2019', value: 61.0, color: '#60A5FA' },
+    { year: '2020', value: 66.5, color: '#34D399' },
     { year: '2021', value: 70.25, color: '#FBBF24' },
-    { year: '2022', value: 74.00, color: '#C084FC' },
-    { year: '2023', value: 77.50, color: '#FB7185' },
-    { year: '2024', value: 80.00, color: '#2DD4BF' },
+    { year: '2022', value: 74.0, color: '#C084FC' },
+    { year: '2023', value: 77.5, color: '#FB7185' },
+    { year: '2024', value: 80.0, color: '#2DD4BF' },
   ],
 };
 
@@ -352,6 +354,14 @@ const ExamLogoEmblem: React.FC<{ examName: string }> = ({ examName }) => {
 // ============================================================================
 
 export const AdminCutoff: React.FC = () => {
+  const [availableExams, setAvailableExams] = useState<Exam[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  useEffect(() => {
+    api
+      .getAllAdminExams()
+      .then(setAvailableExams)
+      .catch((err) => showToast(err instanceof Error ? err.message : 'Exams could not be loaded'));
+  }, []);
   // Local storage persisted cutoffs list
   const [cutoffsList, setCutoffsList] = useState<CutoffItem[]>(() => {
     if (isSupabaseConfigured) return [];
@@ -377,51 +387,60 @@ export const AdminCutoff: React.FC = () => {
   // Load live cutoff records from database on mount
   useEffect(() => {
     let isMounted = true;
-    api.getCutoffRecords().then((records) => {
-      if (!isMounted) return;
-      if (!records || records.length === 0) {
+    api
+      .getCutoffRecords()
+      .then((records) => {
+        if (!isMounted) return;
+        if (!records || records.length === 0) {
+          if (isSupabaseConfigured) {
+            setCutoffsList([]);
+            setSelectedRowId('');
+          }
+          return;
+        }
+        const mapped: CutoffItem[] = records.map((r) => {
+          let badgeClass = 'bg-[#DBEAFE] text-[#1E40AF]';
+          const cat = String(r.category);
+          if (cat === 'OBC-A' || cat === 'OBC_A') badgeClass = 'bg-[#DCFCE7] text-[#15803D]';
+          else if (cat === 'OBC-B' || cat === 'OBC_B') badgeClass = 'bg-[#FEF3C7] text-[#B45309]';
+          else if (cat === 'SC') badgeClass = 'bg-[#EDE9FE] text-[#6D28D9]';
+          else if (cat === 'ST') badgeClass = 'bg-[#FFE4E6] text-[#BE123C]';
+
+          return {
+            id: r.id,
+            exam: r.examTitle || 'WBP Constable',
+            year: r.year,
+            stage: r.stage,
+            category: r.category,
+            categoryBadgeClass: badgeClass,
+            cutoffMarks: r.cutoffMarks,
+            totalPosts: '11,746',
+            addedOn: r.verifiedDate
+              ? new Date(r.verifiedDate).toLocaleDateString('en-GB')
+              : r.createdAt
+                ? new Date(r.createdAt).toLocaleDateString('en-GB')
+                : '',
+            addedBy: r.verifiedBy || 'Admin',
+            source: r.source,
+            notes: r.notes,
+          };
+        });
+        setCutoffsList(mapped);
+        setSelectedRowId((prev) => {
+          if (!prev) return '';
+          return mapped.some((m) => m.id === prev) ? prev : '';
+        });
+      })
+      .catch((err) => {
+        showToast(err instanceof Error ? err.message : 'Cutoffs could not be loaded.');
         if (isSupabaseConfigured) {
           setCutoffsList([]);
           setSelectedRowId('');
         }
-        return;
-      }
-      const mapped: CutoffItem[] = records.map((r) => {
-        let badgeClass = 'bg-[#DBEAFE] text-[#1E40AF]';
-        const cat = String(r.category);
-        if (cat === 'OBC-A' || cat === 'OBC_A') badgeClass = 'bg-[#DCFCE7] text-[#15803D]';
-        else if (cat === 'OBC-B' || cat === 'OBC_B') badgeClass = 'bg-[#FEF3C7] text-[#B45309]';
-        else if (cat === 'SC') badgeClass = 'bg-[#EDE9FE] text-[#6D28D9]';
-        else if (cat === 'ST') badgeClass = 'bg-[#FFE4E6] text-[#BE123C]';
-
-        return {
-          id: r.id,
-          exam: r.examTitle || 'WBP Constable',
-          year: r.year,
-          stage: r.stage,
-          category: r.category,
-          categoryBadgeClass: badgeClass,
-          cutoffMarks: r.cutoffMarks,
-          totalPosts: '11,746',
-          addedOn: r.verifiedDate ? new Date(r.verifiedDate).toLocaleDateString('en-GB') : '12 Aug 2026',
-          addedBy: r.verifiedBy || 'Admin',
-          source: r.source,
-          notes: r.notes,
-        };
       });
-      setCutoffsList(mapped);
-      setSelectedRowId((prev) => {
-        if (!prev) return '';
-        return mapped.some((m) => m.id === prev) ? prev : '';
-      });
-    }).catch((err) => {
-      console.warn('Failed to load cutoff records from database:', err);
-      if (isSupabaseConfigured) {
-        setCutoffsList([]);
-        setSelectedRowId('');
-      }
-    });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Filter states
@@ -468,8 +487,12 @@ export const AdminCutoff: React.FC = () => {
   const [formCategory, setFormCategory] = useState('General');
   const [formCutoffMarks, setFormCutoffMarks] = useState('85.25');
   const [formTotalPosts, setFormTotalPosts] = useState('11,746');
-  const [formSource, setFormSource] = useState('WBPRB Official Notification Memo No. PRB/RECT/2024-89');
-  const [formNotes, setFormNotes] = useState('Official normalized threshold score for merit placement.');
+  const [formSource, setFormSource] = useState(
+    'WBPRB Official Notification Memo No. PRB/RECT/2024-89'
+  );
+  const [formNotes, setFormNotes] = useState(
+    'Official normalized threshold score for merit placement.'
+  );
 
   // Helper Toast trigger
   const showToast = (msg: string) => {
@@ -519,9 +542,11 @@ export const AdminCutoff: React.FC = () => {
   const filteredRows = useMemo(() => {
     return cutoffsList.filter((row) => {
       if (appliedFilters.exam !== 'All Exams' && row.exam !== appliedFilters.exam) return false;
-      if (appliedFilters.year !== 'All Years' && String(row.year) !== appliedFilters.year) return false;
+      if (appliedFilters.year !== 'All Years' && String(row.year) !== appliedFilters.year)
+        return false;
       if (appliedFilters.stage !== 'All Stages' && row.stage !== appliedFilters.stage) return false;
-      if (appliedFilters.category !== 'All Categories' && row.category !== appliedFilters.category) return false;
+      if (appliedFilters.category !== 'All Categories' && row.category !== appliedFilters.category)
+        return false;
       return true;
     });
   }, [cutoffsList, appliedFilters]);
@@ -581,142 +606,97 @@ export const AdminCutoff: React.FC = () => {
   // Save Modal (Create or Edit)
   const handleSaveCutoff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const marksNum = parseFloat(formCutoffMarks) || 0;
-    const badgeClass = getCategoryBadgeClass(formCategory);
-
-    if (editingItem) {
-      // Update existing
-      setCutoffsList((prev) =>
-        prev.map((c) =>
-          c.id === editingItem.id
-            ? {
-                ...c,
-                exam: formExam,
-                year: parseInt(formYear, 10),
-                stage: formStage,
-                category: formCategory,
-                categoryBadgeClass: badgeClass,
-                cutoffMarks: marksNum,
-                totalPosts: formTotalPosts,
-                source: formSource,
-                notes: formNotes,
-              }
-            : c
-        )
-      );
-      showToast(`Cutoff for "${formExam} - ${formCategory}" updated successfully.`);
-
-      try {
-        await api.saveCutoffRecord({
-          id: String(editingItem.id),
-          examId: formExam.toLowerCase().replace(/\s+/g, '-'),
-          examTitle: formExam,
-          year: parseInt(formYear, 10),
-          stage: formStage,
-          cutoffType: 'OFFICIAL',
-          category: formCategory,
-          gender: 'ALL',
-          district: 'ALL',
-          scoreType: 'raw_marks',
-          maxMarks: 100,
-          cutoffMarks: marksNum,
-          sourceType: 'Official Notification',
-          source: formSource,
-          verificationStatus: 'Verified',
-          verifiedBy: 'Admin',
-          verifiedDate: new Date().toISOString(),
-          notes: formNotes,
-          status: 'active',
-        } as any);
-      } catch (err) {
-        console.warn('Failed to update cutoff record in database:', err);
-      }
-    } else {
-      // Create new
-      const newId = `cut_${Date.now()}`;
-      const newItem: CutoffItem = {
-        id: newId,
-        exam: formExam,
-        year: parseInt(formYear, 10),
-        stage: formStage,
-        category: formCategory,
-        categoryBadgeClass: badgeClass,
-        cutoffMarks: marksNum,
-        totalPosts: formTotalPosts,
-        addedOn: 'Today',
-        addedBy: 'Admin',
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const exam = availableExams.find((x) => x.title === formExam);
+      if (!exam) throw new Error('Select an existing backend exam.');
+      const existing = editingItem
+        ? (await api.getCutoffRecords()).find((x) => x.id === String(editingItem.id))
+        : undefined;
+      if (editingItem && !existing) throw new Error('The cutoff no longer exists.');
+      const saved = await api.saveCutoffRecord({
+        ...existing,
+        id: existing?.id,
+        examId: exam.id,
+        examTitle: exam.title,
+        year: Number(formYear),
+        stage: formStage as any,
+        cutoffType: existing?.cutoffType || 'OFFICIAL',
+        category: (formCategory === 'General' ? 'GEN' : formCategory.replace('-', '_')) as any,
+        gender: existing?.gender || 'ALL',
+        district: existing?.district || 'ALL',
+        scoreType: existing?.scoreType || 'raw_marks',
+        maxMarks: existing?.maxMarks || 100,
+        cutoffMarks: Number(formCutoffMarks),
+        percentage: undefined,
+        sourceType: existing?.sourceType || 'Official Notification',
         source: formSource,
+        verificationStatus: existing?.verificationStatus || 'Pending Verification',
         notes: formNotes,
+        status: existing?.status || 'draft',
+        totalPosts: formTotalPosts,
+      });
+      if (!saved.id) throw new Error('Saved ID missing');
+      const item: CutoffItem = {
+        id: saved.id,
+        exam: saved.examTitle,
+        year: saved.year,
+        stage: saved.stage,
+        category: saved.category,
+        categoryBadgeClass: getCategoryBadgeClass(saved.category),
+        cutoffMarks: saved.cutoffMarks,
+        totalPosts: saved.totalPosts || '',
+        addedOn: new Date(saved.createdAt || Date.now()).toLocaleDateString('en-GB'),
+        addedBy: saved.verifiedBy || 'Admin',
+        source: saved.source,
+        notes: saved.notes,
       };
-      setCutoffsList((prev) => [newItem, ...prev]);
-      setSelectedRowId(newId);
-      showToast(`New Cutoff record added successfully for ${formExam}.`);
-
-      try {
-        await api.saveCutoffRecord({
-          id: newId,
-          examId: formExam.toLowerCase().replace(/\s+/g, '-'),
-          examTitle: formExam,
-          year: parseInt(formYear, 10),
-          stage: formStage,
-          cutoffType: 'OFFICIAL',
-          category: formCategory,
-          gender: 'ALL',
-          district: 'ALL',
-          scoreType: 'raw_marks',
-          maxMarks: 100,
-          cutoffMarks: marksNum,
-          sourceType: 'Official Notification',
-          source: formSource,
-          verificationStatus: 'Verified',
-          verifiedBy: 'Admin',
-          verifiedDate: new Date().toISOString(),
-          notes: formNotes,
-          status: 'active',
-        } as any);
-      } catch (err) {
-        console.warn('Failed to create cutoff record in database:', err);
-      }
+      setCutoffsList((prev) =>
+        editingItem ? prev.map((x) => (String(x.id) === saved.id ? item : x)) : [item, ...prev]
+      );
+      setIsAddModalOpen(false);
+      showToast('Cutoff saved in the database.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsAddModalOpen(false);
   };
 
   // Delete Cutoff
   const handleDeleteCutoff = async () => {
     if (!deleteConfirmItem) return;
-    const targetId = deleteConfirmItem.id;
-    setCutoffsList((prev) => prev.filter((c) => c.id !== targetId));
-    if (selectedRowId === targetId) {
-      setSelectedRowId('');
-    }
-    showToast(`Cutoff record #${targetId} deleted.`);
-    setDeleteConfirmItem(null);
-
     try {
-      await api.deleteCutoffRecord(String(targetId));
+      const id = deleteConfirmItem.id;
+      requireSuccess(await api.deleteCutoffRecord(String(id)));
+      setCutoffsList((prev) => prev.filter((x) => x.id !== id));
+      if (selectedRowId === id) setSelectedRowId('');
+      setDeleteConfirmItem(null);
+      showToast('Cutoff deleted.');
     } catch (err) {
-      console.warn('Failed to delete cutoff record in database:', err);
+      showToast(err instanceof Error ? err.message : 'Delete failed');
     }
   };
 
   // Duplicate Cutoff
   const handleDuplicate = (item: CutoffItem) => {
-    const dupId = Date.now();
-    const dupItem: CutoffItem = {
-      ...item,
-      id: dupId,
-      addedOn: 'Today',
-      addedBy: 'Admin',
-      notes: `${item.notes || ''} (Duplicate)`,
-    };
-    setCutoffsList((prev) => [dupItem, ...prev]);
-    setSelectedRowId(dupId);
-    showToast(`Duplicated cutoff #${item.id} as #${dupId}`);
+    setEditingItem(null);
+    setFormExam(item.exam);
+    setFormYear(String(item.year));
+    setFormStage(item.stage);
+    setFormCategory(item.category);
+    setFormCutoffMarks(String(item.cutoffMarks));
+    setFormTotalPosts(item.totalPosts);
+    setFormSource(item.source || '');
+    setFormNotes(item.notes || '');
+    setIsAddModalOpen(true);
+    showToast('Review the copy and Save to persist a new record.');
   };
 
   // Comparison comparison data for Widget 3
-  const activeComparisonData = YEAR_WISE_COMPARISON[comparisonCategory] || YEAR_WISE_COMPARISON['General'];
+  const activeComparisonData =
+    YEAR_WISE_COMPARISON[comparisonCategory] || YEAR_WISE_COMPARISON['General'];
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -735,8 +715,8 @@ export const AdminCutoff: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cutoff</h1>
           <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
-            View and manage exam cutoffs from previous years. Helps students understand the expected cutoff and plan
-            better.
+            View and manage exam cutoffs from previous years. Helps students understand the expected
+            cutoff and plan better.
           </p>
         </div>
 
@@ -763,7 +743,9 @@ export const AdminCutoff: React.FC = () => {
             <div className="text-2xl font-bold text-slate-900 leading-tight">
               {new Set(cutoffsList.map((c) => c.exam)).size}
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">with cutoff data</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              with cutoff data
+            </span>
           </div>
         </div>
 
@@ -795,7 +777,9 @@ export const AdminCutoff: React.FC = () => {
             <div className="text-2xl font-bold text-slate-900 leading-tight">
               {new Set(cutoffsList.map((c) => c.category)).size}
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">General, OBC, SC, ST, EWS, Others</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              General, OBC, SC, ST, EWS, Others
+            </span>
           </div>
         </div>
 
@@ -805,7 +789,9 @@ export const AdminCutoff: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <span className="text-[11px] font-medium text-slate-500 block">Latest Cutoff Added</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Latest Cutoff Added
+            </span>
             <div className="text-base font-bold text-slate-900 leading-tight truncate">
               {cutoffsList.length > 0 ? `${cutoffsList[0].exam} ${cutoffsList[0].year}` : '—'}
             </div>
@@ -956,123 +942,125 @@ export const AdminCutoff: React.FC = () => {
                       .map((row, idx) => {
                         const isSelected = selectedRowId === row.id;
                         return (
-                      <tr
-                        key={row.id}
-                        onClick={() => setSelectedRowId(row.id)}
-                        className={cn(
-                          'transition-colors cursor-pointer group',
-                          isSelected
-                            ? 'bg-blue-50/50 hover:bg-blue-50/70'
-                            : 'hover:bg-slate-50/60'
-                        )}
-                      >
-                        {/* # */}
-                        <td className="py-3 px-4 text-center font-normal text-slate-500">
-                          {idx + 1}
-                        </td>
-
-                        {/* Exam */}
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <ExamLogoEmblem examName={row.exam} />
-                            <span className="font-semibold text-slate-800">{row.exam}</span>
-                          </div>
-                        </td>
-
-                        {/* Year */}
-                        <td className="py-3 px-4 text-slate-600 font-normal">{row.year}</td>
-
-                        {/* Stage */}
-                        <td className="py-3 px-4 text-slate-600 font-normal">{row.stage}</td>
-
-                        {/* Category */}
-                        <td className="py-3 px-4">
-                          <span
+                          <tr
+                            key={row.id}
+                            onClick={() => setSelectedRowId(row.id)}
                             className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium tracking-wide',
-                              row.categoryBadgeClass
+                              'transition-colors cursor-pointer group',
+                              isSelected
+                                ? 'bg-blue-50/50 hover:bg-blue-50/70'
+                                : 'hover:bg-slate-50/60'
                             )}
                           >
-                            {row.category}
-                          </span>
-                        </td>
+                            {/* # */}
+                            <td className="py-3 px-4 text-center font-normal text-slate-500">
+                              {idx + 1}
+                            </td>
 
-                        {/* Cutoff Marks */}
-                        <td className="py-3 px-4 font-semibold text-slate-800">
-                          {row.cutoffMarks.toFixed(2)}
-                        </td>
-
-                        {/* Total Posts */}
-                        <td className="py-3 px-4 text-slate-600 font-normal">{row.totalPosts}</td>
-
-                        {/* Actions */}
-                        <td
-                          className="py-3 px-4 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-
-                            {/* Dropdown Menu */}
-                            {activeMenuId === row.id && (
-                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                                <button
-                                  onClick={() => {
-                                    setDetailsItem(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Eye className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>View Details</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleOpenEditModal(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5 text-blue-500" />
-                                  <span>Edit Cutoff</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleDuplicate(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Duplicate Record</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setDeleteConfirmItem(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Delete Cutoff</span>
-                                </button>
+                            {/* Exam */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <ExamLogoEmblem examName={row.exam} />
+                                <span className="font-semibold text-slate-800">{row.exam}</span>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                            </td>
+
+                            {/* Year */}
+                            <td className="py-3 px-4 text-slate-600 font-normal">{row.year}</td>
+
+                            {/* Stage */}
+                            <td className="py-3 px-4 text-slate-600 font-normal">{row.stage}</td>
+
+                            {/* Category */}
+                            <td className="py-3 px-4">
+                              <span
+                                className={cn(
+                                  'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium tracking-wide',
+                                  row.categoryBadgeClass
+                                )}
+                              >
+                                {row.category}
+                              </span>
+                            </td>
+
+                            {/* Cutoff Marks */}
+                            <td className="py-3 px-4 font-semibold text-slate-800">
+                              {row.cutoffMarks.toFixed(2)}
+                            </td>
+
+                            {/* Total Posts */}
+                            <td className="py-3 px-4 text-slate-600 font-normal">
+                              {row.totalPosts}
+                            </td>
+
+                            {/* Actions */}
+                            <td
+                              className="py-3 px-4 text-center relative"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative inline-block text-left">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                                  }}
+                                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {activeMenuId === row.id && (
+                                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                    <button
+                                      onClick={() => {
+                                        setDetailsItem(row);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>View Details</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleOpenEditModal(row);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5 text-blue-500" />
+                                      <span>Edit Cutoff</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleDuplicate(row);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Duplicate Record</span>
+                                    </button>
+                                    <div className="border-t border-slate-100 my-1" />
+                                    <button
+                                      onClick={() => {
+                                        setDeleteConfirmItem(row);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                      <span>Delete Cutoff</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1081,7 +1069,8 @@ export const AdminCutoff: React.FC = () => {
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
                 Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
-                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length} records
+                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length}{' '}
+                records
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1234,10 +1223,7 @@ export const AdminCutoff: React.FC = () => {
 
             {/* SVG Area Chart */}
             <div className="relative pt-2 pb-1">
-              <svg
-                viewBox="0 0 360 170"
-                className="w-full h-44 overflow-visible"
-              >
+              <svg viewBox="0 0 360 170" className="w-full h-44 overflow-visible">
                 <defs>
                   <linearGradient id="cutoffAreaGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#2563EB" stopOpacity="0.22" />
@@ -1499,12 +1485,12 @@ export const AdminCutoff: React.FC = () => {
                     onChange={(e) => setFormExam(e.target.value)}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="WBP Constable">WBP Constable</option>
-                    <option value="WBSSC Group C">WBSSC Group C</option>
-                    <option value="WBSSC Group D">WBSSC Group D</option>
-                    <option value="ICDS">ICDS</option>
-                    <option value="Railway (NTPC)">Railway (NTPC)</option>
-                    <option value="WBPSC Clerkship">WBPSC Clerkship</option>
+                    <option value="">Select an exam</option>
+                    {availableExams.map((exam) => (
+                      <option key={exam.id} value={exam.title}>
+                        {exam.title}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -1,3 +1,12 @@
+function databaseQuestionStatus(status?: string): 'active' | 'draft' | 'archived' {
+  if (!status || status === 'published' || status === 'active') return 'active';
+  if (status === 'draft' || status === 'archived') return status;
+  throw new Error('Unsupported question status. Save as Draft.');
+}
+function databaseQuestionType(type?: string): string {
+  return ['Topic', 'PYQ', 'Full Mock'].includes(type || '') ? 'mcq' : type || 'mcq';
+}
+import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { mapQuestionRow } from './admin.shared';
 import {
@@ -13,10 +22,7 @@ function enrichQuestionWithTaxonomy(q: Question): Question {
     q.subjectName || localSubjects.find((s) => s.id === q.subjectId)?.name || undefined;
   const chapId = q.chapterId || q.topicId;
   const chapterName =
-    q.chapterName ||
-    q.topicName ||
-    localChapters.find((c) => c.id === chapId)?.name ||
-    undefined;
+    q.chapterName || q.topicName || localChapters.find((c) => c.id === chapId)?.name || undefined;
   return {
     ...q,
     subjectName,
@@ -396,8 +402,9 @@ export async function getPublicQuestionById(id: string): Promise<Question | null
         return enrichQuestionWithTaxonomy(rpcData as unknown as Question);
       }
     } catch {
-      // RPC may not be deployed yet; fall back to localQuestions
+      /* Missing public RPC is not demo mode. */
     }
+    return null;
   }
 
   const localFound = localQuestions.find((q) => q.id === id);
@@ -415,24 +422,20 @@ export async function getPublicQuestions(filters?: {
         p_search: filters?.search || null,
         p_limit: 500,
       });
-      if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+      if (!rpcError && Array.isArray(rpcData)) {
         return (rpcData as unknown as Question[]).map(enrichQuestionWithTaxonomy);
       }
     } catch {
       // RPC may not be deployed yet; continue to adminList / localQuestions
     }
 
-    try {
+    {
       const adminList = await getAllAdminQuestions({
         status: 'active',
         subjectId: filters?.subjectId,
         search: filters?.search,
       });
-      if (adminList.length > 0) {
-        return adminList.map(enrichQuestionWithTaxonomy);
-      }
-    } catch {
-      // Fall through to localQuestions
+      return adminList.map(enrichQuestionWithTaxonomy);
     }
   }
 
@@ -469,7 +472,7 @@ export async function createQuestion(qData: Omit<Question, 'id'>): Promise<Quest
       chapterId: effectiveTopicId || undefined,
       sourceType: qData.sourceType || 'topic',
       isActive: qData.isActive ?? true,
-      status: qData.status || 'active',
+      status: databaseQuestionStatus(qData.status),
     };
     localQuestions.unshift(newQuestion);
     return newQuestion;
@@ -498,12 +501,15 @@ export async function createQuestion(qData: Omit<Question, 'id'>): Promise<Quest
       default_marks: qData.defaultMarks ?? 1.0,
       // Questions never carry negative marks — scoring uses the test-level scheme.
       default_negative_marks: qData.defaultNegativeMarks ?? 0,
-      question_type: qData.questionType || 'mcq',
+      question_type: databaseQuestionType(qData.questionType),
       source_type: qData.sourceType || 'topic',
       source_year: qData.sourceYear || null,
       source_exam: qData.sourceExam || null,
       source_paper: qData.sourcePaper || null,
       source_shift: qData.sourceShift || null,
+      tags: qData.tags || [],
+      section: qData.section || null,
+      subtopic: qData.subtopic || null,
       is_active: qData.isActive ?? true,
       status: qData.status || 'active',
     })
@@ -520,6 +526,7 @@ export async function createQuestion(qData: Omit<Question, 'id'>): Promise<Quest
     throw new Error(error.message || 'Failed to create question in database');
   }
 
+  requireSavedRow({ data, error });
   return mapQuestionRow(data);
 }
 
@@ -558,14 +565,18 @@ export async function updateQuestion(id: string, updates: Partial<Question>): Pr
     payload.topic_id = updates.chapterId || null;
   }
   if (updates.subjectId !== undefined) payload.subject_id = updates.subjectId || null;
-  if (updates.questionType !== undefined) payload.question_type = updates.questionType;
+  if (updates.questionType !== undefined)
+    payload.question_type = databaseQuestionType(updates.questionType);
   if (updates.sourceType !== undefined) payload.source_type = updates.sourceType;
   if (updates.sourceYear !== undefined) payload.source_year = updates.sourceYear || null;
   if (updates.sourceExam !== undefined) payload.source_exam = updates.sourceExam || null;
   if (updates.sourcePaper !== undefined) payload.source_paper = updates.sourcePaper || null;
   if (updates.sourceShift !== undefined) payload.source_shift = updates.sourceShift || null;
+  if (updates.tags !== undefined) payload.tags = updates.tags;
+  if (updates.section !== undefined) payload.section = updates.section || null;
+  if (updates.subtopic !== undefined) payload.subtopic = updates.subtopic || null;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
-  if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.status !== undefined) payload.status = databaseQuestionStatus(updates.status);
 
   const { data, error } = await supabase
     .from('questions')
@@ -589,60 +600,22 @@ export async function updateQuestion(id: string, updates: Partial<Question>): Pr
 
 export async function deleteQuestion(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
-    const idx = localQuestions.findIndex((q) => q.id === id);
-    if (idx !== -1) localQuestions.splice(idx, 1);
-    const tqIdx = localTestQuestions.findIndex((t) => t.questionId === id);
-    if (tqIdx !== -1) localTestQuestions.splice(tqIdx, 1);
+    const i = localQuestions.findIndex((e) => e.id === id);
+    if (i < 0) throw new Error('Record not found.');
+    localQuestions.splice(i, 1);
     return true;
   }
-
-  // Delete test_questions assignments first
-  await supabase.from('test_questions').delete().eq('question_id', id);
-
-  // Delete question and verify affected row
-  const { data, error } = await supabase.from('questions').delete().eq('id', id).select('id');
-  if (error) {
-    throw new Error(error.message || 'Failed to delete question from database');
-  }
-  if (!data || data.length === 0) {
-    throw new Error('Question not found or 0 rows deleted');
-  }
-  return true;
+  return deleteAdminRecord('questions', id);
 }
 
 export async function deleteQuestions(
   ids: string[]
 ): Promise<{ success: boolean; deletedCount: number }> {
-  if (ids.length === 0) return { success: true, deletedCount: 0 };
-
-  if (!isSupabaseConfigured) {
-    const idSet = new Set(ids);
-    const initialLength = localQuestions.length;
-    for (let i = localQuestions.length - 1; i >= 0; i--) {
-      if (idSet.has(localQuestions[i].id)) {
-        localQuestions.splice(i, 1);
-      }
-    }
-    for (let i = localTestQuestions.length - 1; i >= 0; i--) {
-      if (idSet.has(localTestQuestions[i].questionId)) {
-        localTestQuestions.splice(i, 1);
-      }
-    }
-    const deletedCount = initialLength - localQuestions.length;
-    return { success: true, deletedCount: deletedCount || ids.length };
+  let deletedCount = 0;
+  for (const id of ids) {
+    await deleteQuestion(id);
+    deletedCount++;
   }
-
-  await supabase.from('test_questions').delete().in('question_id', ids);
-
-  const { data, error } = await supabase.from('questions').delete().in('id', ids).select('id');
-  if (error) {
-    throw new Error(error.message || 'Failed to bulk delete questions from database');
-  }
-  const deletedCount = data?.length ?? 0;
-  if (deletedCount === 0) {
-    throw new Error('No questions were deleted (0 rows affected)');
-  }
-
   return { success: true, deletedCount };
 }
 
@@ -684,23 +657,7 @@ export async function updateQuestionsStatus(
 }
 
 export async function archiveQuestion(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured) {
-    const idx = localQuestions.findIndex((q) => q.id === id);
-    if (idx !== -1) {
-      localQuestions[idx].status = 'archived';
-      localQuestions[idx].isActive = false;
-    }
-    return true;
-  }
-
-  const { error } = await supabase
-    .from('questions')
-    .update({ status: 'archived', is_active: false })
-    .eq('id', id);
-
-  if (error) {
-    throw new Error(error.message || 'Failed to archive question in database');
-  }
+  await updateQuestion(id, { status: 'archived', isActive: false });
   return true;
 }
 

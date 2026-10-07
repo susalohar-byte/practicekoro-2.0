@@ -139,15 +139,16 @@ export const AdminTestQuestions: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      const [testData, assigned, bank, allSubjects, allChapters, allExams, locked] = await Promise.all([
-        api.getTestById(currentTestId),
-        api.getTestAssignedQuestions(currentTestId),
-        api.getAllAdminQuestions(),
-        api.getAllAdminSubjects(),
-        api.getAllAdminChapters(),
-        api.getAllAdminExams(),
-        api.isTestLockedForEditing(currentTestId).catch(() => false),
-      ]);
+      const [testData, assigned, bank, allSubjects, allChapters, allExams, locked] =
+        await Promise.all([
+          api.getTestById(currentTestId),
+          api.getTestAssignedQuestions(currentTestId),
+          api.getAllAdminQuestions(),
+          api.getAllAdminSubjects(),
+          api.getAllAdminChapters(),
+          api.getAllAdminExams(),
+          api.isTestLockedForEditing(currentTestId).catch(() => false),
+        ]);
 
       setTest(testData);
       setAssignedQuestions(assigned);
@@ -468,7 +469,6 @@ export const AdminTestQuestions: React.FC = () => {
     if (!test) return;
     const updated = assignedQuestions.filter((_, idx) => idx !== index);
     const reordered = updated.map((q, idx) => ({ ...q, questionOrder: idx + 1 }));
-    setAssignedQuestions(reordered);
 
     try {
       setIsSaving(true);
@@ -480,7 +480,9 @@ export const AdminTestQuestions: React.FC = () => {
         negativeMarks: resolveTestNegativeMarking(test.testType, test.negativeMarking),
       }));
 
-      await api.saveTestQuestions(test.id, payload);
+      const saved = await api.saveTestQuestions(test.id, payload);
+      if (!saved.success) throw new Error(saved.error || 'Assignment save failed.');
+      setAssignedQuestions(reordered);
       const updatedTest = await api.getTestById(test.id);
       if (updatedTest) setTest(updatedTest);
 
@@ -682,7 +684,7 @@ export const AdminTestQuestions: React.FC = () => {
       setCreateError('');
       const effectiveQuestionBengali = !isBilingualEnabled
         ? newQuestionText.trim()
-        : (newQuestionBengali.trim() || newQuestionText.trim());
+        : newQuestionBengali.trim() || newQuestionText.trim();
 
       const res = await api.createQuestionForTest(currentTestId, {
         subjectId: test.subjectId,
@@ -973,7 +975,11 @@ export const AdminTestQuestions: React.FC = () => {
                 if (isTestLocked) return;
                 setIsBulkModalOpen(true);
               }}
-              title={isTestLocked ? "Questions locked for active Live Test" : "Bulk import questions from TXT file directly into this test"}
+              title={
+                isTestLocked
+                  ? 'Questions locked for active Live Test'
+                  : 'Bulk import questions from TXT file directly into this test'
+              }
             >
               + Bulk Add (TXT)
             </Button>
@@ -996,7 +1002,11 @@ export const AdminTestQuestions: React.FC = () => {
                 setCreateError('');
                 setIsCreateModalOpen(true);
               }}
-              title={isTestLocked ? "Questions locked for active Live Test" : "Create new question for this test"}
+              title={
+                isTestLocked
+                  ? 'Questions locked for active Live Test'
+                  : 'Create new question for this test'
+              }
             >
               + Create Question
             </Button>
@@ -1129,7 +1139,9 @@ export const AdminTestQuestions: React.FC = () => {
             <div>
               <div className="font-black text-sm">🔒 Locked: Active Live Test Event</div>
               <div className="text-xs text-rose-700 dark:text-rose-300">
-                This test is currently scheduled as an active or upcoming Live Test event. Adding, deleting, or reordering questions is locked to preserve exam integrity for live participants.
+                This test is currently scheduled as an active or upcoming Live Test event. Adding,
+                deleting, or reordering questions is locked to preserve exam integrity for live
+                participants.
               </div>
             </div>
           </div>
@@ -1592,7 +1604,9 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               A
                             </span>
-                            <span><MathText>{q.optionA}</MathText></span>
+                            <span>
+                              <MathText>{q.optionA}</MathText>
+                            </span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1604,7 +1618,9 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               B
                             </span>
-                            <span><MathText>{q.optionB}</MathText></span>
+                            <span>
+                              <MathText>{q.optionB}</MathText>
+                            </span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1616,7 +1632,9 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               C
                             </span>
-                            <span><MathText>{q.optionC}</MathText></span>
+                            <span>
+                              <MathText>{q.optionC}</MathText>
+                            </span>
                           </div>
                           <div
                             className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1628,7 +1646,9 @@ export const AdminTestQuestions: React.FC = () => {
                             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                               D
                             </span>
-                            <span><MathText>{q.optionD}</MathText></span>
+                            <span>
+                              <MathText>{q.optionD}</MathText>
+                            </span>
                           </div>
                         </div>
 
@@ -1840,7 +1860,9 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           A
                         </span>
-                        <span><MathText>{q.optionA}</MathText></span>
+                        <span>
+                          <MathText>{q.optionA}</MathText>
+                        </span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1852,7 +1874,9 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           B
                         </span>
-                        <span><MathText>{q.optionB}</MathText></span>
+                        <span>
+                          <MathText>{q.optionB}</MathText>
+                        </span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1864,7 +1888,9 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           C
                         </span>
-                        <span><MathText>{q.optionC}</MathText></span>
+                        <span>
+                          <MathText>{q.optionC}</MathText>
+                        </span>
                       </div>
                       <div
                         className={`p-2.5 rounded-xl border flex items-center gap-2 ${
@@ -1876,7 +1902,9 @@ export const AdminTestQuestions: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-[#152347] text-[10px] font-black flex items-center justify-center shrink-0">
                           D
                         </span>
-                        <span><MathText>{q.optionD}</MathText></span>
+                        <span>
+                          <MathText>{q.optionD}</MathText>
+                        </span>
                       </div>
                     </div>
 
@@ -1904,7 +1932,9 @@ export const AdminTestQuestions: React.FC = () => {
                           step="0.25"
                           min="0"
                           value={q.marks}
-                          onChange={(e) => updateQuestionMarks(idx, parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateQuestionMarks(idx, parseFloat(e.target.value) || 0)
+                          }
                           className="w-14 px-2 py-1.5 rounded-xl bg-slate-50 dark:bg-[#070d1d] border border-slate-200 dark:border-[#192b57] text-xs font-black text-center text-slate-900 dark:text-white focus:outline-none focus:border-[#0075FF]"
                         />
                       </div>
@@ -2020,7 +2050,8 @@ export const AdminTestQuestions: React.FC = () => {
               />
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Math/equations: wrap LaTeX in <code>$...$</code>, for example{' '}
-                <code>{'($^{14}\\text{C}$)'}</code>. Use <code>$$...$$</code> for a centered equation.
+                <code>{'($^{14}\\text{C}$)'}</code>. Use <code>$$...$$</code> for a centered
+                equation.
               </p>
             </div>
 

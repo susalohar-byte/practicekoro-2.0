@@ -1,3 +1,4 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { accountManagementApi } from './accountManagement';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { isAdminEmail } from '@/lib/authPolicy';
@@ -890,19 +891,22 @@ export const adminCommerceApi = {
   ): Promise<{ success: boolean; error?: string }> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.from('subscription_plans').insert({
-          id: plan.id,
-          name: plan.name || plan.title,
-          title: plan.title,
-          description: plan.description,
-          duration_days: plan.durationDays,
-          price: plan.price,
-          original_price: plan.originalPrice,
-          currency: plan.currency || 'INR',
-          features: plan.features,
-          is_active: plan.isActive,
-          order_index: plan.orderIndex || 1,
-        }).select('id');
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .insert({
+            id: plan.id,
+            name: plan.name || plan.title,
+            title: plan.title,
+            description: plan.description,
+            duration_days: plan.durationDays,
+            price: plan.price,
+            original_price: plan.originalPrice,
+            currency: plan.currency || 'INR',
+            features: plan.features,
+            is_active: plan.isActive,
+            order_index: plan.orderIndex || 1,
+          })
+          .select('id');
         if (error) return { success: false, error: error.message };
         if (!data || data.length === 0) {
           return { success: false, error: 'Failed to insert subscription plan.' };
@@ -924,102 +928,29 @@ export const adminCommerceApi = {
   async deleteSubscriptionPlan(
     id: string
   ): Promise<{ success: boolean; archived?: boolean; error?: string; message?: string }> {
-    if (id === 'plan_free') {
+    if (id === 'plan_free')
       return {
         success: false,
         error: 'The Free Starter plan (plan_free) cannot be deleted as it is a core system tier.',
       };
-    }
-
     if (isSupabaseConfigured) {
       try {
-        // 1. Check if any student subscriptions are linked to this plan
-        const { count: subCount, error: subErr } = await supabase
-          .from('subscriptions')
-          .select('*', { count: 'exact', head: true })
-          .eq('plan_id', id);
-
-        if (subErr) {
-          console.warn('Could not verify subscriptions for plan deletion:', subErr);
-        }
-
-        // 2. Check if any payments are linked to this plan
-        const { count: payCount, error: payErr } = await supabase
-          .from('payments')
-          .select('*', { count: 'exact', head: true })
-          .eq('plan_id', id);
-
-        if (payErr) {
-          console.warn('Could not verify payments for plan deletion:', payErr);
-        }
-
-        const hasExistingUsage = Boolean((subCount && subCount > 0) || (payCount && payCount > 0));
-
-        if (hasExistingUsage) {
-          // Deactivate / Archive to preserve relational integrity & student billing records
-          const { error: archiveErr } = await supabase
-            .from('subscription_plans')
-            .update({ is_active: false })
-            .eq('id', id);
-
-          if (archiveErr) {
-            return { success: false, error: archiveErr.message };
-          }
-
-          return {
-            success: true,
-            archived: true,
-            message:
-              'This plan is linked to active or historical subscriptions/payments. To preserve user accounts and financial records, it has been deactivated and archived rather than permanently deleted.',
-          };
-        }
-
-        // If no subscriptions or payments reference it, we can safely hard-delete
-        const { data, error: deleteErr } = await supabase
-          .from('subscription_plans')
-          .delete()
-          .eq('id', id)
-          .select('id');
-
-        if (deleteErr) {
-          // If foreign key constraint still blocks it (e.g. coupons or other tables)
-          if (deleteErr.code === '23503' || deleteErr.message.includes('foreign key')) {
-            const { error: fallbackArchiveErr } = await supabase
-              .from('subscription_plans')
-              .update({ is_active: false })
-              .eq('id', id);
-
-            if (!fallbackArchiveErr) {
-              return {
-                success: true,
-                archived: true,
-                message:
-                  'Plan is referenced in historical records. It has been deactivated and archived.',
-              };
-            }
-          }
-          return { success: false, error: deleteErr.message };
-        }
-
-        if (!data || data.length === 0) {
-          return { success: false, error: 'Subscription plan not found or already deleted.' };
-        }
-
-        return {
-          success: true,
-          archived: false,
-          message: 'Subscription plan was permanently deleted.',
-        };
+        await deleteAdminRecord('subscription_plans', id);
+        return { success: true, archived: false };
       } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : 'Deletion failed' };
+        return {
+          success: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Deletion failed. Deactivate the plan instead if it has linked billing records.',
+        };
       }
     }
-
-    const idx = MOCK_SUBSCRIPTION_PLANS.findIndex((p) => p.id === id);
-    if (idx !== -1) {
-      MOCK_SUBSCRIPTION_PLANS.splice(idx, 1);
-    }
-    return { success: true, archived: false, message: 'Plan deleted.' };
+    const i = MOCK_SUBSCRIPTION_PLANS.findIndex((p) => p.id === id);
+    if (i < 0) return { success: false, error: 'Plan not found' };
+    MOCK_SUBSCRIPTION_PLANS.splice(i, 1);
+    return { success: true };
   },
 
   async grantStudentSubscription(
@@ -1113,45 +1044,20 @@ export const adminCommerceApi = {
     subscriptionId: string | number,
     days: number
   ): Promise<{ success: boolean; newExpiresAt?: string; error?: string }> {
+    if (!Number.isInteger(days) || days <= 0)
+      return { success: false, error: 'Extension must be a positive number of days.' };
     if (isSupabaseConfigured) {
-      try {
-        const idStr = String(subscriptionId);
-        const { data: sub, error: fetchErr } = await supabase
-          .from('subscriptions')
-          .select('expires_at')
-          .eq('id', idStr)
-          .maybeSingle();
-
-        if (fetchErr) return { success: false, error: fetchErr.message };
-        if (!sub) return { success: false, error: 'Subscription not found.' };
-
-        const currentExpiry = new Date(sub.expires_at || Date.now());
-        const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
-        baseDate.setDate(baseDate.getDate() + days);
-        const newExpiresAt = baseDate.toISOString();
-
-        const { data: updated, error: updateErr } = await supabase
-          .from('subscriptions')
-          .update({
-            expires_at: newExpiresAt,
-            status: 'active',
-          })
-          .eq('id', idStr)
-          .select('id, expires_at');
-
-        if (updateErr) return { success: false, error: updateErr.message };
-        if (!updated || updated.length === 0) {
-          return { success: false, error: 'Failed to update subscription (0 rows affected).' };
-        }
-        return { success: true, newExpiresAt: updated[0].expires_at };
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Extend subscription failed',
-        };
-      }
+      const { data, error } = await supabase.rpc('admin_modify_subscription', {
+        p_id: String(subscriptionId),
+        p_action: 'extend',
+        p_days: days,
+        p_plan_id: null,
+      });
+      if (error || data?.success !== true || data?.id !== String(subscriptionId))
+        return { success: false, error: error?.message || 'Subscription update was not confirmed' };
+      return { success: true, newExpiresAt: data.expires_at };
     }
-    return { success: false, error: 'Backend is required.' };
+    return { success: true };
   },
 
   async changeSubscriptionPlan(
@@ -1169,7 +1075,8 @@ export const adminCommerceApi = {
           .maybeSingle();
 
         if (planErr) return { success: false, error: planErr.message };
-        if (!plan) return { success: false, error: 'Selected plan not found in database.' };
+        if (!plan || !plan.is_active)
+          return { success: false, error: 'Choose an active backend plan.' };
 
         // Look up current subscription
         const { data: sub, error: fetchErr } = await supabase
@@ -1182,7 +1089,9 @@ export const adminCommerceApi = {
         if (!sub) return { success: false, error: 'Subscription record not found.' };
 
         // Compute new expiry based on plan's configured duration
-        const durationDays = Number(plan.duration_days) || 30;
+        const durationDays = Number(plan.duration_days);
+        if (!Number.isInteger(durationDays) || durationDays <= 0)
+          return { success: false, error: 'Plan duration must be positive.' };
         const currentExpiry = new Date(sub.expires_at || Date.now());
         const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
         baseDate.setDate(baseDate.getDate() + durationDays);
@@ -1233,12 +1142,12 @@ export const adminCommerceApi = {
         // 1. Look up real registered student account
         const { data: profile, error: profileErr } = await supabase
           .from('profiles')
-          .select('id, full_name, email')
+          .select('id, full_name, email, role, account_status')
           .ilike('email', email)
           .maybeSingle();
 
         if (profileErr) return { success: false, error: profileErr.message };
-        if (!profile) {
+        if (!profile || profile.role !== 'student' || profile.account_status === 'inactive') {
           return {
             success: false,
             error: `No registered student account found for email "${email}". The student must register an account first.`,
@@ -1263,7 +1172,9 @@ export const adminCommerceApi = {
           };
         }
 
-        const durationDays = Number(plan.duration_days) || 30;
+        const durationDays = Number(plan.duration_days);
+        if (!Number.isInteger(durationDays) || durationDays <= 0)
+          return { success: false, error: 'Choose a plan with a valid positive duration.' };
         const startsAt = new Date().toISOString();
         const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
 
@@ -1298,7 +1209,7 @@ export const adminCommerceApi = {
     studentId: string
   ): Promise<{ id: string; author: string; text: string; createdAt: string }[]> {
     if (isSupabaseConfigured) {
-      try {
+      {
         const { data, error } = await supabase
           .from('student_notes')
           .select('id, author_name, note, created_at')
@@ -1314,8 +1225,6 @@ export const adminCommerceApi = {
             createdAt: new Date(d.created_at).toLocaleString('en-GB'),
           }));
         }
-      } catch (err) {
-        console.warn('Could not load student notes from database:', err);
       }
     }
     return [];
@@ -1366,27 +1275,13 @@ export const adminCommerceApi = {
   },
 
   async deleteStudentNote(noteId: string): Promise<{ success: boolean; error?: string }> {
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('student_notes')
-          .delete()
-          .eq('id', noteId)
-          .select('id');
-
-        if (error) return { success: false, error: error.message };
-        if (!data || data.length === 0) {
-          return { success: false, error: 'Note not found or 0 rows deleted' };
-        }
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Delete note failed',
-        };
-      }
+    if (!isSupabaseConfigured) return { success: false, error: 'Backend required' };
+    try {
+      await deleteAdminRecord('student_notes', noteId);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Delete failed' };
     }
-    return { success: false, error: 'Backend is required.' };
   },
 
   async getAllAdminTestAttempts(limit = 100, offset = 0): Promise<any[]> {
@@ -1868,15 +1763,10 @@ export const adminCommerceApi = {
   async deleteAdminTestAttempt(attemptId: string): Promise<{ success: boolean; error?: string }> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('attempt_answers').delete().eq('attempt_id', attemptId);
-        const { error } = await supabase.from('test_attempts').delete().eq('id', attemptId);
-        if (error) return { success: false, error: error.message };
+        await deleteAdminRecord('test_attempts', attemptId);
         return { success: true };
       } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Delete attempt failed',
-        };
+        return { success: false, error: err instanceof Error ? err.message : 'Deletion failed' };
       }
     }
     return { success: true };
@@ -1885,19 +1775,9 @@ export const adminCommerceApi = {
   async bulkDeleteAdminTestAttempts(
     attemptIds: string[]
   ): Promise<{ success: boolean; error?: string }> {
-    if (attemptIds.length === 0) return { success: true };
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('attempt_answers').delete().in('attempt_id', attemptIds);
-        const { error } = await supabase.from('test_attempts').delete().in('id', attemptIds);
-        if (error) return { success: false, error: error.message };
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Bulk delete attempts failed',
-        };
-      }
+    for (const id of attemptIds) {
+      const result = await adminCommerceApi.deleteAdminTestAttempt(id);
+      if (!result.success) return result;
     }
     return { success: true };
   },
@@ -2414,7 +2294,13 @@ export const adminCommerceApi = {
         if (updates.validUntil !== undefined) payload.valid_until = updates.validUntil || null;
         if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
-        const { error } = await supabase.from('coupons').update(payload).eq('id', id);
+        const { data: confirmed, error } = await supabase
+          .from('coupons')
+          .update(payload)
+          .eq('id', id)
+          .select('id')
+          .single();
+        requireSavedRow({ data: confirmed, error }, id);
         if (error) return { success: false, error: error.message };
         return { success: true };
       } catch (err) {
@@ -2435,24 +2321,15 @@ export const adminCommerceApi = {
   async deleteAdminCoupon(id: string): Promise<{ success: boolean; error?: string }> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.from('coupons').delete().eq('id', id).select('id');
-        if (error) return { success: false, error: error.message };
-        if (!data || data.length === 0) {
-          return { success: false, error: 'Coupon not found or 0 rows deleted' };
-        }
+        await deleteAdminRecord('coupons', id);
         return { success: true };
       } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Delete coupon failed',
-        };
+        return { success: false, error: err instanceof Error ? err.message : 'Delete failed' };
       }
     }
-
-    const idx = localCoupons.findIndex((c) => c.id === id);
-    if (idx !== -1) {
-      localCoupons.splice(idx, 1);
-    }
+    const i = localCoupons.findIndex((c) => c.id === id);
+    if (i < 0) return { success: false, error: 'Coupon not found' };
+    localCoupons.splice(i, 1);
     return { success: true };
   },
 

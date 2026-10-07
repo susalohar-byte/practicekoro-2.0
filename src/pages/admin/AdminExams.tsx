@@ -28,10 +28,7 @@ import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
 import type { Exam, MockTest, Subject, TestSeries } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
-import {
-  normalizeLegacyExamCategory,
-  LEGACY_EXAM_CATEGORY_NAMES,
-} from '@/services/domains/admin.examCategories';
+import { LEGACY_EXAM_CATEGORY_NAMES } from '@/services/domains/admin.examCategories';
 
 const STORAGE_KEY_CATEGORIES = 'practicekoro_exam_categories';
 const DEFAULT_EXAM_CATEGORIES = [
@@ -56,7 +53,7 @@ function getExamLogoCache(): Record<string, string> {
   }
 }
 
-function saveExamLogoCache(examId: string, logoUrl: string) {
+export function saveExamLogoCache(examId: string, logoUrl: string) {
   try {
     const cache = getExamLogoCache();
     if (logoUrl) cache[examId] = logoUrl;
@@ -69,8 +66,18 @@ function saveExamLogoCache(examId: string, logoUrl: string) {
 
 // WBP Golden Crest Police Shield Badge SVG (Pixel-perfect recreation matching screenshot)
 const PoliceShieldBadge: React.FC<{ className?: string }> = ({ className = 'w-9 h-10' }) => (
-  <div className={cn('relative flex items-center justify-center shrink-0 drop-shadow-xs select-none', className)}>
-    <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+  <div
+    className={cn(
+      'relative flex items-center justify-center shrink-0 drop-shadow-xs select-none',
+      className
+    )}
+  >
+    <svg
+      viewBox="0 0 40 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+    >
       <path
         d="M20 2C20 2 35 4.5 37 10C39 18 37 34 20 46C3 34 1 18 3 10C5 4.5 20 2 20 2Z"
         fill="#7F1D1D"
@@ -147,11 +154,19 @@ const ExamEmblemBadge: React.FC<{
   // 2. SSC MTS / SSC GD -> Red circular SSC logo
   if (norm.includes('ssc')) {
     return (
-      <div className={cn('relative rounded-full bg-gradient-to-br from-amber-700 to-rose-900 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'relative rounded-full bg-gradient-to-br from-amber-700 to-rose-900 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           <circle cx="16" cy="16" r="14" fill="#8B1818" stroke="#F59E0B" strokeWidth="1.5" />
           <circle cx="16" cy="16" r="10" fill="#6A0C0C" stroke="#FCD34D" strokeWidth="1" />
-          <path d="M16 8L18 13L23 13.5L19 17L20.5 22L16 19.5L11.5 22L13 17L9 13.5L14 13L16 8Z" fill="#FCD34D" />
+          <path
+            d="M16 8L18 13L23 13.5L19 17L20.5 22L16 19.5L11.5 22L13 17L9 13.5L14 13L16 8Z"
+            fill="#FCD34D"
+          />
         </svg>
       </div>
     );
@@ -160,7 +175,12 @@ const ExamEmblemBadge: React.FC<{
   // 3. Railway Group D -> Red circular Indian Railways cogwheel emblem
   if (norm.includes('railway') || norm.includes('rrb')) {
     return (
-      <div className={cn('relative rounded-full bg-gradient-to-br from-red-600 to-rose-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'relative rounded-full bg-gradient-to-br from-red-600 to-rose-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           <circle cx="16" cy="16" r="14" fill="#991B1B" stroke="#FCD34D" strokeWidth="1.5" />
           {/* Wheel spokes & train silhouette */}
@@ -176,11 +196,19 @@ const ExamEmblemBadge: React.FC<{
   // 4. WBPSC Clerkship -> Golden medal / seal
   if (norm.includes('wbpsc') || norm.includes('clerkship')) {
     return (
-      <div className={cn('relative rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-600 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'relative rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-600 p-0.5 flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           <circle cx="16" cy="16" r="14" fill="#D97706" stroke="#FEF3C7" strokeWidth="1.5" />
           <circle cx="16" cy="16" r="10" fill="#B45309" stroke="#FDE68A" strokeWidth="1" />
-          <path d="M16 9L18 13.5L23 14L19.2 17.5L20.5 22.5L16 20L11.5 22.5L12.8 17.5L9 14L14 13.5L16 9Z" fill="#FEF3C7" />
+          <path
+            d="M16 9L18 13.5L23 14L19.2 17.5L20.5 22.5L16 20L11.5 22.5L12.8 17.5L9 14L14 13.5L16 9Z"
+            fill="#FEF3C7"
+          />
         </svg>
       </div>
     );
@@ -189,7 +217,12 @@ const ExamEmblemBadge: React.FC<{
   // 5. ICDS Supervisor -> Red floral / sunburst emblem
   if (norm.includes('icds')) {
     return (
-      <div className={cn('relative rounded-full bg-rose-600 border border-rose-300 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'relative rounded-full bg-rose-600 border border-rose-300 p-0.5 flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           <circle cx="16" cy="16" r="13" fill="#BE123C" stroke="#FECDD3" strokeWidth="1.5" />
           {/* Floral petals */}
@@ -211,11 +244,22 @@ const ExamEmblemBadge: React.FC<{
   // 6. Food SI -> Blue & Red circular seal
   if (norm.includes('food')) {
     return (
-      <div className={cn('relative rounded-full bg-gradient-to-br from-blue-900 to-indigo-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'relative rounded-full bg-gradient-to-br from-blue-900 to-indigo-950 border border-amber-400 p-0.5 flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           <circle cx="16" cy="16" r="13.5" fill="#1E3A8A" stroke="#F59E0B" strokeWidth="1.5" />
           <circle cx="16" cy="16" r="9" fill="#172554" stroke="#FDE68A" strokeWidth="1" />
-          <path d="M16 10V22M13 13L16 10L19 13M12 18L16 14L20 18" stroke="#FCD34D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M16 10V22M13 13L16 10L19 13M12 18L16 14L20 18"
+            stroke="#FCD34D"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </div>
     );
@@ -224,7 +268,12 @@ const ExamEmblemBadge: React.FC<{
   // 7. Kolkata Police -> Blue eight-pointed star crest badge
   if (norm.includes('kolkata')) {
     return (
-      <div className={cn('relative flex items-center justify-center shrink-0 drop-shadow-xs', className)}>
+      <div
+        className={cn(
+          'relative flex items-center justify-center shrink-0 drop-shadow-xs',
+          className
+        )}
+      >
         <svg viewBox="0 0 32 32" fill="none" className="w-full h-full">
           {/* 8-pointed star */}
           <path
@@ -243,7 +292,12 @@ const ExamEmblemBadge: React.FC<{
   // 8. WBSSC Group C & D -> Green rounded square with open book
   if (norm.includes('wbssc')) {
     return (
-      <div className={cn('rounded-xl bg-[#059669] text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#059669] text-white flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <BookOpen className="w-4 h-4 text-emerald-100" />
       </div>
     );
@@ -252,14 +306,24 @@ const ExamEmblemBadge: React.FC<{
   // 9. General Knowledge -> Blue rounded square with open book
   if (norm.includes('knowledge') || norm.includes('general')) {
     return (
-      <div className={cn('rounded-xl bg-[#026BFC] text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#026BFC] text-white flex items-center justify-center shrink-0 shadow-2xs',
+          className
+        )}
+      >
         <BookOpen className="w-4 h-4 text-blue-100" />
       </div>
     );
   }
 
   return (
-    <div className={cn('rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs', className)}>
+    <div
+      className={cn(
+        'rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs',
+        className
+      )}
+    >
       <Shield className="w-4 h-4 text-white" />
     </div>
   );
@@ -294,7 +358,7 @@ function getExamOverridesCache(): Record<string, Partial<EnrichedExamRow>> {
   }
 }
 
-function saveExamOverrideCache(examId: string, overrides: Partial<EnrichedExamRow>) {
+export function saveExamOverrideCache(examId: string, overrides: Partial<EnrichedExamRow>) {
   try {
     const cache = getExamOverridesCache();
     cache[examId] = { ...(cache[examId] || {}), ...overrides };
@@ -353,7 +417,8 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
     updatedAtFormatted: '15 Sep 2026, 02:40 PM',
     avgScoreFormatted: '65%',
     completionRateFormatted: '70%',
-    description: 'Staff Selection Commission Multi-Tasking Staff পরীক্ষার পূর্ণাঙ্গ মক ও টপিক টেস্ট।',
+    description:
+      'Staff Selection Commission Multi-Tasking Staff পরীক্ষার পূর্ণাঙ্গ মক ও টপিক টেস্ট।',
   },
   {
     id: 'railway-group-d',
@@ -377,7 +442,8 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
     updatedAtFormatted: '18 Sep 2026, 04:10 PM',
     avgScoreFormatted: '62%',
     completionRateFormatted: '69%',
-    description: 'Indian Railways Group D CBT পরীক্ষার জন্য সম্পূর্ণ সিলেবাস অনুযায়ী মক টেস্ট সিরিজ।',
+    description:
+      'Indian Railways Group D CBT পরীক্ষার জন্য সম্পূর্ণ সিলেবাস অনুযায়ী মক টেস্ট সিরিজ।',
   },
   {
     id: 'wbpsc-clerkship',
@@ -497,7 +563,8 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
     updatedAtFormatted: '27 Sep 2026, 09:15 AM',
     avgScoreFormatted: '64%',
     completionRateFormatted: '68%',
-    description: 'কেন্দ্রীয় আধা-সামরিক বাহিনীতে কনস্টেবল নিয়োগ পরীক্ষার অল-ইন্ডিয়া প্যাটার্ন টেস্ট।',
+    description:
+      'কেন্দ্রীয় আধা-সামরিক বাহিনীতে কনস্টেবল নিয়োগ পরীক্ষার অল-ইন্ডিয়া প্যাটার্ন টেস্ট।',
   },
   {
     id: 'wbssc-group-c-d',
@@ -545,7 +612,8 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
     updatedAtFormatted: '29 Sep 2026, 08:30 PM',
     avgScoreFormatted: '72%',
     completionRateFormatted: '76%',
-    description: 'সমস্ত প্রতিযোগিতামূলক পরীক্ষার জন্য ইতিহাস, ভূগোল, বিজ্ঞান ও কারেন্ট অ্যাফেয়ার্স মক।',
+    description:
+      'সমস্ত প্রতিযোগিতামূলক পরীক্ষার জন্য ইতিহাস, ভূগোল, বিজ্ঞান ও কারেন্ট অ্যাফেয়ার্স মক।',
   },
   // Page 2 Exams (11 to 18)
   {
@@ -570,7 +638,8 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
     updatedAtFormatted: '30 Sep 2026, 12:00 PM',
     avgScoreFormatted: '63%',
     completionRateFormatted: '67%',
-    description: 'প্রাথমিক শিক্ষক নিয়োগ পরীক্ষার শিশু বিকাশ, বাংলা, গণিত ও পরিবেশ বিদ্যা টেস্ট সিরিজ।',
+    description:
+      'প্রাথমিক শিক্ষক নিয়োগ পরীক্ষার শিশু বিকাশ, বাংলা, গণিত ও পরিবেশ বিদ্যা টেস্ট সিরিজ।',
   },
   {
     id: 'wbcs-prelims',
@@ -744,7 +813,9 @@ const CANONICAL_EXAMS_PRESET: EnrichedExamRow[] = [
 
 export const AdminExams: React.FC = () => {
   // Data States
-  const [exams, setExams] = useState<EnrichedExamRow[]>(CANONICAL_EXAMS_PRESET);
+  const [exams, setExams] = useState<EnrichedExamRow[]>(
+    isSupabaseConfigured ? [] : CANONICAL_EXAMS_PRESET
+  );
   const [, setDbTests] = useState<MockTest[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [testSeriesList, setTestSeriesList] = useState<TestSeries[]>([]);
@@ -754,7 +825,9 @@ export const AdminExams: React.FC = () => {
   // Selected Exam & Side Panel
   const [selectedExam, setSelectedExam] = useState<EnrichedExamRow | null>(null);
   const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(false);
-  const [detailsTab, setDetailsTab] = useState<'overview' | 'subjects' | 'test_series' | 'settings'>('overview');
+  const [detailsTab, setDetailsTab] = useState<
+    'overview' | 'subjects' | 'test_series' | 'settings'
+  >('overview');
 
   // Row selection checkboxes
   const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set());
@@ -812,7 +885,7 @@ export const AdminExams: React.FC = () => {
   // File upload helper: uploads to Supabase storage if available, falls back to Base64 data URL
   const handleUploadImageFile = async (file: File): Promise<string> => {
     if (isSupabaseConfigured) {
-      try {
+      {
         const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const path = `exam-logos/${Date.now()}-${cleanName}`;
         const { data, error } = await supabaseRuntime.storage.from('banners').upload(path, file, {
@@ -822,9 +895,8 @@ export const AdminExams: React.FC = () => {
         if (!error && data) {
           return supabaseRuntime.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
         }
-      } catch (e) {
-        console.warn('Storage upload fallback:', e);
       }
+      throw new Error('Image upload failed. Check Storage permissions.');
     }
 
     // Fallback to Base64 Data URL (durable, works offline & online)
@@ -839,17 +911,11 @@ export const AdminExams: React.FC = () => {
   // Quick direct upload exam logo (e.g. from drawer or table hover)
   const handleQuickUploadExamLogo = async (examId: string, logoUrl: string) => {
     try {
-      await api.updateExam(examId, { iconName: logoUrl }).catch(() => {});
-      saveExamLogoCache(examId, logoUrl);
-      setExams((prev) =>
-        prev.map((ex) => (ex.id === examId ? { ...ex, iconName: logoUrl } : ex))
-      );
-      if (selectedExam?.id === examId) {
-        setSelectedExam((prev) => (prev ? { ...prev, iconName: logoUrl } : null));
-      }
-      setActionSuccessMessage('Exam logo uploaded successfully!');
+      await api.updateExam(examId, { iconName: logoUrl });
+      await loadData();
+      setActionSuccessMessage('Exam logo saved.');
     } catch (err) {
-      alert('Failed to update exam logo: ' + getErrorMessage(err, 'Error'));
+      alert(getErrorMessage(err, 'Failed to update logo'));
     }
   };
 
@@ -869,87 +935,30 @@ export const AdminExams: React.FC = () => {
 
   // Quick Toggle Exam Status (Published <-> Draft)
   const handleToggleExamStatus = async (exam: EnrichedExamRow, forcedStatus?: boolean) => {
-    const nextActive = forcedStatus !== undefined ? forcedStatus : !exam.isActive;
-    const nextStatusLabel: 'Published' | 'Draft' = nextActive ? 'Published' : 'Draft';
-
-    saveExamOverrideCache(exam.id, {
-      isActive: nextActive,
-      statusLabel: nextStatusLabel,
-    });
-
-    const updated: EnrichedExamRow = {
-      ...exam,
-      isActive: nextActive,
-      statusLabel: nextStatusLabel,
-      updatedAtFormatted: 'Just now',
-    };
-
-    setExams((prev) => prev.map((e) => (e.id === exam.id ? updated : e)));
-    if (selectedExam?.id === exam.id) {
-      setSelectedExam(updated);
-    }
-
-    setActionSuccessMessage(
-      `Status for "${exam.title}" updated to ${nextStatusLabel}.`
-    );
-
     try {
-      await api.updateExam(exam.id, {
-        isActive: nextActive,
-        title: exam.title,
-        slug: exam.slug,
-        category: exam.category,
-      });
+      await api.updateExam(exam.id, { isActive: forcedStatus ?? !exam.isActive });
+      await loadData();
+      setActionSuccessMessage('Exam status saved.');
     } catch (err) {
-      console.warn('Backend status update error:', err);
+      alert(getErrorMessage(err, 'Status update failed'));
     }
   };
 
   // Save Settings from Drawer Settings Tab
   const handleSaveDrawerSettings = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!selectedExam) return;
-    if (!settingsTitle.trim()) {
-      alert('Exam title cannot be empty.');
-      return;
-    }
-
+    e?.preventDefault();
+    if (!selectedExam || isSavingSettings) return;
     try {
       setIsSavingSettings(true);
-      const nextIsActive = settingsStatus === 'Published';
-      const nextStatusLabel: 'Published' | 'Draft' = nextIsActive ? 'Published' : 'Draft';
-
-      saveExamOverrideCache(selectedExam.id, {
-        title: settingsTitle.trim(),
-        category: settingsCategory,
-        categoryLabel: settingsCategory,
-        isActive: nextIsActive,
-        statusLabel: nextStatusLabel,
-      });
-
-      const updated: EnrichedExamRow = {
-        ...selectedExam,
-        title: settingsTitle.trim(),
-        category: settingsCategory,
-        categoryLabel: settingsCategory,
-        isActive: nextIsActive,
-        statusLabel: nextStatusLabel,
-        updatedAtFormatted: 'Just now',
-      };
-
-      setExams((prev) => prev.map((ex) => (ex.id === selectedExam.id ? updated : ex)));
-      setSelectedExam(updated);
-      setActionSuccessMessage(`Exam settings for "${settingsTitle.trim()}" saved successfully!`);
-
       await api.updateExam(selectedExam.id, {
         title: settingsTitle.trim(),
         category: settingsCategory,
-        isActive: nextIsActive,
-      }).catch((err) => {
-        console.warn('Backend update error:', err);
+        isActive: settingsStatus === 'Published',
       });
+      await loadData();
+      setActionSuccessMessage('Exam settings saved.');
     } catch (err) {
-      alert('Failed to save settings: ' + getErrorMessage(err, 'Error'));
+      alert(getErrorMessage(err, 'Settings save failed'));
     } finally {
       setIsSavingSettings(false);
     }
@@ -960,7 +969,7 @@ export const AdminExams: React.FC = () => {
     try {
       setIsLoading(true);
       const [rawExams, allTests, allSubjects, allSeries, dbCats] = await Promise.all([
-        api.getAllAdminExams().catch(() => []),
+        api.getAllAdminExams(),
         api.getAllAdminTests().catch(() => []),
         api.getSubjects().catch(() => []),
         api.getTestSeries().catch(() => []),
@@ -976,66 +985,34 @@ export const AdminExams: React.FC = () => {
           .map((c) => c.name)
           .filter((name) => !LEGACY_EXAM_CATEGORY_NAMES.has(name.toLowerCase()));
         if (catNames.length > 0) {
-          const merged = Array.from(new Set([...['State Govt', 'Central Govt', 'Other'], ...catNames]));
+          const merged = Array.from(
+            new Set([...['State Govt', 'Central Govt', 'Other'], ...catNames])
+          );
           setCategories(merged);
         }
       }
 
-      // Merge real database exams with canonical presets
-      const mergedList = [...CANONICAL_EXAMS_PRESET];
-      if (rawExams && rawExams.length > 0) {
-        rawExams.forEach((dbEx) => {
-          const existingIdx = mergedList.findIndex(
-            (e) => e.id === dbEx.id || e.slug === dbEx.slug || e.title.toLowerCase() === dbEx.title.toLowerCase()
-          );
-          if (existingIdx !== -1) {
-            mergedList[existingIdx] = {
-              ...mergedList[existingIdx],
-              ...dbEx,
-              title: dbEx.title,
-              category: normalizeLegacyExamCategory(dbEx.category),
-              isActive: dbEx.isActive ?? true,
-              statusLabel: dbEx.isActive ? 'Published' : 'Draft',
-            };
-          } else {
-            mergedList.push({
-              ...dbEx,
-              subtitle: dbEx.description || 'Competitive Recruitment Exam',
-              shortName: dbEx.title.split(' ')[0],
-              categoryLabel: normalizeLegacyExamCategory(dbEx.category),
-              subjectsCount: 8,
-              testSeriesCount: 3,
-              totalTestsCount: (dbEx.fullMockCount || 0) + (dbEx.pyqCount || 0) + (dbEx.topicTestCount || 0) || 12,
-              enrollmentsCount: 3500,
-              enrollmentsFormatted: '3,500',
-              statusLabel: dbEx.isActive ? 'Published' : 'Draft',
-              createdByName: 'Admin',
-              createdAtFormatted: '10 Sep 2026, 04:30 PM',
-              updatedAtFormatted: '12 Sep 2026, 10:15 AM',
-              avgScoreFormatted: '68%',
-              completionRateFormatted: '72%',
-              description: dbEx.description || 'WBP Constable পরীক্ষার জন্য সম্পূর্ণ প্রস্তুতি সিরিজ।',
-            });
-          }
-        });
-      }
-
-      // Apply locally cached uploaded logos
-      const logoCache = getExamLogoCache();
-      mergedList.forEach((e) => {
-        if (logoCache[e.id]) {
-          e.iconName = logoCache[e.id];
-        }
+      const mergedList: EnrichedExamRow[] = rawExams.map((dbEx) => {
+        const preset = CANONICAL_EXAMS_PRESET.find((e) => e.id === dbEx.id);
+        return {
+          ...preset,
+          ...dbEx,
+          shortName: dbEx.shortName || dbEx.title.split(' ')[0],
+          subtitle: dbEx.subtitle || dbEx.description || '',
+          categoryLabel: dbEx.category,
+          subjectsCount: allSubjects.filter((x) => x.examId === dbEx.id).length,
+          testSeriesCount: allSeries.filter((x) => x.examId === dbEx.id).length,
+          totalTestsCount: dbEx.testsCount ?? allTests.filter((x) => x.examId === dbEx.id).length,
+          enrollmentsCount: 0,
+          enrollmentsFormatted: 'Unavailable',
+          statusLabel: dbEx.isActive ? 'Published' : 'Draft',
+          createdByName: 'Unavailable',
+          createdAtFormatted: 'Unavailable',
+          updatedAtFormatted: 'Unavailable',
+          avgScoreFormatted: 'Unavailable',
+          completionRateFormatted: 'Unavailable',
+        };
       });
-
-      // Apply locally cached overrides (e.g. status updates, title, description, etc.)
-      const overrides = getExamOverridesCache();
-      mergedList.forEach((e) => {
-        if (overrides[e.id]) {
-          Object.assign(e, overrides[e.id]);
-        }
-      });
-
       setExams(mergedList);
       setSelectedExam((prev) => {
         if (!prev) return null;
@@ -1044,6 +1021,7 @@ export const AdminExams: React.FC = () => {
       });
     } catch (err) {
       console.error('Error loading exams data:', err);
+      setFormError(getErrorMessage(err, 'Exams could not be loaded.'));
     } finally {
       setIsLoading(false);
     }
@@ -1099,7 +1077,12 @@ export const AdminExams: React.FC = () => {
         if (targetNorm === 'state govt' && !catNorm.includes('state') && !catNorm.includes('wb')) {
           return false;
         }
-        if (targetNorm === 'central govt' && !catNorm.includes('central') && !catNorm.includes('ssc') && !catNorm.includes('rail')) {
+        if (
+          targetNorm === 'central govt' &&
+          !catNorm.includes('central') &&
+          !catNorm.includes('ssc') &&
+          !catNorm.includes('rail')
+        ) {
           return false;
         }
         if (targetNorm === 'other' && (catNorm.includes('state') || catNorm.includes('central'))) {
@@ -1111,7 +1094,7 @@ export const AdminExams: React.FC = () => {
         if (appliedFilters.status === 'published' && (!e.isActive || e.statusLabel === 'Draft')) {
           return false;
         }
-        if (appliedFilters.status === 'draft' && (e.isActive && e.statusLabel === 'Published')) {
+        if (appliedFilters.status === 'draft' && e.isActive && e.statusLabel === 'Published') {
           return false;
         }
       }
@@ -1190,121 +1173,52 @@ export const AdminExams: React.FC = () => {
   // Save Exam (Create / Edit)
   const handleSaveExam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formTitle.trim()) {
       setFormError('Exam title is required.');
       return;
     }
-
     try {
       setIsSaving(true);
       setFormError('');
-
-      const cleanSlug =
+      const slug =
         formSlug.trim() ||
         formTitle
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-      const finalIcon = formIconName.trim() || 'Shield';
-
-      if (editingExam) {
-        saveExamLogoCache(editingExam.id, formIconName.trim());
-        const nextStatusLabel: 'Published' | 'Draft' = formIsActive ? 'Published' : 'Draft';
-        saveExamOverrideCache(editingExam.id, {
-          title: formTitle.trim(),
-          slug: cleanSlug,
-          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
-          subtitle: formSubtitle.trim() || editingExam.subtitle,
-          category: formCategory,
-          categoryLabel: formCategory,
-          description: formDescription.trim(),
-          isActive: formIsActive,
-          statusLabel: nextStatusLabel,
-          iconName: finalIcon,
-        });
-
-        await api.updateExam(editingExam.id, {
-          title: formTitle.trim(),
-          slug: cleanSlug,
-          category: formCategory,
-          description: formDescription.trim(),
-          isActive: formIsActive,
-          iconName: finalIcon,
-        }).catch((err) => {
-          console.warn('Backend update exam error (will retain locally):', err);
-        });
-
-        saveExamLogoCache(editingExam.id, finalIcon);
-
-        const updated: EnrichedExamRow = {
-          ...editingExam,
-          title: formTitle.trim(),
-          slug: cleanSlug,
-          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
-          subtitle: formSubtitle.trim() || editingExam.subtitle,
-          category: formCategory,
-          categoryLabel: formCategory,
-          description: formDescription.trim(),
-          isActive: formIsActive,
-          iconName: finalIcon,
-          statusLabel: nextStatusLabel,
-          updatedAtFormatted: 'Just now',
-        };
-
-        setExams((prev) => prev.map((ex) => (ex.id === editingExam.id ? updated : ex)));
-        if (selectedExam?.id === editingExam.id) {
-          setSelectedExam(updated);
-        }
-        setActionSuccessMessage(`Exam "${formTitle.trim()}" updated successfully.`);
-      } else {
-        const created = await api.createExam({
-          title: formTitle.trim(),
-          slug: cleanSlug,
-          category: formCategory,
-          description: formDescription.trim(),
-          orderIndex: exams.length + 1,
-          isActive: formIsActive,
-          iconName: finalIcon,
-        }).catch(() => ({
-          id: `exam-${Date.now()}`,
-          title: formTitle.trim(),
-          slug: cleanSlug,
-          category: formCategory,
-          description: formDescription.trim(),
-          orderIndex: exams.length + 1,
-          isActive: formIsActive,
-          iconName: finalIcon,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }));
-
-        saveExamLogoCache(created.id, finalIcon);
-
-        const newRow: EnrichedExamRow = {
-          ...created,
-          iconName: finalIcon,
-          subtitle: formSubtitle.trim() || 'Competitive Recruitment Exam',
-          shortName: formShortName.trim() || formTitle.trim().split(' ')[0],
-          categoryLabel: formCategory,
-          subjectsCount: 8,
-          testSeriesCount: 2,
-          totalTestsCount: 15,
-          enrollmentsCount: 1200,
-          enrollmentsFormatted: '1,200',
-          statusLabel: formIsActive ? 'Published' : 'Draft',
-          createdByName: 'Admin',
-          createdAtFormatted: 'Today',
-          updatedAtFormatted: 'Today',
-          avgScoreFormatted: '65%',
-          completionRateFormatted: '70%',
-        };
-
-        setExams((prev) => [newRow, ...prev]);
-        setSelectedExam(newRow);
-        setShowDetailsPanel(true);
-        setActionSuccessMessage(`Exam "${formTitle.trim()}" created successfully.`);
-      }
-
+          .replace(/(^-|-$)/g, '');
+      if (!slug) throw new Error('Enter an English URL slug for this exam.');
+      const input = {
+        title: formTitle.trim(),
+        slug,
+        shortName: formShortName.trim(),
+        subtitle: formSubtitle.trim(),
+        category: formCategory,
+        description: formDescription.trim(),
+        orderIndex: editingExam?.orderIndex ?? exams.length + 1,
+        isActive: formIsActive,
+        iconName: formIconName.trim() || 'Shield',
+      };
+      const saved = editingExam
+        ? await api.updateExam(editingExam.id, input)
+        : await api.createExam(input);
+      if (!saved?.id) throw new Error('Exam save was not confirmed.');
+      await loadData();
+      if (selectedExam?.id === saved.id)
+        setSelectedExam((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...saved,
+                shortName: saved.shortName || saved.title.split(' ')[0],
+                subtitle: saved.subtitle || '',
+                categoryLabel: saved.category,
+                statusLabel: saved.isActive ? 'Published' : 'Draft',
+              }
+            : null
+        );
       setIsModalOpen(false);
+      setActionSuccessMessage('Exam saved in the backend.');
     } catch (err) {
       setFormError(getErrorMessage(err, 'Failed to save exam'));
     } finally {
@@ -1314,69 +1228,82 @@ export const AdminExams: React.FC = () => {
 
   // Archive / Delete Exam
   const handleArchiveExam = async (exam: EnrichedExamRow) => {
-    if (!confirm(`Are you sure you want to archive "${exam.title}"?`)) return;
+    if (!confirm('Archive "' + exam.title + '"?')) return;
     try {
-      saveExamOverrideCache(exam.id, { isActive: false, statusLabel: 'Draft' });
-      const updated = { ...exam, isActive: false, statusLabel: 'Draft' as const };
-      setExams((prev) => prev.map((e) => (e.id === exam.id ? updated : e)));
-      if (selectedExam?.id === exam.id) setSelectedExam(updated);
-      setActionSuccessMessage(`Exam "${exam.title}" archived successfully.`);
-      await api.updateExam(exam.id, { isActive: false }).catch(() => {});
+      await api.updateExam(exam.id, { isActive: false });
+      await loadData();
+      setActionSuccessMessage('Exam archived.');
     } catch (err) {
-      alert('Failed to archive exam: ' + getErrorMessage(err, 'Archive failed'));
+      alert(getErrorMessage(err, 'Archive failed'));
     }
   };
 
   const handleDeleteExam = async (examId: string) => {
+    if (
+      !window.confirm(
+        'Permanently delete this exam? Linked content will block deletion; Archive preserves history.'
+      )
+    )
+      return;
     try {
       await api.deleteExam(examId);
       setExams((prev) => prev.filter((e) => e.id !== examId));
-      if (selectedExam?.id === examId) {
-        setSelectedExam(exams.find((e) => e.id !== examId) || null);
-      }
-      setActionSuccessMessage('Exam deleted permanently.');
+      setSelectedExam((prev) => (prev?.id === examId ? null : prev));
+      if (selectedExam?.id === examId) setShowDetailsPanel(false);
+      setSelectedExamIds((prev) => {
+        const next = new Set(prev);
+        next.delete(examId);
+        return next;
+      });
+      const logos = getExamLogoCache();
+      delete logos[examId];
+      localStorage.setItem(EXAM_LOGO_CACHE_KEY, JSON.stringify(logos));
+      const overrides = getExamOverridesCache();
+      delete overrides[examId];
+      localStorage.setItem(EXAM_OVERRIDES_CACHE_KEY, JSON.stringify(overrides));
+      setCurrentPage(1);
+      setActionSuccessMessage('Exam deleted in the backend.');
     } catch (err) {
-      alert('Failed to delete exam: ' + getErrorMessage(err, 'Delete failed'));
+      alert(getErrorMessage(err, 'Delete failed; archive linked exams instead.'));
     }
   };
 
   // Duplicate Exam
-  const handleDuplicateExam = (exam: EnrichedExamRow) => {
-    const duplicated: EnrichedExamRow = {
-      ...exam,
-      id: `${exam.id}-copy-${Date.now()}`,
-      title: `${exam.title} (Copy)`,
-      slug: `${exam.slug}-copy`,
-      statusLabel: 'Draft',
-      isActive: false,
-    };
-    setExams((prev) => [duplicated, ...prev]);
-    setSelectedExam(duplicated);
-    setShowDetailsPanel(true);
-    setActionSuccessMessage(`Exam "${exam.title}" duplicated as draft.`);
+  const handleDuplicateExam = async (exam: EnrichedExamRow) => {
+    try {
+      await api.createExam({
+        ...exam,
+        title: exam.title + ' (Copy)',
+        slug: exam.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
+        isActive: false,
+      });
+      await loadData();
+      setActionSuccessMessage('Draft exam created.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'Duplicate failed'));
+    }
   };
 
   // Add Category Handler
-  const handleAddCategory = () => {
-    const trimmed = newCategoryInput.trim();
-    if (!trimmed) return;
-    if (categories.includes(trimmed)) {
-      alert('Category already exists.');
-      return;
-    }
-    const updated = [...categories, trimmed];
-    setCategories(updated);
+  const handleAddCategory = async () => {
+    if (!newCategoryInput.trim()) return;
     try {
-      localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
+      const saved = await api.createExamCategory(newCategoryInput.trim(), categories.length);
+      setCategories((prev) => [...new Set([...prev, saved.name])]);
+      setNewCategoryInput('');
+      setActionSuccessMessage('Category saved.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'Category save failed'));
     }
-    setNewCategoryInput('');
-    setActionSuccessMessage(`Category "${trimmed}" added successfully.`);
   };
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
+      {formError && !isModalOpen && (
+        <div role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">
+          {formError}
+        </div>
+      )}
       {/* Toast Notification */}
       {actionSuccessMessage && (
         <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-xs">
@@ -1440,7 +1367,7 @@ export const AdminExams: React.FC = () => {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                {exams.length || 18}
+                {exams.length}
               </span>
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
                 ↑ 20%
@@ -1461,7 +1388,7 @@ export const AdminExams: React.FC = () => {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                {exams.filter((e) => e.isActive).length || 16}
+                {exams.filter((e) => e.isActive).length}
               </span>
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
                 ↑ 14%
@@ -1616,7 +1543,9 @@ export const AdminExams: React.FC = () => {
                     <th className="py-3 px-3 w-10 text-center">
                       <input
                         type="checkbox"
-                        checked={selectedExamIds.size > 0 && selectedExamIds.size === pagedExams.length}
+                        checked={
+                          selectedExamIds.size > 0 && selectedExamIds.size === pagedExams.length
+                        }
                         onChange={toggleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                       />
@@ -1658,11 +1587,16 @@ export const AdminExams: React.FC = () => {
                           )}
                         >
                           {/* Checkbox */}
-                          <td className="py-3.5 px-3 text-center" onClick={(evt) => evt.stopPropagation()}>
+                          <td
+                            className="py-3.5 px-3 text-center"
+                            onClick={(evt) => evt.stopPropagation()}
+                          >
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={(evt) => toggleSelectRow(e.id, evt as unknown as React.MouseEvent)}
+                              onChange={(evt) =>
+                                toggleSelectRow(e.id, evt as unknown as React.MouseEvent)
+                              }
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                             />
                           </td>
@@ -1748,7 +1682,10 @@ export const AdminExams: React.FC = () => {
                           </td>
 
                           {/* Status Badge */}
-                          <td className="py-3.5 px-2.5 text-center" onClick={(evt) => evt.stopPropagation()}>
+                          <td
+                            className="py-3.5 px-2.5 text-center"
+                            onClick={(evt) => evt.stopPropagation()}
+                          >
                             <button
                               type="button"
                               onClick={() => handleToggleExamStatus(e)}
@@ -1760,7 +1697,12 @@ export const AdminExams: React.FC = () => {
                                   : 'bg-[#FEF8E7] text-[#D97706] hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300'
                               )}
                             >
-                              <span className={cn('w-1.5 h-1.5 rounded-full', isPublished ? 'bg-[#10B981]' : 'bg-[#D97706]')} />
+                              <span
+                                className={cn(
+                                  'w-1.5 h-1.5 rounded-full',
+                                  isPublished ? 'bg-[#10B981]' : 'bg-[#D97706]'
+                                )}
+                              />
                               {e.statusLabel}
                             </button>
                           </td>
@@ -1772,6 +1714,7 @@ export const AdminExams: React.FC = () => {
                           >
                             <button
                               type="button"
+                              aria-label={`Actions for ${e.title}`}
                               onClick={() =>
                                 setOpenActionMenuId(openActionMenuId === e.id ? null : e.id)
                               }
@@ -1862,9 +1805,7 @@ export const AdminExams: React.FC = () => {
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null);
-                                      if (confirm("Permanently delete \"" + e.title + "\"? This cannot be undone.")) {
-                                        handleDeleteExam(e.id);
-                                      }
+                                      handleDeleteExam(e.id);
                                     }}
                                     className="w-full px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
                                   >
@@ -1951,9 +1892,7 @@ export const AdminExams: React.FC = () => {
           <div className="w-full lg:w-[350px] xl:w-[370px] shrink-0 bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs p-4 self-start sticky top-4 space-y-3.5">
             {/* Header: Exam Details & Close X */}
             <div className="flex items-center justify-between pb-0.5">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Exam Details
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Exam Details</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -2070,7 +2009,10 @@ export const AdminExams: React.FC = () => {
                 [
                   { key: 'overview', label: 'Overview' },
                   { key: 'subjects', label: `Subjects (${selectedExam.subjectsCount || 10})` },
-                  { key: 'test_series', label: `Test Series (${selectedExam.testSeriesCount || 5})` },
+                  {
+                    key: 'test_series',
+                    label: `Test Series (${selectedExam.testSeriesCount || 5})`,
+                  },
                   { key: 'settings', label: 'Settings' },
                 ] as const
               ).map((tab) => (
@@ -2120,7 +2062,9 @@ export const AdminExams: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedExam.testSeriesCount}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Test Series</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Test Series
+                      </span>
                     </div>
                   </div>
 
@@ -2133,7 +2077,9 @@ export const AdminExams: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedExam.totalTestsCount}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Total Tests</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Total Tests
+                      </span>
                     </div>
                   </div>
 
@@ -2144,9 +2090,12 @@ export const AdminExams: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedExam.enrollmentsFormatted || selectedExam.enrollmentsCount.toLocaleString('en-IN')}
+                        {selectedExam.enrollmentsFormatted ||
+                          selectedExam.enrollmentsCount.toLocaleString('en-IN')}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Enrollments</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Enrollments
+                      </span>
                     </div>
                   </div>
 
@@ -2172,7 +2121,9 @@ export const AdminExams: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedExam.completionRateFormatted || '72%'}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Completion Rate</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Completion Rate
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2237,7 +2188,8 @@ export const AdminExams: React.FC = () => {
 
                     <span className="text-slate-400">Total Enrollments</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedExam.enrollmentsFormatted || selectedExam.enrollmentsCount.toLocaleString('en-IN')}
+                      {selectedExam.enrollmentsFormatted ||
+                        selectedExam.enrollmentsCount.toLocaleString('en-IN')}
                     </span>
 
                     <span className="text-slate-400">Status</span>
@@ -2308,21 +2260,25 @@ export const AdminExams: React.FC = () => {
                   </a>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Subjects associated with {selectedExam.title} for topic tests and syllabus coverage:
+                  Subjects associated with {selectedExam.title} for topic tests and syllabus
+                  coverage:
                 </p>
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                  {(subjects.length > 0 ? subjects.slice(0, selectedExam.subjectsCount) : [
-                    { id: '1', name: 'General Awareness & GK', orderIndex: 1 },
-                    { id: '2', name: 'Elementary Mathematics', orderIndex: 2 },
-                    { id: '3', name: 'Reasoning & Logical Analysis', orderIndex: 3 },
-                    { id: '4', name: 'English Grammar & Comprehension', orderIndex: 4 },
-                    { id: '5', name: 'General Science & Physics', orderIndex: 5 },
-                    { id: '6', name: 'Indian History & Freedom Struggle', orderIndex: 6 },
-                    { id: '7', name: 'Geography of India & West Bengal', orderIndex: 7 },
-                    { id: '8', name: 'Indian Constitution & Polity', orderIndex: 8 },
-                    { id: '9', name: 'Current Affairs & Sports', orderIndex: 9 },
-                    { id: '10', name: 'Bengali Language & Grammar', orderIndex: 10 },
-                  ]).map((sub) => (
+                  {(subjects.length > 0
+                    ? subjects.slice(0, selectedExam.subjectsCount)
+                    : [
+                        { id: '1', name: 'General Awareness & GK', orderIndex: 1 },
+                        { id: '2', name: 'Elementary Mathematics', orderIndex: 2 },
+                        { id: '3', name: 'Reasoning & Logical Analysis', orderIndex: 3 },
+                        { id: '4', name: 'English Grammar & Comprehension', orderIndex: 4 },
+                        { id: '5', name: 'General Science & Physics', orderIndex: 5 },
+                        { id: '6', name: 'Indian History & Freedom Struggle', orderIndex: 6 },
+                        { id: '7', name: 'Geography of India & West Bengal', orderIndex: 7 },
+                        { id: '8', name: 'Indian Constitution & Polity', orderIndex: 8 },
+                        { id: '9', name: 'Current Affairs & Sports', orderIndex: 9 },
+                        { id: '10', name: 'Bengali Language & Grammar', orderIndex: 10 },
+                      ]
+                  ).map((sub) => (
                     <div
                       key={sub.id}
                       className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
@@ -2356,25 +2312,52 @@ export const AdminExams: React.FC = () => {
                 </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {[
-                    { id: 'ts-1', title: `${selectedExam.title} Mega Full Mock Series`, tests: 15, enrolls: '8,400' },
-                    { id: 'ts-2', title: `${selectedExam.title} Official PYQ 2018-2024`, tests: 8, enrolls: '3,200' },
-                    { id: 'ts-3', title: `${selectedExam.title} High-Yield Topic Tests`, tests: 12, enrolls: '2,900' },
-                    { id: 'ts-4', title: `${selectedExam.title} Speed Booster Math & GI`, tests: 6, enrolls: '1,800' },
-                    { id: 'ts-5', title: `${selectedExam.title} Special Bengali Mock Set`, tests: 4, enrolls: '1,200' },
-                  ].slice(0, selectedExam.testSeriesCount).map((ts) => (
-                    <div
-                      key={ts.id}
-                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-1"
-                    >
-                      <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
-                        {ts.title}
-                      </span>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span>{ts.tests} Tests</span>
-                        <span>{ts.enrolls} Students</span>
+                    {
+                      id: 'ts-1',
+                      title: `${selectedExam.title} Mega Full Mock Series`,
+                      tests: 15,
+                      enrolls: '8,400',
+                    },
+                    {
+                      id: 'ts-2',
+                      title: `${selectedExam.title} Official PYQ 2018-2024`,
+                      tests: 8,
+                      enrolls: '3,200',
+                    },
+                    {
+                      id: 'ts-3',
+                      title: `${selectedExam.title} High-Yield Topic Tests`,
+                      tests: 12,
+                      enrolls: '2,900',
+                    },
+                    {
+                      id: 'ts-4',
+                      title: `${selectedExam.title} Speed Booster Math & GI`,
+                      tests: 6,
+                      enrolls: '1,800',
+                    },
+                    {
+                      id: 'ts-5',
+                      title: `${selectedExam.title} Special Bengali Mock Set`,
+                      tests: 4,
+                      enrolls: '1,200',
+                    },
+                  ]
+                    .slice(0, selectedExam.testSeriesCount)
+                    .map((ts) => (
+                      <div
+                        key={ts.id}
+                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-1"
+                      >
+                        <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
+                          {ts.title}
+                        </span>
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>{ts.tests} Tests</span>
+                          <span>{ts.enrolls} Students</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -2545,7 +2528,11 @@ export const AdminExams: React.FC = () => {
                 >
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{cat}</span>
                   <span className="text-[10px] text-slate-400">
-                    {exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase())).length} exams
+                    {
+                      exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase()))
+                        .length
+                    }{' '}
+                    exams
                   </span>
                 </div>
               ))}
@@ -2724,7 +2711,11 @@ export const AdminExams: React.FC = () => {
                         )}
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        {isUploadingLogo ? 'Uploading...' : formIconName ? 'Change Icon' : 'Upload Icon'}
+                        {isUploadingLogo
+                          ? 'Uploading...'
+                          : formIconName
+                            ? 'Change Icon'
+                            : 'Upload Icon'}
                         <input
                           id="exam-modal-logo-file-input"
                           type="file"
@@ -2836,7 +2827,10 @@ export const AdminExams: React.FC = () => {
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                 />
-                <label htmlFor="formIsActive" className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer">
+                <label
+                  htmlFor="formIsActive"
+                  className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
                   Publish on platform (Visible to students)
                 </label>
               </div>

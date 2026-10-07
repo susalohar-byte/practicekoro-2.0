@@ -27,10 +27,7 @@ import type {
 } from '@/types';
 import { calculateScore } from '@/utils/scoring';
 import { resolveTestNegativeMarking } from '@/utils/negativeMarking';
-import {
-  localAttemptsStore,
-  localTests,
-} from '@/services/domains/localStore';
+import { localAttemptsStore, localTests } from '@/services/domains/localStore';
 import type {
   AttemptRow,
   BookmarkRow,
@@ -65,7 +62,7 @@ export const catalogApi = {
     if (!data?.value) return {};
     const value = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
     return value && typeof value === 'object' && !Array.isArray(value)
-      ? value as Record<string, unknown>
+      ? (value as Record<string, unknown>)
       : {};
   },
 
@@ -73,7 +70,7 @@ export const catalogApi = {
     scope: 'all_india' | 'west_bengal' | 'district' = 'west_bengal',
     district?: string,
     examName?: string,
-    from?: string,
+    from?: string
   ) {
     if (!isSupabaseConfigured) return [];
     const { data, error } = await supabase.rpc('get_app_leaderboard', {
@@ -101,7 +98,9 @@ export const catalogApi = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects' }, callback)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chapters' }, callback)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   },
 
   async getExams(): Promise<Exam[]> {
@@ -514,19 +513,14 @@ export const catalogApi = {
 
   async syncTestExamAssociations(testId: string, examIds: string[]): Promise<boolean> {
     if (!isSupabaseConfigured) return true;
-    try {
-      const { error: delError } = await supabase.from('test_exams').delete().eq('test_id', testId);
-      if (delError) return false;
-
-      if (examIds.length > 0) {
-        const rows = examIds.map((eid) => ({ test_id: testId, exam_id: eid }));
-        const { error: insError } = await supabase.from('test_exams').insert(rows);
-        if (insError) return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    const { data, error } = await supabase.rpc('admin_save_test_exams', {
+      p_test_id: testId,
+      p_exam_ids: examIds,
+    });
+    if (error) throw new Error(error.message);
+    if (data?.success !== true || data.saved_count !== examIds.length)
+      throw new Error('Exam association save was not confirmed');
+    return true;
   },
 
   async getTestById(testId: string): Promise<MockTest | null> {

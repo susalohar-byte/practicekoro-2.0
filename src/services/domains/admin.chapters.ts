@@ -1,7 +1,7 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localChapters, localTests } from '@/services/domains/localStore';
 import type { Chapter } from '@/types';
-import type { ChapterRow } from '@/services/domains/localStore';
 
 const CHAPTERS_STORAGE_KEY = 'pk_admin_chapters_list';
 
@@ -12,14 +12,18 @@ export function getStoredChapters(): Chapter[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {}
+  } catch {
+    /* Optional browser cache is unavailable. Backend remains authoritative. */
+  }
   return [...localChapters];
 }
 
 export function saveStoredChapters(chapters: Chapter[]): void {
   try {
     localStorage.setItem(CHAPTERS_STORAGE_KEY, JSON.stringify(chapters));
-  } catch {}
+  } catch {
+    /* Optional browser cache is unavailable. Backend remains authoritative. */
+  }
 }
 
 /** Section of the admin API: chapters (split from domains/admin.ts, same behaviour). */
@@ -27,242 +31,156 @@ export function saveStoredChapters(chapters: Chapter[]): void {
 // CHAPTERS / TOPICS API
 // --------------------------------------------------------------------------
 export async function getAllAdminChapters(subjectId?: string): Promise<Chapter[]> {
-  if (isSupabaseConfigured) {
-    try {
-      let query = supabase
-        .from('chapters')
-        .select('*, tests(count)')
-        .order('order_index', { ascending: true });
-      if (subjectId) query = query.eq('subject_id', subjectId);
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return (data as (ChapterRow & { tests?: { count: number }[] })[]).map((item) => {
-          const testsCount =
-            Array.isArray(item.tests) && item.tests[0]?.count != null ? Number(item.tests[0].count) : 0;
-          return {
-            id: item.id,
-            subjectId: item.subject_id,
-            name: item.name,
-            slug: item.slug,
-            description: item.description ?? undefined,
-            orderIndex: item.order_index,
-            isActive: item.is_active,
-            iconName: (item as any).icon_name || (item as any).iconName || undefined,
-            parentId: (item as any).parent_id ?? undefined,
-            testsCount,
-            updatedAt: (item as any).updated_at ?? undefined,
-          };
-        });
-      }
-    } catch (err) {
-      console.warn('Supabase getAllAdminChapters fallback:', err);
-    }
-  }
-
-  const stored = getStoredChapters();
-  return stored
-    .filter((c) => !subjectId || c.subjectId === subjectId)
-    .map((c) => ({
-      ...c,
-      testsCount: localTests.filter((t) => t.chapterId === c.id).length,
-    }));
+  if (!isSupabaseConfigured)
+    return getStoredChapters()
+      .filter((c) => !subjectId || c.subjectId === subjectId)
+      .map((c) => ({ ...c, testsCount: localTests.filter((t) => t.chapterId === c.id).length }));
+  let q = supabase.from('chapters').select('*, tests(count)').order('order_index');
+  if (subjectId) q = q.eq('subject_id', subjectId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data || []).map((d) => ({
+    id: d.id,
+    subjectId: d.subject_id,
+    name: d.name,
+    slug: d.slug,
+    description: d.description ?? undefined,
+    iconName: d.icon_name ?? undefined,
+    parentId: d.parent_id ?? undefined,
+    orderIndex: d.order_index,
+    isActive: d.is_active,
+    testsCount: Number(d.tests?.[0]?.count || 0),
+  }));
 }
 
 export async function getChapterById(id: string): Promise<Chapter | null> {
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('chapters')
-        .select('*, tests(count)')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (!error && data) {
-        const row = data as ChapterRow & { tests?: { count: number }[] };
-        const testsCount =
-          Array.isArray(row.tests) && row.tests[0]?.count != null ? Number(row.tests[0].count) : 0;
-
-        return {
-          id: row.id,
-          subjectId: row.subject_id,
-          name: row.name,
-          slug: row.slug,
-          description: row.description ?? undefined,
-          orderIndex: row.order_index,
-          isActive: row.is_active,
-          iconName: (row as any).icon_name || (row as any).iconName || undefined,
-          parentId: (row as any).parent_id ?? undefined,
-          testsCount,
-        };
+  if (!isSupabaseConfigured) return getStoredChapters().find((c) => c.id === id) || null;
+  const { data: d, error } = await supabase
+    .from('chapters')
+    .select('*, tests(count)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return d
+    ? {
+        id: d.id,
+        subjectId: d.subject_id,
+        name: d.name,
+        slug: d.slug,
+        description: d.description ?? undefined,
+        iconName: d.icon_name ?? undefined,
+        parentId: d.parent_id ?? undefined,
+        orderIndex: d.order_index,
+        isActive: d.is_active,
+        testsCount: Number(d.tests?.[0]?.count || 0),
       }
-    } catch (err) {
-      console.warn('Supabase getChapterById fallback:', err);
-    }
-  }
-
-  const stored = getStoredChapters();
-  return stored.find((c) => c.id === id) || null;
+    : null;
 }
 
-export async function createChapter(chapterData: Omit<Chapter, 'id'>): Promise<Chapter> {
-  const slug =
-    chapterData.slug ||
-    chapterData.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  const id = `${chapterData.subjectId}-${slug}-${Date.now().toString().slice(-4)}`.slice(0, 50);
-
-  const newChapter: Chapter = {
-    id,
-    ...chapterData,
-    slug,
-    testsCount: 0,
-    isActive: chapterData.isActive ?? true,
+export async function createChapter(input: Omit<Chapter, 'id'>): Promise<Chapter> {
+  if (!input.name.trim() || !input.subjectId)
+    throw new Error('Topic name and subject are required.');
+  const id = crypto.randomUUID();
+  const slug = input.slug || id;
+  if (!isSupabaseConfigured) {
+    const saved = { ...input, id, slug };
+    const rows = getStoredChapters();
+    rows.push(saved);
+    saveStoredChapters(rows);
+    localChapters.push(saved);
+    return saved;
+  }
+  const d = requireSavedRow(
+    await supabase
+      .from('chapters')
+      .insert({
+        id,
+        subject_id: input.subjectId,
+        name: input.name.trim(),
+        slug,
+        description: input.description || null,
+        icon_name: input.iconName || null,
+        parent_id: input.parentId || null,
+        order_index: input.orderIndex ?? 0,
+        is_active: input.isActive ?? true,
+      })
+      .select('*')
+      .single()
+  );
+  return {
+    id: d.id,
+    subjectId: d.subject_id,
+    name: d.name,
+    slug: d.slug,
+    description: d.description ?? undefined,
+    iconName: d.icon_name ?? undefined,
+    parentId: d.parent_id ?? undefined,
+    orderIndex: d.order_index,
+    isActive: d.is_active,
+    testsCount: Number(d.tests?.[0]?.count || 0),
   };
-
-  const stored = getStoredChapters();
-  stored.push(newChapter);
-  saveStoredChapters(stored);
-
-  const localIdx = localChapters.findIndex((c) => c.id === id);
-  if (localIdx === -1) localChapters.push(newChapter);
-
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('chapters')
-        .insert({
-          id,
-          subject_id: chapterData.subjectId,
-          name: chapterData.name,
-          slug,
-          description: chapterData.description || null,
-          icon_name: chapterData.iconName || null,
-          order_index: chapterData.orderIndex || 0,
-          is_active: chapterData.isActive ?? true,
-          parent_id: chapterData.parentId || null,
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        return {
-          id: data.id,
-          subjectId: data.subject_id,
-          name: data.name,
-          slug: data.slug,
-          description: data.description ?? undefined,
-          iconName: (data as any).icon_name || chapterData.iconName || undefined,
-          orderIndex: data.order_index,
-          isActive: data.is_active,
-          parentId: (data as any).parent_id ?? undefined,
-          testsCount: 0,
-        };
-      }
-    } catch (err) {
-      console.warn('Supabase createChapter fallback:', err);
-    }
-  }
-
-  return newChapter;
 }
 
-export async function updateChapter(id: string, updates: Partial<Chapter>): Promise<Chapter> {
-  const stored = getStoredChapters();
-  const idx = stored.findIndex((c) => c.id === id);
-  let updatedChapter: Chapter;
-
-  if (idx !== -1) {
-    updatedChapter = { ...stored[idx], ...updates };
-    stored[idx] = updatedChapter;
-  } else {
-    const fromLocal = localChapters.find((c) => c.id === id);
-    updatedChapter = {
-      id,
-      subjectId: '',
-      name: '',
-      slug: '',
-      orderIndex: 0,
-      isActive: true,
-      ...fromLocal,
-      ...updates,
-    };
-    stored.push(updatedChapter);
+export async function updateChapter(id: string, input: Partial<Chapter>): Promise<Chapter> {
+  if (input.name !== undefined && !input.name.trim()) throw new Error('Topic name is required.');
+  if (!isSupabaseConfigured) {
+    const rows = getStoredChapters();
+    const i = rows.findIndex((r) => r.id === id);
+    if (i < 0) throw new Error('Topic not found.');
+    rows[i] = { ...rows[i], ...input };
+    saveStoredChapters(rows);
+    return rows[i];
   }
-  saveStoredChapters(stored);
-
-  // Sync in-memory localChapters
-  const localIdx = localChapters.findIndex((c) => c.id === id);
-  if (localIdx !== -1) {
-    localChapters[localIdx] = updatedChapter;
-  } else {
-    localChapters.push(updatedChapter);
-  }
-
-  if (isSupabaseConfigured) {
-    try {
-      const payload: Record<string, unknown> = {};
-      if (updates.name !== undefined) payload.name = updates.name;
-      if (updates.slug !== undefined) payload.slug = updates.slug;
-      if (updates.description !== undefined) payload.description = updates.description;
-      if (updates.iconName !== undefined) payload.icon_name = updates.iconName || null;
-      if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
-      if (updates.isActive !== undefined) payload.is_active = updates.isActive;
-      if (updates.parentId !== undefined) payload.parent_id = updates.parentId || null;
-      if (updates.subjectId !== undefined) payload.subject_id = updates.subjectId;
-
-      const { data, error } = await supabase
-        .from('chapters')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (!error && data) {
-        return {
-          id: data.id,
-          subjectId: data.subject_id,
-          name: data.name,
-          slug: data.slug,
-          description: data.description ?? undefined,
-          iconName: (data as any).icon_name || updates.iconName || undefined,
-          orderIndex: data.order_index,
-          isActive: data.is_active,
-          parentId: (data as any).parent_id ?? undefined,
-        };
-      }
-    } catch (err) {
-      console.warn('Supabase updateChapter fallback:', err);
-    }
-  }
-
-  return updatedChapter;
+  const fields: Record<string, string> = {
+    name: 'name',
+    slug: 'slug',
+    description: 'description',
+    subjectId: 'subject_id',
+    iconName: 'icon_name',
+    parentId: 'parent_id',
+    orderIndex: 'order_index',
+    isActive: 'is_active',
+  };
+  const payload: Record<string, unknown> = {};
+  for (const [k, c] of Object.entries(fields))
+    if ((input as any)[k] !== undefined) payload[c] = (input as any)[k];
+  const d = requireSavedRow(
+    await supabase.from('chapters').update(payload).eq('id', id).select('*').single(),
+    id
+  );
+  return {
+    id: d.id,
+    subjectId: d.subject_id,
+    name: d.name,
+    slug: d.slug,
+    description: d.description ?? undefined,
+    iconName: d.icon_name ?? undefined,
+    parentId: d.parent_id ?? undefined,
+    orderIndex: d.order_index,
+    isActive: d.is_active,
+    testsCount: Number(d.tests?.[0]?.count || 0),
+  };
 }
 
 export async function deleteChapter(id: string): Promise<boolean> {
-  const stored = getStoredChapters();
-  const next = stored.filter((c) => c.id !== id);
-  saveStoredChapters(next);
-
-  const idx = localChapters.findIndex((c) => c.id === id);
-  if (idx !== -1) localChapters.splice(idx, 1);
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('chapters').delete().eq('id', id);
-    } catch (err) {
-      console.warn('Supabase deleteChapter fallback:', err);
-    }
-  }
+  if (isSupabaseConfigured) return deleteAdminRecord('chapters', id);
+  const rows = getStoredChapters();
+  if (!rows.some((r) => r.id === id)) throw new Error('Topic not found.');
+  saveStoredChapters(rows.filter((r) => r.id !== id));
+  const i = localChapters.findIndex((r) => r.id === id);
+  if (i >= 0) localChapters.splice(i, 1);
   return true;
 }
 
 export async function uploadTopicIcon(file: File, topicId: string = 'custom'): Promise<string> {
   if (isSupabaseConfigured) {
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+    {
+      const extension =
+        file.name
+          .split('.')
+          .pop()
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]/g, '') || 'png';
       const safeId = topicId.replace(/[^a-zA-Z0-9_-]/g, '-');
       const path = `topic-icons/${safeId}/icon-${Date.now()}.${extension}`;
       const { data, error } = await supabase.storage.from('banners').upload(path, file, {
@@ -272,9 +190,8 @@ export async function uploadTopicIcon(file: File, topicId: string = 'custom'): P
       if (!error && data) {
         return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
       }
-    } catch {
-      // Fallback to data URL
     }
+    throw new Error('Image upload failed. Please check Storage permissions.');
   }
 
   return new Promise((resolve, reject) => {

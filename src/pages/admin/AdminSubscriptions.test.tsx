@@ -5,7 +5,11 @@ import { AdminSubscriptions, mapAdminSubscriptionRow } from './AdminSubscription
 import type { AdminSubscriptionRow } from '@/types';
 
 vi.mock('@/services/api', () => ({
-  api: { getAllAdminSubscriptions: vi.fn(), cancelSubscription: vi.fn() },
+  api: {
+    getAllAdminSubscriptions: vi.fn(),
+    cancelSubscription: vi.fn(),
+    getSubscriptionPlans: vi.fn().mockResolvedValue([]),
+  },
 }));
 afterEach(() => {
   cleanup();

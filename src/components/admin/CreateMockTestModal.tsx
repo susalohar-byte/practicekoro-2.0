@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Shield,
-  BookOpen,
-  Clock,
-  Sparkles,
-  AlertCircle,
-  Check,
-} from 'lucide-react';
+import { X, Shield, BookOpen, Clock, Sparkles, AlertCircle, Check } from 'lucide-react';
 import type { Exam, Subject, Chapter, MockTest } from '@/types';
 import { api } from '@/services/api';
 import { getErrorMessage } from '@/lib/errors';
@@ -152,7 +144,7 @@ export const CreateMockTestModal: React.FC<CreateMockTestModalProps> = ({
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, ''),
-        isActive: true,
+        isActive: status === 'published',
       });
 
       onTestCreated(created);

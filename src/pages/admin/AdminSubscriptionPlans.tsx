@@ -1,3 +1,4 @@
+import { isSupabaseConfigured } from '@/lib/supabase';
 import React, { useState, useEffect } from 'react';
 import {
   Users,
@@ -167,7 +168,8 @@ const RECENT_SUBSCRIPTIONS: RecentSubscriptionItem[] = [
   {
     id: 1,
     studentName: 'Rohit Kumar',
-    studentAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    studentAvatar:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
     plan: 'Basic',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
     amount: 99,
@@ -177,7 +179,8 @@ const RECENT_SUBSCRIPTIONS: RecentSubscriptionItem[] = [
   {
     id: 2,
     studentName: 'Sneha Khatun',
-    studentAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    studentAvatar:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
     plan: 'Pro',
     planBadgeClass: 'bg-[#FEF3C7] text-[#B45309]',
     amount: 199,
@@ -187,7 +190,8 @@ const RECENT_SUBSCRIPTIONS: RecentSubscriptionItem[] = [
   {
     id: 3,
     studentName: 'Subhankar Pal',
-    studentAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    studentAvatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
     plan: 'Basic',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
     amount: 99,
@@ -197,7 +201,8 @@ const RECENT_SUBSCRIPTIONS: RecentSubscriptionItem[] = [
   {
     id: 4,
     studentName: 'Moumita Sarkar',
-    studentAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    studentAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     plan: 'Ultimate',
     planBadgeClass: 'bg-[#EDE9FE] text-[#6D28D9]',
     amount: 399,
@@ -207,7 +212,8 @@ const RECENT_SUBSCRIPTIONS: RecentSubscriptionItem[] = [
   {
     id: 5,
     studentName: 'Arijit Mondal',
-    studentAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    studentAvatar:
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
     plan: 'Basic',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
     amount: 99,
@@ -289,6 +295,7 @@ const COMPARISON_ROWS = [
 
 export const AdminSubscriptionPlans: React.FC = () => {
   const [plans, setPlans] = useState<SubscriptionPlanItem[]>(() => {
+    if (isSupabaseConfigured) return [];
     try {
       const stored = localStorage.getItem('practicekoro_admin_plans_v2');
       if (stored) return JSON.parse(stored);
@@ -309,6 +316,7 @@ export const AdminSubscriptionPlans: React.FC = () => {
   const loadPlans = async () => {
     try {
       const remote = await api.getSubscriptionPlans(true);
+      if (isSupabaseConfigured && (!remote || !remote.length)) setPlans([]);
       if (remote && remote.length > 0) {
         const mapped: SubscriptionPlanItem[] = remote.map((p) => {
           let icon: 'free' | 'basic' | 'pro' | 'ultimate' = 'basic';
@@ -348,7 +356,7 @@ export const AdminSubscriptionPlans: React.FC = () => {
         setPlans(mapped);
       }
     } catch (err) {
-      console.warn('Failed to load subscription plans from database:', err);
+      showToast(err instanceof Error ? err.message : 'Subscription plans could not be loaded.');
     }
   };
 
@@ -364,7 +372,8 @@ export const AdminSubscriptionPlans: React.FC = () => {
   const [isAddPlanModalOpen, setIsAddPlanModalOpen] = useState(false);
   const [isViewActiveModalOpen, setIsViewActiveModalOpen] = useState(false);
   const [isViewAllRecentOpen, setIsViewAllRecentOpen] = useState(false);
-  const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<SubscriptionPlanItem | null>(null);
+  const [selectedPlanForPurchase, setSelectedPlanForPurchase] =
+    useState<SubscriptionPlanItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form states for Add Plan
@@ -605,7 +614,8 @@ export const AdminSubscriptionPlans: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Subscription Plans</h1>
           <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
-            Manage subscription plans for PracticeKoro. Create, edit and control features for each plan.
+            Manage subscription plans for PracticeKoro. Create, edit and control features for each
+            plan.
           </p>
         </div>
 
@@ -624,7 +634,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
               setFormPlanOriginalPrice('299');
               setFormPlanDurationDays('180');
               setFormPlanBadge('');
-              setFormPlanFeatures('Full mock tests, Unlimited topic practice, Detailed solutions, No ads');
+              setFormPlanFeatures(
+                'Full mock tests, Unlimited topic practice, Detailed solutions, No ads'
+              );
               setIsAddPlanModalOpen(true);
             }}
             className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -652,7 +664,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 ↑ 26%
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">from last month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              from last month
+            </span>
           </div>
         </div>
 
@@ -669,7 +683,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 ↑ 18%
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">from last month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              from last month
+            </span>
           </div>
         </div>
 
@@ -679,14 +695,18 @@ export const AdminSubscriptionPlans: React.FC = () => {
             <CreditCard className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Active Subscriptions</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Active Subscriptions
+            </span>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 leading-tight">4,920</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 32%
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              currently active
+            </span>
           </div>
         </div>
 
@@ -696,7 +716,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
             <Gift className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Converted from Free</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Converted from Free
+            </span>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 leading-tight">1,120</span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -806,9 +828,13 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 <div className="flex items-baseline gap-1.5 mb-4 flex-wrap">
                   <span className="text-2xl font-bold text-slate-900">₹{plan.price}</span>
                   {plan.originalPrice > plan.price && (
-                    <span className="text-xs text-slate-400 line-through">₹{plan.originalPrice}</span>
+                    <span className="text-xs text-slate-400 line-through">
+                      ₹{plan.originalPrice}
+                    </span>
                   )}
-                  <span className="text-xs text-slate-500 font-normal">/ {plan.durationDays} days</span>
+                  <span className="text-xs text-slate-500 font-normal">
+                    / {plan.durationDays} days
+                  </span>
                 </div>
 
                 {/* Features List */}
@@ -1077,9 +1103,7 @@ export const AdminSubscriptionPlans: React.FC = () => {
                           {sub.plan}
                         </span>
                       </td>
-                      <td className="py-2.5 px-2 font-semibold text-slate-800">
-                        ₹{sub.amount}
-                      </td>
+                      <td className="py-2.5 px-2 font-semibold text-slate-800">₹{sub.amount}</td>
                       <td className="py-2.5 px-2 text-slate-500 text-[11px] whitespace-nowrap">
                         {sub.date}
                       </td>
@@ -1110,7 +1134,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Add Subscription Plan</h3>
-                  <p className="text-[11px] text-slate-500">Configure new student subscription tier</p>
+                  <p className="text-[11px] text-slate-500">
+                    Configure new student subscription tier
+                  </p>
                 </div>
               </div>
               <button
@@ -1302,7 +1328,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
 
               {/* Pricing & Duration Block */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
-                <span className="text-[11px] font-bold text-slate-800 block">Pricing & Duration</span>
+                <span className="text-[11px] font-bold text-slate-800 block">
+                  Pricing & Duration
+                </span>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
@@ -1456,7 +1484,9 @@ export const AdminSubscriptionPlans: React.FC = () => {
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Renewal automated collection rate is 94.2% via Razorpay & UPI Autopay.</span>
+                  <span>
+                    Renewal automated collection rate is 94.2% via Razorpay & UPI Autopay.
+                  </span>
                 </div>
               </div>
 

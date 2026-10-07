@@ -1,3 +1,4 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localExamCategories } from '@/services/domains/localStore';
 import type { ExamCategory } from '@/types';
@@ -35,7 +36,12 @@ export function normalizeLegacyExamCategory(category?: string | null): string {
     }
   }
 
-  if (lower.includes('police') || lower.includes('wbp') || lower.includes('kp') || lower.includes('constable')) {
+  if (
+    lower.includes('police') ||
+    lower.includes('wbp') ||
+    lower.includes('kp') ||
+    lower.includes('constable')
+  ) {
     return 'WB Police (WBP / KP)';
   }
   if (
@@ -120,33 +126,41 @@ export function getLocalExamCategoriesWithPersistence(): ExamCategory[] {
 }
 
 export async function getExamCategories(): Promise<ExamCategory[]> {
-  if (!isSupabaseConfigured) {
-    return getLocalExamCategoriesWithPersistence();
-  }
-  try {
-    const { data, error } = await supabase
-      .from('exam_categories')
-      .select('*')
-      .order('order_index', { ascending: true });
-
-    if (error) throw error;
-    if (data && data.length > 0) {
-      return data.map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        orderIndex: Number(d.order_index || 0),
-        isActive: d.is_active ?? true,
-        createdAt: d.created_at,
-      }));
-    }
-    return getLocalExamCategoriesWithPersistence();
-  } catch (err) {
-    console.warn('Failed to load categories from Supabase, using local fallback:', err);
-    return getLocalExamCategoriesWithPersistence();
-  }
+  if (!isSupabaseConfigured) return getLocalExamCategoriesWithPersistence();
+  const { data, error } = await supabase
+    .from('exam_categories')
+    .select('*')
+    .order('order_index', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data || []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    orderIndex: Number(d.order_index || 0),
+    isActive: d.is_active ?? true,
+    createdAt: d.created_at,
+  }));
 }
 
 export async function createExamCategory(name: string, orderIndex?: number): Promise<ExamCategory> {
+  if (isSupabaseConfigured) {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('Category name is required.');
+    const id = 'cat-' + crypto.randomUUID();
+    const d = requireSavedRow(
+      await supabase
+        .from('exam_categories')
+        .insert({ id, name: trimmed, order_index: orderIndex ?? 0 })
+        .select('*')
+        .single()
+    );
+    return {
+      id: d.id,
+      name: d.name,
+      orderIndex: d.order_index,
+      isActive: true,
+      createdAt: d.created_at,
+    };
+  }
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Category name cannot be empty');
   const slug = 'cat_' + trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -220,6 +234,27 @@ export async function updateExamCategory(
   name: string,
   orderIndex?: number
 ): Promise<ExamCategory> {
+  if (isSupabaseConfigured) {
+    const d = requireSavedRow(
+      await supabase
+        .from('exam_categories')
+        .update({
+          name: name.trim(),
+          ...(orderIndex !== undefined ? { order_index: orderIndex } : {}),
+        })
+        .eq('id', id)
+        .select('*')
+        .single(),
+      id
+    );
+    return {
+      id: d.id,
+      name: d.name,
+      orderIndex: d.order_index,
+      isActive: true,
+      createdAt: d.created_at,
+    };
+  }
   const trimmed = name.trim();
   if (!trimmed) throw new Error('Category name cannot be empty');
 
@@ -311,6 +346,12 @@ export async function updateExamCategory(
 }
 
 export async function deleteExamCategory(idOrName: string): Promise<boolean> {
+  if (isSupabaseConfigured) {
+    const categories = await getExamCategories();
+    const target = categories.find((c) => c.id === idOrName || c.name === idOrName);
+    if (!target) throw new Error('Category not found');
+    return deleteAdminRecord('exam_categories', target.id);
+  }
   const trimmed = idOrName.trim();
   if (!trimmed) return false;
 
@@ -383,6 +424,21 @@ export async function deleteExamCategory(idOrName: string): Promise<boolean> {
 export async function reorderExamCategories(
   orderedCategories: { id?: string; name: string; orderIndex: number }[]
 ): Promise<ExamCategory[]> {
+  if (isSupabaseConfigured) {
+    for (const c of orderedCategories) {
+      if (!c.id) throw new Error('Refresh category IDs before reordering');
+      requireSavedRow(
+        await supabase
+          .from('exam_categories')
+          .update({ order_index: c.orderIndex })
+          .eq('id', c.id)
+          .select('id')
+          .single(),
+        c.id
+      );
+    }
+    return getExamCategories();
+  }
   // 1. Update in-memory localExamCategories
   orderedCategories.forEach(({ name, orderIndex }) => {
     const idx = localExamCategories.findIndex((c) => c.name.toLowerCase() === name.toLowerCase());
@@ -442,4 +498,3 @@ export const adminExamCategoriesApi = {
   reorderExamCategories,
   normalizeLegacyExamCategory,
 };
-

@@ -629,7 +629,9 @@ export const AdminStudents: React.FC = () => {
   const [students, setStudents] = useState<EnrichedStudent[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Test History' | 'Subscriptions' | 'Notes'>('Overview');
+  const [activeTab, setActiveTab] = useState<
+    'Overview' | 'Test History' | 'Subscriptions' | 'Notes'
+  >('Overview');
   const [isLoading, setIsLoading] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
@@ -751,9 +753,13 @@ export const AdminStudents: React.FC = () => {
   }, [students, selectedStudentId]);
 
   // Real backend student details & notes
-  const [selectedStudentDetails, setSelectedStudentDetails] = useState<AdminStudentDetails | null>(null);
+  const [selectedStudentDetails, setSelectedStudentDetails] = useState<AdminStudentDetails | null>(
+    null
+  );
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [studentNotes, setStudentNotes] = useState<{ id: string; author: string; text: string; createdAt: string }[]>([]);
+  const [studentNotes, setStudentNotes] = useState<
+    { id: string; author: string; text: string; createdAt: string }[]
+  >([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
 
   useEffect(() => {
@@ -781,7 +787,13 @@ export const AdminStudents: React.FC = () => {
       .then((notes) => {
         if (isMounted) setStudentNotes(notes);
       })
-      .catch((err) => console.warn('Could not load student notes:', err))
+      .catch((err) => {
+        if (isMounted)
+          setToastMessage({
+            type: 'error',
+            text: err instanceof Error ? err.message : 'Student notes could not be loaded.',
+          });
+      })
       .finally(() => {
         if (isMounted) setIsLoadingNotes(false);
       });
@@ -805,7 +817,9 @@ export const AdminStudents: React.FC = () => {
     }
 
     const attempts = selectedStudentDetails.recentAttempts;
-    const completed = attempts.filter((a) => a.status === 'completed' || (a.score != null && a.score > 0));
+    const completed = attempts.filter(
+      (a) => a.status === 'completed' || (a.score != null && a.score > 0)
+    );
 
     let avgScore: number | null = null;
     let bestScore: number | null = null;
@@ -857,7 +871,10 @@ export const AdminStudents: React.FC = () => {
           type: 'purchase',
           title: `Subscription: ${sub.planTitle || 'Pro Plan'} (${sub.status})`,
           time: sub.createdAt
-            ? new Date(sub.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+            ? new Date(sub.createdAt).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+              })
             : 'Recently',
         });
       });
@@ -1298,7 +1315,10 @@ export const AdminStudents: React.FC = () => {
       setIsResetPasswordModalOpen(false);
       showToast('success', `Password recovery email initiated for ${selectedStudent.email}`);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to send password recovery email.');
+      showToast(
+        'error',
+        err instanceof Error ? err.message : 'Failed to send password recovery email.'
+      );
     } finally {
       setIsWorking(false);
     }
@@ -1348,7 +1368,11 @@ export const AdminStudents: React.FC = () => {
 
     setIsWorking(true);
     try {
-      const res = await api.createStudentNote(selectedStudent.id, newNoteText.trim(), 'Staff Admin');
+      const res = await api.createStudentNote(
+        selectedStudent.id,
+        newNoteText.trim(),
+        'Staff Admin'
+      );
       if (!res.success || !res.note) {
         showToast('error', res.error || 'Failed to persist note.');
         return;
@@ -2281,7 +2305,9 @@ export const AdminStudents: React.FC = () => {
                         {/* Avg. Score */}
                         <div className="bg-[#F0FDF4] rounded-lg p-2.5 text-center">
                           <span className="text-xs sm:text-base font-bold text-[#16A34A] block leading-tight">
-                            {studentMetrics.avgScore != null ? `${studentMetrics.avgScore}%` : 'Unavailable'}
+                            {studentMetrics.avgScore != null
+                              ? `${studentMetrics.avgScore}%`
+                              : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Avg. Score
@@ -2291,7 +2317,9 @@ export const AdminStudents: React.FC = () => {
                         {/* Best Score */}
                         <div className="bg-[#FAF5FF] rounded-lg p-2.5 text-center">
                           <span className="text-xs sm:text-base font-bold text-[#9333EA] block leading-tight">
-                            {studentMetrics.bestScore != null ? `${studentMetrics.bestScore}%` : 'Unavailable'}
+                            {studentMetrics.bestScore != null
+                              ? `${studentMetrics.bestScore}%`
+                              : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Best Score
@@ -2301,7 +2329,9 @@ export const AdminStudents: React.FC = () => {
                         {/* Days Active */}
                         <div className="bg-[#FFFBEB] rounded-lg p-2.5 text-center">
                           <span className="text-xs sm:text-base font-bold text-[#D97706] block leading-tight">
-                            {studentMetrics.daysActive != null ? studentMetrics.daysActive : 'Unavailable'}
+                            {studentMetrics.daysActive != null
+                              ? studentMetrics.daysActive
+                              : 'Unavailable'}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
                             Days Active
@@ -2325,7 +2355,8 @@ export const AdminStudents: React.FC = () => {
                               </span>
                               <span className="text-[11px] text-slate-500 block mt-0.5 leading-tight">
                                 Valid Till: {selectedStudent.subscriptionValidTill || 'Unavailable'}{' '}
-                                {selectedStudent.subscriptionMonthsLeft && selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
+                                {selectedStudent.subscriptionMonthsLeft &&
+                                selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
                                   <>
                                     (
                                     <span className="text-[#D97706] font-medium">
@@ -2455,7 +2486,9 @@ export const AdminStudents: React.FC = () => {
                                   </span>
                                   <span className="text-[11px] text-slate-500">
                                     {att.score}/{att.totalMarks || 100} Marks ({pct}%)
-                                    {att.accuracy != null ? ` • Accuracy: ${Math.round(att.accuracy)}%` : ''}
+                                    {att.accuracy != null
+                                      ? ` • Accuracy: ${Math.round(att.accuracy)}%`
+                                      : ''}
                                     {att.rank ? ` • Rank #${att.rank}` : ''}
                                   </span>
                                 </div>
@@ -2491,7 +2524,8 @@ export const AdminStudents: React.FC = () => {
                         <span className="text-[11px] text-emerald-700 block mt-0.5">
                           Status: Active • Valid till{' '}
                           {selectedStudent.subscriptionValidTill || 'Unavailable'}{' '}
-                          {selectedStudent.subscriptionMonthsLeft && selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
+                          {selectedStudent.subscriptionMonthsLeft &&
+                          selectedStudent.subscriptionMonthsLeft !== 'Unavailable' ? (
                             <>({selectedStudent.subscriptionMonthsLeft})</>
                           ) : null}
                         </span>
@@ -2503,15 +2537,21 @@ export const AdminStudents: React.FC = () => {
                             <Loader2 className="w-4 h-4 animate-spin mr-2" />
                             <span>Loading orders...</span>
                           </div>
-                        ) : selectedStudentDetails?.paymentHistory && selectedStudentDetails.paymentHistory.length > 0 ? (
+                        ) : selectedStudentDetails?.paymentHistory &&
+                          selectedStudentDetails.paymentHistory.length > 0 ? (
                           selectedStudentDetails.paymentHistory.map((pmt) => (
-                            <div key={pmt.id} className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs">
+                            <div
+                              key={pmt.id}
+                              className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs"
+                            >
                               <span className="font-bold text-slate-900 block text-xs">
                                 Order Details ({pmt.status})
                               </span>
                               <div className="flex justify-between text-[11px] text-slate-600">
                                 <span>Transaction ID:</span>
-                                <span className="font-mono text-slate-800">{pmt.transactionId || pmt.orderId || '—'}</span>
+                                <span className="font-mono text-slate-800">
+                                  {pmt.transactionId || pmt.orderId || '—'}
+                                </span>
                               </div>
                               <div className="flex justify-between text-[11px] text-slate-600">
                                 <span>Amount Paid:</span>

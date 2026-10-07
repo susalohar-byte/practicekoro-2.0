@@ -254,18 +254,25 @@ export const AdminCoupons: React.FC = () => {
     }
   }, [couponsList]);
 
-  const [availablePlans, setAvailablePlans] = useState<{ id: string; title: string; price: number }[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<
+    { id: string; title: string; price: number }[]
+  >([]);
 
   // Load backend active plans
   useEffect(() => {
     let isMounted = true;
-    api.getSubscriptionPlans(true).then((plans) => {
-      if (!isMounted || !plans) return;
-      setAvailablePlans(plans.map((p) => ({ id: p.id, title: p.title, price: p.price })));
-    }).catch((err) => {
-      console.warn('Failed to load subscription plans for coupons:', err);
-    });
-    return () => { isMounted = false; };
+    api
+      .getSubscriptionPlans(true)
+      .then((plans) => {
+        if (!isMounted || !plans) return;
+        setAvailablePlans(plans.map((p) => ({ id: p.id, title: p.title, price: p.price })));
+      })
+      .catch((err) => {
+        console.warn('Failed to load subscription plans for coupons:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const loadCoupons = async () => {
@@ -278,10 +285,18 @@ export const AdminCoupons: React.FC = () => {
       const mapped: CouponRowItem[] = remote.map((c) => {
         const isPct = c.discountType === 'percentage';
         const validFromStr = c.validFrom
-          ? new Date(c.validFrom).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          ? new Date(c.validFrom).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })
           : 'Immediate';
         const validUntilStr = c.validUntil
-          ? new Date(c.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          ? new Date(c.validUntil).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })
           : 'No Expiry';
         const isAct = c.isActive;
 
@@ -581,7 +596,8 @@ export const AdminCoupons: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Coupons</h1>
           <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
-            Create and manage discount coupons for subscription plans. Use coupons to attract new users and run special offers.
+            Create and manage discount coupons for subscription plans. Use coupons to attract new
+            users and run special offers.
           </p>
         </div>
 
@@ -618,7 +634,9 @@ export const AdminCoupons: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Coupons</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 leading-tight">{couponsList.length}</span>
+              <span className="text-2xl font-bold text-slate-900 leading-tight">
+                {couponsList.length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 Live
               </span>
@@ -642,7 +660,9 @@ export const AdminCoupons: React.FC = () => {
                 Active
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              currently active
+            </span>
           </div>
         </div>
 
@@ -655,13 +675,17 @@ export const AdminCoupons: React.FC = () => {
             <span className="text-[11px] font-medium text-slate-500 block">Used Coupons</span>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 leading-tight">
-                {couponsList.reduce((sum, c) => sum + (c.usedCount || 0), 0).toLocaleString('en-IN')}
+                {couponsList
+                  .reduce((sum, c) => sum + (c.usedCount || 0), 0)
+                  .toLocaleString('en-IN')}
               </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 Redeemed
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">total redemptions</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              total redemptions
+            </span>
           </div>
         </div>
 
@@ -671,11 +695,19 @@ export const AdminCoupons: React.FC = () => {
             <BarChart2 className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Discount Given</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Total Discount Given
+            </span>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-2xl font-bold text-slate-900 leading-tight">
-                ₹{couponsList
-                  .reduce((sum, c) => sum + (c.usedCount || 0) * (c.discountType === 'fixed' ? c.discountValue : 50), 0)
+                ₹
+                {couponsList
+                  .reduce(
+                    (sum, c) =>
+                      sum +
+                      (c.usedCount || 0) * (c.discountType === 'fixed' ? c.discountValue : 50),
+                    0
+                  )
                   .toLocaleString('en-IN')}
               </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -743,7 +775,9 @@ export const AdminCoupons: React.FC = () => {
 
         {/* Discount Type Dropdown */}
         <div className="w-[130px]">
-          <label className="text-[10px] font-semibold text-slate-400 mb-1 block">Discount Type</label>
+          <label className="text-[10px] font-semibold text-slate-400 mb-1 block">
+            Discount Type
+          </label>
           <div className="relative">
             <select
               value={filterType}
@@ -850,151 +884,156 @@ export const AdminCoupons: React.FC = () => {
                             key={row.id}
                             className="hover:bg-slate-50/60 transition-colors group cursor-pointer"
                             onClick={() => {
-                          setFormCode(row.code);
-                          setFormTitle(row.title);
-                          setFormDescription(row.description || row.subtitle);
-                          setFormDiscountType(row.discountType);
-                          setFormDiscountValue(String(row.discountValue));
-                          if (row.maxDiscount) setFormMaxDiscount(String(row.maxDiscount));
-                          setFormUsageLimit(String(row.totalLimit));
-                        }}
-                      >
-                        {/* Checkbox */}
-                        <td
-                          className="py-3 px-3 text-center"
-                          onClick={(e) => handleToggleRow(row.id, e)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
-                          />
-                        </td>
-
-                        {/* # */}
-                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
-                          {idx + 1}
-                        </td>
-
-                        {/* Coupon Code */}
-                        <td className="py-3 px-3">
-                          <span className="font-mono font-bold text-xs bg-[#DBEAFE] text-[#1E40AF] px-2.5 py-1 rounded-md tracking-wider">
-                            {row.code}
-                          </span>
-                        </td>
-
-                        {/* Title */}
-                        <td className="py-3 px-3">
-                          <span className="font-semibold text-slate-800 block truncate">
-                            {row.title}
-                          </span>
-                          <span className="text-[11px] text-slate-400 block truncate">
-                            {row.subtitle}
-                          </span>
-                        </td>
-
-                        {/* Discount */}
-                        <td className="py-3 px-3">
-                          <span className="font-bold text-emerald-600 block">
-                            {row.discountType === 'percentage'
-                              ? `${row.discountValue}%`
-                              : `₹${row.discountValue}`}
-                          </span>
-                          <span className="text-[10px] text-emerald-700/80 block">
-                            {row.maxDiscount ? `Max ₹${row.maxDiscount}` : 'Flat Off'}
-                          </span>
-                        </td>
-
-                        {/* Applicable Plans */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap',
-                              row.planBadgeClass
-                            )}
+                              setFormCode(row.code);
+                              setFormTitle(row.title);
+                              setFormDescription(row.description || row.subtitle);
+                              setFormDiscountType(row.discountType);
+                              setFormDiscountValue(String(row.discountValue));
+                              if (row.maxDiscount) setFormMaxDiscount(String(row.maxDiscount));
+                              setFormUsageLimit(String(row.totalLimit));
+                            }}
                           >
-                            {row.applicablePlans}
-                          </span>
-                        </td>
-
-                        {/* Usage */}
-                        <td className="py-3 px-3 font-semibold text-slate-700 whitespace-nowrap">
-                          {row.usedCount} <span className="text-slate-400 font-normal">/ {row.totalLimit}</span>
-                        </td>
-
-                        {/* Validity */}
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <span className="text-slate-700 block font-normal">{row.validFrom}</span>
-                          <span className="text-[11px] text-slate-400 block">– {row.validUntil}</span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
-                              row.statusBadgeClass
-                            )}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td
-                          className="py-3 px-3 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                            {/* Checkbox */}
+                            <td
+                              className="py-3 px-3 text-center"
+                              onClick={(e) => handleToggleRow(row.id, e)}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                              />
+                            </td>
 
-                            {/* Dropdown Menu */}
-                            {activeMenuId === row.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                            {/* # */}
+                            <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                              {idx + 1}
+                            </td>
+
+                            {/* Coupon Code */}
+                            <td className="py-3 px-3">
+                              <span className="font-mono font-bold text-xs bg-[#DBEAFE] text-[#1E40AF] px-2.5 py-1 rounded-md tracking-wider">
+                                {row.code}
+                              </span>
+                            </td>
+
+                            {/* Title */}
+                            <td className="py-3 px-3">
+                              <span className="font-semibold text-slate-800 block truncate">
+                                {row.title}
+                              </span>
+                              <span className="text-[11px] text-slate-400 block truncate">
+                                {row.subtitle}
+                              </span>
+                            </td>
+
+                            {/* Discount */}
+                            <td className="py-3 px-3">
+                              <span className="font-bold text-emerald-600 block">
+                                {row.discountType === 'percentage'
+                                  ? `${row.discountValue}%`
+                                  : `₹${row.discountValue}`}
+                              </span>
+                              <span className="text-[10px] text-emerald-700/80 block">
+                                {row.maxDiscount ? `Max ₹${row.maxDiscount}` : 'Flat Off'}
+                              </span>
+                            </td>
+
+                            {/* Applicable Plans */}
+                            <td className="py-3 px-3">
+                              <span
+                                className={cn(
+                                  'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap',
+                                  row.planBadgeClass
+                                )}
+                              >
+                                {row.applicablePlans}
+                              </span>
+                            </td>
+
+                            {/* Usage */}
+                            <td className="py-3 px-3 font-semibold text-slate-700 whitespace-nowrap">
+                              {row.usedCount}{' '}
+                              <span className="text-slate-400 font-normal">/ {row.totalLimit}</span>
+                            </td>
+
+                            {/* Validity */}
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span className="text-slate-700 block font-normal">
+                                {row.validFrom}
+                              </span>
+                              <span className="text-[11px] text-slate-400 block">
+                                – {row.validUntil}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3 px-3">
+                              <span
+                                className={cn(
+                                  'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
+                                  row.statusBadgeClass
+                                )}
+                              >
+                                {row.status}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td
+                              className="py-3 px-3 text-center relative"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="relative inline-block text-left">
                                 <button
-                                  onClick={() => handleCopy(row.code)}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Copy Code</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setFormCode(row.code);
-                                    setFormTitle(row.title);
-                                    setFormDescription(row.description || row.subtitle);
-                                    setActiveMenuId(null);
-                                    showToast(`Editing coupon ${row.code} in side panel.`);
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === row.id ? null : row.id);
                                   }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                                 >
-                                  <span>Edit Coupon</span>
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => handleDeleteCoupon(row.id)}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Delete</span>
-                                </button>
+
+                                {/* Dropdown Menu */}
+                                {activeMenuId === row.id && (
+                                  <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                    <button
+                                      onClick={() => handleCopy(row.code)}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Copy Code</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setFormCode(row.code);
+                                        setFormTitle(row.title);
+                                        setFormDescription(row.description || row.subtitle);
+                                        setActiveMenuId(null);
+                                        showToast(`Editing coupon ${row.code} in side panel.`);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                    >
+                                      <span>Edit Coupon</span>
+                                    </button>
+                                    <div className="border-t border-slate-100 my-1" />
+                                    <button
+                                      onClick={() => handleDeleteCoupon(row.id)}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1003,7 +1042,8 @@ export const AdminCoupons: React.FC = () => {
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
                 Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
-                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length} coupons
+                {Math.min(filteredRows.length, currentPage * rowsPerPage)} of {filteredRows.length}{' '}
+                coupons
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1107,9 +1147,7 @@ export const AdminCoupons: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-medium text-slate-700">Description</label>
-                <span className="text-[10px] text-slate-400">
-                  {formDescription.length}/200
-                </span>
+                <span className="text-[10px] text-slate-400">{formDescription.length}/200</span>
               </div>
               <textarea
                 rows={2}

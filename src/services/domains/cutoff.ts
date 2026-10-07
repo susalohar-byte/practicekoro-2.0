@@ -1,3 +1,4 @@
+import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type {
   CutoffRecord,
@@ -578,7 +579,7 @@ export const INITIAL_CUTOFF_RECORDS: CutoffRecord[] = [
 ];
 
 // Fallback in-memory store
-let memoryConfigs: ExamCutoffConfig[] = [...DEFAULT_EXAM_CUTOFF_CONFIGS];
+const memoryConfigs: ExamCutoffConfig[] = [...DEFAULT_EXAM_CUTOFF_CONFIGS];
 let memoryRecords: CutoffRecord[] = [...INITIAL_CUTOFF_RECORDS];
 
 // ============================================================================
@@ -591,9 +592,10 @@ export const cutoffApi = {
    */
   async getExamCutoffConfigs(): Promise<ExamCutoffConfig[]> {
     if (isSupabaseConfigured) {
-      try {
+      {
         const { data, error } = await supabase.from('exam_cutoff_configs').select('*');
-        if (!error && data && data.length > 0) {
+        if (error) throw new Error(error.message);
+        if (data) {
           return data.map((row) => ({
             examId: row.exam_id,
             examTitle: row.exam_id, // title resolved in UI or join
@@ -606,8 +608,6 @@ export const cutoffApi = {
             defaultMaxMarks: Number(row.default_max_marks || 100),
           }));
         }
-      } catch (err) {
-        console.warn('Could not read exam_cutoff_configs from Supabase, using fallback:', err);
       }
     }
     return [...memoryConfigs];
@@ -618,9 +618,7 @@ export const cutoffApi = {
    */
   async getExamCutoffConfig(examId: string): Promise<ExamCutoffConfig> {
     const configs = await this.getExamCutoffConfigs();
-    const found = configs.find(
-      (c) => c.examId.toLowerCase() === examId.toLowerCase()
-    );
+    const found = configs.find((c) => c.examId.toLowerCase() === examId.toLowerCase());
     if (found) return found;
 
     // Default configuration if exam doesn't have custom config yet
@@ -642,8 +640,9 @@ export const cutoffApi = {
    */
   async saveExamCutoffConfig(config: ExamCutoffConfig): Promise<ExamCutoffConfig> {
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('exam_cutoff_configs').upsert({
+      const { data, error } = await supabase
+        .from('exam_cutoff_configs')
+        .upsert({
           exam_id: config.examId,
           category_enabled: config.categoryEnabled,
           gender_enabled: config.genderEnabled,
@@ -652,20 +651,15 @@ export const cutoffApi = {
           allowed_stages: config.allowedStages,
           default_score_type: config.defaultScoreType,
           default_max_marks: config.defaultMaxMarks,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) console.warn('Supabase upsert exam_cutoff_configs warning:', error);
-      } catch (err) {
-        console.warn('Supabase exam_cutoff_configs error:', err);
-      }
+        })
+        .select('exam_id')
+        .single();
+      if (error || data?.exam_id !== config.examId)
+        throw new Error(error?.message || 'Configuration was not saved');
     }
-
-    const index = memoryConfigs.findIndex((c) => c.examId === config.examId);
-    if (index >= 0) {
-      memoryConfigs[index] = { ...config };
-    } else {
-      memoryConfigs.push({ ...config });
-    }
+    const i = memoryConfigs.findIndex((c) => c.examId === config.examId);
+    if (i >= 0) memoryConfigs[i] = config;
+    else memoryConfigs.push(config);
     return config;
   },
 
@@ -682,7 +676,7 @@ export const cutoffApi = {
     district?: string;
   }): Promise<CutoffRecord[]> {
     if (isSupabaseConfigured) {
-      try {
+      {
         let query = supabase.from('cutoff_records').select('*');
         if (filters?.examId && filters.examId !== 'all') {
           query = query.eq('exam_id', filters.examId);
@@ -701,7 +695,8 @@ export const cutoffApi = {
         }
 
         const { data, error } = await query.order('year', { ascending: false });
-        if (!error && data && data.length > 0) {
+        if (error) throw new Error(error.message);
+        if (data) {
           return data.map((row) => ({
             id: String(row.id),
             examId: row.exam_id,
@@ -727,10 +722,9 @@ export const cutoffApi = {
             status: (row.status || 'active') as any,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
+            totalPosts: row.total_posts || undefined,
           }));
         }
-      } catch (err) {
-        console.warn('Could not read cutoff_records from Supabase, using fallback:', err);
       }
     }
 
@@ -748,7 +742,11 @@ export const cutoffApi = {
       if (filters?.cutoffType && rec.cutoffType !== filters.cutoffType) {
         return false;
       }
-      if (filters?.category && filters.category !== 'NOT_SPECIFIED' && rec.category !== filters.category) {
+      if (
+        filters?.category &&
+        filters.category !== 'NOT_SPECIFIED' &&
+        rec.category !== filters.category
+      ) {
         return false;
       }
       return true;
@@ -761,78 +759,77 @@ export const cutoffApi = {
   async saveCutoffRecord(
     record: Omit<CutoffRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
   ): Promise<CutoffRecord> {
-    if (!record.examId || !record.year || !record.stage || !record.cutoffMarks || !record.source) {
-      throw new Error('Exam, Year, Stage, Cutoff Marks, and Source are mandatory.');
+    if (
+      !record.examId ||
+      !Number.isInteger(record.year) ||
+      !record.stage ||
+      !record.source.trim() ||
+      !Number.isFinite(record.cutoffMarks) ||
+      record.cutoffMarks < 0 ||
+      !Number.isFinite(record.maxMarks) ||
+      record.maxMarks <= 0 ||
+      record.cutoffMarks > record.maxMarks
+    )
+      throw new Error('Valid exam, year, stage, source and marks are required.');
+    const percentage =
+      record.percentage ?? Math.round((record.cutoffMarks / record.maxMarks) * 10000) / 100;
+    if (isSupabaseConfigured) {
+      const payload = {
+        exam_id: record.examId,
+        exam_title: record.examTitle,
+        year: record.year,
+        stage: record.stage,
+        cutoff_type: record.cutoffType,
+        category: record.category,
+        gender: record.gender || 'ALL',
+        district: record.district || 'ALL',
+        score_type: record.scoreType,
+        max_marks: record.maxMarks,
+        cutoff_marks: record.cutoffMarks,
+        percentage,
+        negative_marking: record.negativeMarking ?? 0.25,
+        source_type: record.sourceType,
+        source: record.source,
+        source_url: record.sourceUrl || null,
+        verification_status: record.verificationStatus,
+        verified_by: record.verifiedBy || null,
+        verified_date: record.verifiedDate || null,
+        notes: record.notes || null,
+        status: record.status,
+        total_posts: record.totalPosts || null,
+        updated_at: new Date().toISOString(),
+      };
+      const query = record.id
+        ? supabase.from('cutoff_records').update(payload).eq('id', record.id)
+        : supabase.from('cutoff_records').insert(payload);
+      const row = requireSavedRow(await query.select('*').single(), record.id);
+      return {
+        ...record,
+        id: row.id,
+        percentage,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
     }
-
-    const calculatedPercentage =
-      record.percentage !== undefined
-        ? record.percentage
-        : Math.round(((record.cutoffMarks / record.maxMarks) * 100) * 100) / 100;
-
-    const id = record.id || `cut_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const fullRecord: CutoffRecord = {
+    const saved = {
       ...record,
-      id,
-      percentage: calculatedPercentage,
+      id: record.id || crypto.randomUUID(),
+      percentage,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('cutoff_records').upsert({
-          id: fullRecord.id.includes('cut_') ? undefined : fullRecord.id, // let UUID generate if new
-          exam_id: fullRecord.examId,
-          exam_title: fullRecord.examTitle,
-          year: fullRecord.year,
-          stage: fullRecord.stage,
-          cutoff_type: fullRecord.cutoffType,
-          category: fullRecord.category,
-          gender: fullRecord.gender || 'ALL',
-          district: fullRecord.district || 'ALL',
-          score_type: fullRecord.scoreType,
-          max_marks: fullRecord.maxMarks,
-          cutoff_marks: fullRecord.cutoffMarks,
-          percentage: fullRecord.percentage,
-          negative_marking: fullRecord.negativeMarking || 0.25,
-          source_type: fullRecord.sourceType,
-          source: fullRecord.source,
-          source_url: fullRecord.sourceUrl || null,
-          verification_status: fullRecord.verificationStatus,
-          verified_by: fullRecord.verifiedBy || null,
-          verified_date: fullRecord.verifiedDate || null,
-          notes: fullRecord.notes || null,
-          status: fullRecord.status,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) console.warn('Supabase cutoff_records upsert error:', error);
-      } catch (err) {
-        console.warn('Supabase cutoff_records upsert exception:', err);
-      }
-    }
-
-    const index = memoryRecords.findIndex((r) => r.id === fullRecord.id);
-    if (index >= 0) {
-      memoryRecords[index] = fullRecord;
-    } else {
-      memoryRecords.unshift(fullRecord);
-    }
-
-    return fullRecord;
+    const i = memoryRecords.findIndex((r) => r.id === saved.id);
+    if (i >= 0) memoryRecords[i] = saved;
+    else memoryRecords.unshift(saved);
+    return saved;
   },
 
   /**
    * Delete a Cutoff Record
    */
   async deleteCutoffRecord(id: string): Promise<boolean> {
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('cutoff_records').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase cutoff_records delete exception:', err);
-      }
-    }
+    if (isSupabaseConfigured) return deleteAdminRecord('cutoff_records', id);
+    if (!memoryRecords.some((r) => r.id === id)) throw new Error('Cutoff not found');
     memoryRecords = memoryRecords.filter((r) => r.id !== id);
     return true;
   },
@@ -860,7 +857,8 @@ export const cutoffApi = {
         : 'GEN';
 
     const rawGender: StudentGenderCode = studentProfile?.gender || 'NOT_SPECIFIED';
-    const isGenderApplicable = config.genderEnabled && (rawGender === 'MALE' || rawGender === 'FEMALE');
+    const isGenderApplicable =
+      config.genderEnabled && (rawGender === 'MALE' || rawGender === 'FEMALE');
 
     // Matching Expected Cutoff (Priority: Category + Gender -> Category + ALL -> GEN)
     let matchedExpected: CutoffRecord | null = null;
@@ -870,9 +868,7 @@ export const cutoffApi = {
 
     if (isGenderApplicable) {
       matchedExpected =
-        expectedRecords.find(
-          (r) => r.category === studentCat && r.gender === rawGender
-        ) || null;
+        expectedRecords.find((r) => r.category === studentCat && r.gender === rawGender) || null;
     }
     if (!matchedExpected) {
       matchedExpected =
@@ -885,7 +881,9 @@ export const cutoffApi = {
       matchedExpected =
         expectedRecords.find(
           (r) => r.category === 'GEN' && (isGenderApplicable ? r.gender === rawGender : true)
-        ) || expectedRecords[0] || null;
+        ) ||
+        expectedRecords[0] ||
+        null;
     }
 
     // Matching Previous Official Cutoff
@@ -896,9 +894,7 @@ export const cutoffApi = {
 
     if (isGenderApplicable) {
       matchedOfficial =
-        officialRecords.find(
-          (r) => r.category === studentCat && r.gender === rawGender
-        ) || null;
+        officialRecords.find((r) => r.category === studentCat && r.gender === rawGender) || null;
     }
     if (!matchedOfficial) {
       matchedOfficial =
@@ -910,7 +906,9 @@ export const cutoffApi = {
       matchedOfficial =
         officialRecords.find(
           (r) => r.category === 'GEN' && (isGenderApplicable ? r.gender === rawGender : true)
-        ) || officialRecords[0] || null;
+        ) ||
+        officialRecords[0] ||
+        null;
     }
 
     // Historical official cutoff list (sorted by year desc)

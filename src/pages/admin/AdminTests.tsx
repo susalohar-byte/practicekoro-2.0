@@ -39,8 +39,18 @@ type TestTypeTab = 'all' | 'full_mock' | 'topic' | 'pyq';
 
 // Police shield badge matching WBP crest from the reference design
 const PoliceShieldBadge: React.FC<{ className?: string }> = ({ className = 'w-9 h-10' }) => (
-  <div className={cn('relative flex items-center justify-center shrink-0 drop-shadow-xs select-none', className)}>
-    <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+  <div
+    className={cn(
+      'relative flex items-center justify-center shrink-0 drop-shadow-xs select-none',
+      className
+    )}
+  >
+    <svg
+      viewBox="0 0 40 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+    >
       {/* Outer shield frame with golden border */}
       <path
         d="M20 2C20 2 35 4.5 37 10C39 18 37 34 20 46C3 34 1 18 3 10C5 4.5 20 2 20 2Z"
@@ -320,7 +330,9 @@ export const AdminTests: React.FC = () => {
 
   // Modals State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createInitialType, setCreateInitialType] = useState<'full_mock' | 'topic' | 'pyq'>('full_mock');
+  const [createInitialType, setCreateInitialType] = useState<'full_mock' | 'topic' | 'pyq'>(
+    'full_mock'
+  );
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewTest, setPreviewTest] = useState<MockTest | null>(null);
   const [isAddQuestionsModalOpen, setIsAddQuestionsModalOpen] = useState(false);
@@ -538,7 +550,8 @@ export const AdminTests: React.FC = () => {
       await api.deleteTest(testId);
       setTests((prev) => prev.filter((t) => t.id !== testId));
       if (selectedTest?.id === testId) {
-        setSelectedTest(tests[0] || null);
+        setSelectedTest(null);
+        setShowDetailsPanel(false);
       }
       alert('Mock test deleted successfully.');
     } catch (err) {
@@ -604,7 +617,11 @@ export const AdminTests: React.FC = () => {
         </div>
       );
     }
-    if (t.title.includes('Modern India') || t.title.includes('Geography') || t.subjectName === 'History') {
+    if (
+      t.title.includes('Modern India') ||
+      t.title.includes('Geography') ||
+      t.subjectName === 'History'
+    ) {
       return (
         <div className="w-8 h-8 rounded-lg bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-2xs">
           <BookOpen className="w-4 h-4" />
@@ -961,222 +978,224 @@ export const AdminTests: React.FC = () => {
                     </tr>
                   ) : (
                     pagedTests.map((t, idx) => {
-                    const isChecked = selectedTestIds.has(t.id);
-                    const isSelected = selectedTest?.id === t.id;
-                    const isPublished = t.status === 'published';
-                    const isUnderReview = t.status === 'archived';
+                      const isChecked = selectedTestIds.has(t.id);
+                      const isSelected = selectedTest?.id === t.id;
+                      const isPublished = t.status === 'published';
+                      const isUnderReview = t.status === 'archived';
 
-                    const isFullMock = t.testType === 'full_mock';
-                    const isTopic = t.testType === 'topic';
+                      const isFullMock = t.testType === 'full_mock';
+                      const isTopic = t.testType === 'topic';
 
-                    return (
-                      <tr
-                        key={t.id}
-                        onClick={() => handleSelectRow(t)}
-                        className={cn(
-                          'group cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 select-none',
-                          isSelected
-                            ? 'bg-blue-50/60 dark:bg-blue-950/25 ring-1 ring-blue-500/20'
-                            : isChecked
-                            ? 'bg-slate-50/60 dark:bg-slate-800/20'
-                            : ''
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => toggleSelectTest(t.id, e as any)}
-                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700"
-                          />
-                        </td>
-
-                        {/* Index */}
-                        <td className="py-3 px-2 text-center text-slate-400 text-[11px]">
-                          {startIndex + idx + 1}
-                        </td>
-
-                        {/* Test Name */}
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {renderRowIcon(t)}
-                            <div className="min-w-0">
-                              <span className="font-semibold text-slate-900 dark:text-white truncate block">
-                                {t.title}
-                              </span>
-                              <span
-                                className={cn(
-                                  'text-[9.5px] font-semibold block',
-                                  isFullMock
-                                    ? 'text-blue-600 dark:text-blue-400'
-                                    : isTopic
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-rose-500 dark:text-rose-400'
-                                )}
-                              >
-                                {isFullMock
-                                  ? 'Full Mock'
-                                  : isTopic
-                                  ? 'Topic Test'
-                                  : 'Official PYQ'}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Type Badge */}
-                        <td className="py-3 px-2.5">
-                          <span
-                            className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium tracking-tight inline-block',
-                              isFullMock
-                                ? 'bg-[#EBF5FF] text-[#026BFC] dark:bg-blue-950/60 dark:text-blue-300'
-                                : isTopic
-                                ? 'bg-[#E8F8F0] text-[#10B981] dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : 'bg-[#FEECEC] text-[#EF4444] dark:bg-rose-950/60 dark:text-rose-300'
-                            )}
-                          >
-                            {isFullMock ? 'Full Mock' : isTopic ? 'Topic Test' : 'Official PYQ'}
-                          </span>
-                        </td>
-
-                        {/* Exam / Subject */}
-                        <td className="py-3 px-2.5 text-slate-600 dark:text-slate-300 font-normal">
-                          {isTopic ? t.subjectName || 'General Science' : t.examTitle || 'WBP Constable'}
-                        </td>
-
-                        {/* Topic (for Topic Test) */}
-                        <td className="py-3 px-2.5 text-slate-500 dark:text-slate-400">
-                          {isTopic ? t.chapterName || '—' : '—'}
-                        </td>
-
-                        {/* Questions */}
-                        <td className="py-3 px-2 text-center text-slate-700 dark:text-slate-300">
-                          {t.totalQuestions || 85}
-                        </td>
-
-                        {/* Duration */}
-                        <td className="py-3 px-2 text-center text-slate-500 dark:text-slate-400">
-                          {t.durationMinutes} min
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3 px-2.5">
-                          <span
-                            className={cn(
-                              'px-2.5 py-0.5 rounded-full text-xs font-medium inline-block',
-                              isPublished
-                                ? 'bg-[#E8F8F0] text-[#10B981] dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : 'bg-[#FEF8E7] text-[#D97706] dark:bg-amber-950/60 dark:text-amber-300'
-                            )}
-                          >
-                            {isPublished
-                              ? 'Published'
-                              : isUnderReview
-                              ? 'Under Review'
-                              : 'Draft'}
-                          </span>
-                        </td>
-
-                        {/* Actions Menu */}
-                        <td
-                          className="py-3 px-2.5 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenActionMenuId(openActionMenuId === t.id ? null : t.id)
-                            }
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-slate-500" />
-                          </button>
-
-                          {openActionMenuId === t.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-30"
-                                onClick={() => setOpenActionMenuId(null)}
-                              />
-                              <div className="absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 shadow-xl z-40 py-1 text-xs">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    handleSelectRow(t);
-                                  }}
-                                  className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
-                                >
-                                  <FileText className="w-3.5 h-3.5 text-blue-500" />
-                                  View Details
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    setPreviewTest(t);
-                                    setIsPreviewModalOpen(true);
-                                  }}
-                                  className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
-                                >
-                                  <Play className="w-3.5 h-3.5 text-emerald-500" />
-                                  Preview Test
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    setSelectedTest(t);
-                                    setIsAddQuestionsModalOpen(true);
-                                  }}
-                                  className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-cyan-500" />
-                                  Manage Questions
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    handleDuplicateTest(t.id);
-                                  }}
-                                  className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-amber-500" />
-                                  Duplicate Test
-                                </button>
-
-                                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    if (
-                                      confirm(
-                                        `Are you sure you want to delete mock test "${t.title}"?`
-                                      )
-                                    ) {
-                                      handleDeleteTest(t.id);
-                                    }
-                                  }}
-                                  className="w-full px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  Delete Test
-                                </button>
-                              </div>
-                            </>
+                      return (
+                        <tr
+                          key={t.id}
+                          onClick={() => handleSelectRow(t)}
+                          className={cn(
+                            'group cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 select-none',
+                            isSelected
+                              ? 'bg-blue-50/60 dark:bg-blue-950/25 ring-1 ring-blue-500/20'
+                              : isChecked
+                                ? 'bg-slate-50/60 dark:bg-slate-800/20'
+                                : ''
                           )}
-                        </td>
-                      </tr>
-                    );
-                  }))}
+                        >
+                          {/* Checkbox */}
+                          <td
+                            className="py-3 px-3 text-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => toggleSelectTest(t.id, e as any)}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700"
+                            />
+                          </td>
+
+                          {/* Index */}
+                          <td className="py-3 px-2 text-center text-slate-400 text-[11px]">
+                            {startIndex + idx + 1}
+                          </td>
+
+                          {/* Test Name */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {renderRowIcon(t)}
+                              <div className="min-w-0">
+                                <span className="font-semibold text-slate-900 dark:text-white truncate block">
+                                  {t.title}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'text-[9.5px] font-semibold block',
+                                    isFullMock
+                                      ? 'text-blue-600 dark:text-blue-400'
+                                      : isTopic
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-rose-500 dark:text-rose-400'
+                                  )}
+                                >
+                                  {isFullMock
+                                    ? 'Full Mock'
+                                    : isTopic
+                                      ? 'Topic Test'
+                                      : 'Official PYQ'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Type Badge */}
+                          <td className="py-3 px-2.5">
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded text-[11px] font-medium tracking-tight inline-block',
+                                isFullMock
+                                  ? 'bg-[#EBF5FF] text-[#026BFC] dark:bg-blue-950/60 dark:text-blue-300'
+                                  : isTopic
+                                    ? 'bg-[#E8F8F0] text-[#10B981] dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : 'bg-[#FEECEC] text-[#EF4444] dark:bg-rose-950/60 dark:text-rose-300'
+                              )}
+                            >
+                              {isFullMock ? 'Full Mock' : isTopic ? 'Topic Test' : 'Official PYQ'}
+                            </span>
+                          </td>
+
+                          {/* Exam / Subject */}
+                          <td className="py-3 px-2.5 text-slate-600 dark:text-slate-300 font-normal">
+                            {isTopic
+                              ? t.subjectName || 'General Science'
+                              : t.examTitle || 'WBP Constable'}
+                          </td>
+
+                          {/* Topic (for Topic Test) */}
+                          <td className="py-3 px-2.5 text-slate-500 dark:text-slate-400">
+                            {isTopic ? t.chapterName || '—' : '—'}
+                          </td>
+
+                          {/* Questions */}
+                          <td className="py-3 px-2 text-center text-slate-700 dark:text-slate-300">
+                            {t.totalQuestions || 85}
+                          </td>
+
+                          {/* Duration */}
+                          <td className="py-3 px-2 text-center text-slate-500 dark:text-slate-400">
+                            {t.durationMinutes} min
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-2.5">
+                            <span
+                              className={cn(
+                                'px-2.5 py-0.5 rounded-full text-xs font-medium inline-block',
+                                isPublished
+                                  ? 'bg-[#E8F8F0] text-[#10B981] dark:bg-emerald-950/60 dark:text-emerald-300'
+                                  : 'bg-[#FEF8E7] text-[#D97706] dark:bg-amber-950/60 dark:text-amber-300'
+                              )}
+                            >
+                              {isPublished ? 'Published' : isUnderReview ? 'Under Review' : 'Draft'}
+                            </span>
+                          </td>
+
+                          {/* Actions Menu */}
+                          <td
+                            className="py-3 px-2.5 text-center relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenActionMenuId(openActionMenuId === t.id ? null : t.id)
+                              }
+                              className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                            </button>
+
+                            {openActionMenuId === t.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-30"
+                                  onClick={() => setOpenActionMenuId(null)}
+                                />
+                                <div className="absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 shadow-xl z-40 py-1 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleSelectRow(t);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                    View Details
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setPreviewTest(t);
+                                      setIsPreviewModalOpen(true);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Play className="w-3.5 h-3.5 text-emerald-500" />
+                                    Preview Test
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setSelectedTest(t);
+                                      setIsAddQuestionsModalOpen(true);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Plus className="w-3.5 h-3.5 text-cyan-500" />
+                                    Manage Questions
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleDuplicateTest(t.id);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Copy className="w-3.5 h-3.5 text-amber-500" />
+                                    Duplicate Test
+                                  </button>
+
+                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      if (
+                                        confirm(
+                                          `Are you sure you want to delete mock test "${t.title}"?`
+                                        )
+                                      ) {
+                                        handleDeleteTest(t.id);
+                                      }
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete Test
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1246,9 +1265,7 @@ export const AdminTests: React.FC = () => {
           <div className="w-full lg:w-[350px] xl:w-[370px] shrink-0 bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs p-4 self-start sticky top-4 space-y-3.5 animate-in fade-in-50 duration-200">
             {/* Header: Test Details & Close X */}
             <div className="flex items-center justify-between pb-0.5">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Test Details
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Test Details</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -1275,8 +1292,8 @@ export const AdminTests: React.FC = () => {
                       {selectedTest.testType === 'full_mock'
                         ? 'Full Mock'
                         : selectedTest.testType === 'topic'
-                        ? 'Topic Test'
-                        : 'Official PYQ'}
+                          ? 'Topic Test'
+                          : 'Official PYQ'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#E8F8F0] text-[#10B981] dark:bg-emerald-950/60 dark:text-emerald-300">
                       {selectedTest.status === 'published' ? 'Published' : 'Draft'}
@@ -1365,7 +1382,9 @@ export const AdminTests: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedTest.totalMarks ?? 0}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Total Marks</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Total Marks
+                      </span>
                     </div>
                   </div>
 
@@ -1376,9 +1395,13 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {(selectedTest as any).attemptsCount ? (selectedTest as any).attemptsCount.toLocaleString('en-IN') : '0'}
+                        {(selectedTest as any).attemptsCount
+                          ? (selectedTest as any).attemptsCount.toLocaleString('en-IN')
+                          : '0'}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">Total Attempts</span>
+                      <span className="text-[9.5px] text-slate-400 block truncate">
+                        Total Attempts
+                      </span>
                     </div>
                   </div>
 
@@ -1389,7 +1412,9 @@ export const AdminTests: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        {(selectedTest as any).avgScore ? `${Math.round((selectedTest as any).avgScore)}%` : '—'}
+                        {(selectedTest as any).avgScore
+                          ? `${Math.round((selectedTest as any).avgScore)}%`
+                          : '—'}
                       </span>
                       <span className="text-[9.5px] text-slate-400 block truncate">Avg. Score</span>
                     </div>
@@ -1446,8 +1471,8 @@ export const AdminTests: React.FC = () => {
                       {selectedTest.testType === 'full_mock'
                         ? 'Full Mock'
                         : selectedTest.testType === 'topic'
-                        ? 'Topic Test'
-                        : 'Official PYQ'}
+                          ? 'Topic Test'
+                          : 'Official PYQ'}
                     </span>
 
                     <span className="text-slate-400">Total Questions</span>
@@ -1467,7 +1492,9 @@ export const AdminTests: React.FC = () => {
 
                     <span className="text-slate-400">Negative Marks</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedTest.negativeMarking ? `${selectedTest.negativeMarking} (Per Wrong Answer)` : 'None'}
+                      {selectedTest.negativeMarking
+                        ? `${selectedTest.negativeMarking} (Per Wrong Answer)`
+                        : 'None'}
                     </span>
 
                     <span className="text-slate-400">Created By</span>
@@ -1477,12 +1504,24 @@ export const AdminTests: React.FC = () => {
 
                     <span className="text-slate-400">Created At</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {(selectedTest as any).createdAt ? new Date((selectedTest as any).createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      {(selectedTest as any).createdAt
+                        ? new Date((selectedTest as any).createdAt).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </span>
 
                     <span className="text-slate-400">Last Updated</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {(selectedTest as any).updatedAt ? new Date((selectedTest as any).updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      {(selectedTest as any).updatedAt
+                        ? new Date((selectedTest as any).updatedAt).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </span>
                   </div>
                 </div>
@@ -1492,9 +1531,7 @@ export const AdminTests: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      if (
-                        confirm(`Are you sure you want to delete "${selectedTest.title}"?`)
-                      ) {
+                      if (confirm(`Are you sure you want to delete "${selectedTest.title}"?`)) {
                         handleDeleteTest(selectedTest.id);
                       }
                     }}

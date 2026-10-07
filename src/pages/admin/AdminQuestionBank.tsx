@@ -1,3 +1,5 @@
+import { requireSuccess } from '@/services/domains/admin.mutations';
+import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
 import {
@@ -434,7 +436,8 @@ const INITIAL_DEMO_QUESTIONS: Question[] = [
       'If P doubles, Interest I = P. Time T = 5. Rate R = (100 * I) / (P * T) = (100 * P) / (P * 5) = 20%.',
     explanationBengali:
       'আসল P হলে সুদ I = P। সুতরাং সুদের হার R = (১০০ × I) / (P × T) = (১০০ × P) / (P × ৫) = ২০%।',
-    shortNotes: '• সূত্র: I = (P × R × T) / 100\n• দ্বিগুণ হলে: R = 100 / T\n• এখানে: R = 100 / 5 = 20%',
+    shortNotes:
+      '• সূত্র: I = (P × R × T) / 100\n• দ্বিগুণ হলে: R = 100 / T\n• এখানে: R = 100 / 5 = 20%',
     tags: ['Maths', 'Simple Interest', 'Arithmetic'],
     status: 'published',
     isActive: true,
@@ -443,8 +446,10 @@ const INITIAL_DEMO_QUESTIONS: Question[] = [
   },
   {
     id: '10407',
-    questionText: 'Which district of West Bengal has the lowest literacy rate according to 2011 census?',
-    questionBengaliText: '২০১১ সালের জনগণনা অনুযায়ী পশ্চিমবঙ্গের সর্বনিম্ন সাক্ষরতার হারযুক্ত জেলা কোনটি?',
+    questionText:
+      'Which district of West Bengal has the lowest literacy rate according to 2011 census?',
+    questionBengaliText:
+      '২০১১ সালের জনগণনা অনুযায়ী পশ্চিমবঙ্গের সর্বনিম্ন সাক্ষরতার হারযুক্ত জেলা কোনটি?',
     optionA: 'Purulia',
     optionB: 'Uttar Dinajpur',
     optionC: 'Maldah',
@@ -543,8 +548,7 @@ const INITIAL_DEMO_QUESTIONS: Question[] = [
     chapterName: 'Chemical Reactions',
     questionType: 'Topic',
     sourceType: 'topic',
-    explanation:
-      'Methane (CH4) makes up around 75-90% of CNG and about 50-70% of biogas.',
+    explanation: 'Methane (CH4) makes up around 75-90% of CNG and about 50-70% of biogas.',
     explanationBengali:
       'বায়োগ্যাস এবং সিএনজি (CNG)-তে প্রধান উপাদান হিসেবে মিথেন (CH₄) গ্যাস উপস্থিত থাকে।',
     shortNotes: '• সংকেত: CH₄\n• মার্স গ্যাস (Marsh gas) নামে পরিচিত\n• গ্রিনহাউস গ্যাস',
@@ -685,7 +689,9 @@ export const AdminQuestionBank: React.FC = () => {
 
   // Add Modal Form State
   const [addExam, setAddExam] = useState('WBP Constable');
-  const [addExamQuestionType, setAddExamQuestionType] = useState<'Full Mock' | 'Official PYQ'>('Official PYQ');
+  const [addExamQuestionType, setAddExamQuestionType] = useState<'Full Mock' | 'Official PYQ'>(
+    'Official PYQ'
+  );
   const [addYear, setAddYear] = useState('2025');
   const [addPaper, setAddPaper] = useState('Set A');
   const [addSection, setAddSection] = useState('General Awareness');
@@ -706,7 +712,10 @@ export const AdminQuestionBank: React.FC = () => {
   const [addTags, setAddTags] = useState<string[]>([]);
   const [addTagInput, setAddTagInput] = useState('');
   const [addStatus, setAddStatus] = useState<QuestionBankStatus>('published');
-  const [duplicateWarning, setDuplicateWarning] = useState<{ similarity: number; existingText: string } | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    similarity: number;
+    existingText: string;
+  } | null>(null);
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
 
   // Bulk Import Modal State
@@ -749,7 +758,7 @@ export const AdminQuestionBank: React.FC = () => {
     try {
       setIsLoading(true);
       const [allQuestions, allExams, allSubjects, allChapters] = await Promise.all([
-        api.getAllAdminQuestions().catch(() => []),
+        api.getAllAdminQuestions(),
         api.getAllAdminExams().catch(() => []),
         api.getAllAdminSubjects().catch(() => []),
         api.getAllAdminChapters().catch(() => []),
@@ -773,7 +782,7 @@ export const AdminQuestionBank: React.FC = () => {
         }
       }
     } catch (err) {
-      console.warn('Backend load note:', err);
+      showToast(getErrorMessage(err, 'Questions could not be loaded.'));
     } finally {
       setIsLoading(false);
     }
@@ -794,11 +803,16 @@ export const AdminQuestionBank: React.FC = () => {
         D: activeQuestion.optionD || '',
       });
       setDrawerCorrectOption((activeQuestion.correctOption as 'A' | 'B' | 'C' | 'D') || 'A');
-      setDrawerUploadMode((activeQuestion.uploadMode as UploadMode) || (activeQuestion.sourceExam ? 'exam' : 'subject'));
+      setDrawerUploadMode(
+        (activeQuestion.uploadMode as UploadMode) ||
+          (activeQuestion.sourceExam ? 'exam' : 'subject')
+      );
       setDrawerExam(activeQuestion.sourceExam || 'WBP Constable');
       setDrawerSubject(activeQuestion.subjectName || 'History');
       setDrawerTopic(activeQuestion.topicName || activeQuestion.chapterName || 'Modern India');
-      setDrawerType(activeQuestion.questionType || (activeQuestion.sourceType === 'pyq' ? 'PYQ' : 'Topic'));
+      setDrawerType(
+        activeQuestion.questionType || (activeQuestion.sourceType === 'pyq' ? 'PYQ' : 'Topic')
+      );
       setDrawerYear(activeQuestion.sourceYear || 2025);
       setDrawerSource(
         activeQuestion.sourceType === 'pyq'
@@ -807,12 +821,16 @@ export const AdminQuestionBank: React.FC = () => {
             ? 'Original'
             : 'Reference'
       );
-      setDrawerStatus((activeQuestion.status as QuestionBankStatus) || 'published');
+      setDrawerStatus(
+        activeQuestion.status === 'active'
+          ? 'published'
+          : (activeQuestion.status as QuestionBankStatus) || 'draft'
+      );
       setEditExplanation(
         activeQuestion.explanationBengali ||
-        activeQuestion.explanation ||
-        activeQuestion.shortNotes ||
-        ''
+          activeQuestion.explanation ||
+          activeQuestion.shortNotes ||
+          ''
       );
     }
   }, [activeQuestion]);
@@ -838,7 +856,9 @@ export const AdminQuestionBank: React.FC = () => {
         const matchesOptC = q.optionC?.toLowerCase().includes(query);
         const matchesOptD = q.optionD?.toLowerCase().includes(query);
         const matchesId = q.id?.toLowerCase().includes(query);
-        const matchesTopic = q.topicName?.toLowerCase().includes(query) || q.chapterName?.toLowerCase().includes(query);
+        const matchesTopic =
+          q.topicName?.toLowerCase().includes(query) ||
+          q.chapterName?.toLowerCase().includes(query);
         const matchesExam = q.sourceExam?.toLowerCase().includes(query);
         const matchesSubject = q.subjectName?.toLowerCase().includes(query);
 
@@ -860,14 +880,20 @@ export const AdminQuestionBank: React.FC = () => {
 
       // 4. Exam Filter
       if (selectedExamFilter !== 'all') {
-        if (!q.sourceExam || !q.sourceExam.toLowerCase().includes(selectedExamFilter.toLowerCase())) {
+        if (
+          !q.sourceExam ||
+          !q.sourceExam.toLowerCase().includes(selectedExamFilter.toLowerCase())
+        ) {
           return false;
         }
       }
 
       // 5. Subject Filter
       if (selectedSubjectFilter !== 'all') {
-        if (!q.subjectName || !q.subjectName.toLowerCase().includes(selectedSubjectFilter.toLowerCase())) {
+        if (
+          !q.subjectName ||
+          !q.subjectName.toLowerCase().includes(selectedSubjectFilter.toLowerCase())
+        ) {
           return false;
         }
       }
@@ -927,11 +953,10 @@ export const AdminQuestionBank: React.FC = () => {
         (q) => q.uploadMode === 'exam' || Boolean(q.sourceExam)
       ).length;
       const subjectQuestions = questions.filter(
-        (q) => q.uploadMode === 'subject' || (!q.sourceExam && Boolean(q.subjectId || q.subjectName))
+        (q) =>
+          q.uploadMode === 'subject' || (!q.sourceExam && Boolean(q.subjectId || q.subjectName))
       ).length;
-      const published = questions.filter(
-        (q) => (q.status || 'published') === 'published'
-      ).length;
+      const published = questions.filter((q) => (q.status || 'published') === 'published').length;
       const draft = questions.filter((q) => q.status === 'draft').length;
       const underReview = questions.filter(
         (q) => (q.status as string) === 'under_review' || (q.status as string) === 'review'
@@ -982,50 +1007,62 @@ export const AdminQuestionBank: React.FC = () => {
 
   // Bulk Status Change
   const handleBulkStatusChange = async (newStatus: QuestionBankStatus) => {
-    if (selectedRowIds.size === 0) return;
     const ids = Array.from(selectedRowIds);
-    try {
-      const dbStatus =
-        newStatus === 'published' ? 'active' : newStatus === 'archived' ? 'archived' : 'draft';
-      const res = await api.updateQuestionsStatus(ids, dbStatus);
-      setQuestions((prev) =>
-        prev.map((q) => (ids.includes(q.id) ? { ...q, status: newStatus } : q))
-      );
-      if (activeQuestion && ids.includes(activeQuestion.id)) {
-        setActiveQuestion((prev) => (prev ? { ...prev, status: newStatus } : null));
-      }
-      setSelectedRowIds(new Set());
-      showToast(`Updated status of ${res.updatedCount} questions to ${newStatus}.`);
-    } catch (err) {
-      showToast(`Error updating status: ${getErrorMessage(err, 'Failed to update status')}`);
-    }
+    const batch = await runConfirmedBatch(ids, (id) =>
+      api.updateQuestion(id, { status: newStatus, isActive: newStatus === 'published' })
+    );
+    const saved = new Map(batch.results.map((r) => [r.input, r.value]));
+    setQuestions((prev) => prev.map((q) => saved.get(q.id) || q));
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    showToast(
+      batch.results.length +
+        ' saved; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : '')
+    );
   };
 
   // Bulk Delete
   const handleBulkDelete = async () => {
-    if (selectedRowIds.size === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedRowIds.size} selected questions?`)) {
+    if (
+      !selectedRowIds.size ||
+      !window.confirm('Delete selected questions? Linked questions may be protected.')
+    )
       return;
-    }
-    const ids = Array.from(selectedRowIds);
-    try {
-      const res = await api.deleteQuestions(ids);
-      setQuestions((prev) => prev.filter((q) => !ids.includes(q.id)));
-      if (activeQuestion && ids.includes(activeQuestion.id)) {
-        setActiveQuestion(null);
-      }
-      setSelectedRowIds(new Set());
-      showToast(`Deleted ${res.deletedCount} questions.`);
-    } catch (err) {
-      showToast(`Error deleting questions: ${getErrorMessage(err, 'Failed to bulk delete')}`);
-    }
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.deleteQuestion(id)
+    );
+    const deleted = new Set(batch.results.map((r) => r.input));
+    setQuestions((prev) => prev.filter((q) => !deleted.has(q.id)));
+    setActiveQuestion((prev) => (prev && deleted.has(prev.id) ? null : prev));
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    showToast(
+      deleted.size +
+        ' deleted; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : '')
+    );
   };
 
   // Export Selected to CSV
   const handleExportSelectedCSV = () => {
     if (selectedRowIds.size === 0) return;
     const toExport = questions.filter((q) => selectedRowIds.has(q.id));
-    const headers = ['id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct', 'exam', 'subject', 'topic', 'status'];
+    const headers = [
+      'id',
+      'question',
+      'option_a',
+      'option_b',
+      'option_c',
+      'option_d',
+      'correct',
+      'exam',
+      'subject',
+      'topic',
+      'status',
+    ];
     const rows = toExport.map((q) => [
       q.id,
       q.questionBengaliText || q.questionText,
@@ -1043,7 +1080,9 @@ export const AdminQuestionBank: React.FC = () => {
       '\uFEFF' +
       headers.join(',') +
       '\n' +
-      rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      rows
+        .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1057,10 +1096,11 @@ export const AdminQuestionBank: React.FC = () => {
 
   // Drawer Update Handler
   const handleUpdateDrawer = async () => {
-    if (!activeQuestion) return;
+    if (!activeQuestion || isUpdatingDrawer) return;
     try {
       setIsUpdatingDrawer(true);
-      const updatedQuestionData: Partial<Question> = {
+      const updatedQuestion: Question = {
+        ...activeQuestion,
         questionBengaliText: drawerBengaliText.trim(),
         questionText: drawerBengaliText.trim(),
         optionA: drawerOptions.A.trim(),
@@ -1074,6 +1114,10 @@ export const AdminQuestionBank: React.FC = () => {
         topicName: drawerTopic,
         chapterName: drawerTopic,
         questionType: drawerType,
+        sourceType: drawerType === 'PYQ' ? 'pyq' : drawerType === 'Full Mock' ? 'other' : 'topic',
+        subjectId: subjects.find((s) => s.name === drawerSubject)?.id,
+        chapterId: topics.find((t) => t.name === drawerTopic)?.id,
+        isActive: drawerStatus === 'published',
         sourceYear: drawerYear ? Number(drawerYear) : undefined,
         status: drawerStatus,
         tags: drawerTags,
@@ -1082,12 +1126,11 @@ export const AdminQuestionBank: React.FC = () => {
         shortNotes: editExplanation.trim(),
       };
 
-      const saved = await api.updateQuestion(activeQuestion.id, updatedQuestionData);
-      setQuestions((prev) =>
-        prev.map((q) => (q.id === activeQuestion.id ? { ...q, ...saved } : q))
-      );
-      setActiveQuestion((prev) => (prev ? { ...prev, ...saved } : saved));
-      showToast('Question updated successfully in database!');
+      const savedQuestion = await api.updateQuestion(activeQuestion.id, updatedQuestion);
+
+      setQuestions((prev) => prev.map((q) => (q.id === activeQuestion.id ? savedQuestion : q)));
+      setActiveQuestion(savedQuestion);
+      showToast(`Question #${activeQuestion.id} updated successfully!`);
     } catch (err) {
       showToast(`Error updating question: ${getErrorMessage(err, 'Failed to update')}`);
     } finally {
@@ -1097,17 +1140,19 @@ export const AdminQuestionBank: React.FC = () => {
 
   // Drawer Delete Handler
   const handleDeleteActiveQuestion = async () => {
-    if (!activeQuestion) return;
-    if (!window.confirm(`Delete question #${activeQuestion.id}? This will remove it from mock tests.`)) {
+    if (
+      !activeQuestion ||
+      !window.confirm('Permanently delete this question? Linked records are protected.')
+    )
       return;
-    }
     try {
-      await api.deleteQuestion(activeQuestion.id);
-      setQuestions((prev) => prev.filter((q) => q.id !== activeQuestion.id));
+      const id = activeQuestion.id;
+      await api.deleteQuestion(id);
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
       setActiveQuestion(null);
-      showToast('Question deleted successfully from database.');
+      showToast('Question deleted in the backend.');
     } catch (err) {
-      showToast(`Error deleting question: ${getErrorMessage(err, 'Failed to delete')}`);
+      showToast(getErrorMessage(err, 'Delete failed'));
     }
   };
 
@@ -1168,6 +1213,7 @@ export const AdminQuestionBank: React.FC = () => {
   // Handle Add Question Submission
   const handleCreateQuestionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingAdd) return;
     if (!addQuestionBengali.trim() && !addQuestionEnglish.trim()) {
       showToast('Question text is required.');
       return;
@@ -1179,7 +1225,9 @@ export const AdminQuestionBank: React.FC = () => {
 
     try {
       setIsSubmittingAdd(true);
-      const newQuestionPayload: Omit<Question, 'id'> = {
+      const newId = crypto.randomUUID();
+      const newQuestionItem: Question = {
+        id: newId,
         questionBengaliText: addQuestionBengali.trim(),
         questionText: addQuestionEnglish.trim() || addQuestionBengali.trim(),
         optionA: addOptA.trim(),
@@ -1213,15 +1261,26 @@ export const AdminQuestionBank: React.FC = () => {
         shortNotes: addExplanation.trim(),
         tags: addTags.length > 0 ? addTags : [modalUploadMode === 'exam' ? addExam : addSubject],
         status: addStatus,
-        isActive: true,
+        isActive: addStatus === 'published',
         defaultMarks: addMarks,
         defaultNegativeMarks: addNegativeMarks,
+        versionHistory: [
+          {
+            version: 1,
+            editedBy: 'Super Admin',
+            editedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+            changes: 'Initial question creation',
+          },
+        ],
       };
 
-      const createdQuestion = await api.createQuestion(newQuestionPayload);
-
-      setQuestions((prev) => [createdQuestion, ...prev]);
-      setActiveQuestion(createdQuestion);
+      const savedQuestion = await api.createQuestion({
+        ...newQuestionItem,
+        subjectId: subjects.find((s) => s.name === addSubject)?.id,
+        chapterId: topics.find((t) => t.name === addTopic)?.id,
+      });
+      setQuestions((prev) => [savedQuestion, ...prev]);
+      setActiveQuestion(savedQuestion);
       setIsAddModalOpen(false);
 
       // Reset form
@@ -1234,7 +1293,7 @@ export const AdminQuestionBank: React.FC = () => {
       setAddExplanation('');
       setAddTags([]);
       setDuplicateWarning(null);
-      showToast('Question created successfully in database!');
+      showToast(`Question #${savedQuestion.id} created successfully!`);
     } catch (err) {
       showToast(`Error creating question: ${getErrorMessage(err, 'Failed to create')}`);
     } finally {
@@ -1370,14 +1429,17 @@ export const AdminQuestionBank: React.FC = () => {
       const errors: string[] = [];
 
       rows.forEach((line, idx) => {
-        const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((p) => p.replace(/^"|"$/g, '').trim());
+        const parts = line
+          .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+          .map((p) => p.replace(/^"|"$/g, '').trim());
         if (parts.length >= 7) {
           const qText = parts[modeIdx(importMode, 'question')];
           const optA = parts[modeIdx(importMode, 'optA')];
           const optB = parts[modeIdx(importMode, 'optB')];
           const optC = parts[modeIdx(importMode, 'optC')] || 'Option C';
           const optD = parts[modeIdx(importMode, 'optD')] || 'Option D';
-          const correct = (parts[modeIdx(importMode, 'correct')]?.toUpperCase() || 'A') as 'A' | 'B' | 'C' | 'D';
+          const correct = (parts[modeIdx(importMode, 'correct')]?.toUpperCase() || 'A') as
+            'A' | 'B' | 'C' | 'D';
 
           if (!qText) {
             errors.push(`Row ${idx + 2}: Question text is empty`);
@@ -1399,7 +1461,8 @@ export const AdminQuestionBank: React.FC = () => {
             correctOption: ['A', 'B', 'C', 'D'].includes(correct) ? correct : 'A',
             uploadMode: importMode,
             sourceExam: importMode === 'exam' ? parts[0] || 'WBP Constable' : undefined,
-            subjectName: importMode === 'subject' ? parts[0] || 'General Science' : 'General Awareness',
+            subjectName:
+              importMode === 'subject' ? parts[0] || 'General Science' : 'General Awareness',
             topicName: importMode === 'subject' ? parts[1] || 'Important Topics' : 'Mock Test',
             status: 'published',
             isActive: true,
@@ -1426,97 +1489,71 @@ export const AdminQuestionBank: React.FC = () => {
   const modeIdx = (mode: UploadMode, field: string) => {
     if (mode === 'exam') {
       switch (field) {
-        case 'question': return 4;
-        case 'optA': return 5;
-        case 'optB': return 6;
-        case 'optC': return 7;
-        case 'optD': return 8;
-        case 'correct': return 9;
-        case 'explanation': return 12;
-        case 'shortNotes': return 13;
-        default: return 0;
+        case 'question':
+          return 4;
+        case 'optA':
+          return 5;
+        case 'optB':
+          return 6;
+        case 'optC':
+          return 7;
+        case 'optD':
+          return 8;
+        case 'correct':
+          return 9;
+        case 'explanation':
+          return 12;
+        case 'shortNotes':
+          return 13;
+        default:
+          return 0;
       }
     } else {
       switch (field) {
-        case 'question': return 3;
-        case 'optA': return 4;
-        case 'optB': return 5;
-        case 'optC': return 6;
-        case 'optD': return 7;
-        case 'correct': return 8;
-        case 'explanation': return 11;
-        case 'shortNotes': return 12;
-        default: return 0;
+        case 'question':
+          return 3;
+        case 'optA':
+          return 4;
+        case 'optB':
+          return 5;
+        case 'optC':
+          return 6;
+        case 'optD':
+          return 7;
+        case 'correct':
+          return 8;
+        case 'explanation':
+          return 11;
+        case 'shortNotes':
+          return 12;
+        default:
+          return 0;
       }
     }
   };
 
   // Execute Real Bulk Import with controlled concurrency, real IDs and error retention
   const handleExecuteImport = async () => {
-    if (!importPreviewStats || parsedImportQuestions.length === 0) return;
+    if (!parsedImportQuestions.length || isImporting) return;
     setIsImporting(true);
-
-    const successfullyCreated: Question[] = [];
-    const failedQuestions: Question[] = [];
-    const errorDetails: string[] = [];
-
-    const CHUNK_SIZE = 5;
-    for (let i = 0; i < parsedImportQuestions.length; i += CHUNK_SIZE) {
-      const chunk = parsedImportQuestions.slice(i, i + CHUNK_SIZE);
-      const results = await Promise.allSettled(
-        chunk.map((q) => {
-          const { id: _, ...payload } = q;
-          return api.createQuestion(payload);
-        })
-      );
-
-      results.forEach((res, idx) => {
-        const originalQuestion = chunk[idx];
-        if (res.status === 'fulfilled') {
-          successfullyCreated.push(res.value);
-        } else {
-          failedQuestions.push(originalQuestion);
-          const reason =
-            res.reason instanceof Error ? res.reason.message : 'Unknown database error';
-          errorDetails.push(
-            `Question "${originalQuestion.questionText.slice(0, 30)}...": ${reason}`
-          );
-        }
-      });
-    }
-
-    setIsImporting(false);
-
-    if (successfullyCreated.length > 0) {
-      setQuestions((prev) => [...successfullyCreated, ...prev]);
-    }
-
-    if (failedQuestions.length === 0) {
-      // All succeeded
-      setIsImportModalOpen(false);
-      setImportFile(null);
-      setParsedImportQuestions([]);
-      setImportPreviewStats(null);
-      showToast(`Successfully imported ${successfullyCreated.length} questions into Question Bank!`);
-    } else {
-      // Partial or total failure - retain failed rows for retry
-      setParsedImportQuestions(failedQuestions);
-      setImportPreviewStats({
-        total: failedQuestions.length,
-        valid: failedQuestions.length,
-        errors: failedQuestions.length,
-        duplicates: 0,
-        errorList: errorDetails.slice(0, 5),
-      });
-      if (successfullyCreated.length > 0) {
-        showToast(
-          `Imported ${successfullyCreated.length} questions. ${failedQuestions.length} questions failed; examine errors and retry.`
-        );
-      } else {
-        showToast(
-          `Import failed for all ${failedQuestions.length} questions. Please check the errors.`
-        );
+    try {
+      const batch = await runConfirmedBatch(parsedImportQuestions, (q) => api.createQuestion(q));
+      setQuestions((prev) => [...batch.results.map((r) => r.value), ...prev]);
+      setParsedImportQuestions(batch.failures.map((f) => f.input));
+      if (!batch.failures.length) {
+        setIsImportModalOpen(false);
+        setImportFile(null);
+        setImportPreviewStats(null);
       }
+      showToast(
+        batch.results.length +
+          ' saved; ' +
+          batch.failures.length +
+          ' failed.' +
+          (batch.failures[0] ? ' ' + batch.failures[0].error : '')
+      );
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -1664,7 +1701,9 @@ export const AdminQuestionBank: React.FC = () => {
             setActiveUploadMode(nextMode);
             setViewModeFilter(nextMode);
             setCurrentPage(1);
-            showToast(nextMode === 'exam' ? 'Filtered by Exam questions.' : 'Showing all questions.');
+            showToast(
+              nextMode === 'exam' ? 'Filtered by Exam questions.' : 'Showing all questions.'
+            );
           }}
           className={cn(
             'flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer select-none',
@@ -1701,7 +1740,9 @@ export const AdminQuestionBank: React.FC = () => {
             setActiveUploadMode(nextMode);
             setViewModeFilter(nextMode);
             setCurrentPage(1);
-            showToast(nextMode === 'subject' ? 'Filtered by Subject questions.' : 'Showing all questions.');
+            showToast(
+              nextMode === 'subject' ? 'Filtered by Subject questions.' : 'Showing all questions.'
+            );
           }}
           className={cn(
             'flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer select-none',
@@ -1725,9 +1766,7 @@ export const AdminQuestionBank: React.FC = () => {
             <p className="text-xs font-semibold text-slate-600 mt-0.5">
               Upload subject-wise questions
             </p>
-            <p className="text-[11px] font-normal text-slate-400">
-              (Used for Topic Tests)
-            </p>
+            <p className="text-[11px] font-normal text-slate-400">(Used for Topic Tests)</p>
           </div>
         </div>
       </div>
@@ -2036,7 +2075,9 @@ export const AdminQuestionBank: React.FC = () => {
               <option value="all">Status: All Status</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
-              <option value="under_review">Under Review</option>
+              <option value="under_review" disabled={isSupabaseConfigured}>
+                Under Review (not supported by backend)
+              </option>
               <option value="archived">Archived</option>
             </select>
           </div>
@@ -2122,9 +2163,7 @@ export const AdminQuestionBank: React.FC = () => {
             <span className="w-6 h-6 rounded-lg bg-[#026BFC] text-white font-bold text-xs flex items-center justify-center">
               {selectedRowIds.size}
             </span>
-            <span className="text-xs font-bold text-blue-900">
-              Questions Selected
-            </span>
+            <span className="text-xs font-bold text-blue-900">Questions Selected</span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -2323,10 +2362,8 @@ export const AdminQuestionBank: React.FC = () => {
                                 'px-2 py-0.5 rounded-full text-[10px] font-bold inline-block',
                                 (q.status === 'published' || q.status === 'active') &&
                                   'bg-emerald-100 text-emerald-700',
-                                q.status === 'under_review' &&
-                                  'bg-amber-100 text-amber-700',
-                                q.status === 'draft' &&
-                                  'bg-slate-100 text-slate-600'
+                                q.status === 'under_review' && 'bg-amber-100 text-amber-700',
+                                q.status === 'draft' && 'bg-slate-100 text-slate-600'
                               )}
                             >
                               {q.status === 'published' || q.status === 'active'
@@ -2347,9 +2384,7 @@ export const AdminQuestionBank: React.FC = () => {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setActiveActionMenuId(
-                                    activeActionMenuId === q.id ? null : q.id
-                                  );
+                                  setActiveActionMenuId(activeActionMenuId === q.id ? null : q.id);
                                 }}
                                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
                               >
@@ -2374,15 +2409,19 @@ export const AdminQuestionBank: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      const dup: Question = {
-                                        ...q,
-                                        id: String(Math.floor(10000 + Math.random() * 90000)),
-                                      };
-                                      setQuestions([dup, ...questions]);
-                                      setActiveQuestion(dup);
-                                      setActiveActionMenuId(null);
-                                      showToast(`Created duplicate question #${dup.id}.`);
+                                    onClick={async () => {
+                                      try {
+                                        const saved = await api.createQuestion({
+                                          ...q,
+                                          status: 'draft',
+                                          isActive: false,
+                                        });
+                                        setQuestions((prev) => [saved, ...prev]);
+                                        setActiveActionMenuId(null);
+                                        showToast('Duplicate draft saved.');
+                                      } catch (err) {
+                                        showToast(getErrorMessage(err, 'Duplicate failed'));
+                                      }
                                     }}
                                     className="w-full px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                                   >
@@ -2406,11 +2445,27 @@ export const AdminQuestionBank: React.FC = () => {
                                   <div className="border-t border-slate-100 my-1" />
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setQuestions(questions.filter((item) => item.id !== q.id));
-                                      if (activeQuestion?.id === q.id) setActiveQuestion(null);
-                                      setActiveActionMenuId(null);
-                                      showToast(`Deleted question #${q.id}.`);
+                                    onClick={async () => {
+                                      if (
+                                        !window.confirm(
+                                          'Delete this question? Linked records are protected.'
+                                        )
+                                      )
+                                        return;
+                                      try {
+                                        requireSuccess(await api.deleteQuestion(q.id));
+                                        setQuestions((prev) =>
+                                          prev.filter((item) => item.id !== q.id)
+                                        );
+                                        if (activeQuestion?.id === q.id) setActiveQuestion(null);
+                                        setSelectedRowIds(
+                                          (prev) => new Set([...prev].filter((id) => id !== q.id))
+                                        );
+                                        setActiveActionMenuId(null);
+                                        showToast('Question deleted.');
+                                      } catch (err) {
+                                        showToast(getErrorMessage(err, 'Delete failed'));
+                                      }
                                     }}
                                     className="w-full px-3 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
                                   >
@@ -2432,11 +2487,8 @@ export const AdminQuestionBank: React.FC = () => {
             {/* Footer Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-slate-200/80 text-xs gap-3">
               <span className="font-semibold text-slate-500">
-                Showing{' '}
-                {filteredQuestions.length === 0
-                  ? 0
-                  : (currentPage - 1) * pageSize + 1}
-                –{Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
+                Showing {filteredQuestions.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+                {Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
                 {stats.total.toLocaleString('en-IN')} questions
               </span>
 
@@ -2511,9 +2563,7 @@ export const AdminQuestionBank: React.FC = () => {
             {/* Drawer Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Question Details
-                </h3>
+                <h3 className="text-sm font-bold text-slate-900">Question Details</h3>
                 <span
                   className="text-[10px] font-mono text-slate-400 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
                   title={`Click to copy database ID: ${activeQuestion.id}`}
@@ -2641,9 +2691,7 @@ export const AdminQuestionBank: React.FC = () => {
                             />
                           </div>
 
-                          {isCorrect && (
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                          )}
+                          {isCorrect && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                         </div>
                       );
                     })}
@@ -2734,9 +2782,7 @@ export const AdminQuestionBank: React.FC = () => {
                   )}
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                      Topic
-                    </label>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Topic</label>
                     <select
                       value={drawerTopic}
                       onChange={(e) => setDrawerTopic(e.target.value)}
@@ -2770,9 +2816,7 @@ export const AdminQuestionBank: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                      Year
-                    </label>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Year</label>
                     <select
                       value={drawerYear}
                       onChange={(e) => setDrawerYear(e.target.value)}
@@ -2805,9 +2849,7 @@ export const AdminQuestionBank: React.FC = () => {
 
                 {/* Status Dropdown */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Status
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Status</label>
                   <select
                     value={drawerStatus}
                     onChange={(e) => setDrawerStatus(e.target.value as QuestionBankStatus)}
@@ -2822,9 +2864,7 @@ export const AdminQuestionBank: React.FC = () => {
 
                 {/* Tags Section */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">
-                    Tags
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">Tags</label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {drawerTags.map((t) => (
                       <span
@@ -2922,7 +2962,6 @@ export const AdminQuestionBank: React.FC = () => {
               </div>
             )}
 
-
             {/* DRAWER TAB 4: HISTORY */}
             {drawerTab === 'history' && (
               <div className="p-4 space-y-4 text-xs">
@@ -2932,7 +2971,8 @@ export const AdminQuestionBank: React.FC = () => {
                     Created By: <span className="font-semibold text-slate-800">Super Admin</span>
                   </p>
                   <p className="text-slate-500">
-                    Last Updated: <span className="font-semibold text-slate-800">2026-09-15 11:05</span>
+                    Last Updated:{' '}
+                    <span className="font-semibold text-slate-800">2026-09-15 11:05</span>
                   </p>
                 </div>
 
@@ -2941,14 +2981,16 @@ export const AdminQuestionBank: React.FC = () => {
                     Version History
                   </h4>
                   <div className="space-y-2.5">
-                    {(activeQuestion.versionHistory || [
-                      {
-                        version: 1,
-                        editedBy: 'Super Admin',
-                        editedAt: '2026-09-10 10:00',
-                        changes: 'Initial question creation',
-                      },
-                    ]).map((vh) => (
+                    {(
+                      activeQuestion.versionHistory || [
+                        {
+                          version: 1,
+                          editedBy: 'Super Admin',
+                          editedAt: '2026-09-10 10:00',
+                          changes: 'Initial question creation',
+                        },
+                      ]
+                    ).map((vh) => (
                       <div
                         key={vh.version}
                         className="p-3 rounded-xl border border-slate-200 bg-white"
@@ -2957,9 +2999,7 @@ export const AdminQuestionBank: React.FC = () => {
                           <span className="font-bold text-[#026BFC]">Version {vh.version}</span>
                           <span className="text-[10px] text-slate-400">{vh.editedAt}</span>
                         </div>
-                        <p className="text-xs font-semibold text-slate-700 mt-1">
-                          {vh.changes}
-                        </p>
+                        <p className="text-xs font-semibold text-slate-700 mt-1">{vh.changes}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">By {vh.editedBy}</p>
                       </div>
                     ))}
@@ -3046,9 +3086,7 @@ export const AdminQuestionBank: React.FC = () => {
               {modalUploadMode === 'exam' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-blue-50/50 rounded-2xl border border-blue-100">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Exam *
-                    </label>
+                    <label className="block font-bold text-slate-700 mb-1">Exam *</label>
                     <select
                       value={addExam}
                       onChange={(e) => setAddExam(e.target.value)}
@@ -3064,9 +3102,7 @@ export const AdminQuestionBank: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Question Type *
-                    </label>
+                    <label className="block font-bold text-slate-700 mb-1">Question Type *</label>
                     <select
                       value={addExamQuestionType}
                       onChange={(e) =>
@@ -3082,9 +3118,7 @@ export const AdminQuestionBank: React.FC = () => {
                   {addExamQuestionType === 'Official PYQ' && (
                     <>
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1">
-                          Year
-                        </label>
+                        <label className="block font-bold text-slate-700 mb-1">Year</label>
                         <select
                           value={addYear}
                           onChange={(e) => setAddYear(e.target.value)}
@@ -3099,9 +3133,7 @@ export const AdminQuestionBank: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1">
-                          Paper / Set
-                        </label>
+                        <label className="block font-bold text-slate-700 mb-1">Paper / Set</label>
                         <input
                           type="text"
                           value={addPaper}
@@ -3130,9 +3162,7 @@ export const AdminQuestionBank: React.FC = () => {
                 /* BY SUBJECT FIELDS */
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-purple-50/50 rounded-2xl border border-purple-100">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Subject *
-                    </label>
+                    <label className="block font-bold text-slate-700 mb-1">Subject *</label>
                     <select
                       value={addSubject}
                       onChange={(e) => setAddSubject(e.target.value)}
@@ -3148,9 +3178,7 @@ export const AdminQuestionBank: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Topic *
-                    </label>
+                    <label className="block font-bold text-slate-700 mb-1">Topic *</label>
                     <input
                       type="text"
                       value={addTopic}
@@ -3198,13 +3226,7 @@ export const AdminQuestionBank: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(['A', 'B', 'C', 'D'] as const).map((opt) => {
                   const val =
-                    opt === 'A'
-                      ? addOptA
-                      : opt === 'B'
-                        ? addOptB
-                        : opt === 'C'
-                          ? addOptC
-                          : addOptD;
+                    opt === 'A' ? addOptA : opt === 'B' ? addOptB : opt === 'C' ? addOptC : addOptD;
                   const setVal =
                     opt === 'A'
                       ? setAddOptA
@@ -3246,9 +3268,7 @@ export const AdminQuestionBank: React.FC = () => {
 
               {/* Comprehensive Explanation */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Explanation
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">Explanation</label>
                 <textarea
                   rows={3}
                   value={addExplanation}
@@ -3261,9 +3281,7 @@ export const AdminQuestionBank: React.FC = () => {
               {/* Marks, Negative Marks & Source */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Marks (+ve)
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">Marks (+ve)</label>
                   <input
                     type="number"
                     step="0.25"
@@ -3287,9 +3305,7 @@ export const AdminQuestionBank: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Source
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">Source</label>
                   <select
                     value={addSource}
                     onChange={(e) => setAddSource(e.target.value)}
@@ -3345,9 +3361,7 @@ export const AdminQuestionBank: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Status
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">Status</label>
                   <select
                     value={addStatus}
                     onChange={(e) => setAddStatus(e.target.value as QuestionBankStatus)}
@@ -3439,9 +3453,7 @@ export const AdminQuestionBank: React.FC = () => {
             {/* Step 2: File Upload */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">
-                  2. Upload CSV File:
-                </label>
+                <label className="text-xs font-bold text-slate-700">2. Upload CSV File:</label>
                 <button
                   type="button"
                   onClick={() => downloadTemplate(importMode)}

@@ -1,3 +1,4 @@
+import { mutateContentCollection } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { BlogPost, BlogPostStatus } from '@/types';
 
@@ -19,7 +20,8 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-001',
     title: 'WBP Constable পরীক্ষার প্রস্তুতি : সম্পূর্ণ গাইড',
     slug: 'wbp-constable-guide',
-    excerpt: 'WBP Constable পরীক্ষার প্রস্তুতি নিতে হলে সঠিক পরিকল্পনা, সিলেবাস অনুযায়ী পড়াশোনা এবং নিয়মিত অনুশীলনের এই পোস্টে আমরা বিস্তারিতভাবে আলোচনা করেছি...',
+    excerpt:
+      'WBP Constable পরীক্ষার প্রস্তুতি নিতে হলে সঠিক পরিকল্পনা, সিলেবাস অনুযায়ী পড়াশোনা এবং নিয়মিত অনুশীলনের এই পোস্টে আমরা বিস্তারিতভাবে আলোচনা করেছি...',
     content: `<h2>WBP Constable পরীক্ষার প্রস্তুতি কৌশল</h2>
 <p>পশ্চিমবঙ্গ পুলিশ কনস্টেবল (WBP Constable) নিয়োগ পরীক্ষায় উত্তীর্ণ হতে হলে সুনির্দিষ্ট ও পরিকল্পিত প্রস্তুতির প্রয়োজন। এই গাইডে প্রিলিমিনারি ও মেইনস পরীক্ষার জন্য প্রতিটি বিষয়ের প্রস্তুতি কৌশল আলোচনা করা হলো।</p>
 <h3>১. প্রিলিমিনারি পরীক্ষার প্যাটার্ন</h3>
@@ -34,10 +36,12 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     category: 'WBP Constable',
     author: 'Admin',
     authorRole: 'Super Admin',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: true,
-    thumbnail: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
     views: 12480,
     uniqueViews: 3240,
     likes: 428,
@@ -48,14 +52,16 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     createdAt: '2026-09-20T08:00:00.000Z',
     updatedAt: '2026-09-29T14:15:00.000Z',
     seoTitle: 'WBP Constable পরীক্ষার প্রস্তুতি : সম্পূর্ণ গাইড | PracticeKoro',
-    seoDescription: 'পশ্চিমবঙ্গ পুলিশ কনস্টেবল নিয়োগ পরীক্ষার সিলেবাস, বুক লিস্ট এবং সেরা প্রস্তুতি গাইড।',
+    seoDescription:
+      'পশ্চিমবঙ্গ পুলিশ কনস্টেবল নিয়োগ পরীক্ষার সিলেবাস, বুক লিস্ট এবং সেরা প্রস্তুতি গাইড।',
     seoKeywords: 'wbp constable, police exam preparation, bengali mock test, syllabus',
   },
   {
     id: 'blog-post-002',
     title: 'ভারতের সংবিধানের গুরুত্বপূর্ণ প্রশ্ন',
     slug: 'indian-constitution-important-questions',
-    excerpt: 'ভারতের সংবিধানের বিভিন্ন ধারা, প্রস্তাবনা, মৌলিক অধিকার ও নির্দেশমূলক নীতি সংক্রান্ত গুরুত্বপূর্ণ প্রশ্ন উত্তর এক নজরে আলোচনা করা হলো।',
+    excerpt:
+      'ভারতের সংবিধানের বিভিন্ন ধারা, প্রস্তাবনা, মৌলিক অধিকার ও নির্দেশমূলক নীতি সংক্রান্ত গুরুত্বপূর্ণ প্রশ্ন উত্তর এক নজরে আলোচনা করা হলো।',
     content: `<h2>ভারতের সংবিধানের অপরিহার্য প্রশ্নোত্তর</h2>
 <p>প্রতিটি সরকারি চাকরির পরীক্ষায় ভারতের সংবিধান থেকে একাধিক প্রশ্ন নিশ্চিতভাবে আসে। এখানে শীর্ষ ১০০টি বাছাই করা প্রশ্নোত্তর সংকলন করা হয়েছে।</p>
 <h3>মূল বিষয়সমূহ:</h3>
@@ -67,10 +73,12 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     category: 'General Knowledge',
     author: 'Susanta',
     authorRole: 'Content Lead',
-    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
     views: 8320,
     uniqueViews: 2150,
     likes: 310,
@@ -88,17 +96,20 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-003',
     title: 'সময়ের মধ্যে পড়াশোনা করার ১০টি উপায়',
     slug: '10-ways-to-study-efficiently',
-    excerpt: 'কম সময়ে বেশি পড়াশোনা মনে রাখার কার্যকরী ১০টি বৈজ্ঞানিক কৌশল যা আপনার পরীক্ষার প্রস্তুতিতে সহায়ক হবে।',
+    excerpt:
+      'কম সময়ে বেশি পড়াশোনা মনে রাখার কার্যকরী ১০টি বৈজ্ঞানিক কৌশল যা আপনার পরীক্ষার প্রস্তুতিতে সহায়ক হবে।',
     content: `<h2>কম সময়ে গভীর মনোসংযোগের বৈজ্ঞানিক উপায়</h2>
 <p>স্মার্ট স্টাডি এবং টাইম ম্যানেজমেন্টের মাধ্যমে পড়ালেখার কার্যকারিতা কয়েকগুণ বাড়ানো সম্ভব। নিচে সেরা ১০টি কৌশল দেওয়া হলো:</p>
 <p>১. পমোডোরো টেকনিক (Pomodoro Technique) ব্যবহার করুন।<br/>২. স্পেসড রিপিটেশন পদ্ধতিতে রিভিশন দিন।<br/>৩. একটিভ রিকল এবং মক টেস্ট দিয়ে সেলফ-টেস্টিং করুন।</p>`,
     category: 'Study Tips',
     author: 'Puja',
     authorRole: 'Exam Educator',
-    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: true,
-    thumbnail: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
     views: 15620,
     uniqueViews: 4100,
     likes: 580,
@@ -116,16 +127,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-004',
     title: 'ভারতের রাষ্ট্রপতি : ক্ষমতা ও দায়িত্ব',
     slug: 'president-of-india-powers-and-duties',
-    excerpt: 'ভারতের রাষ্ট্রপতির সাংবিধানিক ক্ষমতা, জরুরি অবস্থা ঘোষণার ক্ষমতা এবং নিয়োগ সংক্রান্ত গুরুত্বপূর্ণ তথ্যাবলি।',
+    excerpt:
+      'ভারতের রাষ্ট্রপতির সাংবিধানিক ক্ষমতা, জরুরি অবস্থা ঘোষণার ক্ষমতা এবং নিয়োগ সংক্রান্ত গুরুত্বপূর্ণ তথ্যাবলি।',
     content: `<h2>ভারতের রাষ্ট্রপতির ক্ষমতা ও ভূমিকা</h2>
 <p>সংবিধানের ৫২ নম্বর ধারা অনুযায়ী ভারতে একজন রাষ্ট্রপতি থাকবেন। রাষ্ট্রপতির নির্বাহী, আইন প্রণয়ন, আর্থিক ও বিচারবিভাগীয় ক্ষমতা সংক্ষেপে ব্যাখ্যা করা হয়েছে।</p>`,
     category: 'Indian Polity',
     author: 'Admin',
     authorRole: 'Super Admin',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
     status: 'draft',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1532375810709-75b1da00537c?auto=format&fit=crop&w=600&q=80',
     views: 6450,
     uniqueViews: 1420,
     likes: 195,
@@ -143,17 +157,20 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-005',
     title: 'তাপ ও তাপমাত্রা : গুরুত্বপূর্ণ নোট',
     slug: 'heat-and-temperature-notes',
-    excerpt: 'ভৌতবিজ্ঞানের তাপ ও তাপমাত্রা অধ্যায়ের সংক্ষিপ্ত নোট, সূত্র এবং বিগত বছরের বিভিন্ন সরকারি চাকরির পরীক্ষার প্রশ্ন।',
+    excerpt:
+      'ভৌতবিজ্ঞানের তাপ ও তাপমাত্রা অধ্যায়ের সংক্ষিপ্ত নোট, সূত্র এবং বিগত বছরের বিভিন্ন সরকারি চাকরির পরীক্ষার প্রশ্ন।',
     content: `<h2>তাপ ও তাপমাত্রার মূল ধারণা</h2>
 <p>তাপ হলো এক প্রকার শক্তি এবং তাপমাত্রা হলো বস্তুর তাপীয় অবস্থা। বিভিন্ন স্কেল (সেলসিয়াসের সাথে ফারেনহাইট ও কেলভিন স্কেলের রূপান্তর সূত্র) এবং গুরুত্বপূর্ণ এককসমূহ:</p>
 <p>C/5 = (F - 32)/9 = (K - 273)/5</p>`,
     category: 'General Science',
     author: 'Susanta',
     authorRole: 'Content Lead',
-    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80',
     views: 9210,
     uniqueViews: 2800,
     likes: 340,
@@ -171,16 +188,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-006',
     title: 'Railway Group D পরীক্ষার সিলেবাস',
     slug: 'railway-group-d-syllabus',
-    excerpt: 'রেলওয়ে গ্রুপ ডি পরীক্ষার নতুন সিলেবাস, নম্বর বিভাজন ও প্রতিটি বিষয়ের বিশদ সিলেবাস এখানে দেওয়া হলো।',
+    excerpt:
+      'রেলওয়ে গ্রুপ ডি পরীক্ষার নতুন সিলেবাস, নম্বর বিভাজন ও প্রতিটি বিষয়ের বিশদ সিলেবাস এখানে দেওয়া হলো।',
     content: `<h2>রেলওয়ে গ্রুপ ডি পরীক্ষা প্রস্তুতি নির্দেশিকা</h2>
 <p>আরআরবি গ্রুপ ডি পরীক্ষায় উত্তীর্ণ হতে হলে সাধারণ বিজ্ঞান এবং গণিতে ভালো নম্বর পাওয়া একান্ত আবশ্যক। প্রতিটি বিষয়ের নম্বর বণ্টন নিচে দেওয়া হলো:</p>`,
     category: 'Railway',
     author: 'Admin',
     authorRole: 'Super Admin',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
     status: 'scheduled',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=600&q=80',
     views: 11930,
     uniqueViews: 3500,
     likes: 450,
@@ -199,16 +219,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-007',
     title: 'গণিতের গুরুত্বপূর্ণ সূত্র এবং ট্রিকস',
     slug: 'mathematics-shortcuts-and-tricks',
-    excerpt: 'পাটিগণিত ও বীজগণিতের গুরুত্বপূর্ণ শর্টকাট ট্রিকস যা কম্পিটিটিভ পরীক্ষায় দ্রুত অঙ্ক সমাধানে সাহায্য করবে।',
+    excerpt:
+      'পাটিগণিত ও বীজগণিতের গুরুত্বপূর্ণ শর্টকাট ট্রিকস যা কম্পিটিটিভ পরীক্ষায় দ্রুত অঙ্ক সমাধানে সাহায্য করবে।',
     content: `<h2>দ্রুত অঙ্ক করার জাদুকরী শর্টকাট টেকনিক</h2>
 <p>প্রতিযোগিতামূলক পরীক্ষায় সময় বাঁচানোই আসল চাবিকাঠি। শতকরা (Percentage), লাভ-ক্ষতি (Profit & Loss), অনুপাত ও সমানুপাত (Ratio & Proportion)-এর শীর্ষ শর্টকাট সূত্রগুলো জেনে নিন।</p>`,
     category: 'Mathematics',
     author: 'Puja',
     authorRole: 'Exam Educator',
-    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80',
     views: 7840,
     uniqueViews: 2100,
     likes: 295,
@@ -226,16 +249,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-008',
     title: 'সম্রাট অশোক : ইতিহাস, গাথা ও অবদান',
     slug: 'emperor-ashoka-history-and-inscriptions',
-    excerpt: 'মৌর্য সাম্রাজ্যের শ্রেষ্ঠ শাসক সম্রাট অশোকের কলিঙ্গ যুদ্ধ, ধর্মপ্রচার এবং শিলালিপির ঐতিহাসিক গুরুত্ব।',
+    excerpt:
+      'মৌর্য সাম্রাজ্যের শ্রেষ্ঠ শাসক সম্রাট অশোকের কলিঙ্গ যুদ্ধ, ধর্মপ্রচার এবং শিলালিপির ঐতিহাসিক গুরুত্ব।',
     content: `<h2>মৌর্য সম্রাট অশোক ও ধম্মের ইতিহাস</h2>
 <p>প্রাচীন ভারতের ইতিহাসে সম্রাট অশোক এক উজ্জ্বল জ্যোতিষ্ক। কলিঙ্গ যুদ্ধের ভয়াবহতা দেখে তাঁর মন পরিবর্তন ও বৌদ্ধধর্ম গ্রহণের কাহিনী এবং প্রধান শিলালিপিগুলোর সারসংক্ষেপ।</p>`,
     category: 'History',
     author: 'Admin',
     authorRole: 'Super Admin',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&q=80',
     views: 5620,
     uniqueViews: 1650,
     likes: 210,
@@ -253,16 +279,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-009',
     title: 'সাম্প্রতিক গুরুত্বপূর্ণ ঘটনা ২০২৬ (জানুয়ারি-সেপ্টেম্বর)',
     slug: 'current-affairs-2026-jan-to-sep',
-    excerpt: '২০২৬ সালের জানুয়ারি থেকে সেপ্টেম্বর মাস পর্যন্ত জাতীয় ও আন্তর্জাতিক স্তরের সমস্ত গুরুত্বপূর্ণ কারেন্ট অ্যাফেয়ার্স।',
+    excerpt:
+      '২০২৬ সালের জানুয়ারি থেকে সেপ্টেম্বর মাস পর্যন্ত জাতীয় ও আন্তর্জাতিক স্তরের সমস্ত গুরুত্বপূর্ণ কারেন্ট অ্যাফেয়ার্স।',
     content: `<h2>২০২৬ সালের বাছাই করা কারেন্ট অ্যাফেয়ার্স ক্যাপসুল</h2>
 <p>বিভিন্ন সরকারি নিয়োগ পরীক্ষায় সাম্প্রতিক ঘটনাবলি থেকে অন্তত ১৫-২০টি প্রশ্ন থাকে। এখানে প্রতিরক্ষা, পুরস্কার, খেলাধুলা ও নতুন সরকারি যোজনাসমূহ বিস্তারিত দেওয়া হলো।</p>`,
     category: 'Current Affairs',
     author: 'Susanta',
     authorRole: 'Content Lead',
-    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
     status: 'published',
     isFeatured: false,
-    thumbnail: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80',
     views: 18450,
     uniqueViews: 5200,
     likes: 720,
@@ -280,16 +309,19 @@ const CANONICAL_BLOG_POSTS: BlogPost[] = [
     id: 'blog-post-010',
     title: 'মক টেস্ট দেওয়ার সঠিক কৌশল',
     slug: 'mock-test-strategy-and-analysis',
-    excerpt: 'মক টেস্ট দেওয়ার সময় নেগেটিভ মার্কিং এড়াতে ও একিউরেসি বাড়াতে কোন কোন কৌশল মেনে চলবেন তা জানুন।',
+    excerpt:
+      'মক টেস্ট দেওয়ার সময় নেগেটিভ মার্কিং এড়াতে ও একিউরেসি বাড়াতে কোন কোন কৌশল মেনে চলবেন তা জানুন।',
     content: `<h2>মক টেস্টের পূর্ণ সদ্ব্যবহার কীভাবে করবেন?</h2>
 <p>শুধু মক টেস্ট দেওয়াই যথেষ্ট নয়, মক টেস্টের পর যথাযথ বিশ্লেষণ (Post-Test Analysis) করাই আসল উন্নতির চাবিকাঠি। দুর্বল অধ্যায় শনাক্ত করে বারবার অনুশীলন করুন।</p>`,
     category: 'Exam Strategy',
     author: 'Admin',
     authorRole: 'Super Admin',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    authorAvatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
     status: 'draft',
     isFeatured: true,
-    thumbnail: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
+    thumbnail:
+      'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
     views: 9330,
     uniqueViews: 2400,
     likes: 310,
@@ -427,7 +459,8 @@ function buildInitialDataset(): BlogPost[] {
 
   // Add remaining Published (need 61)
   for (let i = 0; i < 61; i++) {
-    const title = titlesPublished[i % titlesPublished.length] || `সাধারণ প্রস্তুতি নোট #${postIndex}`;
+    const title =
+      titlesPublished[i % titlesPublished.length] || `সাধারণ প্রস্তুতি নোট #${postIndex}`;
     const author = authors[i % authors.length];
     const cat = categories[i % categories.length];
     const day = 25 - (i % 24);
@@ -440,10 +473,16 @@ function buildInitialDataset(): BlogPost[] {
       content: `<h2>${title}</h2><p>প্রতিযোগিতামূলক পরীক্ষার জন্য এই বিষয়টি অত্যন্ত গুরুত্বপূর্ণ। বিশদ আলোচনা নিচে প্রস্তুত করা হয়েছে।</p>`,
       category: cat,
       author,
-      authorRole: author === 'Admin' ? 'Super Admin' : author === 'Susanta' ? 'Content Lead' : 'Exam Educator',
+      authorRole:
+        author === 'Admin'
+          ? 'Super Admin'
+          : author === 'Susanta'
+            ? 'Content Lead'
+            : 'Exam Educator',
       status: 'published',
       isFeatured: i % 7 === 0,
-      thumbnail: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
+      thumbnail:
+        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
       views: 320 + ((i * 47) % 650),
       uniqueViews: 120 + ((i * 23) % 250),
       likes: 15 + (i % 40),
@@ -472,12 +511,18 @@ function buildInitialDataset(): BlogPost[] {
       content: `<h2>${title}</h2><p>খসড়া কন্টেন্ট সংরক্ষিত রয়েছে।</p>`,
       category: cat,
       author,
-      authorRole: author === 'Admin' ? 'Super Admin' : author === 'Susanta' ? 'Content Lead' : 'Exam Educator',
+      authorRole:
+        author === 'Admin'
+          ? 'Super Admin'
+          : author === 'Susanta'
+            ? 'Content Lead'
+            : 'Exam Educator',
       status: 'draft',
       isFeatured: false,
-      thumbnail: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
-      views: 40 + (i * 12),
-      uniqueViews: 15 + (i * 5),
+      thumbnail:
+        'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
+      views: 40 + i * 12,
+      uniqueViews: 15 + i * 5,
       likes: 2 + i,
       comments: 0,
       shares: 0,
@@ -504,10 +549,16 @@ function buildInitialDataset(): BlogPost[] {
       content: `<h2>${title}</h2><p>নির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে প্রকাশ করা হবে।</p>`,
       category: cat,
       author,
-      authorRole: author === 'Admin' ? 'Super Admin' : author === 'Susanta' ? 'Content Lead' : 'Exam Educator',
+      authorRole:
+        author === 'Admin'
+          ? 'Super Admin'
+          : author === 'Susanta'
+            ? 'Content Lead'
+            : 'Exam Educator',
       status: 'scheduled',
       isFeatured: false,
-      thumbnail: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
+      thumbnail:
+        'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
       views: 0,
       uniqueViews: 0,
       likes: 0,
@@ -572,24 +623,6 @@ function persistBlogPosts(posts: BlogPost[]): void {
   } catch (err) {
     console.warn('Failed to save blog posts to localStorage:', err);
   }
-
-  // Asynchronously sync to Supabase app_settings or blog_posts table if configured
-  if (isSupabaseConfigured) {
-    Promise.resolve().then(async () => {
-      try {
-        await (supabase as any)
-          .from('app_settings')
-          .upsert({
-            id: APP_SETTINGS_BLOG_ID,
-            key: APP_SETTINGS_BLOG_ID,
-            value: posts,
-            updated_at: new Date().toISOString(),
-          });
-      } catch {
-        // Silent fallback
-      }
-    });
-  }
 }
 
 export const adminBlogApi = {
@@ -597,64 +630,16 @@ export const adminBlogApi = {
    * Fetch all blog posts with resilient fallbacks
    */
   async getAllBlogPosts(): Promise<BlogPost[]> {
-    if (isSupabaseConfigured) {
-      try {
-        // Try dedicated blog_posts table first
-        const { data: directData, error: directError } = await (supabase as any)
-          .from('blog_posts')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!directError && Array.isArray(directData) && directData.length > 0) {
-          const mapped: BlogPost[] = directData.map((row: any) => ({
-            id: row.id,
-            title: row.title,
-            slug: row.slug,
-            excerpt: row.excerpt || '',
-            content: row.content || '',
-            category: row.category || 'General',
-            author: row.author || 'Admin',
-            authorRole: row.author_role,
-            authorAvatar: row.author_avatar,
-            status: row.status || 'published',
-            isFeatured: Boolean(row.is_featured),
-            thumbnail: row.thumbnail || '',
-            views: Number(row.views || 0),
-            uniqueViews: Number(row.unique_views || 0),
-            likes: Number(row.likes || 0),
-            comments: Number(row.comments || 0),
-            shares: Number(row.shares || 0),
-            readTime: row.read_time || '4m',
-            publishedAt: row.published_at || null,
-            scheduledAt: row.scheduled_at || null,
-            createdAt: row.created_at || new Date().toISOString(),
-            updatedAt: row.updated_at || new Date().toISOString(),
-            seoTitle: row.seo_title,
-            seoDescription: row.seo_description,
-            seoKeywords: row.seo_keywords,
-            tags: row.tags || [],
-          }));
-          persistBlogPosts(mapped);
-          return mapped;
-        }
-
-        // Try app_settings universal fallback
-        const { data: settingData, error: settingError } = await (supabase as any)
-          .from('app_settings')
-          .select('value')
-          .eq('id', APP_SETTINGS_BLOG_ID)
-          .maybeSingle();
-
-        if (!settingError && settingData?.value && Array.isArray(settingData.value)) {
-          persistBlogPosts(settingData.value);
-          return settingData.value;
-        }
-      } catch (err) {
-        console.warn('Supabase blog fetch failed, falling back to local store:', err);
-      }
-    }
-
-    return loadStoredBlogPosts();
+    if (!isSupabaseConfigured) return loadStoredBlogPosts();
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('id', APP_SETTINGS_BLOG_ID)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const rows = typeof data?.value === 'string' ? JSON.parse(data.value) : data?.value || [];
+    if (!Array.isArray(rows)) throw new Error('Invalid blog content storage.');
+    return rows;
   },
 
   /**
@@ -677,11 +662,27 @@ export const adminBlogApi = {
    * Create a new blog post
    */
   async createBlogPost(payload: Partial<BlogPost>): Promise<BlogPost> {
+    if (isSupabaseConfigured) {
+      if (!payload.title?.trim()) throw new Error('Post title is required.');
+      const result = await mutateContentCollection('blog', 'create', undefined, {
+        ...payload,
+        slug: payload.slug || crypto.randomUUID(),
+        status: payload.status || 'draft',
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      });
+      persistBlogPosts(result.records);
+      return result.record as BlogPost;
+    }
     const currentList = await adminBlogApi.getAllBlogPosts();
     const now = new Date().toISOString();
 
     const newPost: BlogPost = {
-      id: payload.id || `blog-post-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      id:
+        payload.id ||
+        `blog-post-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
       title: payload.title || 'Untitled Blog Post',
       slug: payload.slug || `post-${Date.now().toString(36)}`,
       excerpt: payload.excerpt || '',
@@ -689,17 +690,22 @@ export const adminBlogApi = {
       category: payload.category || 'General Knowledge',
       author: payload.author || 'Admin',
       authorRole: payload.authorRole || 'Super Admin',
-      authorAvatar: payload.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+      authorAvatar:
+        payload.authorAvatar ||
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
       status: payload.status || 'draft',
       isFeatured: Boolean(payload.isFeatured),
-      thumbnail: payload.thumbnail || 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
+      thumbnail:
+        payload.thumbnail ||
+        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
       views: Number(payload.views || 0),
       uniqueViews: Number(payload.uniqueViews || 0),
       likes: Number(payload.likes || 0),
       comments: Number(payload.comments || 0),
       shares: Number(payload.shares || 0),
       readTime: payload.readTime || '4m 00s',
-      publishedAt: payload.status === 'published' ? (payload.publishedAt || now) : (payload.publishedAt || null),
+      publishedAt:
+        payload.status === 'published' ? payload.publishedAt || now : payload.publishedAt || null,
       scheduledAt: payload.scheduledAt || null,
       createdAt: now,
       updatedAt: now,
@@ -755,6 +761,11 @@ export const adminBlogApi = {
    * Update an existing blog post
    */
   async updateBlogPost(id: string, updates: Partial<BlogPost>): Promise<BlogPost> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('blog', 'update', id, updates);
+      persistBlogPosts(result.records);
+      return result.record as BlogPost;
+    }
     const currentList = await adminBlogApi.getAllBlogPosts();
     const index = currentList.findIndex((p) => p.id === id);
     if (index === -1) {
@@ -784,31 +795,34 @@ export const adminBlogApi = {
 
     if (isSupabaseConfigured) {
       try {
-        await (supabase as any).from('blog_posts').update({
-          title: updatedPost.title,
-          slug: updatedPost.slug,
-          excerpt: updatedPost.excerpt,
-          content: updatedPost.content,
-          category: updatedPost.category,
-          author: updatedPost.author,
-          author_role: updatedPost.authorRole,
-          author_avatar: updatedPost.authorAvatar,
-          status: updatedPost.status,
-          is_featured: updatedPost.isFeatured,
-          thumbnail: updatedPost.thumbnail,
-          views: updatedPost.views,
-          unique_views: updatedPost.uniqueViews,
-          likes: updatedPost.likes,
-          comments: updatedPost.comments,
-          shares: updatedPost.shares,
-          read_time: updatedPost.readTime,
-          published_at: updatedPost.publishedAt,
-          scheduled_at: updatedPost.scheduledAt,
-          updated_at: updatedPost.updatedAt,
-          seo_title: updatedPost.seoTitle,
-          seo_description: updatedPost.seoDescription,
-          seo_keywords: updatedPost.seoKeywords,
-        }).eq('id', id);
+        await (supabase as any)
+          .from('blog_posts')
+          .update({
+            title: updatedPost.title,
+            slug: updatedPost.slug,
+            excerpt: updatedPost.excerpt,
+            content: updatedPost.content,
+            category: updatedPost.category,
+            author: updatedPost.author,
+            author_role: updatedPost.authorRole,
+            author_avatar: updatedPost.authorAvatar,
+            status: updatedPost.status,
+            is_featured: updatedPost.isFeatured,
+            thumbnail: updatedPost.thumbnail,
+            views: updatedPost.views,
+            unique_views: updatedPost.uniqueViews,
+            likes: updatedPost.likes,
+            comments: updatedPost.comments,
+            shares: updatedPost.shares,
+            read_time: updatedPost.readTime,
+            published_at: updatedPost.publishedAt,
+            scheduled_at: updatedPost.scheduledAt,
+            updated_at: updatedPost.updatedAt,
+            seo_title: updatedPost.seoTitle,
+            seo_description: updatedPost.seoDescription,
+            seo_keywords: updatedPost.seoKeywords,
+          })
+          .eq('id', id);
       } catch {
         // Fallback already handled
       }
@@ -821,6 +835,11 @@ export const adminBlogApi = {
    * Delete a blog post by ID
    */
   async deleteBlogPost(id: string): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('blog', 'delete', id);
+      persistBlogPosts(result.records);
+      return true;
+    }
     const currentList = await adminBlogApi.getAllBlogPosts();
     const nextList = currentList.filter((p) => p.id !== id);
     persistBlogPosts(nextList);
@@ -885,34 +904,16 @@ export const adminBlogApi = {
    * Bulk update status
    */
   async bulkUpdateBlogPostsStatus(ids: string[], status: BlogPostStatus): Promise<BlogPost[]> {
-    const currentList = await adminBlogApi.getAllBlogPosts();
-    const updatedIds = new Set(ids);
-    const now = new Date().toISOString();
-
-    const nextList = currentList.map((p) => {
-      if (updatedIds.has(p.id)) {
-        return {
-          ...p,
-          status,
-          publishedAt: status === 'published' ? (p.publishedAt || now) : (status === 'draft' ? null : p.publishedAt),
-          updatedAt: now,
-        };
-      }
-      return p;
-    });
-
-    persistBlogPosts(nextList);
-    return nextList.filter((p) => updatedIds.has(p.id));
+    const saved: BlogPost[] = [];
+    for (const id of ids) saved.push(await adminBlogApi.updateBlogPost(id, { status }));
+    return saved;
   },
 
   /**
    * Bulk delete posts
    */
   async bulkDeleteBlogPosts(ids: string[]): Promise<boolean> {
-    const currentList = await adminBlogApi.getAllBlogPosts();
-    const deleteIds = new Set(ids);
-    const nextList = currentList.filter((p) => !deleteIds.has(p.id));
-    persistBlogPosts(nextList);
+    for (const id of ids) await adminBlogApi.deleteBlogPost(id);
     return true;
   },
 

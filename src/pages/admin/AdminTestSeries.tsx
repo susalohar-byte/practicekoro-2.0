@@ -1,3 +1,4 @@
+import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
 import {
@@ -29,13 +30,7 @@ import {
   RefreshCw,
   Download,
 } from 'lucide-react';
-import type {
-  TestSeries,
-  Exam,
-  MockTest,
-  TestSeriesStatus,
-  PopularTestSeriesCard,
-} from '@/types';
+import type { TestSeries, Exam, MockTest, TestSeriesStatus, PopularTestSeriesCard } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -44,7 +39,6 @@ import {
   DEFAULT_POPULAR_TEST_SERIES,
   DEFAULT_SHOWCASE_SERIES,
 } from '@/services/domains/admin.testSeries';
-
 
 // Showcase default tests for selected series (e.g. WBP Constable)
 const DEFAULT_WBP_SERIES_TESTS: MockTest[] = [
@@ -197,7 +191,9 @@ export const AdminTestSeries: React.FC = () => {
 
   // Active / Opened Test Series in Right Details Drawer (Defaults to null - neutral initial state)
   const [activeSeries, setActiveSeries] = useState<TestSeries | null>(null);
-  const [drawerTab, setDrawerTab] = useState<'overview' | 'tests' | 'settings' | 'analytics'>('overview');
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'tests' | 'settings' | 'analytics'>(
+    'overview'
+  );
   const [activeSeriesTests, setActiveSeriesTests] = useState<MockTest[]>([]);
   const [isLoadingDrawerTests, setIsLoadingDrawerTests] = useState(false);
 
@@ -227,6 +223,7 @@ export const AdminTestSeries: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSeries, setEditingSeries] = useState<TestSeries | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isAssigningTests, setIsAssigningTests] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignTargetSeriesId, setAssignTargetSeriesId] = useState('');
   const [selectedTestsToAssign, setSelectedTestsToAssign] = useState<Set<string>>(new Set());
@@ -236,10 +233,15 @@ export const AdminTestSeries: React.FC = () => {
   const [csvInputText, setCsvInputText] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [seriesToDelete, setSeriesToDelete] = useState<TestSeries | null>(null);
-  const [actionNotice, setActionNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [actionNotice, setActionNotice] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   // Popular Showcase Modal State
-  const [popularCards, setPopularCards] = useState<PopularTestSeriesCard[]>(DEFAULT_POPULAR_TEST_SERIES);
+  const [popularCards, setPopularCards] = useState<PopularTestSeriesCard[]>(
+    DEFAULT_POPULAR_TEST_SERIES
+  );
   const [editingPopularCard, setEditingPopularCard] = useState<PopularTestSeriesCard | null>(null);
   const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
 
@@ -279,7 +281,9 @@ export const AdminTestSeries: React.FC = () => {
 
   // Tests Tab Search & Filter inside Drawer
   const [drawerTestSearch, setDrawerTestSearch] = useState('');
-  const [drawerTestTypeFilter, setDrawerTestTypeFilter] = useState<'all' | 'full_mock' | 'topic' | 'pyq'>('all');
+  const [drawerTestTypeFilter, setDrawerTestTypeFilter] = useState<
+    'all' | 'full_mock' | 'topic' | 'pyq'
+  >('all');
 
   // Close menus on outside click
   useEffect(() => {
@@ -304,13 +308,15 @@ export const AdminTestSeries: React.FC = () => {
       setIsLoading(true);
       const [allExams, allSeries, allTests, popCards] = await Promise.all([
         api.getAllAdminExams().catch(() => []),
-        api.getTestSeries().catch(() => []),
+        api.getTestSeries(),
         api.getAllAdminTests().catch(() => []),
-        api.getPopularTestSeriesCards().catch(() => (isSupabaseConfigured ? [] : DEFAULT_POPULAR_TEST_SERIES)),
+        api
+          .getPopularTestSeriesCards()
+          .catch(() => (isSupabaseConfigured ? [] : DEFAULT_POPULAR_TEST_SERIES)),
       ]);
 
-      if (allExams && allExams.length > 0) setExams(allExams);
-      if (allTests && allTests.length > 0) setAllAvailableTests(allTests);
+      setExams(allExams);
+      setAllAvailableTests(allTests);
       if (popCards && popCards.length > 0) setPopularCards(popCards);
 
       if (allSeries && allSeries.length > 0) {
@@ -325,7 +331,10 @@ export const AdminTestSeries: React.FC = () => {
         setActiveSeries(null);
       }
     } catch (err) {
-      console.warn('Backend load note:', err);
+      setActionNotice({
+        type: 'error',
+        message: getErrorMessage(err, 'Test series could not be loaded.'),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -365,9 +374,16 @@ export const AdminTestSeries: React.FC = () => {
         try {
           const raw = localStorage.getItem(`pk_series_tests_${activeSeries.id}`);
           if (raw) localSaved = JSON.parse(raw);
-        } catch {}
+        } catch {
+          /* Optional browser cache is unavailable. Backend remains authoritative. */
+        }
 
-        if (localSaved && Array.isArray(localSaved) && localSaved.length > 0) {
+        if (
+          !isSupabaseConfigured &&
+          localSaved &&
+          Array.isArray(localSaved) &&
+          localSaved.length > 0
+        ) {
           setActiveSeriesTests(localSaved);
           return;
         }
@@ -592,64 +608,87 @@ export const AdminTestSeries: React.FC = () => {
 
   // Batch Operations
   const handleBatchPublish = async () => {
-    const ids = Array.from(selectedRowIds);
-    setSeriesList((prev) =>
-      prev.map((s) => (ids.includes(s.id) ? { ...s, status: 'published', isActive: true } : s))
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.updateTestSeries(id, { isActive: true, status: 'published' })
     );
-    if (activeSeries && ids.includes(activeSeries.id)) {
-      setActiveSeries((prev) => (prev ? { ...prev, status: 'published', isActive: true } : null));
-    }
-    for (const id of ids) {
-      api.updateTestSeries(id, { status: 'published', isActive: true }).catch(() => {});
-    }
-    setActionNotice({ message: `Published ${ids.length} test series.`, type: 'success' });
-    setSelectedRowIds(new Set());
+    const changed = new Map(batch.results.map((r) => [r.input, r.value]));
+    setSeriesList((prev) =>
+      prev.map((s) => (changed.has(s.id) ? { ...s, ...changed.get(s.id) } : s))
+    );
+    setActiveSeries((prev) =>
+      prev && changed.has(prev.id) ? { ...prev, ...changed.get(prev.id) } : prev
+    );
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    setActionNotice({
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        batch.results.length +
+        ' saved; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
+    });
   };
 
   const handleBatchDraft = async () => {
-    const ids = Array.from(selectedRowIds);
-    setSeriesList((prev) =>
-      prev.map((s) => (ids.includes(s.id) ? { ...s, status: 'draft', isActive: false } : s))
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.updateTestSeries(id, { isActive: false, status: 'draft' })
     );
-    if (activeSeries && ids.includes(activeSeries.id)) {
-      setActiveSeries((prev) => (prev ? { ...prev, status: 'draft', isActive: false } : null));
-    }
-    for (const id of ids) {
-      api.updateTestSeries(id, { status: 'draft', isActive: false }).catch(() => {});
-    }
-    setActionNotice({ message: `Moved ${ids.length} test series to Draft.`, type: 'success' });
-    setSelectedRowIds(new Set());
+    const changed = new Map(batch.results.map((r) => [r.input, r.value]));
+    setSeriesList((prev) =>
+      prev.map((s) => (changed.has(s.id) ? { ...s, ...changed.get(s.id) } : s))
+    );
+    setActiveSeries((prev) =>
+      prev && changed.has(prev.id) ? { ...prev, ...changed.get(prev.id) } : prev
+    );
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    setActionNotice({
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        batch.results.length +
+        ' saved; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
+    });
   };
 
   const handleBatchArchive = async () => {
-    const ids = Array.from(selectedRowIds);
-    setSeriesList((prev) =>
-      prev.map((s) => (ids.includes(s.id) ? { ...s, status: 'archived', isActive: false } : s))
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.updateTestSeries(id, { status: 'archived', isActive: false })
     );
-    if (activeSeries && ids.includes(activeSeries.id)) {
-      setActiveSeries((prev) => (prev ? { ...prev, status: 'archived', isActive: false } : null));
-    }
-    for (const id of ids) {
-      api.updateTestSeries(id, { status: 'archived', isActive: false }).catch(() => {});
-    }
-    setActionNotice({ message: `Archived ${ids.length} test series.`, type: 'success' });
-    setSelectedRowIds(new Set());
+    const saved = new Map(batch.results.map((r) => [r.input, r.value]));
+    setSeriesList((prev) => prev.map((s) => saved.get(s.id) || s));
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    setActionNotice({
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        batch.results.length +
+        ' archived; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
+    });
   };
 
   const handleBatchDelete = async () => {
-    const ids = Array.from(selectedRowIds);
-    if (!window.confirm(`Permanently delete ${ids.length} selected test series? This action cannot be undone.`)) {
-      return;
-    }
-    setSeriesList((prev) => prev.filter((s) => !ids.includes(s.id)));
-    if (activeSeries && ids.includes(activeSeries.id)) {
-      setActiveSeries(null);
-    }
-    for (const id of ids) {
-      api.deleteTestSeries(id).catch(() => {});
-    }
-    setActionNotice({ message: `Deleted ${ids.length} test series.`, type: 'success' });
-    setSelectedRowIds(new Set());
+    if (!window.confirm('Delete selected series? Linked records will block deletion.')) return;
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.deleteTestSeries(id)
+    );
+    const gone = new Set(batch.results.map((r) => r.input));
+    setSeriesList((prev) => prev.filter((s) => !gone.has(s.id)));
+    setActiveSeries((prev) => (prev && gone.has(prev.id) ? null : prev));
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    setActionNotice({
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        gone.size +
+        ' deleted; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
+    });
   };
 
   // Export CSV Handler
@@ -687,7 +726,9 @@ export const AdminTestSeries: React.FC = () => {
       s.fullMockCount || 0,
       s.topicTestCount || 0,
       s.pyqTestCount || 0,
-      s.testCount || s.testsCount || (s.fullMockCount || 0) + (s.topicTestCount || 0) + (s.pyqTestCount || 0),
+      s.testCount ||
+        s.testsCount ||
+        (s.fullMockCount || 0) + (s.topicTestCount || 0) + (s.pyqTestCount || 0),
       s.enrollmentCount || 0,
       `"${s.status || (s.isActive ? 'published' : 'draft')}"`,
       `"${s.isPremium ? 'Pro' : 'Free'}"`,
@@ -698,12 +739,18 @@ export const AdminTestSeries: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `PracticeKoro_Test_Series_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      'download',
+      `PracticeKoro_Test_Series_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    setActionNotice({ message: `Exported ${dataToExport.length} test series to CSV!`, type: 'success' });
+    setActionNotice({
+      message: `Exported ${dataToExport.length} test series to CSV!`,
+      type: 'success',
+    });
   };
 
   // Open Create Modal
@@ -738,94 +785,40 @@ export const AdminTestSeries: React.FC = () => {
   // Submit Create / Edit Series
   const handleSubmitSeriesForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) {
-      alert('Test Series Name is required.');
-      return;
-    }
-    if (!formExamId) {
-      alert('Target Exam must be selected.');
-      return;
-    }
-
+    if (isSubmittingForm) return;
     try {
       setIsSubmittingForm(true);
-      const targetExam = exams.find((ex) => ex.id === formExamId);
-      const slug = formName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-
-      if (editingSeries) {
-        const updated: TestSeries = {
-          ...editingSeries,
-          title: formName.trim(),
-          subtitle: formSubtitle.trim() || undefined,
-          slug: editingSeries.slug || slug,
-          examId: formExamId,
-          examTitle: targetExam?.title || editingSeries.examTitle,
-          examCategory: targetExam?.category || editingSeries.examCategory || 'General',
-          description: formDescription.trim(),
-          iconUrl: formIconUrl,
-          bannerUrl: formBannerUrl || undefined,
-          isPremium: formIsPremium,
-          orderIndex: Number(formOrderIndex),
-          status: formStatus,
-          isActive: formStatus === 'published',
-        };
-
-        try {
-          await api.updateTestSeries(editingSeries.id, updated);
-        } catch {
-          // offline fallback
-        }
-
-        setSeriesList((prev) => prev.map((s) => (s.id === editingSeries.id ? updated : s)));
-        if (activeSeries?.id === editingSeries.id) {
-          setActiveSeries(updated);
-        }
-        setActionNotice({ message: `"${updated.title}" updated successfully!`, type: 'success' });
-        setIsEditModalOpen(false);
-      } else {
-        const newId = `${formExamId}-${slug}-${Date.now().toString().slice(-4)}`;
-        const newSeries: TestSeries = {
-          id: newId,
-          title: formName.trim(),
-          subtitle: formSubtitle.trim() || undefined,
-          slug,
-          examId: formExamId,
-          examTitle: targetExam?.title || 'Target Exam',
-          examCategory: targetExam?.category || 'General',
-          description: formDescription.trim(),
-          iconUrl: formIconUrl,
-          bannerUrl: formBannerUrl || undefined,
-          isPremium: formIsPremium,
-          orderIndex: Number(formOrderIndex),
-          status: formStatus,
-          isActive: formStatus === 'published',
-          fullMockCount: 0,
-          topicTestCount: 0,
-          pyqTestCount: 0,
-          testCount: 0,
-          testsCount: 0,
-          enrollmentCount: 0,
-          avgCompletion: 0,
-          avgAccuracy: 0,
-          createdAt: new Date().toISOString(),
-        };
-
-        try {
-          await api.createTestSeries(newSeries);
-        } catch {
-          // offline fallback
-        }
-
-        setSeriesList((prev) => [newSeries, ...prev]);
-        setActiveSeries(newSeries);
-        setActionNotice({ message: `Test Series "${newSeries.title}" created!`, type: 'success' });
-        setIsCreateModalOpen(false);
-      }
+      if (!formName.trim() || !formExamId) throw new Error('Title and exam are required.');
+      const input = {
+        title: formName.trim(),
+        subtitle: formSubtitle.trim(),
+        slug:
+          editingSeries?.slug ||
+          formName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, ''),
+        examId: formExamId,
+        description: formDescription.trim(),
+        iconUrl: formIconUrl,
+        bannerUrl: formBannerUrl || undefined,
+        isPremium: formIsPremium,
+        orderIndex: Number(formOrderIndex),
+        status: formStatus,
+        isActive: formStatus === 'published',
+      };
+      const saved = editingSeries
+        ? await api.updateTestSeries(editingSeries.id, input)
+        : await api.createTestSeries(input);
+      setSeriesList((prev) =>
+        editingSeries ? prev.map((s) => (s.id === saved.id ? saved : s)) : [saved, ...prev]
+      );
+      if (activeSeries?.id === saved.id) setActiveSeries(saved);
+      setIsEditModalOpen(false);
+      setIsCreateModalOpen(false);
+      setActionNotice({ type: 'success', message: 'Test series saved.' });
     } catch (err) {
-      alert(`Error saving test series: ${getErrorMessage(err, 'Failed to save')}`);
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Save failed') });
     } finally {
       setIsSubmittingForm(false);
     }
@@ -833,104 +826,79 @@ export const AdminTestSeries: React.FC = () => {
 
   // Toggle Publish / Unpublish
   const handleTogglePublish = async (series: TestSeries) => {
-    const nextStatus: TestSeriesStatus = series.status === 'published' ? 'draft' : 'published';
-    const nextActive = nextStatus === 'published';
-
     try {
-      await api.updateTestSeries(series.id, {
-        status: nextStatus,
-        isActive: nextActive,
+      const status = series.status === 'published' ? 'draft' : 'published';
+      const saved = await api.updateTestSeries(series.id, {
+        status,
+        isActive: status === 'published',
       });
-    } catch {
-      // offline fallback
+      setSeriesList((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      if (activeSeries?.id === saved.id) setActiveSeries(saved);
+      setActionNotice({ type: 'success', message: 'Series status saved.' });
+    } catch (err) {
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Save failed') });
     }
-
-    setSeriesList((prev) =>
-      prev.map((s) => (s.id === series.id ? { ...s, status: nextStatus, isActive: nextActive } : s))
-    );
-    if (activeSeries?.id === series.id) {
-      setActiveSeries((prev) => (prev ? { ...prev, status: nextStatus, isActive: nextActive } : null));
-    }
-    setActionNotice({
-      message: `"${series.title}" is now ${nextStatus === 'published' ? 'Published' : 'Unpublished (Draft)'}.`,
-      type: 'success',
-    });
   };
 
   // Archive Series
   const handleArchiveSeries = async (series: TestSeries) => {
     try {
-      await api.updateTestSeries(series.id, { status: 'archived', isActive: false });
-    } catch {
-      // offline fallback
+      const saved = await api.updateTestSeries(series.id, { status: 'archived', isActive: false });
+      setSeriesList((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      if (activeSeries?.id === saved.id) setActiveSeries(saved);
+      setActionNotice({ type: 'success', message: 'Series archived.' });
+    } catch (err) {
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Archive failed') });
     }
-
-    setSeriesList((prev) =>
-      prev.map((s) => (s.id === series.id ? { ...s, status: 'archived', isActive: false } : s))
-    );
-    if (activeSeries?.id === series.id) {
-      setActiveSeries((prev) => (prev ? { ...prev, status: 'archived', isActive: false } : null));
-    }
-    setActionNotice({ message: `"${series.title}" archived successfully.`, type: 'success' });
   };
 
   // Duplicate Series
   const handleDuplicateSeries = async (series: TestSeries) => {
-    const dupId = `${series.id}-copy-${Date.now().toString().slice(-4)}`;
-    const duplicated: TestSeries = {
-      ...series,
-      id: dupId,
-      title: `${series.title} (Copy)`,
-      slug: `${series.slug}-copy`,
-      status: 'draft',
-      isActive: false,
-      enrollmentCount: 0,
-      orderIndex: seriesList.length + 1,
-      createdAt: new Date().toISOString(),
-    };
     try {
-      await api.createTestSeries(duplicated);
+      const saved = await api.createTestSeries({
+        ...series,
+        title: series.title + ' (Copy)',
+        slug: series.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
+        status: 'draft',
+        isActive: false,
+      });
+      setSeriesList((prev) => [saved, ...prev]);
+      setActionNotice({ type: 'success', message: 'Draft series created.' });
     } catch (err) {
-      console.warn('Backend duplicate test series fallback:', err);
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Duplicate failed') });
     }
-    setSeriesList((prev) => [duplicated, ...prev]);
-    setActiveSeries(duplicated);
-    setActionNotice({ message: `Duplicated "${series.title}". Created as Draft.`, type: 'success' });
   };
 
   // Delete Series Confirm
   const handleConfirmDelete = async () => {
     if (!seriesToDelete) return;
     try {
-      await api.deleteTestSeries(seriesToDelete.id);
-    } catch {
-      // offline fallback
+      const id = seriesToDelete.id;
+      await api.deleteTestSeries(id);
+      setSeriesList((prev) => prev.filter((s) => s.id !== id));
+      setActiveSeries((prev) => (prev?.id === id ? null : prev));
+      setSeriesToDelete(null);
+      setIsDeleteModalOpen(false);
+      setActionNotice({ type: 'success', message: 'Series deleted.' });
+    } catch (err) {
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Delete failed') });
     }
-
-    setSeriesList((prev) => prev.filter((s) => s.id !== seriesToDelete.id));
-    if (activeSeries?.id === seriesToDelete.id) {
-      setActiveSeries(seriesList.find((s) => s.id !== seriesToDelete.id) || null);
-    }
-    setActionNotice({ message: `"${seriesToDelete.title}" deleted successfully.`, type: 'success' });
-    setIsDeleteModalOpen(false);
-    setSeriesToDelete(null);
   };
 
   // Save Description from Details Drawer
   const handleSaveDescription = async () => {
     if (!activeSeries) return;
     try {
-      await api.updateTestSeries(activeSeries.id, { description: drawerDescriptionText });
-    } catch {
-      // offline fallback
+      const saved = await api.updateTestSeries(activeSeries.id, {
+        description: drawerDescriptionText,
+      });
+      setSeriesList((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      setActiveSeries(saved);
+      setIsEditingDescription(false);
+      setActionNotice({ type: 'success', message: 'Description saved.' });
+    } catch (err) {
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Save failed') });
     }
-
-    setSeriesList((prev) =>
-      prev.map((s) => (s.id === activeSeries.id ? { ...s, description: drawerDescriptionText } : s))
-    );
-    setActiveSeries((prev) => (prev ? { ...prev, description: drawerDescriptionText } : null));
-    setIsEditingDescription(false);
-    setActionNotice({ message: 'Description updated successfully.', type: 'success' });
   };
 
   // Save Settings from Details Drawer
@@ -956,9 +924,9 @@ export const AdminTestSeries: React.FC = () => {
         bannerUrl: drawerSettingsForm.bannerUrl || undefined,
       };
 
-      await api.updateTestSeries(activeSeries.id, updated);
-      setSeriesList((prev) => prev.map((s) => (s.id === activeSeries.id ? updated : s)));
-      setActiveSeries(updated);
+      const saved = await api.updateTestSeries(activeSeries.id, updated);
+      setSeriesList((prev) => prev.map((s) => (s.id === activeSeries.id ? saved : s)));
+      setActiveSeries(saved);
       setActionNotice({ message: 'Series settings saved successfully!', type: 'success' });
     } catch (err) {
       alert(`Error saving settings: ${getErrorMessage(err, 'Failed to update')}`);
@@ -986,184 +954,25 @@ export const AdminTestSeries: React.FC = () => {
 
   // Assign Tests Modal Submit
   const handleExecuteAssignTests = async () => {
-    if (!assignTargetSeriesId) return;
-    const targetSeries = seriesList.find((s) => s.id === assignTargetSeriesId);
-
+    if (!assignTargetSeriesId || isAssigningTests) return;
+    setIsAssigningTests(true);
     try {
-      if (assignTab === 'csv') {
-        // Parse CSV input
-        const lines = csvInputText.split('\n').filter((l) => l.trim().length > 0);
-        if (lines.length === 0) {
-          alert('Please enter or paste test data in CSV format.');
-          return;
-        }
-
-        const newMockTests: MockTest[] = [];
-        for (let i = 0; i < lines.length; i++) {
-          const parts = lines[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
-          const title = parts[0] || `Mock Test ${i + 1}`;
-          const rawType = (parts[1] || 'full_mock').toLowerCase();
-          const testType: 'full_mock' | 'topic' | 'pyq' = rawType.includes('pyq')
-            ? 'pyq'
-            : rawType.includes('topic')
-            ? 'topic'
-            : 'full_mock';
-          const qCount = Number(parts[2]) || (testType === 'topic' ? 30 : 85);
-          const dur = Number(parts[3]) || (testType === 'topic' ? 25 : 60);
-
-          const newT: MockTest = {
-            id: `test-csv-${Date.now()}-${i}`,
-            testSeriesId: assignTargetSeriesId,
-            examId: targetSeries?.examId,
-            examTitle: targetSeries?.examTitle,
-            title,
-            slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            testType,
-            totalQuestions: qCount,
-            durationMinutes: dur,
-            totalMarks: qCount,
-            passingMarks: Math.floor(qCount * 0.4),
-            negativeMarking: 0.25,
-            isPremium: false,
-            orderIndex: (activeSeries?.id === assignTargetSeriesId ? activeSeriesTests.length : 0) + i + 1,
-            isActive: true,
-            status: 'published',
-          };
-          newMockTests.push(newT);
-          try {
-            await api.createTest(newT);
-          } catch (e) {
-            console.warn('createTest error:', e);
-          }
-        }
-
-        const currentForTarget =
-          activeSeries?.id === assignTargetSeriesId
-            ? activeSeriesTests
-            : (() => {
-                try {
-                  const raw = localStorage.getItem(`pk_series_tests_${assignTargetSeriesId}`);
-                  return raw ? JSON.parse(raw) : [];
-                } catch {
-                  return [];
-                }
-              })();
-
-        const updatedTests = [...currentForTarget, ...newMockTests];
-        try {
-          localStorage.setItem(`pk_series_tests_${assignTargetSeriesId}`, JSON.stringify(updatedTests));
-        } catch {}
-
-        if (activeSeries?.id === assignTargetSeriesId) {
-          setActiveSeriesTests(updatedTests);
-        }
-
-        // Update counts on target series
-        const fullMocks = updatedTests.filter((t) => t.testType === 'full_mock').length;
-        const topicTests = updatedTests.filter((t) => t.testType === 'topic').length;
-        const pyqs = updatedTests.filter((t) => t.testType === 'pyq').length;
-
-        const countUpdates = {
-          fullMockCount: fullMocks,
-          topicTestCount: topicTests,
-          pyqTestCount: pyqs,
-          testCount: updatedTests.length,
-          testsCount: updatedTests.length,
-        };
-
-        try {
-          await api.updateTestSeries(assignTargetSeriesId, countUpdates);
-        } catch {}
-
-        setSeriesList((prev) =>
-          prev.map((s) => (s.id === assignTargetSeriesId ? { ...s, ...countUpdates } : s))
+      if (assignTab === 'csv')
+        throw new Error(
+          'CSV test import is unavailable here. Create valid draft tests first, then assign them.'
         );
-
-        if (activeSeries?.id === assignTargetSeriesId) {
-          setActiveSeries((prev) => (prev ? { ...prev, ...countUpdates } : null));
-        }
-
-        setActionNotice({
-          message: `Imported and assigned ${newMockTests.length} tests to "${targetSeries?.title}".`,
-          type: 'success',
-        });
-        setIsAssignModalOpen(false);
-        setCsvInputText('');
-        return;
-      }
-
-      // Assign existing tests from catalog
-      if (selectedTestsToAssign.size === 0) return;
-
-      const testIdsArray = Array.from(selectedTestsToAssign);
-      const testsToAssign = allAvailableTests.filter((t) => selectedTestsToAssign.has(t.id));
-
-      try {
-        await api.assignTestsToSeries(testIdsArray, assignTargetSeriesId);
-      } catch (err) {
-        console.warn('assignTestsToSeries API note:', err);
-      }
-
-      const currentForTarget =
-        activeSeries?.id === assignTargetSeriesId
-          ? activeSeriesTests
-          : (() => {
-              try {
-                const raw = localStorage.getItem(`pk_series_tests_${assignTargetSeriesId}`);
-                return raw ? JSON.parse(raw) : [];
-              } catch {
-                return [];
-              }
-            })();
-
-      const merged = [...currentForTarget];
-      for (const t of testsToAssign) {
-        if (!merged.some((m) => m.id === t.id)) {
-          merged.push({ ...t, testSeriesId: assignTargetSeriesId });
-        }
-      }
-
-      try {
-        localStorage.setItem(`pk_series_tests_${assignTargetSeriesId}`, JSON.stringify(merged));
-      } catch {}
-
-      if (activeSeries?.id === assignTargetSeriesId) {
-        setActiveSeriesTests(merged);
-      }
-
-      // Recalculate series test metrics
-      const fullMocks = merged.filter((t) => t.testType === 'full_mock').length;
-      const topicTests = merged.filter((t) => t.testType === 'topic').length;
-      const pyqs = merged.filter((t) => t.testType === 'pyq').length;
-
-      const countUpdates = {
-        fullMockCount: fullMocks,
-        topicTestCount: topicTests,
-        pyqTestCount: pyqs,
-        testCount: merged.length,
-        testsCount: merged.length,
-      };
-
-      try {
-        await api.updateTestSeries(assignTargetSeriesId, countUpdates);
-      } catch {}
-
-      setSeriesList((prev) =>
-        prev.map((s) => (s.id === assignTargetSeriesId ? { ...s, ...countUpdates } : s))
+      requireSuccess(
+        await api.assignTestsToSeries(Array.from(selectedTestsToAssign), assignTargetSeriesId)
       );
-
-      if (activeSeries?.id === assignTargetSeriesId) {
-        setActiveSeries((prev) => (prev ? { ...prev, ...countUpdates } : null));
-      }
-
-      setActionNotice({
-        message: `Assigned ${selectedTestsToAssign.size} test(s) to "${targetSeries?.title}".`,
-        type: 'success',
-      });
+      const tests = await api.getSeriesTests(assignTargetSeriesId);
+      if (activeSeries?.id === assignTargetSeriesId) setActiveSeriesTests(tests);
+      setSeriesList(await api.getTestSeries());
       setIsAssignModalOpen(false);
-      setSelectedTestsToAssign(new Set());
+      setActionNotice({ type: 'success', message: 'Tests assigned in the backend.' });
     } catch (err) {
-      alert(`Failed to assign tests: ${getErrorMessage(err, 'Error')}`);
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Assignment failed') });
+    } finally {
+      setIsAssigningTests(false);
     }
   };
 
@@ -1173,18 +982,16 @@ export const AdminTestSeries: React.FC = () => {
     if (!window.confirm(`Remove "${testTitle}" from ${activeSeries.title}?`)) return;
 
     try {
-      try {
-        await api.assignTestsToSeries([testId], null);
-      } catch (err) {
-        console.warn('Unlink test note:', err);
-      }
+      await api.assignTestsToSeries([testId], null);
 
       const remainingTests = activeSeriesTests.filter((t) => t.id !== testId);
       setActiveSeriesTests(remainingTests);
 
       try {
         localStorage.setItem(`pk_series_tests_${activeSeries.id}`, JSON.stringify(remainingTests));
-      } catch {}
+      } catch {
+        /* Optional browser cache is unavailable. Backend remains authoritative. */
+      }
 
       const fullMocks = remainingTests.filter((t) => t.testType === 'full_mock').length;
       const topicTests = remainingTests.filter((t) => t.testType === 'topic').length;
@@ -1197,10 +1004,6 @@ export const AdminTestSeries: React.FC = () => {
         testCount: remainingTests.length,
         testsCount: remainingTests.length,
       };
-
-      try {
-        await api.updateTestSeries(activeSeries.id, countUpdates);
-      } catch {}
 
       setSeriesList((prev) =>
         prev.map((s) => (s.id === activeSeries.id ? { ...s, ...countUpdates } : s))
@@ -1244,7 +1047,10 @@ export const AdminTestSeries: React.FC = () => {
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>{actionNotice.message}</span>
           </div>
-          <button onClick={() => setActionNotice(null)} className="opacity-70 hover:opacity-100 cursor-pointer">
+          <button
+            onClick={() => setActionNotice(null)}
+            className="opacity-70 hover:opacity-100 cursor-pointer"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -1321,7 +1127,9 @@ export const AdminTestSeries: React.FC = () => {
           className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs cursor-pointer hover:border-blue-400 transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Total Test Series</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              Total Test Series
+            </span>
             <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#026BFC] flex items-center justify-center shrink-0">
               <Layers className="w-4 h-4" />
             </div>
@@ -1340,7 +1148,9 @@ export const AdminTestSeries: React.FC = () => {
         {/* Total Tests */}
         <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Total Tests</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              Total Tests
+            </span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center shrink-0">
               <FileText className="w-4 h-4" />
             </div>
@@ -1366,7 +1176,9 @@ export const AdminTestSeries: React.FC = () => {
           className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs cursor-pointer hover:border-emerald-400 transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Published</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              Published
+            </span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -1408,7 +1220,9 @@ export const AdminTestSeries: React.FC = () => {
         {/* Total Enrollments */}
         <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Total Enrollments</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              Total Enrollments
+            </span>
             <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0">
               <Users className="w-4 h-4" />
             </div>
@@ -1634,7 +1448,9 @@ export const AdminTestSeries: React.FC = () => {
                       <td colSpan={8} className="py-12 text-center text-slate-400">
                         <Layers className="w-8 h-8 mx-auto mb-2 opacity-40" />
                         <p className="font-bold text-sm">No test series found</p>
-                        <p className="text-xs mt-0.5">Try adjusting your filters or search keywords.</p>
+                        <p className="text-xs mt-0.5">
+                          Try adjusting your filters or search keywords.
+                        </p>
                       </td>
                     </tr>
                   ) : (
@@ -1687,7 +1503,8 @@ export const AdminTestSeries: React.FC = () => {
                                   alt={series.title}
                                   className="w-full h-full object-contain p-1"
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/images/exams/logo_wbp.png';
+                                    (e.target as HTMLImageElement).src =
+                                      '/images/exams/logo_wbp.png';
                                   }}
                                 />
                               </div>
@@ -1739,7 +1556,8 @@ export const AdminTestSeries: React.FC = () => {
 
                           {/* Status Badge */}
                           <td className="py-3 px-3 text-center whitespace-nowrap">
-                            {series.status === 'published' || (series.isActive && !series.status) ? (
+                            {series.status === 'published' ||
+                            (series.isActive && !series.status) ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800">
                                 Published
                               </span>
@@ -1860,8 +1678,12 @@ export const AdminTestSeries: React.FC = () => {
             {/* Footer Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between p-3.5 border-t border-slate-200/80 dark:border-slate-800 text-xs gap-3">
               <span className="font-semibold text-slate-500">
-                Showing {filteredSeries.length === 0 ? 0 : Math.min(filteredSeries.length, (currentPage - 1) * pageSize + 1)}-
-                {Math.min(filteredSeries.length, currentPage * pageSize)} of {filteredSeries.length} test series
+                Showing{' '}
+                {filteredSeries.length === 0
+                  ? 0
+                  : Math.min(filteredSeries.length, (currentPage - 1) * pageSize + 1)}
+                -{Math.min(filteredSeries.length, currentPage * pageSize)} of{' '}
+                {filteredSeries.length} test series
               </span>
 
               <div className="flex items-center gap-2">
@@ -1961,7 +1783,9 @@ export const AdminTestSeries: React.FC = () => {
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    {activeSeries.status === 'published' ? 'Published' : activeSeries.status || 'Active'}
+                    {activeSeries.status === 'published'
+                      ? 'Published'
+                      : activeSeries.status || 'Active'}
                   </span>
                   <button
                     type="button"
@@ -1981,10 +1805,10 @@ export const AdminTestSeries: React.FC = () => {
                   tab === 'overview'
                     ? 'Overview'
                     : tab === 'tests'
-                    ? `Tests (${activeSeriesTests.length || activeSeries.testCount || 25})`
-                    : tab === 'settings'
-                    ? 'Settings'
-                    : 'Analytics';
+                      ? `Tests (${activeSeriesTests.length || activeSeries.testCount || 25})`
+                      : tab === 'settings'
+                        ? 'Settings'
+                        : 'Analytics';
                 return (
                   <button
                     key={tab}
@@ -2151,43 +1975,50 @@ export const AdminTestSeries: React.FC = () => {
                               <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
                             </td>
                           </tr>
-                        ) : activeSeriesTests.slice(0, 5).map((test, i) => (
-                          <tr key={test.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="p-2 text-center text-slate-400 text-[11px]">{i + 1}</td>
-                            <td className="p-2 font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
-                              {test.title}
-                            </td>
-                            <td className="p-2 text-center whitespace-nowrap">
-                              <span
-                                className={cn(
-                                  'px-2 py-0.5 rounded text-[10px] font-black',
-                                  test.testType === 'full_mock'
-                                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                        ) : (
+                          activeSeriesTests.slice(0, 5).map((test, i) => (
+                            <tr
+                              key={test.id}
+                              className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            >
+                              <td className="p-2 text-center text-slate-400 text-[11px]">
+                                {i + 1}
+                              </td>
+                              <td className="p-2 font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
+                                {test.title}
+                              </td>
+                              <td className="p-2 text-center whitespace-nowrap">
+                                <span
+                                  className={cn(
+                                    'px-2 py-0.5 rounded text-[10px] font-black',
+                                    test.testType === 'full_mock'
+                                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                                      : test.testType === 'pyq'
+                                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                                        : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                  )}
+                                >
+                                  {test.testType === 'full_mock'
+                                    ? 'Full Mock'
                                     : test.testType === 'pyq'
-                                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                )}
-                              >
-                                {test.testType === 'full_mock'
-                                  ? 'Full Mock'
-                                  : test.testType === 'pyq'
-                                  ? 'PYQ'
-                                  : 'Topic'}
-                              </span>
-                            </td>
-                            <td className="p-2 text-right font-black">{test.totalQuestions}</td>
-                            <td className="p-2 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTestFromSeries(test.id, test.title)}
-                                className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
-                                title="Remove test from series"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                                      ? 'PYQ'
+                                      : 'Topic'}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-black">{test.totalQuestions}</td>
+                              <td className="p-2 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTestFromSeries(test.id, test.title)}
+                                  className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                                  title="Remove test from series"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -2198,7 +2029,8 @@ export const AdminTestSeries: React.FC = () => {
                       onClick={() => setDrawerTab('tests')}
                       className="text-xs font-bold text-[#026BFC] hover:underline inline-flex items-center gap-1 cursor-pointer"
                     >
-                      View All Tests ({activeSeriesTests.length}) <ArrowRight className="w-3.5 h-3.5" />
+                      View All Tests ({activeSeriesTests.length}){' '}
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -2224,7 +2056,9 @@ export const AdminTestSeries: React.FC = () => {
                   <select
                     value={drawerTestTypeFilter}
                     onChange={(e) =>
-                      setDrawerTestTypeFilter(e.target.value as 'all' | 'full_mock' | 'topic' | 'pyq')
+                      setDrawerTestTypeFilter(
+                        e.target.value as 'all' | 'full_mock' | 'topic' | 'pyq'
+                      )
                     }
                     className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-bold cursor-pointer"
                   >
@@ -2280,15 +2114,15 @@ export const AdminTestSeries: React.FC = () => {
                                   t.testType === 'full_mock'
                                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
                                     : t.testType === 'pyq'
-                                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                                      : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                                 )}
                               >
                                 {t.testType === 'full_mock'
                                   ? 'Full Mock'
                                   : t.testType === 'pyq'
-                                  ? 'Official PYQ'
-                                  : 'Topic Test'}
+                                    ? 'Official PYQ'
+                                    : 'Topic Test'}
                               </span>
                             </td>
                             <td className="p-2 text-center font-bold">{t.totalQuestions} Qs</td>
@@ -2487,7 +2321,8 @@ export const AdminTestSeries: React.FC = () => {
                           cardGradientEnd: '#0048C6',
                           cardArrowColor: '#026BFC',
                           cardBgImage: '/images/series_wbp_bg.png',
-                          cardLogoUrl: activeSeries.iconUrl || '/images/exams/emblem_series_wbp.png',
+                          cardLogoUrl:
+                            activeSeries.iconUrl || '/images/exams/emblem_series_wbp.png',
                           orderIndex: popularCards.length + 1,
                           route: `/test-series/${activeSeries.slug || activeSeries.id}`,
                           isActive: true,
@@ -2519,7 +2354,9 @@ export const AdminTestSeries: React.FC = () => {
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Total Attempts</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                      {activeSeries.enrollmentCount ? Math.round(activeSeries.enrollmentCount * 2.5) : 0}
+                      {activeSeries.enrollmentCount
+                        ? Math.round(activeSeries.enrollmentCount * 2.5)
+                        : 0}
                     </p>
                   </div>
 
@@ -2533,7 +2370,9 @@ export const AdminTestSeries: React.FC = () => {
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
                     <p className="text-[10px] font-bold text-slate-400">Average Score</p>
                     <p className="text-lg font-black text-blue-600 mt-0.5">
-                      {activeSeries.avgAccuracy ? `${(activeSeries.avgAccuracy * 0.85).toFixed(1)} / 100` : '—'}
+                      {activeSeries.avgAccuracy
+                        ? `${(activeSeries.avgAccuracy * 0.85).toFixed(1)} / 100`
+                        : '—'}
                     </p>
                   </div>
 
@@ -2699,7 +2538,11 @@ export const AdminTestSeries: React.FC = () => {
                   ))}
                   {formIconUrl && !formIconUrl.startsWith('/images/exams/') && (
                     <div className="w-9 h-9 rounded-xl border border-[#026BFC] bg-blue-50 ring-2 ring-[#026BFC]/30 p-1 flex items-center justify-center shrink-0">
-                      <img src={formIconUrl} alt="custom" className="w-full h-full object-contain" />
+                      <img
+                        src={formIconUrl}
+                        alt="custom"
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                   )}
                 </div>
@@ -2769,7 +2612,11 @@ export const AdminTestSeries: React.FC = () => {
                   disabled={isSubmittingForm}
                   className="px-6 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-600 text-white font-bold cursor-pointer"
                 >
-                  {isSubmittingForm ? 'Saving...' : editingSeries ? 'Update Series' : 'Create Series'}
+                  {isSubmittingForm
+                    ? 'Saving...'
+                    : editingSeries
+                      ? 'Update Series'
+                      : 'Create Series'}
                 </button>
               </div>
             </form>
@@ -2807,7 +2654,9 @@ export const AdminTestSeries: React.FC = () => {
                   className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#1E293B]"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-6 text-center font-extrabold text-slate-400">#{idx + 1}</span>
+                    <span className="w-6 text-center font-extrabold text-slate-400">
+                      #{idx + 1}
+                    </span>
                     <div className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border p-0.5 shrink-0 overflow-hidden">
                       <img
                         src={series.iconUrl || '/images/exams/logo_wbp.png'}
@@ -3025,7 +2874,8 @@ export const AdminTestSeries: React.FC = () => {
                   className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] font-mono text-xs"
                 />
                 <p className="text-[11px] text-slate-400">
-                  Tip: Supports Bengali exam test names. Columns: <code>Title, Type, Questions, Duration</code>
+                  Tip: Supports Bengali exam test names. Columns:{' '}
+                  <code>Title, Type, Questions, Duration</code>
                 </p>
               </div>
             )}
@@ -3118,7 +2968,10 @@ export const AdminTestSeries: React.FC = () => {
             await api.savePopularTestSeries(updated);
             setPopularCards(updated);
             setIsPopularModalOpen(false);
-            setActionNotice({ message: 'Homepage Showcase Card saved successfully!', type: 'success' });
+            setActionNotice({
+              message: 'Homepage Showcase Card saved successfully!',
+              type: 'success',
+            });
           }}
         />
       )}

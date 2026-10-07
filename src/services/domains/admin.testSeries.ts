@@ -1,5 +1,12 @@
+import { requireSavedRow } from './admin.mutations';
+import { deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { localExams, localTestSeries, localTests, DEFAULT_SHOWCASE_SERIES } from '@/services/domains/localStore';
+import {
+  localExams,
+  localTestSeries,
+  localTests,
+  DEFAULT_SHOWCASE_SERIES,
+} from '@/services/domains/localStore';
 import type { TestSeries, TestSeriesStatus, PopularTestSeriesCard } from '@/types';
 
 export { DEFAULT_SHOWCASE_SERIES };
@@ -17,7 +24,6 @@ const SERIES_RETURN_SELECT = '*, exams:exam_id(title, category)';
  * been applied yet, writes containing them fail with PGRST204 / "column ...
  * does not exist"; we strip them and retry so the panel keeps working.
  */
-const OPTIONAL_COLUMNS = ['status', 'subtitle', 'banner_url', 'is_popular', 'icon_url'] as const;
 
 const ICON_CACHE_KEY = 'practicekoro_series_icons';
 export const SERIES_STORAGE_KEY = 'pk_admin_test_series_list';
@@ -69,35 +75,12 @@ function writeIconCache(id: string, iconUrl: string | undefined) {
   }
 }
 
-function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  return (
-    error.code === 'PGRST204' ||
-    error.code === '42703' ||
-    /column .* does not exist|Could not find the .* column/i.test(error.message || '')
-  );
-}
-
 /** Run a write; on a missing-column error drop optional columns one by one and retry. */
 async function writeWithSchemaFallback(
   payload: Record<string, unknown>,
   run: (p: Record<string, unknown>) => PromiseLike<{ data: any; error: any }>
 ): Promise<any> {
-  const current = { ...payload };
-  let { data, error } = await run(current);
-
-  for (const col of OPTIONAL_COLUMNS) {
-    if (!error || !isMissingColumnError(error)) break;
-    if (!(col in current)) continue;
-    const mentionsCol = (error.message || '').includes(col);
-    if (mentionsCol || error.code === 'PGRST204') {
-      delete current[col];
-      ({ data, error } = await run(current));
-    }
-  }
-
-  if (error) throw new Error(error.message);
-  return data;
+  return requireSavedRow(await run(payload));
 }
 
 function normalizeTestType(type: string): 'full_mock' | 'pyq' | 'topic' {
@@ -120,7 +103,10 @@ function countTests(tests: { testType?: string; test_type?: string }[]) {
   return { fullMockCount, pyqTestCount, topicTestCount, testCount: total, testsCount: total };
 }
 
-function resolveStatus(row: { status?: string | null; is_active?: boolean | null }): TestSeriesStatus {
+function resolveStatus(row: {
+  status?: string | null;
+  is_active?: boolean | null;
+}): TestSeriesStatus {
   const s = row.status;
   if (s === 'published' || s === 'draft' || s === 'under_review' || s === 'archived') return s;
   return row.is_active === false ? 'draft' : 'published';
@@ -135,7 +121,7 @@ function mapSeriesRow(row: any, iconCache: Record<string, string>): TestSeries {
     subtitle: row.subtitle ?? undefined,
     slug: row.slug,
     description: row.description ?? undefined,
-    iconUrl: row.icon_url || iconCache[row.id] || undefined,
+    iconUrl: row.icon_url || (!isSupabaseConfigured ? iconCache[row.id] : undefined),
     bannerUrl: row.banner_url ?? undefined,
     isPremium: Boolean(row.is_premium),
     orderIndex: row.order_index ?? 0,
@@ -191,15 +177,17 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
       .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
   }
 
-  let query = supabase.from('test_series').select(SERIES_SELECT).order('order_index', { ascending: true });
+  let query = supabase
+    .from('test_series')
+    .select(SERIES_SELECT)
+    .order('order_index', { ascending: true });
   if (examId) query = query.eq('exam_id', examId);
 
-  try {
+  {
     const [{ data, error }, metrics] = await Promise.all([query, fetchSeriesMetrics()]);
     if (error || !data || data.length === 0) {
-      return stored
-        .filter((s) => !examId || s.examId === examId)
-        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+      if (error) throw new Error(error.message);
+      return [];
     }
 
     const fetched = data.map((row: any) => {
@@ -213,11 +201,6 @@ export async function getTestSeries(examId?: string): Promise<TestSeries[]> {
     });
     saveStoredTestSeries(fetched);
     return fetched;
-  } catch (err) {
-    console.warn('Supabase getTestSeries fallback:', err);
-    return stored
-      .filter((s) => !examId || s.examId === examId)
-      .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
   }
 }
 
@@ -233,188 +216,124 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-export async function createTestSeries(seriesData: Omit<TestSeries, 'id'> | TestSeries): Promise<TestSeries> {
-  const slug = seriesData.slug || slugify(seriesData.title);
-  const id =
-    'id' in seriesData && seriesData.id
-      ? seriesData.id
-      : `${seriesData.examId}-${slug}-${Date.now().toString().slice(-4)}`.slice(0, 50);
-  const status: TestSeriesStatus = seriesData.status || (seriesData.isActive ? 'published' : 'draft');
-  const exam = localExams.find((e) => e.id === seriesData.examId);
-
-  const newSeries: TestSeries = {
-    ...seriesData,
-    id,
-    slug,
-    status,
-    isActive: status === 'published',
-    examTitle: exam?.title || seriesData.examTitle,
-    examCategory: exam?.category || seriesData.examCategory,
-    createdAt: seriesData.createdAt || new Date().toISOString(),
-  };
-
-  const stored = getStoredTestSeries();
-  const nextList = [newSeries, ...stored.filter((s) => s.id !== id)];
-  saveStoredTestSeries(nextList);
-
-  if (seriesData.iconUrl) writeIconCache(id, seriesData.iconUrl);
-
-  if (isSupabaseConfigured) {
-    try {
-      const payload: Record<string, unknown> = {
-        id,
-        exam_id: seriesData.examId,
-        title: seriesData.title,
-        slug,
-        description: seriesData.description || null,
-        is_premium: seriesData.isPremium ?? false,
-        order_index: seriesData.orderIndex || 0,
-        is_active: status === 'published',
-        status,
-        subtitle: seriesData.subtitle || null,
-        banner_url: seriesData.bannerUrl || null,
-        is_popular: seriesData.isPopular ?? seriesData.isFeatured ?? false,
-      };
-      if (seriesData.iconUrl) payload.icon_url = seriesData.iconUrl;
-
-      await writeWithSchemaFallback(payload, (p) =>
-        supabase.from('test_series').insert(p).select(SERIES_RETURN_SELECT).single()
-      );
-    } catch (err) {
-      console.warn('Supabase createTestSeries fallback:', err);
-    }
+export async function createTestSeries(
+  input: Omit<TestSeries, 'id'> | TestSeries
+): Promise<TestSeries> {
+  if (!input.title.trim() || !input.examId) throw new Error('Series title and exam are required.');
+  const id = crypto.randomUUID(),
+    status = input.status || (input.isActive ? 'published' : 'draft'),
+    saved = {
+      ...input,
+      id,
+      slug: input.slug || slugify(input.title),
+      status,
+      isActive: status === 'published',
+    };
+  if (!isSupabaseConfigured) {
+    saveStoredTestSeries([saved, ...getStoredTestSeries()]);
+    return saved;
   }
-
-  return newSeries;
+  const payload: Record<string, unknown> = { id, status, is_active: saved.isActive };
+  for (const [k, c] of Object.entries({
+    title: 'title',
+    slug: 'slug',
+    description: 'description',
+    examId: 'exam_id',
+    isPremium: 'is_premium',
+    orderIndex: 'order_index',
+    subtitle: 'subtitle',
+    bannerUrl: 'banner_url',
+    iconUrl: 'icon_url',
+    isPopular: 'is_popular',
+    isFeatured: 'is_popular',
+  }))
+    if ((saved as any)[k] !== undefined) payload[c] = (saved as any)[k];
+  const d = await writeWithSchemaFallback(payload, (p) =>
+    supabase.from('test_series').insert(p).select(SERIES_RETURN_SELECT).single()
+  );
+  return mapSeriesRow(d, {});
 }
 
-export async function updateTestSeries(id: string, updates: Partial<TestSeries>): Promise<TestSeries> {
-  const status: TestSeriesStatus | undefined =
-    updates.status ?? (updates.isActive !== undefined ? (updates.isActive ? 'published' : 'draft') : undefined);
-
-  if (updates.iconUrl !== undefined) writeIconCache(id, updates.iconUrl);
-
-  const stored = getStoredTestSeries();
-  const idx = stored.findIndex((s) => s.id === id);
-  const exam = updates.examId ? localExams.find((e) => e.id === updates.examId) : undefined;
-
-  const existing = idx !== -1 ? stored[idx] : undefined;
-  const base: Partial<TestSeries> = existing || {};
-  const updatedItem: TestSeries = {
-    id,
-    title: updates.title || base.title || '',
-    examId: updates.examId || base.examId || '',
-    ...base,
-    ...updates,
-    slug: updates.slug || base.slug || id,
-    isPremium: updates.isPremium ?? base.isPremium ?? false,
-    isActive: status ? status === 'published' : (updates.isActive ?? base.isActive ?? true),
-    orderIndex: updates.orderIndex ?? base.orderIndex ?? 1,
-    ...(exam ? { examTitle: exam.title, examCategory: exam.category } : {}),
-    ...(status ? { status, isActive: status === 'published' } : {}),
-  } as TestSeries;
-
-  const nextList = idx !== -1
-    ? stored.map((s) => (s.id === id ? updatedItem : s))
-    : [updatedItem, ...stored];
-  saveStoredTestSeries(nextList);
-
-  if (isSupabaseConfigured) {
-    try {
-      const payload: Record<string, unknown> = {};
-      if (updates.title !== undefined) payload.title = updates.title;
-      if (updates.slug !== undefined) payload.slug = updates.slug;
-      if (updates.description !== undefined) payload.description = updates.description || null;
-      if (updates.isPremium !== undefined) payload.is_premium = updates.isPremium;
-      if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
-      if (updates.examId !== undefined) payload.exam_id = updates.examId;
-      if (updates.subtitle !== undefined) payload.subtitle = updates.subtitle || null;
-      if (updates.bannerUrl !== undefined) payload.banner_url = updates.bannerUrl || null;
-      if (updates.iconUrl !== undefined) payload.icon_url = updates.iconUrl || null;
-      const popular = updates.isPopular ?? updates.isFeatured;
-      if (popular !== undefined) payload.is_popular = popular;
-      if (status) {
-        payload.status = status;
-        payload.is_active = status === 'published';
-      }
-
-      if (Object.keys(payload).length > 0) {
-        await writeWithSchemaFallback(payload, (p) =>
-          supabase.from('test_series').update(p).eq('id', id).select(SERIES_RETURN_SELECT).single()
-        );
-      }
-    } catch (err) {
-      console.warn('Supabase updateTestSeries fallback:', err);
-    }
+export async function updateTestSeries(
+  id: string,
+  input: Partial<TestSeries>
+): Promise<TestSeries> {
+  if (input.title !== undefined && !input.title.trim())
+    throw new Error('Series title is required.');
+  if (!isSupabaseConfigured) {
+    const rows = getStoredTestSeries(),
+      i = rows.findIndex((r) => r.id === id);
+    if (i < 0) throw new Error('Series not found.');
+    rows[i] = { ...rows[i], ...input };
+    saveStoredTestSeries(rows);
+    return rows[i];
   }
-
-  return updatedItem;
+  const payload: Record<string, unknown> = {};
+  for (const [k, c] of Object.entries({
+    title: 'title',
+    slug: 'slug',
+    description: 'description',
+    examId: 'exam_id',
+    isPremium: 'is_premium',
+    orderIndex: 'order_index',
+    subtitle: 'subtitle',
+    bannerUrl: 'banner_url',
+    iconUrl: 'icon_url',
+    isPopular: 'is_popular',
+    isFeatured: 'is_popular',
+  }))
+    if ((input as any)[k] !== undefined) payload[c] = (input as any)[k];
+  if (input.status !== undefined) {
+    payload.status = input.status;
+    payload.is_active = input.status === 'published';
+  } else if (input.isActive !== undefined) {
+    payload.is_active = input.isActive;
+    payload.status = input.isActive ? 'published' : 'draft';
+  }
+  const d = await writeWithSchemaFallback(payload, (p) =>
+    supabase.from('test_series').update(p).eq('id', id).select(SERIES_RETURN_SELECT).single()
+  );
+  if (d.id !== id) throw new Error('Matching series was not saved.');
+  return mapSeriesRow(d, {});
 }
 
 /** Persist a full display order in one pass (only rows whose index changed). */
-export async function reorderTestSeries(ordered: { id: string; orderIndex: number }[]): Promise<void> {
-  const stored = getStoredTestSeries();
-  const map = new Map(ordered.map((o) => [o.id, o.orderIndex]));
-  const updated = stored.map((s) => (map.has(s.id) ? { ...s, orderIndex: map.get(s.id)! } : s));
-  updated.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-  saveStoredTestSeries(updated);
-
-  if (isSupabaseConfigured) {
-    try {
-      await Promise.all(
-        ordered.map(({ id, orderIndex }) =>
-          supabase.from('test_series').update({ order_index: orderIndex }).eq('id', id)
-        )
-      );
-    } catch (err) {
-      console.warn('Supabase reorderTestSeries fallback:', err);
-    }
-  }
+export async function reorderTestSeries(
+  ordered: { id: string; orderIndex: number }[]
+): Promise<void> {
+  for (const r of ordered) await updateTestSeries(r.id, { orderIndex: r.orderIndex });
 }
 
 /** Link (or unlink with `null`) many tests to a series in a single request. */
-export async function assignTestsToSeries(testIds: string[], testSeriesId: string | null): Promise<void> {
-  if (testIds.length === 0) return;
-  for (const t of localTests) {
-    if (testIds.includes(t.id)) t.testSeriesId = testSeriesId || undefined;
+export async function assignTestsToSeries(ids: string[], seriesId: string | null): Promise<void> {
+  if (!ids.length) return;
+  if (!isSupabaseConfigured) {
+    for (const t of localTests) if (ids.includes(t.id)) t.testSeriesId = seriesId || undefined;
+    return;
   }
-  const stored = getStoredTestSeries();
-  const updatedSeries = stored.map((s) => {
-    const sTests = localTests.filter((t) => t.testSeriesId === s.id);
-    const counts = countTests(sTests);
-    return {
-      ...s,
-      ...counts,
-    };
+  const { data, error } = await supabase.rpc('admin_assign_series_tests', {
+    p_ids: ids,
+    p_series_id: seriesId,
   });
-  saveStoredTestSeries(updatedSeries);
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('tests').update({ test_series_id: testSeriesId }).in('id', testIds);
-    } catch (err) {
-      console.warn('Supabase assignTestsToSeries fallback:', err);
-    }
-  }
+  if (error) throw new Error(error.message);
+  if (
+    data?.success !== true ||
+    !Array.isArray(data.saved_ids) ||
+    data.saved_ids.length !== ids.length ||
+    ids.some((id) => !data.saved_ids.includes(id))
+  )
+    throw new Error('Not all assignments were confirmed.');
 }
 
 export async function deleteTestSeries(id: string): Promise<boolean> {
-  const stored = getStoredTestSeries();
-  const nextList = stored.filter((s) => s.id !== id);
-  saveStoredTestSeries(nextList);
-
-  for (const t of localTests) {
-    if (t.testSeriesId === id) t.testSeriesId = undefined;
+  if (isSupabaseConfigured) {
+    await deleteAdminRecord('test_series', id);
+  } else {
+    const rows = getStoredTestSeries();
+    if (!rows.some((s) => s.id === id)) throw new Error('Series not found.');
+    saveStoredTestSeries(rows.filter((s) => s.id !== id));
   }
   writeIconCache(id, undefined);
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('test_series').delete().eq('id', id);
-    } catch (err) {
-      console.warn('Supabase deleteTestSeries fallback:', err);
-    }
-  }
   return true;
 }
 
@@ -493,7 +412,9 @@ export const DEFAULT_POPULAR_TEST_SERIES: PopularTestSeriesCard[] = [
   },
 ];
 
-async function attachPopularTestSeriesCounts(cards: PopularTestSeriesCard[]): Promise<PopularTestSeriesCard[]> {
+async function attachPopularTestSeriesCounts(
+  cards: PopularTestSeriesCard[]
+): Promise<PopularTestSeriesCard[]> {
   if (!isSupabaseConfigured || cards.length === 0) {
     return [...cards].sort((a, b) => a.orderIndex - b.orderIndex);
   }
@@ -559,7 +480,9 @@ export async function getPopularTestSeriesCards(): Promise<PopularTestSeriesCard
   }
 }
 
-export async function savePopularTestSeries(cards: PopularTestSeriesCard[]): Promise<PopularTestSeriesCard[]> {
+export async function savePopularTestSeries(
+  cards: PopularTestSeriesCard[]
+): Promise<PopularTestSeriesCard[]> {
   const normalized = cards.map((card, index) => ({ ...card, orderIndex: index + 1 }));
   if (!isSupabaseConfigured) {
     throw new Error('Connect to the Admin Panel database before saving Popular Test Series.');
@@ -609,9 +532,15 @@ export async function uploadPopularTestSeriesImage(
   cardId: string,
   kind: 'logo' | 'background'
 ): Promise<string> {
-  if (!isSupabaseConfigured) throw new Error('Connect to the Admin Panel database before uploading images.');
+  if (!isSupabaseConfigured)
+    throw new Error('Connect to the Admin Panel database before uploading images.');
   if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
-  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const extension =
+    file.name
+      .split('.')
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, '') || 'png';
   const safeId = cardId.replace(/[^a-zA-Z0-9_-]/g, '-');
   const path = `popular-test-series/${safeId}/${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
   const { data, error } = await supabase.storage.from('banners').upload(path, file, {
@@ -622,30 +551,28 @@ export async function uploadPopularTestSeriesImage(
   return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
 }
 
-export async function uploadTestSeriesIcon(file: File, seriesId: string = 'custom'): Promise<string> {
+export async function uploadTestSeriesIcon(file: File, id: string = 'custom'): Promise<string> {
   if (isSupabaseConfigured) {
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-      const safeId = seriesId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const path = `test-series/${safeId}/icon-${Date.now()}.${extension}`;
-      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-      if (!error && data) {
-        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-      }
-    } catch {
-      // Fallback to data URL
-    }
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024)
+      throw new Error('Choose an image smaller than 5 MB.');
+    const ext =
+      file.name
+        .split('.')
+        .pop()
+        ?.replace(/[^a-z0-9]/gi, '') || 'png';
+    const path =
+      'test-series/' + id.replace(/[^a-z0-9_-]/gi, '-') + '/' + crypto.randomUUID() + '.' + ext;
+    const { data, error } = await supabase.storage
+      .from('banners')
+      .upload(path, file, { upsert: false });
+    if (error || !data?.path) throw new Error(error?.message || 'Upload not confirmed');
+    return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
   }
-
-  // Convert to Data URL fallback
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file);
   });
 }
 
@@ -655,11 +582,18 @@ export function subscribeToPopularTestSeriesUpdates(callback: () => void): () =>
     .channel('popular-test-series-settings-updates')
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.popular_test_series_config' },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'app_settings',
+        filter: 'id=eq.popular_test_series_config',
+      },
       callback
     )
     .subscribe();
-  return () => { void supabase.removeChannel(channel); };
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export const adminTestSeriesApi = {
@@ -679,4 +613,3 @@ export const adminTestSeriesApi = {
   reorderTestSeries,
   assignTestsToSeries,
 };
-

@@ -1,3 +1,4 @@
+import { mutateContentCollection } from '@/services/domains/admin.mutations';
 import type { HeroBanner, BannerThemeColor, BannerAudience, BannerPlacement } from '@/types';
 import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -155,7 +156,7 @@ export async function optimizeBannerImage(
 const APP_SETTINGS_BANNER_ID = 'banners_hero_list';
 const APP_SETTINGS_BANNER_KEY = 'hero_banners_list';
 
-function mapSupabaseRowToBanner(row: any): HeroBanner {
+export function mapSupabaseRowToBanner(row: any): HeroBanner {
   return {
     id: String(row.id),
     badgeText: row.badge_text || '',
@@ -169,14 +170,14 @@ function mapSupabaseRowToBanner(row: any): HeroBanner {
     featurePills: Array.isArray(row.feature_pills)
       ? row.feature_pills
       : typeof row.feature_pills === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(row.feature_pills);
-          } catch {
-            return [];
-          }
-        })()
-      : [],
+        ? (() => {
+            try {
+              return JSON.parse(row.feature_pills);
+            } catch {
+              return [];
+            }
+          })()
+        : [],
     imageUrl: row.image_url || '/images/exam_hero_banner.png',
     mobileImageUrl: row.mobile_image_url || undefined,
     bannerType: row.banner_type || 'full_image',
@@ -196,10 +197,11 @@ function mapSupabaseRowToBanner(row: any): HeroBanner {
 function sanitizeBanner(item: any, index: number): HeroBanner {
   return {
     id: String(item.id || `banner-${Date.now()}-${index}`),
-    badgeText: typeof item.badgeText === 'string' ? item.badgeText : (item.badge_text || ''),
+    badgeText: typeof item.badgeText === 'string' ? item.badgeText : item.badge_text || '',
     title: typeof item.title === 'string' ? item.title : '',
-    highlightWord: typeof item.highlightWord === 'string' ? item.highlightWord : (item.highlight_word || ''),
-    subtitle: typeof item.subtitle === 'string' ? item.subtitle : (item.subtitle || ''),
+    highlightWord:
+      typeof item.highlightWord === 'string' ? item.highlightWord : item.highlight_word || '',
+    subtitle: typeof item.subtitle === 'string' ? item.subtitle : item.subtitle || '',
     primaryCtaText: item.primaryCtaText || item.primary_cta_text || 'Start Now',
     primaryCtaLink: item.primaryCtaLink || item.primary_cta_link || '/exams',
     secondaryCtaText: item.secondaryCtaText || item.secondary_cta_text || '',
@@ -207,8 +209,8 @@ function sanitizeBanner(item: any, index: number): HeroBanner {
     featurePills: Array.isArray(item.featurePills)
       ? item.featurePills
       : Array.isArray(item.feature_pills)
-      ? item.feature_pills
-      : [],
+        ? item.feature_pills
+        : [],
     imageUrl: item.imageUrl || item.image_url || '/images/exam_hero_banner.png',
     mobileImageUrl: item.mobileImageUrl || item.mobile_image_url || undefined,
     bannerType: item.bannerType || item.banner_type || 'full_image',
@@ -222,9 +224,9 @@ function sanitizeBanner(item: any, index: number): HeroBanner {
       item.isActive !== undefined
         ? Boolean(item.isActive)
         : item.is_active !== undefined
-        ? Boolean(item.is_active)
-        : true,
-    displayOrder: Number(item.displayOrder ?? item.display_order ?? (index + 1)),
+          ? Boolean(item.is_active)
+          : true,
+    displayOrder: Number(item.displayOrder ?? item.display_order ?? index + 1),
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     updatedAt: item.updatedAt || item.updated_at || undefined,
   };
@@ -276,9 +278,12 @@ async function syncBannersToRemote(banners: HeroBanner[]): Promise<void> {
 
     let rpcSuccess = false;
     try {
-      const { data: rpcData, error: rpcError } = await supabaseRuntime.rpc('admin_update_app_settings', {
-        p_settings: [settingRow],
-      });
+      const { data: rpcData, error: rpcError } = await supabaseRuntime.rpc(
+        'admin_update_app_settings',
+        {
+          p_settings: [settingRow],
+        }
+      );
       if (!rpcError && (rpcData?.success || rpcData?.updated_count !== undefined)) {
         rpcSuccess = true;
       }
@@ -287,9 +292,7 @@ async function syncBannersToRemote(banners: HeroBanner[]): Promise<void> {
     }
 
     if (!rpcSuccess) {
-      await supabaseRuntime
-        .from('app_settings')
-        .upsert(settingRow, { onConflict: 'id' });
+      await supabaseRuntime.from('app_settings').upsert(settingRow, { onConflict: 'id' });
     }
   } catch (appErr) {
     console.warn('Could not sync hero banners to app_settings:', appErr);
@@ -354,12 +357,14 @@ export const bannerService = {
    * Tries Supabase Storage buckets ('banners', 'question-images', 'avatars'),
    * and if neither is available, safely falls back to a clean compressed Data URL.
    */
-  async uploadBannerImage(file: File): Promise<{ url: string; optimization: OptimizedImageResult }> {
+  async uploadBannerImage(
+    file: File
+  ): Promise<{ url: string; optimization: OptimizedImageResult }> {
     const opt = await optimizeBannerImage(file);
     const fileToUpload = opt.file;
 
     if (isSupabaseConfigured) {
-      try {
+      {
         const ext = fileToUpload.name.split('.').pop() || 'webp';
         const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
         const fileName = `banner-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${cleanExt}`;
@@ -381,7 +386,9 @@ export const bannerService = {
           .upload(filePath, fileToUpload, { cacheControl: '3600', upsert: true });
 
         if (!qError && qData?.path) {
-          const { data: qUrl } = supabaseRuntime.storage.from('question-images').getPublicUrl(qData.path);
+          const { data: qUrl } = supabaseRuntime.storage
+            .from('question-images')
+            .getPublicUrl(qData.path);
           if (qUrl?.publicUrl) return { url: qUrl.publicUrl, optimization: opt };
         }
 
@@ -394,12 +401,11 @@ export const bannerService = {
           const { data: aUrl } = supabaseRuntime.storage.from('avatars').getPublicUrl(aData.path);
           if (aUrl?.publicUrl) return { url: aUrl.publicUrl, optimization: opt };
         }
-      } catch (err) {
-        console.warn('Storage upload error, falling back to compressed data URL:', err);
       }
     }
 
     // Attempt 4: Safe compressed Data URL
+    if (isSupabaseConfigured) throw new Error('Durable image upload failed.');
     return { url: opt.dataUrl, optimization: opt };
   },
 
@@ -412,52 +418,17 @@ export const bannerService = {
    * Empty when nothing is configured — no demo banners are ever injected.
    */
   async getBanners(): Promise<HeroBanner[]> {
-    if (isSupabaseConfigured) {
-      // 1. Try public.hero_banners table
-      try {
-        const { data, error } = await supabaseRuntime
-          .from('hero_banners')
-          .select('*')
-          .order('display_order', { ascending: true });
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-          const mapped: HeroBanner[] = data.map(mapSupabaseRowToBanner);
-          saveStoredBanners(mapped);
-          return mapped;
-        }
-      } catch {
-        // Fallback to app_settings seamlessly
-      }
-
-      // 2. Try public.app_settings table (universal fallback)
-      try {
-        const { data, error } = await supabaseRuntime
-          .from('app_settings')
-          .select('value')
-          .eq('id', APP_SETTINGS_BANNER_ID)
-          .maybeSingle();
-
-        if (!error && data?.value) {
-          let rawVal = data.value;
-          if (typeof rawVal === 'string') {
-            try {
-              rawVal = JSON.parse(rawVal);
-            } catch {
-              // Not valid JSON string
-            }
-          }
-          if (Array.isArray(rawVal) && rawVal.length > 0) {
-            const parsed = rawVal.map(sanitizeBanner).sort((a, b) => a.displayOrder - b.displayOrder);
-            saveStoredBanners(parsed);
-            return parsed;
-          }
-        }
-      } catch {
-        // Fallback to localStorage seamlessly
-      }
-    }
-
-    return getStoredBanners().sort((a, b) => a.displayOrder - b.displayOrder);
+    if (!isSupabaseConfigured)
+      return getStoredBanners().sort((a, b) => a.displayOrder - b.displayOrder);
+    const { data, error } = await supabaseRuntime
+      .from('app_settings')
+      .select('value')
+      .eq('id', APP_SETTINGS_BANNER_ID)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const raw = typeof data?.value === 'string' ? JSON.parse(data.value) : data?.value || [];
+    if (!Array.isArray(raw)) throw new Error('Invalid banner storage.');
+    return raw.map(sanitizeBanner).sort((a, b) => a.displayOrder - b.displayOrder);
   },
 
   /**
@@ -532,6 +503,12 @@ export const bannerService = {
   async createBanner(
     input: Omit<HeroBanner, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<HeroBanner> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('banners', 'create', undefined, input);
+      const saved = sanitizeBanner(result.record, 0);
+      saveStoredBanners(result.records.map(sanitizeBanner));
+      return saved;
+    }
     const newId = 'banner-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const now = new Date().toISOString();
 
@@ -555,6 +532,11 @@ export const bannerService = {
    * Update an existing banner and immediately sync to remote stores
    */
   async updateBanner(id: string, updates: Partial<HeroBanner>): Promise<HeroBanner> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('banners', 'update', id, updates);
+      saveStoredBanners(result.records.map(sanitizeBanner));
+      return sanitizeBanner(result.record, 0);
+    }
     const now = new Date().toISOString();
     const current = getStoredBanners();
     let updatedBanner: HeroBanner | null = null;
@@ -583,6 +565,11 @@ export const bannerService = {
    * Delete a banner and sync removal to remote stores
    */
   async deleteBanner(id: string): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('banners', 'delete', id);
+      saveStoredBanners(result.records.map(sanitizeBanner));
+      return true;
+    }
     const current = getStoredBanners();
     const filtered = current.filter((b) => b.id !== id);
     await syncBannersToRemote(filtered);
@@ -628,6 +615,13 @@ export const bannerService = {
    * Reorder banners and persist order remotely
    */
   async reorderBanners(orderedIds: string[]): Promise<void> {
+    if (isSupabaseConfigured) {
+      const result = await mutateContentCollection('banners', 'reorder', undefined, {
+        ids: orderedIds,
+      });
+      saveStoredBanners(result.records.map(sanitizeBanner));
+      return;
+    }
     const current = getStoredBanners();
     const updated = current.map((b) => {
       const idx = orderedIds.indexOf(b.id);
@@ -646,6 +640,7 @@ export const bannerService = {
    */
   async syncToRemote(): Promise<{ success: boolean; count: number }> {
     const current = await this.getBanners();
+    if (isSupabaseConfigured) return { success: true, count: current.length };
     await syncBannersToRemote(current);
     return { success: true, count: current.length };
   },

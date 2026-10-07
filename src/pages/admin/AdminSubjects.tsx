@@ -1,3 +1,4 @@
+import { isSupabaseConfigured } from '@/lib/supabase';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
@@ -86,9 +87,19 @@ export const SubjectIconBadge: React.FC<{
   const norm = name.toLowerCase();
 
   // 1. General Science -> Purple Flask / Beaker
-  if (norm.includes('science') || norm.includes('physics') || norm.includes('chemistry') || norm.includes('biology')) {
+  if (
+    norm.includes('science') ||
+    norm.includes('physics') ||
+    norm.includes('chemistry') ||
+    norm.includes('biology')
+  ) {
     return (
-      <div className={cn('rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]',
+          className
+        )}
+      >
         <FlaskConical className="w-4 h-4 text-[#8B5CF6]" />
       </div>
     );
@@ -98,13 +109,23 @@ export const SubjectIconBadge: React.FC<{
   if (norm.includes('knowledge') || norm.includes('gk') || norm.includes('awareness')) {
     if (norm.includes('computer')) {
       return (
-        <div className={cn('rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]', className)}>
+        <div
+          className={cn(
+            'rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]',
+            className
+          )}
+        >
           <Monitor className="w-4 h-4 text-[#8B5CF6]" />
         </div>
       );
     }
     return (
-      <div className={cn('rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 shadow-2xs border border-[#FDE68A]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 shadow-2xs border border-[#FDE68A]',
+          className
+        )}
+      >
         <Lightbulb className="w-4 h-4 text-[#F59E0B]" />
       </div>
     );
@@ -113,7 +134,12 @@ export const SubjectIconBadge: React.FC<{
   // 3. History -> Rose / Red Landmark Pillar
   if (norm.includes('history') || norm.includes('heritage') || norm.includes('movement')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 shadow-2xs border border-[#FECDD3]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 shadow-2xs border border-[#FECDD3]',
+          className
+        )}
+      >
         <Landmark className="w-4 h-4 text-[#EF4444]" />
       </div>
     );
@@ -122,7 +148,12 @@ export const SubjectIconBadge: React.FC<{
   // 4. Indian Polity / Constitution -> Blue Classical Parliament / Building
   if (norm.includes('polity') || norm.includes('constitution') || norm.includes('law')) {
     return (
-      <div className={cn('rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]',
+          className
+        )}
+      >
         <Building2 className="w-4 h-4 text-[#026BFC]" />
       </div>
     );
@@ -131,7 +162,12 @@ export const SubjectIconBadge: React.FC<{
   // 5. Geography -> Green Globe / Earth
   if (norm.includes('geography') || norm.includes('environment')) {
     return (
-      <div className={cn('rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 shadow-2xs border border-[#A7F3D0]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 shadow-2xs border border-[#A7F3D0]',
+          className
+        )}
+      >
         <Globe className="w-4 h-4 text-[#10B981]" />
       </div>
     );
@@ -140,7 +176,12 @@ export const SubjectIconBadge: React.FC<{
   // 6. Economics -> Orange Line Chart / Growth
   if (norm.includes('economic') || norm.includes('economy')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 shadow-2xs border border-[#FDE68A]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 shadow-2xs border border-[#FDE68A]',
+          className
+        )}
+      >
         <TrendingUp className="w-4 h-4 text-[#F59E0B]" />
       </div>
     );
@@ -149,7 +190,12 @@ export const SubjectIconBadge: React.FC<{
   // 7. Reasoning / GI -> Red Brain / Mind
   if (norm.includes('reasoning') || norm.includes('intelligence') || norm.includes('logic')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 shadow-2xs border border-[#FECDD3]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 shadow-2xs border border-[#FECDD3]',
+          className
+        )}
+      >
         <Brain className="w-4 h-4 text-[#EF4444]" />
       </div>
     );
@@ -158,8 +204,15 @@ export const SubjectIconBadge: React.FC<{
   // 8. Mathematics / Quantitative -> Blue Math square with √x
   if (norm.includes('math') || norm.includes('arithmetic') || norm.includes('quant')) {
     return (
-      <div className={cn('rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]', className)}>
-        <span className="font-bold text-[11px] font-mono tracking-tighter leading-none select-none">√x</span>
+      <div
+        className={cn(
+          'rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]',
+          className
+        )}
+      >
+        <span className="font-bold text-[11px] font-mono tracking-tighter leading-none select-none">
+          √x
+        </span>
       </div>
     );
   }
@@ -167,7 +220,12 @@ export const SubjectIconBadge: React.FC<{
   // 9. Current Affairs -> Green Newspaper / Calendar
   if (norm.includes('current') || norm.includes('affairs') || norm.includes('news')) {
     return (
-      <div className={cn('rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 shadow-2xs border border-[#A7F3D0]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 shadow-2xs border border-[#A7F3D0]',
+          className
+        )}
+      >
         <Newspaper className="w-4 h-4 text-[#10B981]" />
       </div>
     );
@@ -176,7 +234,12 @@ export const SubjectIconBadge: React.FC<{
   // 10. Computer Awareness -> Purple Monitor
   if (norm.includes('computer') || norm.includes('it') || norm.includes('digital')) {
     return (
-      <div className={cn('rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 shadow-2xs border border-[#E9D5FF]',
+          className
+        )}
+      >
         <Monitor className="w-4 h-4 text-[#8B5CF6]" />
       </div>
     );
@@ -184,7 +247,12 @@ export const SubjectIconBadge: React.FC<{
 
   // Default fallback -> Blue Open Book
   return (
-    <div className={cn('rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]', className)}>
+    <div
+      className={cn(
+        'rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 shadow-2xs border border-[#BFDBFE]',
+        className
+      )}
+    >
       <BookOpen className="w-4 h-4 text-[#026BFC]" />
     </div>
   );
@@ -208,8 +276,8 @@ const CANONICAL_SUBJECTS_PRESET: EnrichedSubjectRow[] = [
     createdByName: 'Admin',
     createdAtFormatted: '12 Aug 2026, 11:20 AM',
     updatedAtFormatted: '14 Sep 2026, 04:15 PM',
-    avgScoreFormatted: '68%',
-    completionRateFormatted: '72%',
+    avgScoreFormatted: 'Unavailable',
+    completionRateFormatted: 'Unavailable',
     description:
       'General Science বিষয়টি ভৌত বিজ্ঞান, রসায়ন বিজ্ঞান, জীব বিজ্ঞান, পরিবেশ বিজ্ঞান এবং দৈনন্দিন জীবনের বিজ্ঞান সম্পর্কিত গুরুত্বপূর্ণ টপিক নিয়ে তৈরি। এটি বিভিন্ন সরকারি পরীক্ষার জন্য অত্যন্ত গুরুত্বপূর্ণ একটি বিষয়।',
   },
@@ -351,7 +419,8 @@ const CANONICAL_SUBJECTS_PRESET: EnrichedSubjectRow[] = [
     updatedAtFormatted: '26 Sep 2026, 03:20 PM',
     avgScoreFormatted: '65%',
     completionRateFormatted: '70%',
-    description: 'পাটিগণিত, বীজগণিত, জ্যামিতি, পরিমিতি এবং ত্রিকোণমিতির অধ্যায়ভিত্তিক শর্টকাট টেস্ট।',
+    description:
+      'পাটিগণিত, বীজগণিত, জ্যামিতি, পরিমিতি এবং ত্রিকোণমিতির অধ্যায়ভিত্তিক শর্টকাট টেস্ট।',
   },
   {
     id: 'sub-current-affairs',
@@ -439,7 +508,7 @@ const CANONICAL_SUBJECTS_PRESET: EnrichedSubjectRow[] = [
     name: 'Environmental Studies',
     slug: 'environmental-studies',
     category: 'General',
-    topicsCount: 12,
+    topicsCount: 0,
     topicTestsCount: 18,
     totalQuestionsCount: 1640,
     totalQuestionsFormatted: '1,640',
@@ -480,7 +549,7 @@ const CANONICAL_SUBJECTS_PRESET: EnrichedSubjectRow[] = [
     slug: 'chemistry',
     category: 'General',
     topicsCount: 12,
-    topicTestsCount: 16,
+    topicTestsCount: 0,
     totalQuestionsCount: 1510,
     totalQuestionsFormatted: '1,510',
     statusLabel: 'Published',
@@ -679,7 +748,9 @@ const CANONICAL_SUBJECTS_PRESET: EnrichedSubjectRow[] = [
 
 export const AdminSubjects: React.FC = () => {
   // Data States
-  const [subjectsList, setSubjectsList] = useState<EnrichedSubjectRow[]>(CANONICAL_SUBJECTS_PRESET);
+  const [subjectsList, setSubjectsList] = useState<EnrichedSubjectRow[]>(
+    isSupabaseConfigured ? [] : CANONICAL_SUBJECTS_PRESET
+  );
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [tests, setTests] = useState<MockTest[]>([]);
   const [, setIsLoading] = useState(false);
@@ -718,7 +789,9 @@ export const AdminSubjects: React.FC = () => {
   const [editingSubject, setEditingSubject] = useState<EnrichedSubjectRow | null>(null);
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
-  const [formCategory, setFormCategory] = useState<'General' | 'Social Science' | 'Aptitude'>('General');
+  const [formCategory, setFormCategory] = useState<'General' | 'Social Science' | 'Aptitude'>(
+    'General'
+  );
   const [formDescription, setFormDescription] = useState('');
   const [formIconName, setFormIconName] = useState('');
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
@@ -733,55 +806,31 @@ export const AdminSubjects: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [rawSubs, rawChapters, rawTests] = await Promise.all([
-        api.getSubjects().catch(() => []),
-        api.getAllAdminChapters().catch(() => []),
-        api.getAllAdminTests().catch(() => []),
+      const [rows, chs, ts] = await Promise.all([
+        api.getAllAdminSubjects(),
+        api.getAllAdminChapters(),
+        api.getAllAdminTests(),
       ]);
-
-      setChapters(rawChapters || []);
-      setTests(rawTests || []);
-
-      const merged = [...CANONICAL_SUBJECTS_PRESET];
-      if (rawSubs && rawSubs.length > 0) {
-        rawSubs.forEach((dbSub) => {
-          const idx = merged.findIndex(
-            (s) => s.id === dbSub.id || s.slug === dbSub.slug || s.name.toLowerCase() === dbSub.name.toLowerCase()
-          );
-          if (idx !== -1) {
-            merged[idx] = {
-              ...merged[idx],
-              ...dbSub,
-              isActive: dbSub.isActive ?? true,
-              statusLabel: dbSub.isActive ? 'Published' : 'Draft',
-            };
-          } else {
-            merged.push({
-              ...dbSub,
-              category: 'General',
-              topicsCount: dbSub.chaptersCount || 10,
-              topicTestsCount: 15,
-              totalQuestionsCount: 1200,
-              totalQuestionsFormatted: '1,200',
-              statusLabel: dbSub.isActive ? 'Published' : 'Draft',
-              createdByName: 'Admin',
-              createdAtFormatted: '10 Aug 2026, 10:00 AM',
-              updatedAtFormatted: '12 Sep 2026, 03:00 PM',
-              avgScoreFormatted: '68%',
-              completionRateFormatted: '72%',
-              description: dbSub.description || 'General Subject syllabus & questions.',
-            });
-          }
-        });
-      }
-
-      setSubjectsList(merged);
-      setSelectedSubject((prev) => {
-        if (!prev) return null;
-        return merged.find((s) => s.id === prev.id) || null;
-      });
+      setChapters(chs);
+      setTests(ts);
+      const mapped: EnrichedSubjectRow[] = rows.map((r) => ({
+        ...r,
+        category: r.category || 'General',
+        topicsCount: r.chaptersCount || 0,
+        topicTestsCount: 0,
+        totalQuestionsCount: 0,
+        totalQuestionsFormatted: 'Unavailable',
+        statusLabel: r.isActive ? 'Published' : 'Draft',
+        createdByName: 'Unavailable',
+        createdAtFormatted: 'Unavailable',
+        updatedAtFormatted: 'Unavailable',
+        avgScoreFormatted: 'Unavailable',
+        completionRateFormatted: 'Unavailable',
+      }));
+      setSubjectsList(mapped);
+      setSelectedSubject((prev) => (prev ? mapped.find((r) => r.id === prev.id) || null : null));
     } catch (err) {
-      console.error('Failed to load subjects:', err);
+      setFormError(getErrorMessage(err, 'Subjects could not be loaded.'));
     } finally {
       setIsLoading(false);
     }
@@ -836,8 +885,10 @@ export const AdminSubjects: React.FC = () => {
       }
 
       if (appliedFilters.status !== 'all') {
-        if (appliedFilters.status === 'published' && (!s.isActive || s.statusLabel === 'Draft')) return false;
-        if (appliedFilters.status === 'draft' && (s.isActive && s.statusLabel === 'Published')) return false;
+        if (appliedFilters.status === 'published' && (!s.isActive || s.statusLabel === 'Draft'))
+          return false;
+        if (appliedFilters.status === 'draft' && s.isActive && s.statusLabel === 'Published')
+          return false;
       }
 
       return true;
@@ -902,6 +953,7 @@ export const AdminSubjects: React.FC = () => {
 
   const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formName.trim()) {
       setFormError('Subject name is required.');
       return;
@@ -923,6 +975,7 @@ export const AdminSubjects: React.FC = () => {
           name: formName.trim(),
           slug: cleanSlug,
           description: formDescription.trim(),
+          category: formCategory,
           isActive: formIsActive,
           iconName: formIconName.trim(),
         });
@@ -949,6 +1002,7 @@ export const AdminSubjects: React.FC = () => {
           name: formName.trim(),
           slug: cleanSlug,
           description: formDescription.trim(),
+          category: formCategory,
           orderIndex: subjectsList.length + 1,
           isActive: formIsActive,
           iconName: formIconName.trim() || 'BookOpen',
@@ -960,8 +1014,8 @@ export const AdminSubjects: React.FC = () => {
           iconName: formIconName.trim() || 'BookOpen',
           topicsCount: 12,
           topicTestsCount: 16,
-          totalQuestionsCount: 1400,
-          totalQuestionsFormatted: '1,400',
+          totalQuestionsCount: 0,
+          totalQuestionsFormatted: '0',
           statusLabel: formIsActive ? 'Published' : 'Draft',
           createdByName: 'Admin',
           createdAtFormatted: 'Today',
@@ -990,7 +1044,8 @@ export const AdminSubjects: React.FC = () => {
       await api.deleteSubject(subId);
       setSubjectsList((prev) => prev.filter((s) => s.id !== subId));
       if (selectedSubject?.id === subId) {
-        setSelectedSubject(subjectsList.find((s) => s.id !== subId) || null);
+        setSelectedSubject(null);
+        setShowDetailsPanel(false);
       }
       setActionSuccessMessage('Subject deleted successfully.');
     } catch (err) {
@@ -998,19 +1053,19 @@ export const AdminSubjects: React.FC = () => {
     }
   };
 
-  const handleDuplicateSubject = (sub: EnrichedSubjectRow) => {
-    const duplicated: EnrichedSubjectRow = {
-      ...sub,
-      id: `${sub.id}-copy-${Date.now()}`,
-      name: `${sub.name} (Copy)`,
-      slug: `${sub.slug}-copy`,
-      statusLabel: 'Draft',
-      isActive: false,
-    };
-    setSubjectsList((prev) => [duplicated, ...prev]);
-    setSelectedSubject(duplicated);
-    setShowDetailsPanel(true);
-    setActionSuccessMessage(`Subject "${sub.name}" duplicated as draft.`);
+  const handleDuplicateSubject = async (sub: EnrichedSubjectRow) => {
+    try {
+      await api.createSubject({
+        ...sub,
+        name: sub.name + ' (Copy)',
+        slug: sub.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
+        isActive: false,
+      });
+      await loadData();
+      setActionSuccessMessage('Draft subject created.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'Duplicate failed'));
+    }
   };
 
   return (
@@ -1256,7 +1311,10 @@ export const AdminSubjects: React.FC = () => {
                     <th className="py-3 px-3 w-10 text-center">
                       <input
                         type="checkbox"
-                        checked={selectedSubjectIds.size > 0 && selectedSubjectIds.size === pagedSubjects.length}
+                        checked={
+                          selectedSubjectIds.size > 0 &&
+                          selectedSubjectIds.size === pagedSubjects.length
+                        }
                         onChange={toggleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                       />
@@ -1297,24 +1355,38 @@ export const AdminSubjects: React.FC = () => {
                           )}
                         >
                           {/* Checkbox */}
-                          <td className="py-3.5 px-3 text-center" onClick={(evt) => evt.stopPropagation()}>
+                          <td
+                            className="py-3.5 px-3 text-center"
+                            onClick={(evt) => evt.stopPropagation()}
+                          >
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={(evt) => toggleSelectRow(s.id, evt as unknown as React.MouseEvent)}
+                              onChange={(evt) =>
+                                toggleSelectRow(s.id, evt as unknown as React.MouseEvent)
+                              }
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                             />
                           </td>
 
                           {/* Row Index */}
-                          <td className={cn('py-3.5 px-2 text-center font-medium', isSelected ? 'text-[#026BFC] font-bold' : 'text-slate-400')}>
+                          <td
+                            className={cn(
+                              'py-3.5 px-2 text-center font-medium',
+                              isSelected ? 'text-[#026BFC] font-bold' : 'text-slate-400'
+                            )}
+                          >
                             {rowNumber}
                           </td>
 
                           {/* Subject Name: Icon + Name */}
                           <td className="py-3.5 px-3 min-w-[200px]">
                             <div className="flex items-center gap-3">
-                              <SubjectIconBadge name={s.name} iconName={s.iconName} className="w-8 h-8 shrink-0" />
+                              <SubjectIconBadge
+                                name={s.name}
+                                iconName={s.iconName}
+                                className="w-8 h-8 shrink-0"
+                              />
                               <span className="font-bold text-slate-900 dark:text-white block leading-snug">
                                 {s.name}
                               </span>
@@ -1329,8 +1401,8 @@ export const AdminSubjects: React.FC = () => {
                                 s.category === 'Social Science'
                                   ? 'bg-[#E8F8F0] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-300'
                                   : s.category === 'Aptitude'
-                                  ? 'bg-[#F6EEFD] text-[#8B5CF6] dark:bg-purple-950/60 dark:text-purple-300'
-                                  : 'bg-[#EBF5FF] text-[#026BFC] dark:bg-blue-950/60 dark:text-blue-300'
+                                    ? 'bg-[#F6EEFD] text-[#8B5CF6] dark:bg-purple-950/60 dark:text-purple-300'
+                                    : 'bg-[#EBF5FF] text-[#026BFC] dark:bg-blue-950/60 dark:text-blue-300'
                               )}
                             >
                               {s.category}
@@ -1349,7 +1421,8 @@ export const AdminSubjects: React.FC = () => {
 
                           {/* Total Questions */}
                           <td className="py-3.5 px-3 text-center text-slate-700 dark:text-slate-300 font-medium">
-                            {s.totalQuestionsFormatted || s.totalQuestionsCount.toLocaleString('en-IN')}
+                            {s.totalQuestionsFormatted ||
+                              s.totalQuestionsCount.toLocaleString('en-IN')}
                           </td>
 
                           {/* Status Badge */}
@@ -1430,7 +1503,11 @@ export const AdminSubjects: React.FC = () => {
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null);
-                                      if (confirm(`Permanently delete subject "${s.name}"? This cannot be undone.`)) {
+                                      if (
+                                        confirm(
+                                          `Permanently delete subject "${s.name}"? This cannot be undone.`
+                                        )
+                                      ) {
                                         handleDeleteSubject(s.id);
                                       }
                                     }}
@@ -1613,7 +1690,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedSubject.topicsCount}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Topics</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Topics
+                      </span>
                     </div>
                   </div>
 
@@ -1626,7 +1705,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedSubject.topicTestsCount}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Topic Tests</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Topic Tests
+                      </span>
                     </div>
                   </div>
 
@@ -1639,7 +1720,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedSubject.totalQuestionsFormatted}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Questions</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Questions
+                      </span>
                     </div>
                   </div>
 
@@ -1652,7 +1735,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
                         1,24,860
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Total Attempts</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Total Attempts
+                      </span>
                     </div>
                   </div>
 
@@ -1665,7 +1750,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedSubject.avgScoreFormatted || '68%'}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Avg. Score</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Avg. Score
+                      </span>
                     </div>
                   </div>
 
@@ -1678,7 +1765,9 @@ export const AdminSubjects: React.FC = () => {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
                         {selectedSubject.completionRateFormatted || '72%'}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">Completion Rate</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
+                        Completion Rate
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1830,20 +1919,22 @@ export const AdminSubjects: React.FC = () => {
                     'Space & Astronomy',
                     'Nuclear Physics & Energy',
                     'Scientific Inventions & Discoveries',
-                  ].slice(0, selectedSubject.topicsCount).map((topic, i) => (
-                    <div
-                      key={i}
-                      className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="font-medium text-slate-800 dark:text-slate-200">
-                          {topic}
-                        </span>
+                  ]
+                    .slice(0, selectedSubject.topicsCount)
+                    .map((topic, i) => (
+                      <div
+                        key={i}
+                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="font-medium text-slate-800 dark:text-slate-200">
+                            {topic}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">120 Qs</span>
                       </div>
-                      <span className="text-[10px] text-slate-400">120 Qs</span>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -1864,11 +1955,36 @@ export const AdminSubjects: React.FC = () => {
                 </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {[
-                    { id: 'tt-1', title: `${selectedSubject.name} — Heat & Temp Test 01`, questions: 30, duration: '25 min' },
-                    { id: 'tt-2', title: `${selectedSubject.name} — Optics Test 01`, questions: 30, duration: '25 min' },
-                    { id: 'tt-3', title: `${selectedSubject.name} — Mechanics Test 01`, questions: 30, duration: '25 min' },
-                    { id: 'tt-4', title: `${selectedSubject.name} — Human Physiology Test 01`, questions: 30, duration: '25 min' },
-                    { id: 'tt-5', title: `${selectedSubject.name} — Nutrition & Vitamins Test 01`, questions: 30, duration: '25 min' },
+                    {
+                      id: 'tt-1',
+                      title: `${selectedSubject.name} — Heat & Temp Test 01`,
+                      questions: 30,
+                      duration: '25 min',
+                    },
+                    {
+                      id: 'tt-2',
+                      title: `${selectedSubject.name} — Optics Test 01`,
+                      questions: 30,
+                      duration: '25 min',
+                    },
+                    {
+                      id: 'tt-3',
+                      title: `${selectedSubject.name} — Mechanics Test 01`,
+                      questions: 30,
+                      duration: '25 min',
+                    },
+                    {
+                      id: 'tt-4',
+                      title: `${selectedSubject.name} — Human Physiology Test 01`,
+                      questions: 30,
+                      duration: '25 min',
+                    },
+                    {
+                      id: 'tt-5',
+                      title: `${selectedSubject.name} — Nutrition & Vitamins Test 01`,
+                      questions: 30,
+                      duration: '25 min',
+                    },
                   ].map((tt) => (
                     <div
                       key={tt.id}
@@ -1911,7 +2027,8 @@ export const AdminSubjects: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-500">
-              Upload a CSV or JSON file containing subject titles, categories, and descriptions to bulk import into PracticeKoro.
+              Upload a CSV or JSON file containing subject titles, categories, and descriptions to
+              bulk import into PracticeKoro.
             </p>
 
             <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center space-y-2">
@@ -2076,7 +2193,9 @@ export const AdminSubjects: React.FC = () => {
                   </label>
                   <select
                     value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as 'General' | 'Social Science' | 'Aptitude')}
+                    onChange={(e) =>
+                      setFormCategory(e.target.value as 'General' | 'Social Science' | 'Aptitude')
+                    }
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                   >
                     <option value="General">General</option>
@@ -2156,7 +2275,11 @@ export const AdminSubjects: React.FC = () => {
                         )}
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        {isUploadingIcon ? 'Uploading...' : formIconName ? 'Change Icon' : 'Upload Icon'}
+                        {isUploadingIcon
+                          ? 'Uploading...'
+                          : formIconName
+                            ? 'Change Icon'
+                            : 'Upload Icon'}
                         <input
                           type="file"
                           accept="image/*"
@@ -2167,7 +2290,10 @@ export const AdminSubjects: React.FC = () => {
                             if (!file) return;
                             try {
                               setIsUploadingIcon(true);
-                              const uploadedUrl = await api.uploadSubjectIcon(file, editingSubject?.id || 'new');
+                              const uploadedUrl = await api.uploadSubjectIcon(
+                                file,
+                                editingSubject?.id || 'new'
+                              );
                               setFormIconName(uploadedUrl);
                             } catch (err) {
                               alert('Failed to upload icon: ' + getErrorMessage(err, 'Error'));
@@ -2211,7 +2337,10 @@ export const AdminSubjects: React.FC = () => {
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                 />
-                <label htmlFor="formIsActiveSub" className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer">
+                <label
+                  htmlFor="formIsActiveSub"
+                  className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
                   Publish on platform (Visible to students)
                 </label>
               </div>

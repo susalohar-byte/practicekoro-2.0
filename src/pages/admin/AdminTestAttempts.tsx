@@ -1,3 +1,4 @@
+import { requireSuccess, runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -235,10 +236,50 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 12,
     skippedAnswers: 3,
     sectionAnalysis: [
-      { sectionName: 'General Awareness', totalQuestions: 25, attempted: 24, correct: 20, wrong: 4, marksScored: 19, maxMarks: 25, accuracy: 83.3, timeSpentMin: 12 },
-      { sectionName: 'Elementary Mathematics', totalQuestions: 25, attempted: 25, correct: 21, wrong: 4, marksScored: 20, maxMarks: 25, accuracy: 84.0, timeSpentMin: 18 },
-      { sectionName: 'Reasoning & Logic', totalQuestions: 25, attempted: 24, correct: 21, wrong: 3, marksScored: 20.25, maxMarks: 25, accuracy: 87.5, timeSpentMin: 14 },
-      { sectionName: 'English Language', totalQuestions: 10, attempted: 9, correct: 8, wrong: 1, marksScored: 7.75, maxMarks: 10, accuracy: 88.9, timeSpentMin: 4 },
+      {
+        sectionName: 'General Awareness',
+        totalQuestions: 25,
+        attempted: 24,
+        correct: 20,
+        wrong: 4,
+        marksScored: 19,
+        maxMarks: 25,
+        accuracy: 83.3,
+        timeSpentMin: 12,
+      },
+      {
+        sectionName: 'Elementary Mathematics',
+        totalQuestions: 25,
+        attempted: 25,
+        correct: 21,
+        wrong: 4,
+        marksScored: 20,
+        maxMarks: 25,
+        accuracy: 84.0,
+        timeSpentMin: 18,
+      },
+      {
+        sectionName: 'Reasoning & Logic',
+        totalQuestions: 25,
+        attempted: 24,
+        correct: 21,
+        wrong: 3,
+        marksScored: 20.25,
+        maxMarks: 25,
+        accuracy: 87.5,
+        timeSpentMin: 14,
+      },
+      {
+        sectionName: 'English Language',
+        totalQuestions: 10,
+        attempted: 9,
+        correct: 8,
+        wrong: 1,
+        marksScored: 7.75,
+        maxMarks: 10,
+        accuracy: 88.9,
+        timeSpentMin: 4,
+      },
     ],
   },
   {
@@ -265,7 +306,17 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 8,
     skippedAnswers: 4,
     sectionAnalysis: [
-      { sectionName: 'Modern Indian History', totalQuestions: 30, attempted: 26, correct: 18, wrong: 8, marksScored: 16, maxMarks: 30, accuracy: 69.2, timeSpentMin: 22 },
+      {
+        sectionName: 'Modern Indian History',
+        totalQuestions: 30,
+        attempted: 26,
+        correct: 18,
+        wrong: 8,
+        marksScored: 16,
+        maxMarks: 30,
+        accuracy: 69.2,
+        timeSpentMin: 22,
+      },
     ],
   },
   {
@@ -293,8 +344,28 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 15,
     skippedAnswers: 6,
     sectionAnalysis: [
-      { sectionName: 'GK & Current Affairs', totalQuestions: 40, attempted: 36, correct: 30, wrong: 6, marksScored: 28.5, maxMarks: 40, accuracy: 83.3, timeSpentMin: 20 },
-      { sectionName: 'Mathematics & Reasoning', totalQuestions: 45, attempted: 43, correct: 34, wrong: 9, marksScored: 31.75, maxMarks: 45, accuracy: 79.0, timeSpentMin: 35 },
+      {
+        sectionName: 'GK & Current Affairs',
+        totalQuestions: 40,
+        attempted: 36,
+        correct: 30,
+        wrong: 6,
+        marksScored: 28.5,
+        maxMarks: 40,
+        accuracy: 83.3,
+        timeSpentMin: 20,
+      },
+      {
+        sectionName: 'Mathematics & Reasoning',
+        totalQuestions: 45,
+        attempted: 43,
+        correct: 34,
+        wrong: 9,
+        marksScored: 31.75,
+        maxMarks: 45,
+        accuracy: 79.0,
+        timeSpentMin: 35,
+      },
     ],
   },
   {
@@ -321,7 +392,17 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 6,
     skippedAnswers: 3,
     sectionAnalysis: [
-      { sectionName: 'Indian Constitution & Polity', totalQuestions: 30, attempted: 27, correct: 21, wrong: 6, marksScored: 19.5, maxMarks: 30, accuracy: 77.7, timeSpentMin: 26 },
+      {
+        sectionName: 'Indian Constitution & Polity',
+        totalQuestions: 30,
+        attempted: 27,
+        correct: 21,
+        wrong: 6,
+        marksScored: 19.5,
+        maxMarks: 30,
+        accuracy: 77.7,
+        timeSpentMin: 26,
+      },
     ],
   },
   {
@@ -349,8 +430,28 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 25,
     skippedAnswers: 17,
     sectionAnalysis: [
-      { sectionName: 'General Studies', totalQuestions: 50, attempted: 45, correct: 30, wrong: 15, marksScored: 26.25, maxMarks: 50, accuracy: 66.6, timeSpentMin: 25 },
-      { sectionName: 'Logical & Analytical Reasoning', totalQuestions: 50, attempted: 38, correct: 28, wrong: 10, marksScored: 25.5, maxMarks: 50, accuracy: 73.6, timeSpentMin: 27 },
+      {
+        sectionName: 'General Studies',
+        totalQuestions: 50,
+        attempted: 45,
+        correct: 30,
+        wrong: 15,
+        marksScored: 26.25,
+        maxMarks: 50,
+        accuracy: 66.6,
+        timeSpentMin: 25,
+      },
+      {
+        sectionName: 'Logical & Analytical Reasoning',
+        totalQuestions: 50,
+        attempted: 38,
+        correct: 28,
+        wrong: 10,
+        marksScored: 25.5,
+        maxMarks: 50,
+        accuracy: 73.6,
+        timeSpentMin: 27,
+      },
     ],
   },
   {
@@ -377,7 +478,17 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 4,
     skippedAnswers: 2,
     sectionAnalysis: [
-      { sectionName: 'Physics (Thermal Sciences)', totalQuestions: 30, attempted: 28, correct: 24, wrong: 4, marksScored: 23, maxMarks: 30, accuracy: 85.7, timeSpentMin: 20 },
+      {
+        sectionName: 'Physics (Thermal Sciences)',
+        totalQuestions: 30,
+        attempted: 28,
+        correct: 24,
+        wrong: 4,
+        marksScored: 23,
+        maxMarks: 30,
+        accuracy: 85.7,
+        timeSpentMin: 20,
+      },
     ],
   },
   {
@@ -404,8 +515,28 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 13,
     skippedAnswers: 6,
     sectionAnalysis: [
-      { sectionName: 'General Awareness', totalQuestions: 40, attempted: 38, correct: 32, wrong: 6, marksScored: 30.5, maxMarks: 40, accuracy: 84.2, timeSpentMin: 24 },
-      { sectionName: 'Math & Reasoning', totalQuestions: 45, attempted: 41, correct: 34, wrong: 7, marksScored: 32.25, maxMarks: 45, accuracy: 82.9, timeSpentMin: 33 },
+      {
+        sectionName: 'General Awareness',
+        totalQuestions: 40,
+        attempted: 38,
+        correct: 32,
+        wrong: 6,
+        marksScored: 30.5,
+        maxMarks: 40,
+        accuracy: 84.2,
+        timeSpentMin: 24,
+      },
+      {
+        sectionName: 'Math & Reasoning',
+        totalQuestions: 45,
+        attempted: 41,
+        correct: 34,
+        wrong: 7,
+        marksScored: 32.25,
+        maxMarks: 45,
+        accuracy: 82.9,
+        timeSpentMin: 33,
+      },
     ],
   },
   {
@@ -433,7 +564,17 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 14,
     skippedAnswers: 4,
     sectionAnalysis: [
-      { sectionName: 'Verbal Reasoning (Relations)', totalQuestions: 30, attempted: 26, correct: 12, wrong: 14, marksScored: 8.5, maxMarks: 30, accuracy: 46.1, timeSpentMin: 18 },
+      {
+        sectionName: 'Verbal Reasoning (Relations)',
+        totalQuestions: 30,
+        attempted: 26,
+        correct: 12,
+        wrong: 14,
+        marksScored: 8.5,
+        maxMarks: 30,
+        accuracy: 46.1,
+        timeSpentMin: 18,
+      },
     ],
   },
   {
@@ -460,8 +601,28 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 11,
     skippedAnswers: 3,
     sectionAnalysis: [
-      { sectionName: 'Geography of West Bengal & India', totalQuestions: 40, attempted: 39, correct: 35, wrong: 4, marksScored: 34, maxMarks: 40, accuracy: 89.7, timeSpentMin: 22 },
-      { sectionName: 'General Aptitude', totalQuestions: 45, attempted: 43, correct: 36, wrong: 7, marksScored: 34.25, maxMarks: 45, accuracy: 83.7, timeSpentMin: 28 },
+      {
+        sectionName: 'Geography of West Bengal & India',
+        totalQuestions: 40,
+        attempted: 39,
+        correct: 35,
+        wrong: 4,
+        marksScored: 34,
+        maxMarks: 40,
+        accuracy: 89.7,
+        timeSpentMin: 22,
+      },
+      {
+        sectionName: 'General Aptitude',
+        totalQuestions: 45,
+        attempted: 43,
+        correct: 36,
+        wrong: 7,
+        marksScored: 34.25,
+        maxMarks: 45,
+        accuracy: 83.7,
+        timeSpentMin: 28,
+      },
     ],
   },
   {
@@ -489,7 +650,17 @@ export const INITIAL_ATTEMPTS: AdminTestAttempt[] = [
     wrongAnswers: 10,
     skippedAnswers: 4,
     sectionAnalysis: [
-      { sectionName: 'Environmental Studies', totalQuestions: 30, attempted: 26, correct: 16, wrong: 10, marksScored: 13.5, maxMarks: 30, accuracy: 61.5, timeSpentMin: 24 },
+      {
+        sectionName: 'Environmental Studies',
+        totalQuestions: 30,
+        attempted: 26,
+        correct: 16,
+        wrong: 10,
+        marksScored: 13.5,
+        maxMarks: 30,
+        accuracy: 61.5,
+        timeSpentMin: 24,
+      },
     ],
   },
   // Additional pages records
@@ -579,28 +750,35 @@ export const AdminTestAttempts: React.FC = () => {
   // Load real test attempts from Supabase database
   useEffect(() => {
     let isMounted = true;
-    api.getAllAdminTestAttempts().then((remote) => {
-      if (!isMounted) return;
-      if (!remote || remote.length === 0) {
-        setAttempts([]);
-        return;
-      }
-      setAttempts(remote);
-      setSelectedAttemptId((prev) => {
-        if (!prev) return null;
-        return remote.some((a) => a.id === prev) ? prev : null;
+    api
+      .getAllAdminTestAttempts()
+      .then((remote) => {
+        if (!isMounted) return;
+        if (!remote || remote.length === 0) {
+          setAttempts([]);
+          return;
+        }
+        setAttempts(remote);
+        setSelectedAttemptId((prev) => {
+          if (!prev) return null;
+          return remote.some((a) => a.id === prev) ? prev : null;
+        });
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch real test attempts from database:', err);
       });
-    }).catch((err) => {
-      console.warn('Failed to fetch real test attempts from database:', err);
-    });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Selected attempt for right panel (Neutral initial state)
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'Overview' | 'Answers' | 'Analysis'>('Overview');
-  const [answersTabFilter, setAnswersTabFilter] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
+  const [answersTabFilter, setAnswersTabFilter] = useState<'all' | 'correct' | 'wrong' | 'skipped'>(
+    'all'
+  );
 
   // Filter toolbar state
   const [searchTerm, setSearchTerm] = useState('');
@@ -840,43 +1018,36 @@ export const AdminTestAttempts: React.FC = () => {
 
   // Delete attempt
   const handleDeleteAttempt = async (attemptId: string) => {
-    setAttempts((prev) => prev.filter((a) => a.id !== attemptId));
-    setSelectedRowIds((prev) => {
-      const next = new Set(prev);
-      next.delete(attemptId);
-      return next;
-    });
-    if (selectedAttemptId === attemptId) {
-      const remaining = attempts.filter((a) => a.id !== attemptId);
-      if (remaining.length > 0) setSelectedAttemptId(remaining[0].id);
-    }
-    setDeleteConfirmationId(null);
-    setOpenActionMenuId(null);
-
     try {
-      await api.deleteAdminTestAttempt(attemptId);
+      requireSuccess(await api.deleteAdminTestAttempt(attemptId));
+      setAttempts((prev) => prev.filter((a) => a.id !== attemptId));
+      setSelectedRowIds((prev) => new Set([...prev].filter((id) => id !== attemptId)));
+      if (selectedAttemptId === attemptId) setSelectedAttemptId(null);
+      setDeleteConfirmationId(null);
+      setOpenActionMenuId(null);
     } catch (err) {
-      console.warn('Failed to delete attempt from database:', err);
+      alert(err instanceof Error ? err.message : 'Delete failed');
     }
   };
 
   // Bulk Invalidate/Delete
   const handleBulkDelete = async () => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete ${selectedRowIds.size} selected test attempts?`
-      )
-    ) {
-      const idsToDelete = Array.from(selectedRowIds);
-      setAttempts((prev) => prev.filter((a) => !selectedRowIds.has(a.id)));
-      setSelectedRowIds(new Set());
-
-      try {
-        await api.bulkDeleteAdminTestAttempts(idsToDelete);
-      } catch (err) {
-        console.warn('Failed to bulk delete attempts from database:', err);
-      }
-    }
+    if (!window.confirm('Delete selected attempts? Attempts with saved answers are protected.'))
+      return;
+    const batch = await runConfirmedBatch(Array.from(selectedRowIds), (id) =>
+      api.deleteAdminTestAttempt(id)
+    );
+    const gone = new Set(batch.results.map((r) => r.input));
+    setAttempts((prev) => prev.filter((a) => !gone.has(a.id)));
+    setSelectedRowIds(new Set(batch.failures.map((f) => f.input)));
+    if (selectedAttemptId && gone.has(selectedAttemptId)) setSelectedAttemptId(null);
+    alert(
+      gone.size +
+        ' deleted; ' +
+        batch.failures.length +
+        ' protected/failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : '')
+    );
   };
 
   return (
@@ -886,11 +1057,10 @@ export const AdminTestAttempts: React.FC = () => {
       {/* ==================================================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-            Test Attempts
-          </h1>
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">Test Attempts</h1>
           <p className="text-xs font-normal text-[#64748B] mt-0.5">
-            View and analyze all student test attempts across mock tests, topic tests and official PYQs.
+            View and analyze all student test attempts across mock tests, topic tests and official
+            PYQs.
           </p>
         </div>
 
@@ -954,7 +1124,8 @@ export const AdminTestAttempts: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
-              {totalAttemptsCount > 0 ? Math.round((completedCount / totalAttemptsCount) * 100) : 0}% of total
+              {totalAttemptsCount > 0 ? Math.round((completedCount / totalAttemptsCount) * 100) : 0}
+              % of total
             </p>
           </div>
         </div>
@@ -975,7 +1146,10 @@ export const AdminTestAttempts: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
-              {totalAttemptsCount > 0 ? Math.round((notCompletedCount / totalAttemptsCount) * 100) : 0}% of total
+              {totalAttemptsCount > 0
+                ? Math.round((notCompletedCount / totalAttemptsCount) * 100)
+                : 0}
+              % of total
             </p>
           </div>
         </div>
@@ -988,7 +1162,9 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Average Score</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{averageScore}%</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {averageScore}%
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↑ 5%
               </span>
@@ -1005,7 +1181,9 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-[#64748B]">Average Time</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-[#0F172A] tracking-tight">{averageTimeMin} min</span>
+              <span className="text-xl font-black text-[#0F172A] tracking-tight">
+                {averageTimeMin} min
+              </span>
               <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                 ↓ 12%
               </span>
@@ -1216,7 +1394,10 @@ export const AdminTestAttempts: React.FC = () => {
                         )}
                       >
                         {/* Checkbox */}
-                        <td className="py-3 px-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="py-3 px-3.5 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -1226,9 +1407,7 @@ export const AdminTestAttempts: React.FC = () => {
                         </td>
 
                         {/* # */}
-                        <td className="py-3 px-2 font-semibold text-[#64748B]">
-                          {globalIdx}
-                        </td>
+                        <td className="py-3 px-2 font-semibold text-[#64748B]">{globalIdx}</td>
 
                         {/* Student Name & ID */}
                         <td className="py-3 px-3">
@@ -1246,7 +1425,8 @@ export const AdminTestAttempts: React.FC = () => {
                                   attempt.studentAvatarColor || 'bg-blue-600'
                                 )}
                               >
-                                {attempt.studentInitials || attempt.studentName.slice(0, 2).toUpperCase()}
+                                {attempt.studentInitials ||
+                                  attempt.studentName.slice(0, 2).toUpperCase()}
                               </div>
                             )}
                             <div className="min-w-0">
@@ -1335,7 +1515,10 @@ export const AdminTestAttempts: React.FC = () => {
                         </td>
 
                         {/* Actions menu */}
-                        <td className="py-3 px-3 text-center relative" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="py-3 px-3 text-center relative"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() =>
                               setOpenActionMenuId(
@@ -1404,7 +1587,11 @@ export const AdminTestAttempts: React.FC = () => {
           {/* Pagination Footer */}
           <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-[#64748B] font-medium">
-              Showing {filteredAttempts.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredAttempts.length)}`} of {filteredAttempts.length.toLocaleString('en-IN')} attempts
+              Showing{' '}
+              {filteredAttempts.length === 0
+                ? '0'
+                : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredAttempts.length)}`}{' '}
+              of {filteredAttempts.length.toLocaleString('en-IN')} attempts
             </span>
 
             {/* Pagination Controls */}
@@ -1704,9 +1891,7 @@ export const AdminTestAttempts: React.FC = () => {
 
                 {/* Attempt Information */}
                 <div>
-                  <h4 className="text-xs font-bold text-[#0F172A] mb-2.5">
-                    Attempt Information
-                  </h4>
+                  <h4 className="text-xs font-bold text-[#0F172A] mb-2.5">Attempt Information</h4>
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-[#64748B] text-[11px]">Student</span>
@@ -1797,7 +1982,9 @@ export const AdminTestAttempts: React.FC = () => {
                       onClick={() => setAnswersTabFilter('correct')}
                       className={cn(
                         'px-2 py-0.5 rounded',
-                        answersTabFilter === 'correct' ? 'bg-emerald-600 text-white' : 'text-emerald-700 bg-emerald-50'
+                        answersTabFilter === 'correct'
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-emerald-700 bg-emerald-50'
                       )}
                     >
                       ✓
@@ -1806,7 +1993,9 @@ export const AdminTestAttempts: React.FC = () => {
                       onClick={() => setAnswersTabFilter('wrong')}
                       className={cn(
                         'px-2 py-0.5 rounded',
-                        answersTabFilter === 'wrong' ? 'bg-rose-600 text-white' : 'text-rose-700 bg-rose-50'
+                        answersTabFilter === 'wrong'
+                          ? 'bg-rose-600 text-white'
+                          : 'text-rose-700 bg-rose-50'
                       )}
                     >
                       ✕
@@ -1815,7 +2004,9 @@ export const AdminTestAttempts: React.FC = () => {
                       onClick={() => setAnswersTabFilter('skipped')}
                       className={cn(
                         'px-2 py-0.5 rounded',
-                        answersTabFilter === 'skipped' ? 'bg-blue-600 text-white' : 'text-blue-700 bg-blue-50'
+                        answersTabFilter === 'skipped'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-blue-700 bg-blue-50'
                       )}
                     >
                       -
@@ -1825,7 +2016,9 @@ export const AdminTestAttempts: React.FC = () => {
 
                 <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1 text-xs">
                   {questionsList
-                    .filter((q) => (answersTabFilter === 'all' ? true : q.status === answersTabFilter))
+                    .filter((q) =>
+                      answersTabFilter === 'all' ? true : q.status === answersTabFilter
+                    )
                     .map((q) => (
                       <div
                         key={q.id}
@@ -1841,13 +2034,21 @@ export const AdminTestAttempts: React.FC = () => {
                               q.status === 'skipped' && 'bg-slate-200 text-slate-700'
                             )}
                           >
-                            {q.status === 'correct' ? '+1.00' : q.status === 'wrong' ? '-0.25' : '0.00'}
+                            {q.status === 'correct'
+                              ? '+1.00'
+                              : q.status === 'wrong'
+                                ? '-0.25'
+                                : '0.00'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-700 leading-snug">{q.questionText}</p>
                         <div className="flex items-center gap-2 text-[10px] font-mono">
-                          <span className="text-slate-500">Selected: {q.selectedOption || 'None'}</span>
-                          <span className="text-emerald-700 font-bold">Correct: {q.correctOption}</span>
+                          <span className="text-slate-500">
+                            Selected: {q.selectedOption || 'None'}
+                          </span>
+                          <span className="text-emerald-700 font-bold">
+                            Correct: {q.correctOption}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -1870,16 +2071,63 @@ export const AdminTestAttempts: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <h4 className="font-bold text-slate-900 text-xs">Section Performance</h4>
                 <div className="space-y-2.5">
-                  {(selectedAttempt.sectionAnalysis || [
-                    { sectionName: 'General Awareness', totalQuestions: 25, attempted: 24, correct: 20, wrong: 4, marksScored: 19, maxMarks: 25, accuracy: 83.3, timeSpentMin: 12 },
-                    { sectionName: 'Mathematics', totalQuestions: 25, attempted: 25, correct: 21, wrong: 4, marksScored: 20, maxMarks: 25, accuracy: 84.0, timeSpentMin: 18 },
-                    { sectionName: 'Reasoning', totalQuestions: 25, attempted: 24, correct: 21, wrong: 3, marksScored: 20.25, maxMarks: 25, accuracy: 87.5, timeSpentMin: 14 },
-                    { sectionName: 'English', totalQuestions: 10, attempted: 9, correct: 8, wrong: 1, marksScored: 7.75, maxMarks: 10, accuracy: 88.9, timeSpentMin: 4 },
-                  ]).map((sec) => (
-                    <div key={sec.sectionName} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
+                  {(
+                    selectedAttempt.sectionAnalysis || [
+                      {
+                        sectionName: 'General Awareness',
+                        totalQuestions: 25,
+                        attempted: 24,
+                        correct: 20,
+                        wrong: 4,
+                        marksScored: 19,
+                        maxMarks: 25,
+                        accuracy: 83.3,
+                        timeSpentMin: 12,
+                      },
+                      {
+                        sectionName: 'Mathematics',
+                        totalQuestions: 25,
+                        attempted: 25,
+                        correct: 21,
+                        wrong: 4,
+                        marksScored: 20,
+                        maxMarks: 25,
+                        accuracy: 84.0,
+                        timeSpentMin: 18,
+                      },
+                      {
+                        sectionName: 'Reasoning',
+                        totalQuestions: 25,
+                        attempted: 24,
+                        correct: 21,
+                        wrong: 3,
+                        marksScored: 20.25,
+                        maxMarks: 25,
+                        accuracy: 87.5,
+                        timeSpentMin: 14,
+                      },
+                      {
+                        sectionName: 'English',
+                        totalQuestions: 10,
+                        attempted: 9,
+                        correct: 8,
+                        wrong: 1,
+                        marksScored: 7.75,
+                        maxMarks: 10,
+                        accuracy: 88.9,
+                        timeSpentMin: 4,
+                      },
+                    ]
+                  ).map((sec) => (
+                    <div
+                      key={sec.sectionName}
+                      className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5"
+                    >
                       <div className="flex items-center justify-between font-bold text-slate-800 text-[11px]">
                         <span>{sec.sectionName}</span>
-                        <span>{sec.marksScored}/{sec.maxMarks}</span>
+                        <span>
+                          {sec.marksScored}/{sec.maxMarks}
+                        </span>
                       </div>
                       {/* Progress bar */}
                       <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
@@ -2003,7 +2251,8 @@ export const AdminTestAttempts: React.FC = () => {
             <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">
-                  Student Answer Sheet • {activeModalAttempt.studentName} ({activeModalAttempt.studentId})
+                  Student Answer Sheet • {activeModalAttempt.studentName} (
+                  {activeModalAttempt.studentId})
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {activeModalAttempt.testName} • Submitted on {activeModalAttempt.submittedAt}
@@ -2095,8 +2344,8 @@ export const AdminTestAttempts: React.FC = () => {
                       {q.status === 'correct'
                         ? '+1.00 Marks'
                         : q.status === 'wrong'
-                        ? '-0.25 Marks'
-                        : 'Skipped (0.00)'}
+                          ? '-0.25 Marks'
+                          : 'Skipped (0.00)'}
                     </span>
                   </div>
 
@@ -2114,8 +2363,8 @@ export const AdminTestAttempts: React.FC = () => {
                             isCorrect
                               ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
                               : isSelected
-                              ? 'bg-rose-50 border-rose-300 text-rose-800'
-                              : 'bg-white border-slate-200 text-slate-700'
+                                ? 'bg-rose-50 border-rose-300 text-rose-800'
+                                : 'bg-white border-slate-200 text-slate-700'
                           )}
                         >
                           <div className="flex items-center gap-2">
@@ -2217,8 +2466,8 @@ export const AdminTestAttempts: React.FC = () => {
               </div>
 
               <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-slate-700 text-xs">
-                <span className="font-bold text-blue-900 block mb-1">Standard Pattern:</span>
-                • Questions are prepared according to the latest official syllabus and marking scheme.
+                <span className="font-bold text-blue-900 block mb-1">Standard Pattern:</span>•
+                Questions are prepared according to the latest official syllabus and marking scheme.
                 • Bilingual options supported (Bengali & English).
               </div>
             </div>
@@ -2253,7 +2502,8 @@ export const AdminTestAttempts: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm p-5 space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Delete Attempt Record</h3>
             <p className="text-xs text-slate-600">
-              Are you sure you want to permanently delete this student's attempt record? This will remove their scores and rank calculations.
+              Are you sure you want to permanently delete this student's attempt record? This will
+              remove their scores and rank calculations.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button

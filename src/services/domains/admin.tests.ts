@@ -1,3 +1,4 @@
+import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { notifyExamsUpdated } from '@/lib/dataSync';
 import { catalogApi } from '@/services/domains/catalog';
@@ -132,10 +133,13 @@ export async function assignTestToSeries(
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('tests')
     .update({ test_series_id: testSeriesId })
-    .eq('id', testId);
+    .eq('id', testId)
+    .select('id')
+    .maybeSingle();
+  requireSavedRow({ data, error }, testId);
 
   if (error) {
     throw new Error(error.message);
@@ -403,23 +407,12 @@ export async function updateTest(id: string, updates: Partial<MockTest>): Promis
 
 export async function deleteTest(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
-    const idx = localTests.findIndex((t) => t.id === id);
-    if (idx !== -1) localTests.splice(idx, 1);
-    notifyExamsUpdated();
+    const i = localTests.findIndex((e) => e.id === id);
+    if (i < 0) throw new Error('Record not found.');
+    localTests.splice(i, 1);
     return true;
   }
-
-  // Clean test_questions junction
-  await supabase.from('test_questions').delete().eq('test_id', id);
-  // Clean test_exams junction
-  await supabase.from('test_exams').delete().eq('test_id', id);
-
-  const { error } = await supabase.from('tests').delete().eq('id', id);
-  if (error) {
-    throw new Error(error.message);
-  }
-  notifyExamsUpdated();
-  return true;
+  return deleteAdminRecord('tests', id);
 }
 
 export async function duplicateTest(id: string): Promise<MockTest | null> {
@@ -747,64 +740,22 @@ export async function validateTestForPublish(testId: string): Promise<PublishVal
 
 export async function publishTest(testId: string): Promise<{ success: boolean; error?: string }> {
   const validation = await validateTestForPublish(testId);
-  if (!validation.isValid) {
-    return {
-      success: false,
-      error: `Cannot publish test: ${validation.errors.join('; ')}`,
-    };
-  }
-
-  if (isSupabaseConfigured) {
-    try {
-      const { error: rpcError } = await supabase.rpc('publish_test', { p_test_id: testId });
-      if (!rpcError) return { success: true };
-    } catch {
-      // Fall back to direct update
-    }
-
-    const { error: updateError } = await supabase
-      .from('tests')
-      .update({ status: 'published', is_active: true, updated_at: new Date().toISOString() })
-      .eq('id', testId);
-
-    if (updateError) return { success: false, error: updateError.message };
+  if (!validation.isValid) return { success: false, error: validation.errors.join('; ') };
+  try {
+    await updateTest(testId, { status: 'published', isActive: true });
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Status save failed' };
   }
-
-  const idx = localTests.findIndex((t) => t.id === testId);
-  if (idx !== -1) {
-    localTests[idx].status = 'published';
-    localTests[idx].isActive = true;
-  }
-
-  return { success: true };
 }
 
 export async function archiveTest(testId: string): Promise<{ success: boolean; error?: string }> {
-  if (isSupabaseConfigured) {
-    try {
-      const { error: rpcError } = await supabase.rpc('archive_test', { p_test_id: testId });
-      if (!rpcError) return { success: true };
-    } catch {
-      // Fall back to direct update
-    }
-
-    const { error: updateError } = await supabase
-      .from('tests')
-      .update({ status: 'archived', is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', testId);
-
-    if (updateError) return { success: false, error: updateError.message };
+  try {
+    await updateTest(testId, { status: 'archived', isActive: false });
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Status save failed' };
   }
-
-  const idx = localTests.findIndex((t) => t.id === testId);
-  if (idx !== -1) {
-    localTests[idx].status = 'archived';
-    localTests[idx].isActive = false;
-  }
-
-  return { success: true };
 }
 
 export const adminTestsApi = {

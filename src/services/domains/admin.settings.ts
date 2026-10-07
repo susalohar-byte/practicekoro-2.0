@@ -173,84 +173,51 @@ export async function updateAppSettings(
     },
   };
 
-  const commitToLocalStore = () => {
-    updates.forEach((u) => {
-      const parsedVal = parseSettingValue(u.value);
-      const meta = SETTINGS_META[u.id] || {
-        category: 'general',
-        key: u.id,
-        description: 'Platform configuration setting',
-      };
-      const idx = localAppSettings.findIndex((l) => l.id === u.id || l.key === u.id);
-      if (idx >= 0) {
-        localAppSettings[idx] = {
-          ...localAppSettings[idx],
-          value: parsedVal,
-          updatedAt: new Date().toISOString(),
-        };
-      } else {
-        localAppSettings.push({
-          id: u.id,
-          category: meta.category,
-          key: meta.key,
-          value: parsedVal,
-          description: meta.description,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    });
-  };
-
   if (isSupabaseConfigured) {
     try {
       const rows = updates.map((u) => {
         const meta = SETTINGS_META[u.id] || {
           category: 'general',
           key: u.id,
-          description: 'Platform configuration setting',
+          description: 'Platform configuration',
         };
-        return {
-          id: u.id,
-          category: meta.category,
-          key: meta.key,
-          value: u.value,
-          description: meta.description,
-          updated_at: new Date().toISOString(),
-        };
+        return { id: u.id, ...meta, value: u.value };
       });
-
-      // 1. Try atomic security-definer RPC first (bypasses table grants & RLS permission limits)
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_app_settings', {
-          p_settings: rows,
-        });
-
-        if (!rpcError && (rpcData?.success || rpcData?.updated_count !== undefined)) {
-          commitToLocalStore();
-          return { success: true };
-        }
-      } catch (rpcEx) {
-        console.warn('admin_update_app_settings RPC fallback trigger:', rpcEx);
-      }
-
-      // 2. Direct upsert fallback
-      const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'id' });
-
-      if (error) {
-        console.error('Supabase app_settings upsert error:', error.message);
-        return { success: false, error: error.message };
-      }
-
-      commitToLocalStore();
-      return { success: true };
-    } catch (err) {
-      const msg = getErrorMessage(err, 'Failed to update app settings');
-      console.error('Exception during app_settings upsert:', msg);
-      return { success: false, error: msg };
+      const { data, error } = await supabase.rpc('admin_update_app_settings', { p_settings: rows });
+      if (error) throw new Error(error.message);
+      if (data?.success !== true || data?.updated_count !== rows.length)
+        throw new Error('Not all settings were confirmed.');
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error, 'Settings save failed') };
     }
   }
+  // Always update or insert (upsert) into in-memory localAppSettings
+  updates.forEach((u) => {
+    const parsedVal = parseSettingValue(u.value);
+    const meta = SETTINGS_META[u.id] || {
+      category: 'general',
+      key: u.id,
+      description: 'Platform configuration setting',
+    };
+    const idx = localAppSettings.findIndex((l) => l.id === u.id || l.key === u.id);
+    if (idx >= 0) {
+      localAppSettings[idx] = {
+        ...localAppSettings[idx],
+        value: parsedVal,
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      localAppSettings.push({
+        id: u.id,
+        category: meta.category,
+        key: meta.key,
+        value: parsedVal,
+        description: meta.description,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  });
 
-  commitToLocalStore();
   return { success: true };
 }
 

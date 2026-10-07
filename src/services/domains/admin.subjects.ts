@@ -1,3 +1,4 @@
+import { deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localChapters, localSubjects } from '@/services/domains/localStore';
 import type { Subject } from '@/types';
@@ -41,6 +42,7 @@ export async function getAllAdminSubjects(examId?: string): Promise<Subject[]> {
       id: item.id,
       examId: item.exam_id ?? undefined,
       name: item.name,
+      category: (item as any).category ?? undefined,
       slug: item.slug,
       description: item.description ?? undefined,
       iconName: item.icon_name,
@@ -75,6 +77,7 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
     id: row.id,
     examId: row.exam_id ?? undefined,
     name: row.name,
+    category: (row as any).category ?? undefined,
     slug: row.slug,
     description: row.description ?? undefined,
     iconName: row.icon_name,
@@ -114,6 +117,7 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
       name: subjectData.name,
       slug,
       description: subjectData.description || null,
+      category: subjectData.category || null,
       icon_name: subjectData.iconName || 'BookOpen',
       order_index: subjectData.orderIndex || 0,
       is_active: subjectData.isActive ?? true,
@@ -129,6 +133,7 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
     id: data.id,
     examId: data.exam_id ?? undefined,
     name: data.name,
+    category: (data as any).category ?? undefined,
     slug: data.slug,
     description: data.description ?? undefined,
     iconName: data.icon_name,
@@ -163,6 +168,7 @@ export async function updateSubject(id: string, updates: Partial<Subject>): Prom
   if (updates.iconName !== undefined) payload.icon_name = updates.iconName;
   if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+  if (updates.category !== undefined) payload.category = updates.category;
   if (updates.examId !== undefined) payload.exam_id = updates.examId || null;
 
   const { data, error } = await supabase
@@ -180,6 +186,7 @@ export async function updateSubject(id: string, updates: Partial<Subject>): Prom
     id: data.id,
     examId: data.exam_id ?? undefined,
     name: data.name,
+    category: (data as any).category ?? undefined,
     slug: data.slug,
     description: data.description ?? undefined,
     iconName: data.icon_name,
@@ -190,22 +197,23 @@ export async function updateSubject(id: string, updates: Partial<Subject>): Prom
 
 export async function deleteSubject(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
-    const idx = localSubjects.findIndex((s) => s.id === id);
-    if (idx !== -1) localSubjects.splice(idx, 1);
+    const i = localSubjects.findIndex((e) => e.id === id);
+    if (i < 0) throw new Error('Record not found.');
+    localSubjects.splice(i, 1);
     return true;
   }
-
-  const { error } = await supabase.from('subjects').delete().eq('id', id);
-  if (error) {
-    throw new Error(error.message);
-  }
-  return true;
+  return deleteAdminRecord('subjects', id);
 }
 
 export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'): Promise<string> {
   if (isSupabaseConfigured) {
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+    {
+      const extension =
+        file.name
+          .split('.')
+          .pop()
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]/g, '') || 'png';
       const safeId = subjectId.replace(/[^a-zA-Z0-9_-]/g, '-');
       const path = `subject-icons/${safeId}/icon-${Date.now()}.${extension}`;
       const { data, error } = await supabase.storage.from('banners').upload(path, file, {
@@ -215,9 +223,8 @@ export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'
       if (!error && data) {
         return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
       }
-    } catch {
-      // Fallback to data URL
     }
+    throw new Error('Image upload failed. Please check Storage permissions.');
   }
 
   return new Promise((resolve, reject) => {

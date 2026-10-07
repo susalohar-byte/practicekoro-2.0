@@ -4,6 +4,9 @@ import type { Question } from '@/types';
 export function mapQuestionRow(q: any): Question {
   return {
     id: q.id,
+    tags: Array.isArray(q.tags) ? q.tags : [],
+    section: q.section || undefined,
+    subtopic: q.subtopic || undefined,
     chapterId: q.chapter_id ?? q.topic_id ?? undefined,
     topicId: q.topic_id ?? q.chapter_id ?? undefined,
     subjectId: q.subject_id ?? undefined,
@@ -18,7 +21,7 @@ export function mapQuestionRow(q: any): Question {
     explanation: q.explanation ?? undefined,
     explanationBengali: q.explanation_bengali ?? undefined,
     difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
-    defaultMarks: Number(q.default_marks || 1),
+    defaultMarks: Number(q.default_marks ?? 1),
     // Questions never carry negative marks — scoring uses the test-level scheme.
     defaultNegativeMarks: Number(q.default_negative_marks || 0),
     questionType: q.question_type || 'mcq',

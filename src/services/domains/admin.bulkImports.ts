@@ -178,8 +178,9 @@ export async function bulkCreateQuestionsFromTxt(params: {
     try {
       const created = await createQuestion({
         questionText: q.questionText,
-        questionBengaliText:
-          /[\u0980-\u09FF]/.test(q.questionText) ? q.questionText : q.questionText,
+        questionBengaliText: /[\u0980-\u09FF]/.test(q.questionText)
+          ? q.questionText
+          : q.questionText,
         imageUrl: q.imageUrl,
         optionA: q.optionA,
         optionB: q.optionB,
@@ -341,19 +342,13 @@ export async function getExamTopicMappings(examId: string): Promise<string[]> {
 
 export async function saveExamTopicMappings(examId: string, topicIds: string[]): Promise<boolean> {
   if (!isSupabaseConfigured) return true;
-
-  await supabase.from('exam_topics').delete().eq('exam_id', examId);
-  if (topicIds.length > 0) {
-    const rows = topicIds.map((tid, idx) => ({
-      exam_id: examId,
-      topic_id: tid,
-      order_index: idx + 1,
-    }));
-    const { error } = await supabase.from('exam_topics').insert(rows);
-    if (error) {
-      throw new Error(error.message);
-    }
-  }
+  const { data, error } = await supabase.rpc('admin_save_exam_topics', {
+    p_exam_id: examId,
+    p_topic_ids: topicIds,
+  });
+  if (error) throw new Error(error.message);
+  if (data?.success !== true || data.saved_count !== topicIds.length)
+    throw new Error('Topic mapping save was not confirmed.');
   return true;
 }
 

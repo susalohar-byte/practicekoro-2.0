@@ -117,6 +117,8 @@ export interface UserProfile {
 }
 
 export interface Exam {
+  shortName?: string;
+  subtitle?: string;
   id: string;
   title: string;
   slug: string;
@@ -191,6 +193,7 @@ export interface ExamCategory {
 }
 
 export interface Subject {
+  category?: string;
   id: string;
   examId?: string;
   name: string;
@@ -894,6 +897,8 @@ export interface AdminStudentDetails extends AdminStudentRow {
 }
 
 export interface NotificationItem {
+  actionLink?: string;
+  type?: string;
   id: string;
   title: string;
   message: string;
@@ -1341,6 +1346,7 @@ export interface ExamCutoffConfig {
 }
 
 export interface CutoffRecord {
+  totalPosts?: string;
   id: string;
   examId: string;
   examTitle: string;

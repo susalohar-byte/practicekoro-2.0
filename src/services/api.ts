@@ -1,3 +1,4 @@
+import { withMutationConfirmation } from '@/services/domains/admin.mutations';
 // PracticeKoro API layer (barrel).
 // The original 2,873-line api.ts was split into domain modules; every method body was
 // extracted verbatim. The `api` object below keeps the exact same public surface, so
@@ -13,7 +14,7 @@ import { accountManagementApi } from '@/services/domains/accountManagement';
 import { adminRecordsApi } from '@/services/domains/admin.records';
 import { cutoffApi } from '@/services/domains/cutoff';
 
-export const api = {
+export const api = withMutationConfirmation({
   ...catalogApi,
   ...subscriptionApi,
   ...adminCommerceApi,
@@ -24,7 +25,7 @@ export const api = {
   ...cutoffApi,
   ...accountManagementApi,
   ...adminRecordsApi,
-};
+});
 
 export type {
   Exam,

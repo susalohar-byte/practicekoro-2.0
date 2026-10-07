@@ -136,45 +136,21 @@ export async function saveTestQuestions(
     }));
 
     // First attempt atomic RPC
-    const { error: rpcError } = await supabase.rpc('save_test_questions', {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('save_test_questions', {
       p_test_id: testId,
       p_questions: payload,
     });
 
-    if (!rpcError) {
+    if (
+      !rpcError &&
+      rpcData?.success === true &&
+      rpcData.test_id === testId &&
+      rpcData.total_questions === questions.length
+    )
       return { success: true };
-    }
+    if (!rpcError) throw new Error('Question assignment was not confirmed.');
 
-    // If RPC fails (e.g. signature or RLS mismatch), perform direct atomic queries
-    await supabase.from('test_questions').delete().eq('test_id', testId);
-
-    if (questions.length > 0) {
-      const rows = questions.map((q, idx) => ({
-        test_id: testId,
-        question_id: q.questionId,
-        question_order: q.orderIndex || idx + 1,
-        marks: q.marks ?? 1.0,
-        // Questions never carry negative marks — scoring uses the test-level scheme.
-        negative_marks: q.negativeMarks ?? 0,
-      }));
-
-      const { error: insertError } = await supabase.from('test_questions').insert(rows);
-      if (insertError) {
-        return { success: false, error: insertError.message };
-      }
-    }
-
-    const totalMarks = questions.reduce((sum, q) => sum + (q.marks ?? 1.0), 0);
-    await supabase
-      .from('tests')
-      .update({
-        total_questions: questions.length,
-        total_marks: totalMarks,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', testId);
-
-    return { success: true };
+    throw new Error(rpcError.message || 'Atomic question assignment failed.');
   } catch (err) {
     return { success: false, error: getErrorMessage(err, 'Failed to save test questions') };
   }

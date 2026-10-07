@@ -5,6 +5,10 @@ import { AdminStudents } from './AdminStudents';
 vi.mock('@/services/api', () => ({
   api: {
     getAllAdminStudents: vi.fn(),
+    getStudentNotes: vi.fn().mockResolvedValue([]),
+    getAdminStudentDetails: vi
+      .fn()
+      .mockResolvedValue({ recentAttempts: [], paymentHistory: [], subscriptionHistory: [] }),
     createStudentAccount: vi.fn(),
     updateStudentProfile: vi.fn(),
     deleteStudentProfile: vi.fn(),

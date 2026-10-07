@@ -36,14 +36,7 @@ import {
 } from 'lucide-react';
 
 type SettingsTab =
-  | 'general'
-  | 'branding'
-  | 'seo'
-  | 'email'
-  | 'payments'
-  | 'integrations'
-  | 'security'
-  | 'system';
+  'general' | 'branding' | 'seo' | 'email' | 'payments' | 'integrations' | 'security' | 'system';
 
 interface TabConfig {
   id: SettingsTab;
@@ -243,7 +236,8 @@ export const AdminSettings: React.FC = () => {
             setMaintenanceMode(val === true || val === 'true');
           }
           if (s.id === 'primary_color' || s.key === 'primary_color') setPrimaryColor(String(val));
-          if (s.id === 'secondary_color' || s.key === 'secondary_color') setSecondaryColor(String(val));
+          if (s.id === 'secondary_color' || s.key === 'secondary_color')
+            setSecondaryColor(String(val));
           if (s.id === 'accent_color' || s.key === 'accent_color') setAccentColor(String(val));
         });
       }
@@ -299,7 +293,7 @@ export const AdminSettings: React.FC = () => {
         });
       }
 
-      showToast('Settings saved successfully! All updates are live.');
+      showToast('Settings saved successfully! Configuration saved in the database.');
     } catch (err: unknown) {
       console.error(err);
       showToast(err instanceof Error ? err.message : 'Failed to save settings. Please try again.');
@@ -341,7 +335,9 @@ export const AdminSettings: React.FC = () => {
   // --------------------------------------------------------------------------
   const handleSendTestEmail = () => {
     setIsSendingTestEmail(true);
-    showToast('Live test email sending requires a configured server-side mail provider (e.g. Resend / SendGrid Edge Function).');
+    showToast(
+      'Live test email sending requires a configured server-side mail provider (e.g. Resend / SendGrid Edge Function).'
+    );
     setTimeout(() => {
       setIsSendingTestEmail(false);
     }, 1500);
@@ -374,9 +370,9 @@ export const AdminSettings: React.FC = () => {
     try {
       setIsSaving(true);
       const durableUrl = await uploadQuestionImage(file);
-      setPlatformLogo(durableUrl);
       const res = await api.updateAppSettings([{ id: 'general_platform_logo', value: durableUrl }]);
       if (res.success) {
+        setPlatformLogo(durableUrl);
         showToast('Platform logo uploaded to durable storage and saved successfully!');
       } else {
         showToast(res.error || 'Failed to save uploaded logo to database.');
@@ -395,9 +391,9 @@ export const AdminSettings: React.FC = () => {
     try {
       setIsSaving(true);
       const durableUrl = await uploadQuestionImage(file);
-      setFavicon(durableUrl);
       const res = await api.updateAppSettings([{ id: 'general_favicon', value: durableUrl }]);
       if (res.success) {
+        setFavicon(durableUrl);
         showToast('Favicon uploaded to durable storage and saved successfully!');
       } else {
         showToast(res.error || 'Failed to save uploaded favicon to database.');
@@ -444,7 +440,8 @@ export const AdminSettings: React.FC = () => {
           Settings
         </h1>
         <p className="text-xs sm:text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-          Configure platform settings, manage integrations, and customize your PracticeKoro experience.
+          Configure platform settings, manage integrations, and customize your PracticeKoro
+          experience.
         </p>
       </div>
 
@@ -608,7 +605,9 @@ export const AdminSettings: React.FC = () => {
                           <option value="Asia/Kolkata (GMT +5:30)">Asia/Kolkata (GMT +5:30)</option>
                           <option value="UTC (GMT +0:00)">UTC (GMT +0:00)</option>
                           <option value="Asia/Dubai (GMT +4:00)">Asia/Dubai (GMT +4:00)</option>
-                          <option value="America/New_York (GMT -5:00)">America/New_York (GMT -5:00)</option>
+                          <option value="America/New_York (GMT -5:00)">
+                            America/New_York (GMT -5:00)
+                          </option>
                         </select>
                         <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
                       </div>
@@ -693,11 +692,7 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
                         {favicon ? (
-                          <img
-                            src={favicon}
-                            alt="Favicon"
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={favicon} alt="Favicon" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-6 h-6 rounded border border-white/80 flex items-center justify-center">
                             <span className="font-black text-[9px]">P</span>
@@ -1353,18 +1348,9 @@ export const AdminSettings: React.FC = () => {
                           xmlns="http://www.w3.org/2000/svg"
                         >
                           {/* Plant in background */}
-                          <path
-                            d="M85 70 C85 45 92 35 92 35 C92 35 78 48 83 70 Z"
-                            fill="#10B981"
-                          />
-                          <path
-                            d="M80 72 C80 55 70 42 70 42 C70 42 76 60 82 72 Z"
-                            fill="#34D399"
-                          />
-                          <path
-                            d="M88 72 C88 60 96 52 96 52 C96 52 89 65 86 72 Z"
-                            fill="#059669"
-                          />
+                          <path d="M85 70 C85 45 92 35 92 35 C92 35 78 48 83 70 Z" fill="#10B981" />
+                          <path d="M80 72 C80 55 70 42 70 42 C70 42 76 60 82 72 Z" fill="#34D399" />
+                          <path d="M88 72 C88 60 96 52 96 52 C96 52 89 65 86 72 Z" fill="#059669" />
                           {/* Table surface */}
                           <rect x="10" y="70" width="80" height="3" rx="1.5" fill="#E2E8F0" />
                           {/* Books on table */}
@@ -1380,10 +1366,7 @@ export const AdminSettings: React.FC = () => {
                           {/* Head */}
                           <circle cx="51" cy="38" r="8" fill="#FCD34D" />
                           {/* Hair */}
-                          <path
-                            d="M44 36 C44 30 58 28 59 34 C55 33 48 34 44 36 Z"
-                            fill="#1E293B"
-                          />
+                          <path d="M44 36 C44 30 58 28 59 34 C55 33 48 34 44 36 Z" fill="#1E293B" />
                           {/* Arms holding book */}
                           <path
                             d="M40 56 L48 64 L54 64 L62 56"
@@ -1700,7 +1683,9 @@ export const AdminSettings: React.FC = () => {
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Upload Vector SVG Logo
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">High resolution for retina displays</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  High resolution for retina displays
+                </p>
               </div>
             </div>
           </div>
@@ -1803,9 +1788,17 @@ export const AdminSettings: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { title: 'Welcome Email', desc: 'Sent when a new student signs up', active: true },
-              { title: 'Exam Result Summary', desc: 'Sent after completing mock tests', active: true },
+              {
+                title: 'Exam Result Summary',
+                desc: 'Sent after completing mock tests',
+                active: true,
+              },
               { title: 'Subscription Receipt', desc: 'Sent upon successful payment', active: true },
-              { title: 'Plan Expiry Reminder', desc: 'Sent 7 days before subscription ends', active: true },
+              {
+                title: 'Plan Expiry Reminder',
+                desc: 'Sent 7 days before subscription ends',
+                active: true,
+              },
             ].map((tmpl, idx) => (
               <div
                 key={idx}
@@ -2126,7 +2119,9 @@ export const AdminSettings: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-              This action clears your local administrator browser cache and temporary session data only. It does not delete or modify database records or affect student data on the server.
+              This action clears your local administrator browser cache and temporary session data
+              only. It does not delete or modify database records or affect student data on the
+              server.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -2152,4 +2147,3 @@ export const AdminSettings: React.FC = () => {
     </div>
   );
 };
-

@@ -1,3 +1,4 @@
+import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '@/services/api';
 import type { BlogPost, BlogPostStatus } from '@/types';
@@ -38,37 +39,79 @@ const toast = {
   info: (msg: string) => globalToastHandler?.(msg, 'info'),
 };
 
-
 const PRESET_THUMBNAILS = [
-  { name: 'WBP Exam', url: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Constitution', url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Study Desk', url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80' },
-  { name: 'History Monument', url: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Science Lab', url: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Railway Engine', url: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Mathematics', url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80' },
-  { name: 'Current Affairs', url: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80' },
+  {
+    name: 'WBP Exam',
+    url: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Constitution',
+    url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Study Desk',
+    url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'History Monument',
+    url: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Science Lab',
+    url: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Railway Engine',
+    url: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Mathematics',
+    url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Current Affairs',
+    url: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80',
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'WBP Constable': { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200' },
-  'General Knowledge': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  'General Knowledge': {
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    border: 'border-emerald-200',
+  },
   'Study Tips': { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
   'Indian Polity': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
   'General Science': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-  'Railway': { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
-  'Mathematics': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  'History': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
+  Railway: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+  Mathematics: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  History: { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
   'Current Affairs': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
   'Exam Strategy': { bg: 'bg-orange-50', text: 'text-orange-800', border: 'border-orange-200' },
 };
 
-function formatPublishedDate(dateStr: string | null | undefined): { date: string; time: string } | null {
+function formatPublishedDate(
+  dateStr: string | null | undefined
+): { date: string; time: string } | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const day = d.getDate();
   const month = months[d.getMonth()];
   const year = d.getFullYear();
@@ -90,7 +133,9 @@ export const AdminBlog: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'scheduled' | 'archived'>('all');
+  const [activeTab, setActiveTab] = useState<
+    'all' | 'published' | 'draft' | 'scheduled' | 'archived'
+  >('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -108,7 +153,9 @@ export const AdminBlog: React.FC = () => {
 
   // Drawer (Neutral initial state - closed by default)
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-  const [drawerTab, setDrawerTab] = useState<'overview' | 'content' | 'seo' | 'analytics'>('overview');
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'content' | 'seo' | 'analytics'>(
+    'overview'
+  );
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -121,7 +168,10 @@ export const AdminBlog: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // Toast Notification State
-  const [toastNotification, setToastNotification] = useState<{ message: string; type: ToastType } | null>(null);
+  const [toastNotification, setToastNotification] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
 
   useEffect(() => {
     globalToastHandler = (message: string, type: ToastType) => {
@@ -132,7 +182,6 @@ export const AdminBlog: React.FC = () => {
       globalToastHandler = null;
     };
   }, []);
-
 
   // Load Posts from Service
   const loadPosts = useCallback(async () => {
@@ -210,67 +259,85 @@ export const AdminBlog: React.FC = () => {
 
   // Filtering Logic
   const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
-      // Tab filter
-      if (activeTab === 'published' && post.status !== 'published') return false;
-      if (activeTab === 'draft' && post.status !== 'draft') return false;
-      if (activeTab === 'scheduled' && post.status !== 'scheduled') return false;
-      if (activeTab === 'archived' && post.status !== 'archived') return false;
+    return posts
+      .filter((post) => {
+        // Tab filter
+        if (activeTab === 'published' && post.status !== 'published') return false;
+        if (activeTab === 'draft' && post.status !== 'draft') return false;
+        if (activeTab === 'scheduled' && post.status !== 'scheduled') return false;
+        if (activeTab === 'archived' && post.status !== 'archived') return false;
 
-      // Status dropdown filter
-      if (statusFilter !== 'all' && post.status !== statusFilter) return false;
+        // Status dropdown filter
+        if (statusFilter !== 'all' && post.status !== statusFilter) return false;
 
-      // Category filter
-      if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
+        // Category filter
+        if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
 
-      // Author filter
-      if (authorFilter !== 'all' && post.author !== authorFilter) return false;
+        // Author filter
+        if (authorFilter !== 'all' && post.author !== authorFilter) return false;
 
-      // Time filter
-      if (timeFilter !== 'all') {
-        const postDate = new Date(post.createdAt || post.publishedAt || Date.now());
-        const now = new Date();
-        if (timeFilter === 'today') {
-          if (postDate.toDateString() !== now.toDateString()) return false;
-        } else if (timeFilter === 'this_week') {
-          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (postDate < sevenDaysAgo) return false;
-        } else if (timeFilter === 'this_month') {
-          if (postDate.getMonth() !== now.getMonth() || postDate.getFullYear() !== now.getFullYear()) return false;
-        } else if (timeFilter === 'this_year') {
-          if (postDate.getFullYear() !== now.getFullYear()) return false;
+        // Time filter
+        if (timeFilter !== 'all') {
+          const postDate = new Date(post.createdAt || post.publishedAt || Date.now());
+          const now = new Date();
+          if (timeFilter === 'today') {
+            if (postDate.toDateString() !== now.toDateString()) return false;
+          } else if (timeFilter === 'this_week') {
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            if (postDate < sevenDaysAgo) return false;
+          } else if (timeFilter === 'this_month') {
+            if (
+              postDate.getMonth() !== now.getMonth() ||
+              postDate.getFullYear() !== now.getFullYear()
+            )
+              return false;
+          } else if (timeFilter === 'this_year') {
+            if (postDate.getFullYear() !== now.getFullYear()) return false;
+          }
         }
-      }
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchTitle = post.title.toLowerCase().includes(q);
-        const matchCategory = post.category.toLowerCase().includes(q);
-        const matchAuthor = post.author.toLowerCase().includes(q);
-        const matchSlug = post.slug.toLowerCase().includes(q);
-        const matchExcerpt = post.excerpt.toLowerCase().includes(q);
-        if (!matchTitle && !matchCategory && !matchAuthor && !matchSlug && !matchExcerpt) {
-          return false;
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchTitle = post.title.toLowerCase().includes(q);
+          const matchCategory = post.category.toLowerCase().includes(q);
+          const matchAuthor = post.author.toLowerCase().includes(q);
+          const matchSlug = post.slug.toLowerCase().includes(q);
+          const matchExcerpt = post.excerpt.toLowerCase().includes(q);
+          if (!matchTitle && !matchCategory && !matchAuthor && !matchSlug && !matchExcerpt) {
+            return false;
+          }
         }
-      }
 
-      return true;
-    }).sort((a, b) => {
-      if (sortField === 'views') {
-        return sortOrder === 'desc' ? b.views - a.views : a.views - b.views;
-      }
-      if (sortField === 'title') {
-        return sortOrder === 'desc' ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
-      }
-      if (sortField === 'date') {
-        const timeA = new Date(a.publishedAt || a.createdAt).getTime();
-        const timeB = new Date(b.publishedAt || b.createdAt).getTime();
-        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-      }
-      return 0;
-    });
-  }, [posts, activeTab, statusFilter, categoryFilter, authorFilter, timeFilter, searchQuery, sortField, sortOrder]);
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortField === 'views') {
+          return sortOrder === 'desc' ? b.views - a.views : a.views - b.views;
+        }
+        if (sortField === 'title') {
+          return sortOrder === 'desc'
+            ? b.title.localeCompare(a.title)
+            : a.title.localeCompare(b.title);
+        }
+        if (sortField === 'date') {
+          const timeA = new Date(a.publishedAt || a.createdAt).getTime();
+          const timeB = new Date(b.publishedAt || b.createdAt).getTime();
+          return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        }
+        return 0;
+      });
+  }, [
+    posts,
+    activeTab,
+    statusFilter,
+    categoryFilter,
+    authorFilter,
+    timeFilter,
+    searchQuery,
+    sortField,
+    sortOrder,
+  ]);
 
   // Paginated Posts
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / pageSize));
@@ -330,8 +397,8 @@ export const AdminBlog: React.FC = () => {
       await api.deleteBlogPost(deleteCandidate.id);
       setPosts((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
       if (selectedPostId === deleteCandidate.id) {
-        const remaining = posts.filter((p) => p.id !== deleteCandidate.id);
-        setSelectedPostId(remaining.length > 0 ? remaining[0].id : null);
+        setSelectedPostId(null);
+        setIsDrawerOpen(false);
       }
       toast.success('Blog post deleted successfully');
       setDeleteCandidate(null);
@@ -379,33 +446,35 @@ export const AdminBlog: React.FC = () => {
 
   // Bulk Status Update
   const handleBulkStatusChange = async (status: BlogPostStatus) => {
-    if (selectedIds.size === 0) return;
-    try {
-      const ids = Array.from(selectedIds);
-      await api.bulkUpdateBlogPostsStatus(ids, status);
-      setPosts((prev) =>
-        prev.map((p) => (selectedIds.has(p.id) ? { ...p, status } : p))
+    const batch = await runConfirmedBatch(Array.from(selectedIds), (id) =>
+      api.updateBlogPost(id, { status })
+    );
+    const saved = new Map(batch.results.map((r) => [r.input, r.value]));
+    setPosts((prev) => prev.map((p) => saved.get(p.id) || p));
+    setSelectedIds(new Set(batch.failures.map((f) => f.input)));
+    if (batch.failures.length)
+      toast.error(
+        batch.results.length +
+          ' saved; ' +
+          batch.failures.length +
+          ' failed: ' +
+          batch.failures[0].error
       );
-      toast.success(`Updated ${ids.length} posts to ${status}`);
-      setSelectedIds(new Set());
-    } catch {
-      toast.error('Failed to update posts');
-    }
+    else toast.success('Post statuses saved.');
   };
 
   // Bulk Delete
   const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} selected posts?`)) return;
-    try {
-      const ids = Array.from(selectedIds);
-      await api.bulkDeleteBlogPosts(ids);
-      setPosts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
-      toast.success(`Deleted ${ids.length} posts`);
-      setSelectedIds(new Set());
-    } catch {
-      toast.error('Failed to delete selected posts');
-    }
+    if (!selectedIds.size || !window.confirm('Delete selected posts?')) return;
+    const batch = await runConfirmedBatch(Array.from(selectedIds), (id) => api.deleteBlogPost(id));
+    const gone = new Set(batch.results.map((r) => r.input));
+    setPosts((prev) => prev.filter((p) => !gone.has(p.id)));
+    setSelectedIds(new Set(batch.failures.map((f) => f.input)));
+    if (batch.failures.length)
+      toast.error(
+        gone.size + ' deleted; ' + batch.failures.length + ' failed: ' + batch.failures[0].error
+      );
+    else toast.success(gone.size + ' deleted.');
   };
 
   return (
@@ -748,7 +817,10 @@ export const AdminBlog: React.FC = () => {
                     <th className="py-3 px-3 w-8 text-center">
                       <input
                         type="checkbox"
-                        checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(p.id))}
+                        checked={
+                          paginatedPosts.length > 0 &&
+                          paginatedPosts.every((p) => selectedIds.has(p.id))
+                        }
                         onChange={handleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                       />
@@ -796,7 +868,9 @@ export const AdminBlog: React.FC = () => {
                         <div className="flex flex-col items-center justify-center gap-2">
                           <BookOpen className="w-8 h-8 text-slate-300" />
                           <p className="text-sm font-medium text-slate-600">No blog posts found</p>
-                          <p className="text-xs text-slate-400">Try adjusting your search or filters</p>
+                          <p className="text-xs text-slate-400">
+                            Try adjusting your search or filters
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -842,7 +916,10 @@ export const AdminBlog: React.FC = () => {
                           </td>
 
                           {/* Featured Toggle */}
-                          <td className="py-3.5 px-3 text-center" onClick={(e) => handleToggleFeatured(post, e)}>
+                          <td
+                            className="py-3.5 px-3 text-center"
+                            onClick={(e) => handleToggleFeatured(post, e)}
+                          >
                             <div
                               className={cn(
                                 'w-9 h-5 rounded-full transition-colors relative inline-block p-0.5 cursor-pointer',
@@ -908,7 +985,9 @@ export const AdminBlog: React.FC = () => {
                                     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80';
                                 }}
                               />
-                              <span className="text-xs font-medium text-slate-700">{post.author}</span>
+                              <span className="text-xs font-medium text-slate-700">
+                                {post.author}
+                              </span>
                             </div>
                           </td>
 
@@ -945,7 +1024,9 @@ export const AdminBlog: React.FC = () => {
                           <td className="py-3.5 px-3 whitespace-nowrap">
                             {pubDate ? (
                               <div>
-                                <div className="text-xs font-medium text-slate-800">{pubDate.date}</div>
+                                <div className="text-xs font-medium text-slate-800">
+                                  {pubDate.date}
+                                </div>
                                 <div className="text-[11px] text-slate-400">{pubDate.time}</div>
                               </div>
                             ) : (
@@ -1036,7 +1117,8 @@ export const AdminBlog: React.FC = () => {
                   {filteredPosts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
                   {Math.min(currentPage * pageSize, filteredPosts.length)}
                 </span>{' '}
-                of <span className="font-semibold text-slate-700">{filteredPosts.length}</span> posts
+                of <span className="font-semibold text-slate-700">{filteredPosts.length}</span>{' '}
+                posts
               </div>
 
               <div className="flex items-center gap-1">
@@ -1140,7 +1222,9 @@ export const AdminBlog: React.FC = () => {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2">{selectedPost.title}</h3>
+                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
+                      {selectedPost.title}
+                    </h3>
                     <div className="mt-1.5">
                       {selectedPost.status === 'published' && (
                         <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
@@ -1297,7 +1381,9 @@ export const AdminBlog: React.FC = () => {
                     <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1.5 text-indigo-600">
                         <Clock className="w-3.5 h-3.5" />
-                        <span className="text-xs font-bold text-slate-900">{selectedPost.readTime}</span>
+                        <span className="text-xs font-bold text-slate-900">
+                          {selectedPost.readTime}
+                        </span>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-0.5">Avg. Read Time</p>
                     </div>
@@ -1322,19 +1408,27 @@ export const AdminBlog: React.FC = () => {
                     <div className="text-xs space-y-1.5 text-slate-600 divide-y divide-slate-100">
                       <div className="flex items-start justify-between pt-1">
                         <span className="text-slate-400 w-24 shrink-0">Title</span>
-                        <span className="font-medium text-slate-800 text-right">{selectedPost.title}</span>
+                        <span className="font-medium text-slate-800 text-right">
+                          {selectedPost.title}
+                        </span>
                       </div>
                       <div className="flex items-start justify-between pt-1">
                         <span className="text-slate-400 w-24 shrink-0">Slug</span>
-                        <span className="font-mono text-[11px] text-slate-700 text-right">{selectedPost.slug}</span>
+                        <span className="font-mono text-[11px] text-slate-700 text-right">
+                          {selectedPost.slug}
+                        </span>
                       </div>
                       <div className="flex items-start justify-between pt-1">
                         <span className="text-slate-400 w-24 shrink-0">Category</span>
-                        <span className="font-medium text-slate-800 text-right">{selectedPost.category}</span>
+                        <span className="font-medium text-slate-800 text-right">
+                          {selectedPost.category}
+                        </span>
                       </div>
                       <div className="flex items-start justify-between pt-1">
                         <span className="text-slate-400 w-24 shrink-0">Author</span>
-                        <span className="font-medium text-slate-800 text-right">{selectedPost.author}</span>
+                        <span className="font-medium text-slate-800 text-right">
+                          {selectedPost.author}
+                        </span>
                       </div>
                       <div className="flex items-start justify-between pt-1">
                         <span className="text-slate-400 w-24 shrink-0">Status</span>
@@ -1414,12 +1508,17 @@ export const AdminBlog: React.FC = () => {
                   </div>
                   <div
                     className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-700 leading-relaxed prose prose-sm max-h-80 overflow-y-auto"
-                    dangerouslySetInnerHTML={{ __html: selectedPost.content || '<p>No content written yet.</p>' }}
+                    dangerouslySetInnerHTML={{
+                      __html: selectedPost.content || '<p>No content written yet.</p>',
+                    }}
                   />
                   <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100 text-xs text-blue-800 space-y-1">
                     <p className="font-semibold">Article Reading Analytics</p>
                     <p>Estimated reading time: {selectedPost.readTime}</p>
-                    <p>Word count: ~{selectedPost.content ? selectedPost.content.split(/\s+/).length : 0} words</p>
+                    <p>
+                      Word count: ~
+                      {selectedPost.content ? selectedPost.content.split(/\s+/).length : 0} words
+                    </p>
                   </div>
                 </div>
               )}
@@ -1428,7 +1527,9 @@ export const AdminBlog: React.FC = () => {
               {drawerTab === 'seo' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-700">Search Engine Snippet</span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      Search Engine Snippet
+                    </span>
                     <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
                       <div className="text-[11px] text-slate-500 font-mono">
                         practicekoro.com &gt; blog &gt; {selectedPost.slug}
@@ -1445,16 +1546,21 @@ export const AdminBlog: React.FC = () => {
                   <div className="space-y-2 text-xs">
                     <div>
                       <span className="text-slate-400 font-medium">Meta Title:</span>
-                      <p className="font-medium text-slate-800">{selectedPost.seoTitle || selectedPost.title}</p>
+                      <p className="font-medium text-slate-800">
+                        {selectedPost.seoTitle || selectedPost.title}
+                      </p>
                     </div>
                     <div>
                       <span className="text-slate-400 font-medium">Meta Description:</span>
-                      <p className="text-slate-700">{selectedPost.seoDescription || selectedPost.excerpt}</p>
+                      <p className="text-slate-700">
+                        {selectedPost.seoDescription || selectedPost.excerpt}
+                      </p>
                     </div>
                     <div>
                       <span className="text-slate-400 font-medium">Keywords:</span>
                       <p className="font-mono text-[11px] text-slate-600">
-                        {selectedPost.seoKeywords || 'exam preparation, practicekoro, bengali education'}
+                        {selectedPost.seoKeywords ||
+                          'exam preparation, practicekoro, bengali education'}
                       </p>
                     </div>
                   </div>
@@ -1467,7 +1573,9 @@ export const AdminBlog: React.FC = () => {
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-slate-600">Total Pageviews</span>
-                      <span className="font-bold text-slate-900">{selectedPost.views.toLocaleString('en-IN')}</span>
+                      <span className="font-bold text-slate-900">
+                        {selectedPost.views.toLocaleString('en-IN')}
+                      </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-1.5">
                       <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: '85%' }} />
@@ -1567,8 +1675,8 @@ export const AdminBlog: React.FC = () => {
             </div>
             <p className="text-sm text-slate-600">
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-slate-900">"{deleteCandidate.title}"</span>? This action cannot be
-              undone.
+              <span className="font-semibold text-slate-900">"{deleteCandidate.title}"</span>? This
+              action cannot be undone.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -1648,7 +1756,8 @@ export const AdminBlog: React.FC = () => {
         <div
           className={cn(
             'fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold animate-in fade-in slide-in-from-bottom-2',
-            toastNotification.type === 'success' && 'bg-emerald-50 text-emerald-800 border-emerald-200',
+            toastNotification.type === 'success' &&
+              'bg-emerald-50 text-emerald-800 border-emerald-200',
             toastNotification.type === 'error' && 'bg-rose-50 text-rose-800 border-rose-200',
             toastNotification.type === 'info' && 'bg-blue-50 text-blue-800 border-blue-200'
           )}
@@ -1676,7 +1785,11 @@ interface CreateEditPostModalProps {
   onSave: (post: BlogPost) => Promise<void>;
 }
 
-const CreateEditPostModal: React.FC<CreateEditPostModalProps> = ({ initialData, onClose, onSave }) => {
+const CreateEditPostModal: React.FC<CreateEditPostModalProps> = ({
+  initialData,
+  onClose,
+  onSave,
+}) => {
   const [title, setTitle] = useState(initialData?.title || '');
   const [slug, setSlug] = useState(initialData?.slug || '');
   const [category, setCategory] = useState(initialData?.category || 'WBP Constable');
@@ -1753,7 +1866,10 @@ const CreateEditPostModal: React.FC<CreateEditPostModalProps> = ({ initialData, 
           <h2 className="text-lg font-bold text-slate-900">
             {initialData ? 'Edit Blog Post' : 'Create Blog Post'}
           </h2>
-          <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1852,10 +1968,16 @@ const CreateEditPostModal: React.FC<CreateEditPostModalProps> = ({ initialData, 
 
           {/* Thumbnail Picker */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Thumbnail Image</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Thumbnail Image
+            </label>
             <div className="flex items-center gap-3">
               <div className="w-16 h-12 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 shrink-0">
-                <img src={thumbnail} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                <img
+                  src={thumbnail}
+                  alt="Thumbnail preview"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <input
                 type="text"
@@ -1919,7 +2041,9 @@ const CreateEditPostModal: React.FC<CreateEditPostModalProps> = ({ initialData, 
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">SEO Description</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                SEO Description
+              </label>
               <input
                 type="text"
                 value={seoDescription}
@@ -1976,7 +2100,8 @@ const ImportPostsModal: React.FC<ImportPostsModalProps> = ({ onClose, onImport }
         status: 'published',
         isFeatured: true,
         excerpt: 'বিগত ৫ বছরের পরীক্ষায় আসা সেরা ৫০টি প্রশ্ন ও বিস্তারিত ব্যাখ্যা।',
-        content: '<p>বিগত বছরের প্রশ্ন পর্যালোচনা করে দেখা গেছে এই টপিকগুলো থেকে সর্বাধিক প্রশ্ন আসে...</p>',
+        content:
+          '<p>বিগত বছরের প্রশ্ন পর্যালোচনা করে দেখা গেছে এই টপিকগুলো থেকে সর্বাধিক প্রশ্ন আসে...</p>',
       },
     ],
     null,
@@ -2008,7 +2133,10 @@ const ImportPostsModal: React.FC<ImportPostsModalProps> = ({ onClose, onImport }
             <Download className="w-5 h-5 text-blue-600" />
             <h2 className="text-base font-bold text-slate-900">Import Blog Posts</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

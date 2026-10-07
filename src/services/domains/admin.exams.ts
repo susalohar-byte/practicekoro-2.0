@@ -1,3 +1,4 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localExams, localTests } from '@/services/domains/localStore';
 import { notifyExamsUpdated } from '@/lib/dataSync';
@@ -142,6 +143,8 @@ export async function getAllAdminExams(): Promise<Exam[]> {
       category: item.category,
       iconName: item.icon_name,
       bannerUrl: item.banner_url ?? undefined,
+      shortName: (item as any).short_name ?? undefined,
+      subtitle: (item as any).subtitle ?? undefined,
       orderIndex: item.order_index,
       isActive: item.is_active,
       fullMockCount: fullMock,
@@ -173,12 +176,15 @@ export async function getExamById(id: string): Promise<Exam | null> {
     category: row.category,
     iconName: row.icon_name,
     bannerUrl: row.banner_url ?? undefined,
+    shortName: (row as any).short_name ?? undefined,
+    subtitle: (row as any).subtitle ?? undefined,
     orderIndex: row.order_index,
     isActive: row.is_active,
   };
 }
 
 export async function createExam(examData: Omit<Exam, 'id'>): Promise<Exam> {
+  if (!examData.title.trim()) throw new Error('Exam title is required.');
   const slug =
     examData.slug ||
     examData.title
@@ -205,7 +211,9 @@ export async function createExam(examData: Omit<Exam, 'id'>): Promise<Exam> {
     .from('exams')
     .insert({
       id,
-      title: examData.title,
+      title: examData.title.trim(),
+      short_name: examData.shortName || null,
+      subtitle: examData.subtitle || null,
       slug,
       description: examData.description || null,
       category: examData.category,
@@ -217,10 +225,7 @@ export async function createExam(examData: Omit<Exam, 'id'>): Promise<Exam> {
     .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  requireSavedRow({ data, error });
   notifyExamsUpdated();
   return {
     id: data.id,
@@ -230,6 +235,8 @@ export async function createExam(examData: Omit<Exam, 'id'>): Promise<Exam> {
     category: data.category,
     iconName: data.icon_name,
     bannerUrl: data.banner_url ?? undefined,
+    shortName: data.short_name ?? undefined,
+    subtitle: data.subtitle ?? undefined,
     orderIndex: data.order_index,
     isActive: data.is_active,
     fullMockCount: 0,
@@ -240,123 +247,46 @@ export async function createExam(examData: Omit<Exam, 'id'>): Promise<Exam> {
 }
 
 export async function updateExam(id: string, updates: Partial<Exam>): Promise<Exam> {
+  if (updates.title !== undefined && !updates.title.trim())
+    throw new Error('Exam title is required.');
   if (!isSupabaseConfigured) {
-    const existingIndex = localExams.findIndex((e) => e.id === id);
-    if (existingIndex !== -1) {
-      localExams[existingIndex] = { ...localExams[existingIndex], ...updates };
-    }
+    const index = localExams.findIndex((e) => e.id === id);
+    if (index < 0) throw new Error('Exam not found.');
+    localExams[index] = { ...localExams[index], ...updates };
     notifyExamsUpdated();
-    return (
-      localExams[existingIndex] || {
-        id,
-        title: updates.title || '',
-        slug: '',
-        category: '',
-        iconName: '',
-        orderIndex: 0,
-        isActive: true,
-      }
-    );
+    return localExams[index];
   }
-
-  const updatePayload: Record<string, unknown> = {};
-  if (updates.title !== undefined) updatePayload.title = updates.title;
-  if (updates.slug !== undefined) updatePayload.slug = updates.slug;
-  if (updates.description !== undefined) updatePayload.description = updates.description;
-  if (updates.category !== undefined) updatePayload.category = updates.category;
-  if (updates.iconName !== undefined) updatePayload.icon_name = updates.iconName;
-  if (updates.bannerUrl !== undefined) updatePayload.banner_url = updates.bannerUrl;
-  if (updates.orderIndex !== undefined) updatePayload.order_index = updates.orderIndex;
-  if (updates.isActive !== undefined) updatePayload.is_active = updates.isActive;
-
-  let { data, error } = await supabase
-    .from('exams')
-    .update(updatePayload)
-    .eq('id', id)
-    .select()
-    .maybeSingle();
-
-  if (error || !data) {
-    const insertPayload = {
-      id,
-      title: updates.title || 'Exam',
-      slug: updates.slug || id,
-      description: updates.description || null,
-      category: updates.category || 'State Govt',
-      icon_name: updates.iconName || 'Shield',
-      banner_url: updates.bannerUrl || null,
-      order_index: updates.orderIndex || 0,
-      is_active: updates.isActive ?? true,
-    };
-    const res = await supabase.from('exams').upsert(insertPayload).select().maybeSingle();
-    if (res.data) {
-      data = res.data;
-      error = null;
-    }
-  }
-
-  // Also sync in localExams for reliable fallback
-  const localIndex = localExams.findIndex((e) => e.id === id);
-  if (localIndex !== -1) {
-    localExams[localIndex] = { ...localExams[localIndex], ...updates };
-  } else if (updates.title) {
-    localExams.push({
-      id,
-      title: updates.title,
-      slug: updates.slug || id,
-      category: updates.category || 'State Govt',
-      iconName: updates.iconName || 'Shield',
-      orderIndex: updates.orderIndex || 0,
-      isActive: updates.isActive ?? true,
-      fullMockCount: 0,
-      pyqCount: 0,
-      topicTestCount: 0,
-    });
-  }
-
-  notifyExamsUpdated();
-
-  if (data) {
-    return {
-      id: data.id,
-      title: data.title,
-      slug: data.slug,
-      description: data.description ?? undefined,
-      category: data.category,
-      iconName: data.icon_name,
-      bannerUrl: data.banner_url ?? undefined,
-      orderIndex: data.order_index,
-      isActive: data.is_active,
-    };
-  }
-
-  return {
-    id,
-    title: updates.title || '',
-    slug: updates.slug || id,
-    category: updates.category || '',
-    iconName: updates.iconName || '',
-    orderIndex: updates.orderIndex || 0,
-    isActive: updates.isActive ?? true,
+  const payload: Record<string, unknown> = {};
+  const fields: Record<string, string> = {
+    title: 'title',
+    slug: 'slug',
+    description: 'description',
+    category: 'category',
+    iconName: 'icon_name',
+    bannerUrl: 'banner_url',
+    orderIndex: 'order_index',
+    isActive: 'is_active',
+    shortName: 'short_name',
+    subtitle: 'subtitle',
   };
+  for (const [key, column] of Object.entries(fields))
+    if ((updates as any)[key] !== undefined) payload[column] = (updates as any)[key];
+  requireSavedRow(
+    await supabase.from('exams').update(payload).eq('id', id).select('id').maybeSingle(),
+    id
+  );
+  notifyExamsUpdated();
+  const saved = await getExamById(id);
+  if (!saved) throw new Error('Saved exam could not be reloaded.');
+  return saved;
 }
 
 export async function deleteExam(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
-    const idx = localExams.findIndex((e) => e.id === id);
-    if (idx !== -1) localExams.splice(idx, 1);
-    notifyExamsUpdated();
-    return true;
-  }
-
-  // Clean up dependent associations
-  await supabase.from('test_exams').delete().eq('exam_id', id);
-  await supabase.from('exam_topics').delete().eq('exam_id', id);
-
-  const { error } = await supabase.from('exams').delete().eq('id', id);
-  if (error) {
-    throw new Error(error.message);
-  }
+    const i = localExams.findIndex((e) => e.id === id);
+    if (i < 0) throw new Error('Exam not found.');
+    localExams.splice(i, 1);
+  } else await deleteAdminRecord('exams', id);
   notifyExamsUpdated();
   return true;
 }
@@ -434,7 +364,11 @@ export async function getPopularExams(): Promise<PopularExamCard[]> {
       // Browser storage is an optional cache.
     }
     // Check if legacy uncustomized seed exists (primary-tet demo cards)
-    const isLegacyDemo = parsed.length === 5 && parsed.some((c: any) => c.id === 'popular-primary-tet' && c.cardBgImage?.includes('popular_exams/bg_'));
+    const isLegacyDemo =
+      parsed.length === 5 &&
+      parsed.some(
+        (c: any) => c.id === 'popular-primary-tet' && c.cardBgImage?.includes('popular_exams/bg_')
+      );
     const cardsToUse = isLegacyDemo ? DEFAULT_POPULAR_EXAMS : (parsed as PopularExamCard[]);
     return await attachPopularExamCounts(cardsToUse);
   } catch (err) {
@@ -452,7 +386,11 @@ async function attachPopularExamCounts(cards: PopularExamCard[]): Promise<Popula
     { data: mappings, error: mappingsError },
     { data: testSeries, error: seriesError },
   ] = await Promise.all([
-    supabase.from('tests').select('id, exam_id, test_series_id').eq('is_active', true).eq('status', 'published'),
+    supabase
+      .from('tests')
+      .select('id, exam_id, test_series_id')
+      .eq('is_active', true)
+      .eq('status', 'published'),
     supabase.from('test_exams').select('test_id, exam_id'),
     supabase.from('test_series').select('id, exam_id'),
   ]);
@@ -466,14 +404,16 @@ async function attachPopularExamCounts(cards: PopularExamCard[]): Promise<Popula
   });
 
   const examByTest = new Map<string, Set<string>>();
-  (tests || []).forEach((test: { id: string; exam_id: string | null; test_series_id?: string | null }) => {
-    const ids = examByTest.get(test.id) || new Set<string>();
-    if (test.exam_id) ids.add(test.exam_id);
-    if (test.test_series_id && seriesExamMap.has(test.test_series_id)) {
-      ids.add(seriesExamMap.get(test.test_series_id)!);
+  (tests || []).forEach(
+    (test: { id: string; exam_id: string | null; test_series_id?: string | null }) => {
+      const ids = examByTest.get(test.id) || new Set<string>();
+      if (test.exam_id) ids.add(test.exam_id);
+      if (test.test_series_id && seriesExamMap.has(test.test_series_id)) {
+        ids.add(seriesExamMap.get(test.test_series_id)!);
+      }
+      examByTest.set(test.id, ids);
     }
-    examByTest.set(test.id, ids);
-  });
+  );
   (mappings || []).forEach((mapping: { test_id: string; exam_id: string }) => {
     const ids = examByTest.get(mapping.test_id);
     if (ids) ids.add(mapping.exam_id);
@@ -482,7 +422,7 @@ async function attachPopularExamCounts(cards: PopularExamCard[]): Promise<Popula
     .map((card) => {
       if (!card.examId) return card;
       const count = [...examByTest.values()].filter((ids) => ids.has(card.examId!)).length;
-      const label = count > 0 ? `${count}+ Tests` : (card.testsCount || '0 Tests');
+      const label = count > 0 ? `${count}+ Tests` : card.testsCount || '0 Tests';
       return { ...card, testsCount: label, cardBadge: label };
     })
     .sort((a, b) => a.orderIndex - b.orderIndex);
@@ -512,10 +452,20 @@ export async function getPublishedExamTestCount(examId: string): Promise<number>
   return [...examByTest.values()].filter((ids) => ids.has(examId)).length;
 }
 
-export async function uploadPopularExamImage(file: File, cardId: string, kind: 'logo' | 'background') {
-  if (!isSupabaseConfigured) throw new Error('Connect to the Admin Panel database before uploading images.');
+export async function uploadPopularExamImage(
+  file: File,
+  cardId: string,
+  kind: 'logo' | 'background'
+) {
+  if (!isSupabaseConfigured)
+    throw new Error('Connect to the Admin Panel database before uploading images.');
   if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
-  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const extension =
+    file.name
+      .split('.')
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, '') || 'png';
   const safeId = cardId.replace(/[^a-zA-Z0-9_-]/g, '-');
   const path = `popular-exams/${safeId}/${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
   const { data, error } = await supabase.storage.from('banners').upload(path, file, {
@@ -536,7 +486,9 @@ export function subscribeToPopularExamUpdates(callback: () => void): () => void 
       callback
     )
     .subscribe();
-  return () => { void supabase.removeChannel(channel); };
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export async function savePopularExams(cards: PopularExamCard[]): Promise<PopularExamCard[]> {
@@ -575,7 +527,9 @@ export async function savePopularExams(cards: PopularExamCard[]): Promise<Popula
     }
 
     if (!saved) {
-      const { error } = await supabase.from('app_settings').upsert(settingRow, { onConflict: 'id' });
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert(settingRow, { onConflict: 'id' });
       if (error) {
         throw new Error(`Could not save Popular Exam settings: ${error.message}`);
       }

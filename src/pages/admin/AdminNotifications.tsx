@@ -1,3 +1,4 @@
+import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Send,
@@ -36,7 +37,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
-import { useAuth } from '@/context/AuthContext';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
@@ -772,8 +772,10 @@ const INITIAL_NOTIFICATIONS_42: NotificationRecord[] = [
 // Web Audio API notification chime generator
 const playNotificationChime = () => {
   try {
-    const ctx = new (window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const ctx = new (
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    )();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -868,7 +870,6 @@ const getStatusBadge = (status: NotificationStatus) => {
 };
 
 export const AdminNotifications: React.FC = () => {
-  const { user: currentAdmin } = useAuth();
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Master notification records initialized with 42 items matching screenshot numbers
@@ -910,7 +911,7 @@ export const AdminNotifications: React.FC = () => {
             num: idx + 1,
             title: r.title,
             message: r.message,
-            type: (r.channel === 'both' ? 'Update' : 'General') as NotificationCategory,
+            type: (r.type || 'General') as NotificationCategory,
             audience:
               r.targetAudience === 'all'
                 ? 'All Students'
@@ -918,15 +919,17 @@ export const AdminNotifications: React.FC = () => {
                   ? 'Pro Members'
                   : r.targetAudience || 'All Students',
             audienceCount: 'All',
-            status:
-              r.status === 'sent' ? 'Sent' : r.status === 'scheduled' ? 'Scheduled' : 'Draft',
-            sentAtDate: dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            status: r.status === 'sent' ? 'Sent' : r.status === 'scheduled' ? 'Scheduled' : 'Draft',
+            sentAtDate: dateObj.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            }),
             sentAtTime: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            stats:
-              r.status === 'sent'
-                ? { delivered: 100, opened: 80, clicked: 25 }
-                : undefined,
-            sendPush: true,
+            stats: undefined,
+            actionLink: r.actionLink,
+            scheduledAt: r.scheduledAt,
+            sendPush: false,
             sendEmail: r.channel === 'both',
           };
         });
@@ -946,7 +949,7 @@ export const AdminNotifications: React.FC = () => {
         }
       }
     } catch (err) {
-      console.warn('Backend sync note:', err);
+      showToast(err instanceof Error ? err.message : 'Notifications could not be loaded.');
     } finally {
       setIsLoading(false);
     }
@@ -1011,7 +1014,7 @@ export const AdminNotifications: React.FC = () => {
   const [formSendPush, setFormSendPush] = useState(true);
   const [formSendEmail, setFormSendEmail] = useState(false);
   const [formAudience, setFormAudience] = useState('All Students');
-  const [formAudienceCount, setFormAudienceCount] = useState('12,480');
+  const [, setFormAudienceCount] = useState('12,480');
   const [formScheduledDate, setFormScheduledDate] = useState('2026-09-20T10:00');
   const [formIsSubmitting, setFormIsSubmitting] = useState(false);
 
@@ -1074,14 +1077,7 @@ export const AdminNotifications: React.FC = () => {
 
       return true;
     });
-  }, [
-    notificationsList,
-    activeTab,
-    searchQuery,
-    dateRangePreset,
-    customStartDate,
-    customEndDate,
-  ]);
+  }, [notificationsList, activeTab, searchQuery, dateRangePreset, customStartDate, customEndDate]);
 
   // Tab counts dynamically computed
   const tabCounts = useMemo(() => {
@@ -1104,7 +1100,7 @@ export const AdminNotifications: React.FC = () => {
         totalSentFormatted: sentCount.toLocaleString('en-IN'),
         deliveredFormatted: sentCount > 0 ? (sentCount * 0.96).toFixed(0) : '0',
         openedFormatted: sentCount > 0 ? (sentCount * 0.79).toFixed(0) : '0',
-        clickedFormatted: sentCount > 0 ? (sentCount * 0.20).toFixed(0) : '0',
+        clickedFormatted: sentCount > 0 ? (sentCount * 0.2).toFixed(0) : '0',
         failedFormatted: '0',
         sentNoticesCount: sentCount,
       };
@@ -1130,9 +1126,7 @@ export const AdminNotifications: React.FC = () => {
 
   const handleToggleRow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   // Select a notification to preview in the mobile screen
@@ -1175,240 +1169,131 @@ export const AdminNotifications: React.FC = () => {
 
   // Submit new notification or update existing
   const handleSaveNotification = async (isDraft: boolean) => {
-    if (!formTitle.trim()) {
-      showToast('Please enter a notification title.');
-      titleInputRef.current?.focus();
+    if (formIsSubmitting) return;
+    if (!formTitle.trim() || !formMessage.trim()) {
+      showToast('Title and message are required.');
       return;
     }
-    if (!formMessage.trim()) {
-      showToast('Please enter a notification message.');
-      return;
-    }
-
-    setFormIsSubmitting(true);
-    const now = new Date();
-    const formattedDate = `${now.getDate()} Sep 2026`;
-    const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Mode determination
-    const finalStatus: NotificationStatus = isDraft
-      ? 'Draft'
-      : formTab === 'Schedule'
-        ? 'Scheduled'
-        : 'Sent';
-
-    if (editingId) {
-      // UPDATE EXISTING
-      setNotificationsList((prev) =>
-        prev.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                title: formTitle.trim(),
-                message: formMessage.trim(),
-                type: formType,
-                audience: formAudience,
-                audienceCount: formAudienceCount,
-                status: finalStatus,
-                sentAtDate:
-                  finalStatus === 'Sent' ? item.sentAtDate || formattedDate : undefined,
-                sentAtTime:
-                  finalStatus === 'Sent' ? item.sentAtTime || formattedTime : undefined,
-                scheduledAt: finalStatus === 'Scheduled' ? formScheduledDate : undefined,
-                actionLink: formActionLink.trim(),
-                sendPush: formSendPush,
-                sendEmail: formSendEmail,
-              }
-            : item
-        )
+    if (formSendEmail) {
+      showToast(
+        'Email delivery is not configured. Turn off Email; this saves in-app notifications only.'
       );
-
-      const updatedRecord: NotificationRecord = {
-        id: editingId,
-        num: 1,
+      return;
+    }
+    setFormIsSubmitting(true);
+    try {
+      const status = isDraft ? 'draft' : formTab === 'Schedule' ? 'scheduled' : 'sent';
+      const input = {
         title: formTitle.trim(),
         message: formMessage.trim(),
-        type: formType,
-        audience: formAudience,
-        audienceCount: formAudienceCount,
-        status: finalStatus,
+        targetAudience:
+          formAudience === 'All Students'
+            ? 'all'
+            : formAudience === 'Pro Members'
+              ? 'pro'
+              : formAudience === 'Free Members'
+                ? 'free'
+                : formAudience,
+        channel: 'in_app' as const,
+        status: status as 'draft' | 'scheduled' | 'sent',
+        scheduledAt: status === 'scheduled' ? new Date(formScheduledDate).toISOString() : undefined,
         actionLink: formActionLink.trim(),
-        sendPush: formSendPush,
-        sendEmail: formSendEmail,
+        type: formType,
       };
-      setActivePreviewItem(updatedRecord);
+      if (editingId) await api.updateNotification(editingId, input);
+      else {
+        const result = requireSuccess(await api.createNotification(input));
+        if (!result.notification?.id) throw new Error('Saved notification ID is missing.');
+      }
       setEditingId(null);
       setFormTitle('');
       setFormMessage('');
       setFormActionLink('');
+      await loadBackendNotifications();
+      showToast('In-app notification saved. No external email/push was sent.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Save failed');
+    } finally {
       setFormIsSubmitting(false);
-
-      if (!isDraft && finalStatus === 'Sent') playNotificationChime();
-      showToast('Notification updated successfully.');
-      return;
     }
-
-    // CREATE BRAND NEW
-    const newRecord: NotificationRecord = {
-      id: `notif-${Date.now()}`,
-      num: 1, // appears at top
-      title: formTitle.trim(),
-      message: formMessage.trim(),
-      type: formType,
-      audience: formAudience,
-      audienceCount: formAudienceCount,
-      status: finalStatus,
-      sentAtDate: finalStatus === 'Sent' ? formattedDate : undefined,
-      sentAtTime: finalStatus === 'Sent' ? formattedTime : undefined,
-      scheduledAt: finalStatus === 'Scheduled' ? formScheduledDate : undefined,
-      stats:
-        finalStatus === 'Sent' ? { delivered: 100, opened: 0, clicked: 0 } : undefined,
-      actionLink: formActionLink.trim(),
-      sendPush: formSendPush,
-      sendEmail: formSendEmail,
-    };
-
-    try {
-      await api.createNotification({
-        title: newRecord.title,
-        message: newRecord.message,
-        targetAudience: newRecord.audience,
-        channel: formSendPush && formSendEmail ? 'both' : formSendPush ? 'push' : 'in_app',
-        status: isDraft ? 'draft' : formTab === 'Schedule' ? 'scheduled' : 'sent',
-        sentAt: finalStatus === 'Sent' ? now.toISOString() : undefined,
-        scheduledAt: finalStatus === 'Scheduled' ? formScheduledDate : undefined,
-      });
-
-      if (currentAdmin) {
-        await api.logAdminActivity({
-          action: isDraft ? 'NOTIFICATION_DRAFT_CREATE' : 'NOTIFICATION_BROADCAST_SENT',
-          entityType: 'notification',
-          entityId: newRecord.id,
-          entityName: newRecord.title,
-          details: {
-            title: newRecord.title,
-            audience: newRecord.audience,
-            channel: formSendPush && formSendEmail ? 'both' : 'push',
-          },
-          adminUser: currentAdmin,
-        });
-      }
-    } catch {
-      // local store operates smoothly
-    }
-
-    if (!isDraft && finalStatus === 'Sent') {
-      playNotificationChime();
-    }
-
-    // Add to list and re-index
-    setNotificationsList((prev) => [
-      newRecord,
-      ...prev.map((item, idx) => ({ ...item, num: idx + 2 })),
-    ]);
-
-    setActivePreviewItem(newRecord);
-    setFormTitle('');
-    setFormMessage('');
-    setFormActionLink('');
-    setFormIsSubmitting(false);
-
-    showToast(
-      isDraft
-        ? 'Saved notification as Draft.'
-        : finalStatus === 'Scheduled'
-          ? `Notification scheduled for ${formScheduledDate.replace('T', ' at ')}!`
-          : `Notification broadcast sent to ${formAudience}!`
-    );
   };
 
   // Delete notification
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this notification?')) return;
     try {
-      await api.deleteNotification(id);
-    } catch {
-      // ignore
+      requireSuccess(await api.deleteNotification(id));
+      setNotificationsList((prev) => prev.filter((n) => n.id !== id));
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      setActivePreviewItem((prev) => (prev?.id === id ? null : prev));
+      showToast('Notification deleted.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Delete failed');
     }
-    setNotificationsList((prev) => prev.filter((n) => n.id !== id));
-    showToast('Notification deleted.');
   };
 
   // Bulk Delete
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    try {
-      await Promise.all(selectedIds.map((id) => api.deleteNotification(id).catch(() => {})));
-    } catch {
-      // ignore
-    }
-    setNotificationsList((prev) => prev.filter((n) => !selectedIds.includes(n.id)));
-    setSelectedIds([]);
-    showToast(`Deleted ${selectedIds.length} notifications.`);
+    if (!selectedIds.length || !window.confirm('Delete selected notifications?')) return;
+    const batch = await runConfirmedBatch(selectedIds, (id) => api.deleteNotification(id));
+    const gone = new Set(batch.results.map((r) => r.input));
+    setNotificationsList((prev) => prev.filter((n) => !gone.has(n.id)));
+    setSelectedIds(batch.failures.map((f) => f.input));
+    setActivePreviewItem((prev) => (prev && gone.has(prev.id) ? null : prev));
+    showToast(
+      gone.size +
+        ' deleted; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : '')
+    );
   };
 
   // Bulk Send Selected Drafts/Scheduled
   const handleBulkSend = async () => {
-    if (selectedIds.length === 0) return;
-    const now = new Date();
-    playNotificationChime();
-    setNotificationsList((prev) =>
-      prev.map((n) =>
-        selectedIds.includes(n.id)
-          ? {
-              ...n,
-              status: 'Sent',
-              sentAtDate: `${now.getDate()} Sep 2026`,
-              sentAtTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              stats: { delivered: 98, opened: 65, clicked: 22 },
-            }
-          : n
-      )
+    const batch = await runConfirmedBatch(selectedIds, (id) => api.sendNotificationNow(id));
+    setSelectedIds(batch.failures.map((f) => f.input));
+    await loadBackendNotifications();
+    showToast(
+      batch.results.length +
+        ' in-app notifications published; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : '')
     );
-    setSelectedIds([]);
-    showToast('Selected notifications dispatched immediately!');
   };
 
   // Send Now for scheduled / draft item
   const handleSendNow = async (id: string) => {
     try {
-      await api.sendNotificationNow(id);
-    } catch {
-      // ignore
+      requireSuccess(await api.sendNotificationNow(id));
+      await loadBackendNotifications();
+      showToast('In-app notification published.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Publish failed');
     }
-    playNotificationChime();
-    const now = new Date();
-    setNotificationsList((prev) =>
-      prev.map((n) =>
-        n.id === id
-          ? {
-              ...n,
-              status: 'Sent',
-              sentAtDate: `${now.getDate()} Sep 2026`,
-              sentAtTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              stats: { delivered: 98, opened: 64, clicked: 21 },
-            }
-          : n
-      )
-    );
-    showToast('Notification broadcast dispatched immediately!');
   };
 
   // Duplicate notice
-  const handleDuplicate = (item: NotificationRecord) => {
-    const duplicated: NotificationRecord = {
-      ...item,
-      id: `notif-${Date.now()}`,
-      num: 1,
-      title: `${item.title} (Copy)`,
-      status: 'Draft',
-      stats: undefined,
-    };
-    setNotificationsList((prev) => [
-      duplicated,
-      ...prev.map((p, idx) => ({ ...p, num: idx + 2 })),
-    ]);
-    setActivePreviewItem(duplicated);
-    showToast(`Created duplicate draft for "${item.title}".`);
+  const handleDuplicate = async (item: NotificationRecord) => {
+    try {
+      const saved = requireSuccess(
+        await api.createNotification({
+          title: item.title + ' (Copy)',
+          message: item.message,
+          targetAudience: item.audience,
+          channel: 'in_app',
+          status: 'draft',
+          type: item.type,
+          actionLink: item.actionLink,
+        })
+      );
+      if (!saved.notification?.id) throw new Error('Saved ID missing');
+      await loadBackendNotifications();
+      showToast('Duplicate draft saved.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Duplicate failed');
+    }
   };
 
   // Export selected or all to CSV
@@ -1434,7 +1319,8 @@ export const AdminNotifications: React.FC = () => {
 
   // Effective preview title and message
   const displayPreviewTitle = formTitle.trim() || activePreviewItem?.title || 'Notification Title';
-  const displayPreviewMessage = formMessage.trim() || activePreviewItem?.message || 'Notification message will appear here...';
+  const displayPreviewMessage =
+    formMessage.trim() || activePreviewItem?.message || 'Notification message will appear here...';
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -1893,7 +1779,9 @@ export const AdminNotifications: React.FC = () => {
                       .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
                       .map((row) => {
                         const isChecked = selectedIds.includes(row.id);
-                        const isCurrentActivePreview = Boolean(activePreviewItem && activePreviewItem.id === row.id);
+                        const isCurrentActivePreview = Boolean(
+                          activePreviewItem && activePreviewItem.id === row.id
+                        );
                         const typeBadge = getTypeBadge(row.type);
 
                         return (
@@ -2000,7 +1888,9 @@ export const AdminNotifications: React.FC = () => {
                                     <span className="font-bold text-slate-900 block leading-tight">
                                       {row.stats.delivered}%
                                     </span>
-                                    <span className="text-[10px] text-slate-400 block">Delivered</span>
+                                    <span className="text-[10px] text-slate-400 block">
+                                      Delivered
+                                    </span>
                                   </div>
                                   <div>
                                     <span className="font-bold text-slate-900 block leading-tight">
@@ -2012,7 +1902,9 @@ export const AdminNotifications: React.FC = () => {
                                     <span className="font-bold text-slate-900 block leading-tight">
                                       {row.stats.clicked}%
                                     </span>
-                                    <span className="text-[10px] text-slate-400 block">Clicked</span>
+                                    <span className="text-[10px] text-slate-400 block">
+                                      Clicked
+                                    </span>
                                   </div>
                                 </div>
                               ) : (
@@ -2136,10 +2028,8 @@ export const AdminNotifications: React.FC = () => {
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
                 Showing{' '}
-                {filteredNotifications.length === 0
-                  ? 0
-                  : (currentPage - 1) * rowsPerPage + 1}
-                –{Math.min(currentPage * rowsPerPage, filteredNotifications.length)} of{' '}
+                {filteredNotifications.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
+                {Math.min(currentPage * rowsPerPage, filteredNotifications.length)} of{' '}
                 {filteredNotifications.length} notifications
               </div>
 
@@ -2175,9 +2065,7 @@ export const AdminNotifications: React.FC = () => {
 
                 <button
                   type="button"
-                  disabled={
-                    currentPage >= Math.ceil(filteredNotifications.length / rowsPerPage)
-                  }
+                  disabled={currentPage >= Math.ceil(filteredNotifications.length / rowsPerPage)}
                   onClick={() => setCurrentPage((p) => p + 1)}
                   className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   title="Next Page"
@@ -2365,7 +2253,7 @@ export const AdminNotifications: React.FC = () => {
 
                 {/* Toggles strictly matching reference image: SWITCH ON LEFT */}
                 <div className="space-y-3 pt-1">
-                  {/* Toggle 1: Send Push Notification (Switch on Left) */}
+                  {/* Toggle 1: In-app notification (no external push) (Switch on Left) */}
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -2384,7 +2272,7 @@ export const AdminNotifications: React.FC = () => {
                     </button>
                     <div>
                       <span className="text-xs font-semibold text-slate-800 block leading-tight">
-                        Send Push Notification
+                        In-app notification (no external push)
                       </span>
                       <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
                         Send to mobile app users
@@ -2392,7 +2280,7 @@ export const AdminNotifications: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Toggle 2: Send Email Notification (Switch on Left) */}
+                  {/* Toggle 2: Email (delivery not configured) (Switch on Left) */}
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -2411,7 +2299,7 @@ export const AdminNotifications: React.FC = () => {
                     </button>
                     <div>
                       <span className="text-xs font-semibold text-slate-800 block leading-tight">
-                        Send Email Notification
+                        Email (delivery not configured)
                       </span>
                       <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
                         Send email to selected audience
@@ -2430,12 +2318,9 @@ export const AdminNotifications: React.FC = () => {
                 </span>
                 <div className="space-y-2">
                   {[
-                    { label: 'All Students', count: '12,480' },
-                    { label: 'Test Takers', count: '3,245' },
-                    { label: 'WBP Aspirants', count: '2,860' },
-                    { label: 'Expiring Users', count: '420' },
-                    { label: 'New Users', count: '1,240' },
-                    { label: 'Pro Pass Holders', count: '1,850' },
+                    { label: 'All Students', count: 'Unavailable' },
+                    { label: 'Pro Members', count: 'Unavailable' },
+                    { label: 'Free Members', count: 'Unavailable' },
                   ].map((aud) => (
                     <label
                       key={aud.label}
@@ -2630,9 +2515,7 @@ export const AdminNotifications: React.FC = () => {
                 >
                   {inspectingItem.status}
                 </span>
-                <span className="text-xs font-semibold text-slate-400">
-                  #{inspectingItem.num}
-                </span>
+                <span className="text-xs font-semibold text-slate-400">#{inspectingItem.num}</span>
               </div>
               <button
                 type="button"
@@ -2733,4 +2616,3 @@ export const AdminNotifications: React.FC = () => {
     </div>
   );
 };
-

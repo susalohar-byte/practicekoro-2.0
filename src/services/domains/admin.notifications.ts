@@ -1,3 +1,4 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localNotifications, syncLocalScheduledNotifications } from '@/services/domains/localStore';
 import type { NotificationItem } from '@/types';
@@ -22,12 +23,10 @@ export async function getNotifications(): Promise<NotificationItem[]> {
 
     if (error) throw new Error(error.message);
     if (data && data.length > 0) {
-      const now = new Date();
       return data.map((d: any) => {
         const scheduledAt = d.scheduled_at || undefined;
-        const isDue = d.status === 'scheduled' && scheduledAt && new Date(scheduledAt) <= now;
-        const effectiveStatus = isDue ? 'sent' : d.status;
-        const effectiveSentAt = isDue ? d.sent_at || scheduledAt : d.sent_at || undefined;
+        const effectiveStatus = d.status;
+        const effectiveSentAt = d.sent_at || undefined;
 
         return {
           id: d.id,
@@ -40,6 +39,8 @@ export async function getNotifications(): Promise<NotificationItem[]> {
           scheduledAt,
           createdAt: d.created_at,
           createdBy: d.created_by || undefined,
+          actionLink: d.action_link || undefined,
+          type: d.type || undefined,
         };
       });
     }
@@ -52,35 +53,24 @@ export async function getNotifications(): Promise<NotificationItem[]> {
 
 export async function createNotification(
   notif: Omit<NotificationItem, 'id' | 'createdAt'>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; notification: NotificationItem }> {
+  if (!notif.title.trim() || !notif.message.trim())
+    throw new Error('Title and message are required.');
   if (isSupabaseConfigured) {
-    const { error } = await supabase.from('notifications').insert({
-      title: notif.title,
-      message: notif.message,
-      target_audience: notif.targetAudience,
-      channel: notif.channel,
-      status: notif.status,
-      sent_at: notif.status === 'sent' ? notif.sentAt || new Date().toISOString() : undefined,
-      scheduled_at: notif.status === 'scheduled' ? notif.scheduledAt : undefined,
-    });
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    if (notif.channel !== 'in_app')
+      throw new Error(
+        'Only in-app notifications are connected. No email or push delivery is configured.'
+      );
+    if (!['all', 'free', 'pro'].includes(notif.targetAudience))
+      throw new Error('Select a supported audience: All, Free or Pro students.');
+    const saved = requireSavedRow(
+      await supabase.from('notifications').insert(notificationPayload(notif)).select('*').single()
+    );
+    return { success: true, notification: mapNotification(saved) };
   }
-
-  // Local fallback store
-  const newNotif: NotificationItem = {
-    id: `notif-${Date.now()}`,
-    title: notif.title,
-    message: notif.message,
-    targetAudience: notif.targetAudience,
-    channel: notif.channel,
-    status: notif.status,
-    sentAt: notif.status === 'sent' ? notif.sentAt || new Date().toISOString() : undefined,
-    scheduledAt: notif.status === 'scheduled' ? notif.scheduledAt : undefined,
-    createdAt: new Date().toISOString(),
-  };
-  localNotifications.unshift(newNotif);
-  return { success: true };
+  const saved = { ...notif, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  localNotifications.unshift(saved);
+  return { success: true, notification: saved };
 }
 
 export async function createTargetedNotification(
@@ -88,13 +78,17 @@ export async function createTargetedNotification(
 ): Promise<{ success: boolean; error?: string }> {
   if (notif.userIds.length === 0) return { success: true };
   if (isSupabaseConfigured) {
-    const { error } = await supabase.rpc('create_targeted_notification', {
+    if (notif.channel !== 'in_app')
+      return { success: false, error: 'Only in-app delivery is configured.' };
+    const { data, error } = await supabase.rpc('create_targeted_notification', {
       p_title: notif.title,
       p_message: notif.message,
       p_channel: notif.channel,
       p_user_ids: notif.userIds,
     });
     if (error) return { success: false, error: error.message };
+    if (typeof data !== 'string' || !data)
+      return { success: false, error: 'Notification persistence was not confirmed.' };
     return { success: true };
   }
 
@@ -112,44 +106,103 @@ export async function createTargetedNotification(
 }
 
 export async function sendNotificationNow(id: string): Promise<boolean> {
-  if (isSupabaseConfigured) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-    if (error) throw new Error(error.message);
-    return true;
-  }
-
-  const target = localNotifications.find((n) => n.id === id);
-  if (target) {
-    target.status = 'sent';
-    target.sentAt = new Date().toISOString();
-  }
+  await updateNotification(id, {
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    scheduledAt: undefined,
+  });
   return true;
 }
 
 export async function deleteNotification(id: string): Promise<boolean> {
-  if (isSupabaseConfigured) {
-    const { error } = await supabase.from('notifications').delete().eq('id', id);
-    if (error) throw new Error(error.message);
-    return true;
-  }
-
-  const idx = localNotifications.findIndex((n) => n.id === id);
-  if (idx !== -1) {
-    localNotifications.splice(idx, 1);
-  }
+  if (isSupabaseConfigured) return deleteAdminRecord('notifications', id);
+  const i = localNotifications.findIndex((n) => n.id === id);
+  if (i < 0) throw new Error('Notification not found');
+  localNotifications.splice(i, 1);
   return true;
 }
 
 export const adminNotificationsApi = {
   getNotifications,
   createNotification,
+  updateNotification,
   createTargetedNotification,
   sendNotificationNow,
   deleteNotification,
 };
+
+function mapNotification(d: any): NotificationItem {
+  return {
+    id: d.id,
+    title: d.title,
+    message: d.message,
+    targetAudience: d.target_audience,
+    channel: d.channel,
+    status: d.status,
+    sentAt: d.sent_at || undefined,
+    scheduledAt: d.scheduled_at || undefined,
+    createdAt: d.created_at,
+    actionLink: d.action_link || undefined,
+    type: d.type || undefined,
+  };
+}
+function notificationPayload(n: Partial<NotificationItem>) {
+  const p: Record<string, unknown> = {};
+  for (const [key, column] of Object.entries({
+    title: 'title',
+    message: 'message',
+    targetAudience: 'target_audience',
+    channel: 'channel',
+    status: 'status',
+    actionLink: 'action_link',
+    type: 'type',
+  })) {
+    if (key in n) p[column] = (n as any)[key];
+  }
+  if (n.status === 'sent') {
+    p.sent_at = n.sentAt || new Date().toISOString();
+    p.scheduled_at = null;
+  }
+  if (n.status === 'draft') {
+    p.sent_at = null;
+    p.scheduled_at = null;
+  }
+  if (n.status === 'scheduled') {
+    if (
+      !n.scheduledAt ||
+      !Number.isFinite(Date.parse(n.scheduledAt)) ||
+      Date.parse(n.scheduledAt) <= Date.now()
+    )
+      throw new Error('Choose a future schedule date.');
+    p.scheduled_at = n.scheduledAt;
+    p.sent_at = null;
+  }
+  return p;
+}
+export async function updateNotification(
+  id: string,
+  updates: Partial<NotificationItem>
+): Promise<NotificationItem> {
+  if (isSupabaseConfigured) {
+    const current = (await getNotifications()).find((n) => n.id === id);
+    if (!current) throw new Error('Notification not found');
+    const merged = { ...current, ...updates };
+    if (!merged.title.trim() || !merged.message.trim())
+      throw new Error('Title and message required');
+    if (merged.channel !== 'in_app') throw new Error('Only in-app delivery is connected.');
+    return mapNotification(
+      requireSavedRow(
+        await supabase
+          .from('notifications')
+          .update(notificationPayload(merged))
+          .eq('id', id)
+          .select('*')
+          .single(),
+        id
+      )
+    );
+  }
+  const i = localNotifications.findIndex((n) => n.id === id);
+  if (i < 0) throw new Error('Notification not found');
+  return (localNotifications[i] = { ...localNotifications[i], ...updates });
+}

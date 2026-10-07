@@ -1,3 +1,5 @@
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
@@ -111,7 +113,12 @@ export const TopicIconBadge: React.FC<{
   // 1. Heat & Temperature -> Red / Coral Thermometer
   if (iconName === 'Thermometer' || norm.includes('heat') || norm.includes('temp')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 border border-[#FECDD3] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 border border-[#FECDD3] shadow-2xs',
+          className
+        )}
+      >
         <Thermometer className="w-4 h-4 text-[#EF4444]" />
       </div>
     );
@@ -120,34 +127,70 @@ export const TopicIconBadge: React.FC<{
   // 2. Light -> Amber Sun
   if (iconName === 'Sun' || norm.includes('light') || norm.includes('optics')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#FDE68A] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#FDE68A] shadow-2xs',
+          className
+        )}
+      >
         <Sun className="w-4 h-4 text-[#F59E0B]" />
       </div>
     );
   }
 
   // 3. Sound -> Purple Wave / Activity
-  if (iconName === 'Activity' || iconName === 'Waves' || norm.includes('sound') || norm.includes('wave') || norm.includes('acoustic')) {
+  if (
+    iconName === 'Activity' ||
+    iconName === 'Waves' ||
+    norm.includes('sound') ||
+    norm.includes('wave') ||
+    norm.includes('acoustic')
+  ) {
     return (
-      <div className={cn('rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 border border-[#E9D5FF] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 border border-[#E9D5FF] shadow-2xs',
+          className
+        )}
+      >
         <Activity className="w-4 h-4 text-[#8B5CF6]" />
       </div>
     );
   }
 
   // 4. Work, Power and Energy -> Blue Zap
-  if (iconName === 'Zap' || norm.includes('work') || norm.includes('energy') || norm.includes('force')) {
+  if (
+    iconName === 'Zap' ||
+    norm.includes('work') ||
+    norm.includes('energy') ||
+    norm.includes('force')
+  ) {
     return (
-      <div className={cn('rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 border border-[#BFDBFE] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 border border-[#BFDBFE] shadow-2xs',
+          className
+        )}
+      >
         <Zap className="w-4 h-4 text-[#026BFC]" />
       </div>
     );
   }
 
   // 5. Electricity -> Green Power / Plug
-  if (iconName === 'Power' || norm.includes('electric') || norm.includes('current') || norm.includes('circuit')) {
+  if (
+    iconName === 'Power' ||
+    norm.includes('electric') ||
+    norm.includes('current') ||
+    norm.includes('circuit')
+  ) {
     return (
-      <div className={cn('rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs',
+          className
+        )}
+      >
         <Power className="w-4 h-4 text-[#10B981]" />
       </div>
     );
@@ -156,7 +199,12 @@ export const TopicIconBadge: React.FC<{
   // 6. Indian Constitution -> Blue BookOpen
   if (norm.includes('constitution') || norm.includes('preamble')) {
     return (
-      <div className={cn('rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 border border-[#BFDBFE] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#EBF3FF] text-[#026BFC] flex items-center justify-center shrink-0 border border-[#BFDBFE] shadow-2xs',
+          className
+        )}
+      >
         <BookOpen className="w-4 h-4 text-[#026BFC]" />
       </div>
     );
@@ -165,7 +213,12 @@ export const TopicIconBadge: React.FC<{
   // 7. Fundamental Rights -> Purple Shield
   if (norm.includes('right') || norm.includes('duty') || norm.includes('fundamental')) {
     return (
-      <div className={cn('rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 border border-[#E9D5FF] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#F6EEFD] text-[#8B5CF6] flex items-center justify-center shrink-0 border border-[#E9D5FF] shadow-2xs',
+          className
+        )}
+      >
         <Shield className="w-4 h-4 text-[#8B5CF6]" />
       </div>
     );
@@ -174,7 +227,12 @@ export const TopicIconBadge: React.FC<{
   // 8. Directive Principles -> Green CheckSquare
   if (norm.includes('directive') || norm.includes('principle') || norm.includes('dpsp')) {
     return (
-      <div className={cn('rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs',
+          className
+        )}
+      >
         <CheckSquare className="w-4 h-4 text-[#10B981]" />
       </div>
     );
@@ -183,7 +241,12 @@ export const TopicIconBadge: React.FC<{
   // 9. President -> Amber Crown
   if (norm.includes('president') || norm.includes('governor') || norm.includes('executive')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#FDE68A] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEF8E7] text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#FDE68A] shadow-2xs',
+          className
+        )}
+      >
         <Crown className="w-4 h-4 text-[#F59E0B]" />
       </div>
     );
@@ -192,7 +255,12 @@ export const TopicIconBadge: React.FC<{
   // 10. Parliament -> Red Parliament Building
   if (norm.includes('parliament') || norm.includes('assembly') || norm.includes('judiciary')) {
     return (
-      <div className={cn('rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 border border-[#FECDD3] shadow-2xs', className)}>
+      <div
+        className={cn(
+          'rounded-xl bg-[#FEECEC] text-[#EF4444] flex items-center justify-center shrink-0 border border-[#FECDD3] shadow-2xs',
+          className
+        )}
+      >
         <Building2 className="w-4 h-4 text-[#EF4444]" />
       </div>
     );
@@ -200,7 +268,12 @@ export const TopicIconBadge: React.FC<{
 
   // Default Fallback -> Green Layers
   return (
-    <div className={cn('rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs', className)}>
+    <div
+      className={cn(
+        'rounded-xl bg-[#E8F8F0] text-[#10B981] flex items-center justify-center shrink-0 border border-[#A7F3D0] shadow-2xs',
+        className
+      )}
+    >
       <Layers className="w-4 h-4 text-[#10B981]" />
     </div>
   );
@@ -246,7 +319,8 @@ const CANONICAL_TOPICS_PRESET: EnrichedTopicRow[] = [
     iconName: 'Sun',
     totalAttempts: 10850,
     avgScoreFormatted: '65%',
-    descriptionBengali: 'আলোর প্রতিফলন, প্রতিসরণ, লেন্স ও প্রিজম সংক্রান্ত পদার্থবিজ্ঞানের মূল অধ্যায়।',
+    descriptionBengali:
+      'আলোর প্রতিফলন, প্রতিসরণ, লেন্স ও প্রিজম সংক্রান্ত পদার্থবিজ্ঞানের মূল অধ্যায়।',
     subjectTopicsCount: 18,
     subjectTotalTestsCount: 42,
     subjectTotalQuestionsCount: 3280,
@@ -402,7 +476,8 @@ const CANONICAL_TOPICS_PRESET: EnrichedTopicRow[] = [
     iconName: 'Crown',
     totalAttempts: 11940,
     avgScoreFormatted: '69%',
-    descriptionBengali: 'ভারতের রাষ্ট্রপতি নির্বাচন, ক্ষমতা, জরুরি অবস্থা জারি ও অপসারণ সংক্রান্ত নিয়ম।',
+    descriptionBengali:
+      'ভারতের রাষ্ট্রপতি নির্বাচন, ক্ষমতা, জরুরি অবস্থা জারি ও অপসারণ সংক্রান্ত নিয়ম।',
     subjectTopicsCount: 20,
     subjectTotalTestsCount: 30,
     subjectTotalQuestionsCount: 2680,
@@ -438,7 +513,9 @@ export const AdminTopics: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // State
-  const [topicsList, setTopicsList] = useState<EnrichedTopicRow[]>(CANONICAL_TOPICS_PRESET);
+  const [topicsList, setTopicsList] = useState<EnrichedTopicRow[]>(
+    isSupabaseConfigured ? [] : CANONICAL_TOPICS_PRESET
+  );
   const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
 
   // Filters & Search
@@ -511,108 +588,35 @@ export const AdminTopics: React.FC = () => {
   // Load Data and merge with database
   const loadData = useCallback(async () => {
     try {
-      const [rawSubs, rawChapters] = await Promise.all([
-        api.getSubjects().catch(() => []),
-        api.getAllAdminChapters().catch(() => []),
+      const [subs, rows] = await Promise.all([
+        api.getAllAdminSubjects(),
+        api.getAllAdminChapters(),
       ]);
-
-      if (rawSubs && rawSubs.length > 0) {
-        setSubjectsList(rawSubs);
-      }
-
-      // Merge backend chapters with canonical presets
-      const merged: EnrichedTopicRow[] = [...CANONICAL_TOPICS_PRESET];
-      if (rawChapters && rawChapters.length > 0) {
-        rawChapters.forEach((ch) => {
-          const idx = merged.findIndex(
-            (t) => t.id === ch.id || t.slug === ch.slug || t.name.toLowerCase() === ch.name.toLowerCase()
-          );
-          const parentSub = rawSubs.find((s) => s.id === ch.subjectId);
-          const isAct = ch.isActive !== undefined ? ch.isActive : (idx !== -1 ? (merged[idx].statusLabel === 'Published') : true);
-          const stLabel: 'Published' | 'Draft' = isAct ? 'Published' : 'Draft';
-
-          if (idx !== -1) {
-            merged[idx] = {
-              ...merged[idx],
-              id: ch.id,
-              name: ch.name,
-              slug: ch.slug,
-              subjectId: ch.subjectId,
-              subjectName: parentSub?.name || merged[idx].subjectName,
-              orderIndex: ch.orderIndex || merged[idx].orderIndex,
-              isActive: isAct,
-              statusLabel: stLabel,
-              iconName: ch.iconName || merged[idx].iconName,
-              descriptionBengali: ch.description || merged[idx].descriptionBengali,
-            };
-          } else {
-            merged.push({
-              id: ch.id,
-              name: ch.name,
-              slug: ch.slug,
-              subjectId: ch.subjectId,
-              subjectName: parentSub?.name || 'General Science',
-              totalTests: ch.testsCount || 4,
-              totalQuestions: (ch.testsCount || 4) * 30,
-              statusLabel: stLabel,
-              isActive: isAct,
-              orderIndex: ch.orderIndex || merged.length + 1,
-              iconName: ch.iconName || 'Layers',
-              totalAttempts: 5200,
-              avgScoreFormatted: '64%',
-              descriptionBengali: ch.description || 'অধ্যায় ভিত্তিক গুরুত্বপূর্ণ টেস্ট ও প্রশ্নাবলি।',
-              subjectTopicsCount: 12,
-              subjectTotalTestsCount: 28,
-              subjectTotalQuestionsCount: 1420,
-              createdByName: 'Admin',
-              createdAtFormatted: '20 Aug 2026, 10:00 AM',
-              updatedAtFormatted: '15 Sep 2026, 04:00 PM',
-            });
-          }
-        });
-      }
-
-      // Read topic status & icon overrides from localStorage for ultimate reliability
-      try {
-        const storedOverrides = localStorage.getItem('pk_admin_topic_status_overrides');
-        const storedIconOverrides = localStorage.getItem('pk_admin_topic_icon_overrides');
-        const iconOverrides: Record<string, string> = storedIconOverrides ? JSON.parse(storedIconOverrides) : {};
-        if (storedOverrides) {
-          const overrides: Record<string, { statusLabel: 'Published' | 'Draft'; isActive: boolean }> = JSON.parse(storedOverrides);
-          merged.forEach((item, index) => {
-            const ov = overrides[item.id] || overrides[item.slug] || overrides[item.name.toLowerCase()];
-            if (ov) {
-              merged[index] = {
-                ...merged[index],
-                statusLabel: ov.statusLabel,
-                isActive: ov.isActive,
-              };
-            }
-          });
-        }
-        if (Object.keys(iconOverrides).length > 0) {
-          merged.forEach((item, index) => {
-            const customIcon = iconOverrides[item.id] || iconOverrides[item.slug] || iconOverrides[item.name.toLowerCase()];
-            if (customIcon !== undefined) {
-              merged[index] = {
-                ...merged[index],
-                iconName: customIcon,
-              };
-            }
-          });
-        }
-      } catch (e) {
-        console.error('Failed to parse topic overrides:', e);
-      }
-
-      setTopicsList(merged);
-      setSelectedTopic((prev) => {
-        if (!prev) return null;
-        const matched = merged.find((t) => t.id === prev.id || t.slug === prev.slug);
-        return matched || null;
-      });
+      setSubjectsList(subs);
+      const mapped: EnrichedTopicRow[] = rows.map((r) => ({
+        ...r,
+        subjectName: subs.find((s) => s.id === r.subjectId)?.name || 'Unavailable',
+        totalTests: r.testsCount || 0,
+        totalQuestions: 0,
+        statusLabel: r.isActive ? 'Published' : 'Draft',
+        iconName: r.iconName || 'Layers',
+        totalAttempts: 0,
+        avgScoreFormatted: 'Unavailable',
+        descriptionBengali: r.description || '',
+        subjectTopicsCount: rows.filter((c) => c.subjectId === r.subjectId).length,
+        subjectTotalTestsCount: 0,
+        subjectTotalQuestionsCount: 0,
+        createdByName: 'Unavailable',
+        createdAtFormatted: 'Unavailable',
+        updatedAtFormatted: 'Unavailable',
+      }));
+      setTopicsList(mapped);
+      setSelectedTopic((prev) => (prev ? mapped.find((r) => r.id === prev.id) || null : null));
     } catch (err) {
-      console.error('Failed to load topics data:', err);
+      setActionNotice({
+        type: 'error',
+        message: getErrorMessage(err, 'Topics could not be loaded.'),
+      });
     }
   }, []);
 
@@ -651,9 +655,27 @@ export const AdminTopics: React.FC = () => {
     const groupsMap = new Map<string, EnrichedTopicRow[]>();
 
     // Canonical order of subjects
-    const canonicalSubjects: { id: string; name: string; icon: string; count: number; color: SubjectGroup['colorScheme'] }[] = [
-      { id: 'sub-general-science', name: 'General Science', icon: 'FlaskConical', count: 18, color: 'purple' },
-      { id: 'sub-indian-polity', name: 'Indian Polity', icon: 'Building2', count: 20, color: 'blue' },
+    const canonicalSubjects: {
+      id: string;
+      name: string;
+      icon: string;
+      count: number;
+      color: SubjectGroup['colorScheme'];
+    }[] = [
+      {
+        id: 'sub-general-science',
+        name: 'General Science',
+        icon: 'FlaskConical',
+        count: 18,
+        color: 'purple',
+      },
+      {
+        id: 'sub-indian-polity',
+        name: 'Indian Polity',
+        icon: 'Building2',
+        count: 20,
+        color: 'blue',
+      },
       { id: 'sub-reasoning', name: 'Reasoning', icon: 'Brain', count: 28, color: 'red' },
     ];
 
@@ -784,145 +806,29 @@ export const AdminTopics: React.FC = () => {
   // Save Topic (Create / Update)
   const handleSaveTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.slug.trim()) {
-      setFormError('Topic Name and Slug are required.');
-      return;
-    }
-
+    if (isSubmitting) return;
     try {
       setIsSubmitting(true);
       setFormError('');
-      const isPublishedStatus = formData.statusLabel === 'Published';
-      const cleanIcon = formData.iconName.trim();
-
-      if (isEditModalOpen && selectedTopic) {
-        await api.updateChapter(selectedTopic.id, {
-          name: formData.name.trim(),
-          slug: formData.slug.trim(),
-          description: formData.description.trim(),
-          subjectId: formData.subjectId,
-          orderIndex: formData.orderIndex,
-          isActive: isPublishedStatus,
-          iconName: cleanIcon,
-        }).catch(() => null);
-
-        // Persist status overrides in localStorage
-        try {
-          const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-          curOverrides[selectedTopic.id] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          curOverrides[formData.slug.trim()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          curOverrides[formData.name.trim().toLowerCase()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-
-          const curIconOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_icon_overrides') || '{}');
-          curIconOverrides[selectedTopic.id] = cleanIcon;
-          curIconOverrides[formData.slug.trim()] = cleanIcon;
-          curIconOverrides[formData.name.trim().toLowerCase()] = cleanIcon;
-          localStorage.setItem('pk_admin_topic_icon_overrides', JSON.stringify(curIconOverrides));
-        } catch {}
-
-        setTopicsList((prev) =>
-          prev.map((t) =>
-            t.id === selectedTopic.id
-              ? {
-                  ...t,
-                  name: formData.name.trim(),
-                  slug: formData.slug.trim(),
-                  subjectId: formData.subjectId,
-                  subjectName: subjectsList.find((s) => s.id === formData.subjectId)?.name || t.subjectName,
-                  orderIndex: formData.orderIndex,
-                  statusLabel: formData.statusLabel,
-                  isActive: isPublishedStatus,
-                  iconName: cleanIcon || t.iconName || 'Layers',
-                  descriptionBengali: formData.description.trim(),
-                  updatedAtFormatted: 'Just now',
-                }
-              : t
-          )
-        );
-
-        setSelectedTopic((prev) =>
-          prev && prev.id === selectedTopic.id
-            ? {
-                ...prev,
-                name: formData.name.trim(),
-                slug: formData.slug.trim(),
-                subjectId: formData.subjectId,
-                subjectName: subjectsList.find((s) => s.id === formData.subjectId)?.name || prev.subjectName,
-                orderIndex: formData.orderIndex,
-                statusLabel: formData.statusLabel,
-                isActive: isPublishedStatus,
-                iconName: cleanIcon || prev.iconName || 'Layers',
-                descriptionBengali: formData.description.trim(),
-                updatedAtFormatted: 'Just now',
-              }
-            : prev
-        );
-        setIsEditModalOpen(false);
-        setActionNotice({
-          type: 'success',
-          message: `Topic "${formData.name.trim()}" updated successfully (Status: ${formData.statusLabel}).`,
-        });
-      } else {
-        const createdId = `top-${Date.now()}`;
-        await api.createChapter({
-          name: formData.name.trim(),
-          slug: formData.slug.trim(),
-          description: formData.description.trim(),
-          subjectId: formData.subjectId,
-          orderIndex: formData.orderIndex,
-          isActive: isPublishedStatus,
-          iconName: cleanIcon || 'Layers',
-        }).catch(() => null);
-
-        // Persist status overrides in localStorage
-        try {
-          const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-          curOverrides[createdId] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          curOverrides[formData.slug.trim()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          curOverrides[formData.name.trim().toLowerCase()] = { statusLabel: formData.statusLabel, isActive: isPublishedStatus };
-          localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-
-          const curIconOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_icon_overrides') || '{}');
-          curIconOverrides[createdId] = cleanIcon;
-          curIconOverrides[formData.slug.trim()] = cleanIcon;
-          curIconOverrides[formData.name.trim().toLowerCase()] = cleanIcon;
-          localStorage.setItem('pk_admin_topic_icon_overrides', JSON.stringify(curIconOverrides));
-        } catch {}
-
-        const newTopic: EnrichedTopicRow = {
-          id: createdId,
-          name: formData.name.trim(),
-          slug: formData.slug.trim(),
-          subjectId: formData.subjectId,
-          subjectName: subjectsList.find((s) => s.id === formData.subjectId)?.name || 'General Science',
-          totalTests: 4,
-          totalQuestions: 120,
-          statusLabel: formData.statusLabel,
-          isActive: isPublishedStatus,
-          orderIndex: formData.orderIndex,
-          iconName: cleanIcon || 'Layers',
-          totalAttempts: 0,
-          avgScoreFormatted: '0%',
-          descriptionBengali: formData.description.trim() || 'নতুন তৈরি করা অধ্যায়।',
-          subjectTopicsCount: 18,
-          subjectTotalTestsCount: 42,
-          subjectTotalQuestionsCount: 3280,
-          createdByName: 'Admin',
-          createdAtFormatted: 'Just now',
-          updatedAtFormatted: 'Just now',
-        };
-
-        setTopicsList((prev) => [newTopic, ...prev]);
-        setSelectedTopic(newTopic);
-        setIsCreateModalOpen(false);
-        setActionNotice({
-          type: 'success',
-          message: `Topic "${newTopic.name}" created successfully (Status: ${newTopic.statusLabel}).`,
-        });
-      }
+      const input = {
+        name: formData.name.trim(),
+        slug: formData.slug.trim(),
+        subjectId: formData.subjectId,
+        orderIndex: formData.orderIndex,
+        isActive: formData.statusLabel === 'Published',
+        iconName: formData.iconName.trim(),
+        description: formData.description.trim(),
+      };
+      if (!input.name || !input.slug || !input.subjectId)
+        throw new Error('Name, slug and subject are required.');
+      if (isEditModalOpen && selectedTopic) await api.updateChapter(selectedTopic.id, input);
+      else await api.createChapter(input);
+      await loadData();
+      setIsEditModalOpen(false);
+      setIsCreateModalOpen(false);
+      setActionNotice({ type: 'success', message: 'Topic saved in the backend.' });
     } catch (err) {
-      setFormError(getErrorMessage(err, 'Failed to save topic'));
+      setFormError(getErrorMessage(err, 'Topic save failed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -930,223 +836,134 @@ export const AdminTopics: React.FC = () => {
 
   // Toggle Single Topic Status (Published <-> Draft)
   const handleToggleTopicStatus = async (topic: EnrichedTopicRow) => {
-    const nextStatus: 'Published' | 'Draft' = topic.statusLabel === 'Published' ? 'Draft' : 'Published';
-    const nextIsActive = nextStatus === 'Published';
-
-    // Optimistic UI update
-    setTopicsList((prev) =>
-      prev.map((t) =>
-        t.id === topic.id
-          ? {
-              ...t,
-              statusLabel: nextStatus,
-              isActive: nextIsActive,
-              updatedAtFormatted: 'Just now',
-            }
-          : t
-      )
-    );
-
-    setSelectedTopic((prev) =>
-      prev && prev.id === topic.id
-        ? {
-            ...prev,
-            statusLabel: nextStatus,
-            isActive: nextIsActive,
-            updatedAtFormatted: 'Just now',
-          }
-        : prev
-    );
-
-    // Save to localStorage overrides
     try {
-      const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-      curOverrides[topic.id] = { statusLabel: nextStatus, isActive: nextIsActive };
-      curOverrides[topic.slug] = { statusLabel: nextStatus, isActive: nextIsActive };
-      curOverrides[topic.name.toLowerCase()] = { statusLabel: nextStatus, isActive: nextIsActive };
-      localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-    } catch {}
-
-    // Persist via backend API
-    try {
-      await api.updateChapter(topic.id, { isActive: nextIsActive });
-      setActionNotice({
-        type: 'success',
-        message: `Topic "${topic.name}" status updated to ${nextStatus}.`,
-      });
+      const saved = await api.updateChapter(topic.id, { isActive: !topic.isActive });
+      setTopicsList((prev) =>
+        prev.map((t) =>
+          t.id === saved.id
+            ? { ...t, ...saved, statusLabel: saved.isActive ? 'Published' : 'Draft' }
+            : t
+        )
+      );
+      setSelectedTopic((prev) =>
+        prev?.id === saved.id
+          ? { ...prev, ...saved, statusLabel: saved.isActive ? 'Published' : 'Draft' }
+          : prev
+      );
+      setActionNotice({ type: 'success', message: 'Topic status saved.' });
     } catch (err) {
-      console.error('Failed to update topic status on backend:', err);
-      setActionNotice({
-        type: 'info',
-        message: `Topic "${topic.name}" status updated to ${nextStatus}.`,
-      });
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Save failed') });
     }
   };
 
   // Batch Operations
   const handleBatchPublish = async () => {
-    if (selectedTopicIds.size === 0) return;
-    const targetIds = Array.from(selectedTopicIds);
-
+    const batch = await runConfirmedBatch(Array.from(selectedTopicIds), (id) =>
+      api.updateChapter(id, { isActive: true })
+    );
+    const changed = new Map(batch.results.map((r) => [r.input, r.value]));
     setTopicsList((prev) =>
-      prev.map((t) =>
-        selectedTopicIds.has(t.id)
-          ? { ...t, statusLabel: 'Published', isActive: true, updatedAtFormatted: 'Just now' }
-          : t
+      prev.map((s) =>
+        changed.has(s.id) ? { ...s, ...changed.get(s.id), statusLabel: 'Published' } : s
       )
     );
-
     setSelectedTopic((prev) =>
-      prev && selectedTopicIds.has(prev.id)
-        ? { ...prev, statusLabel: 'Published', isActive: true, updatedAtFormatted: 'Just now' }
+      prev && changed.has(prev.id)
+        ? { ...prev, ...changed.get(prev.id), statusLabel: 'Published' }
         : prev
     );
-
-    try {
-      const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-      targetIds.forEach((id) => {
-        const found = topicsList.find((t) => t.id === id);
-        curOverrides[id] = { statusLabel: 'Published', isActive: true };
-        if (found) {
-          curOverrides[found.slug] = { statusLabel: 'Published', isActive: true };
-          curOverrides[found.name.toLowerCase()] = { statusLabel: 'Published', isActive: true };
-        }
-      });
-      localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-    } catch {}
-
-    await Promise.all(
-      targetIds.map((id) => api.updateChapter(id, { isActive: true }).catch(() => null))
-    );
-
-    setSelectedTopicIds(new Set());
+    setSelectedTopicIds(new Set(batch.failures.map((f) => f.input)));
     setActionNotice({
-      type: 'success',
-      message: `${targetIds.length} topic${targetIds.length > 1 ? 's' : ''} published successfully.`,
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        batch.results.length +
+        ' saved; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
     });
   };
 
   const handleBatchDraft = async () => {
-    if (selectedTopicIds.size === 0) return;
-    const targetIds = Array.from(selectedTopicIds);
-
+    const batch = await runConfirmedBatch(Array.from(selectedTopicIds), (id) =>
+      api.updateChapter(id, { isActive: false })
+    );
+    const changed = new Map(batch.results.map((r) => [r.input, r.value]));
     setTopicsList((prev) =>
-      prev.map((t) =>
-        selectedTopicIds.has(t.id)
-          ? { ...t, statusLabel: 'Draft', isActive: false, updatedAtFormatted: 'Just now' }
-          : t
+      prev.map((s) =>
+        changed.has(s.id) ? { ...s, ...changed.get(s.id), statusLabel: 'Draft' } : s
       )
     );
-
     setSelectedTopic((prev) =>
-      prev && selectedTopicIds.has(prev.id)
-        ? { ...prev, statusLabel: 'Draft', isActive: false, updatedAtFormatted: 'Just now' }
+      prev && changed.has(prev.id)
+        ? { ...prev, ...changed.get(prev.id), statusLabel: 'Draft' }
         : prev
     );
-
-    try {
-      const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-      targetIds.forEach((id) => {
-        const found = topicsList.find((t) => t.id === id);
-        curOverrides[id] = { statusLabel: 'Draft', isActive: false };
-        if (found) {
-          curOverrides[found.slug] = { statusLabel: 'Draft', isActive: false };
-          curOverrides[found.name.toLowerCase()] = { statusLabel: 'Draft', isActive: false };
-        }
-      });
-      localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-    } catch {}
-
-    await Promise.all(
-      targetIds.map((id) => api.updateChapter(id, { isActive: false }).catch(() => null))
-    );
-
-    setSelectedTopicIds(new Set());
+    setSelectedTopicIds(new Set(batch.failures.map((f) => f.input)));
     setActionNotice({
-      type: 'success',
-      message: `${targetIds.length} topic${targetIds.length > 1 ? 's' : ''} moved to draft.`,
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        batch.results.length +
+        ' saved; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
     });
   };
 
   const handleBatchDelete = async () => {
-    if (selectedTopicIds.size === 0) return;
-    const targetIds = Array.from(selectedTopicIds);
-    if (!confirm(`Delete ${targetIds.length} selected topic${targetIds.length > 1 ? 's' : ''}? This cannot be undone.`)) {
-      return;
-    }
-
-    setTopicsList((prev) => prev.filter((t) => !selectedTopicIds.has(t.id)));
-    if (selectedTopic && selectedTopicIds.has(selectedTopic.id)) {
-      const remaining = topicsList.filter((t) => !selectedTopicIds.has(t.id));
-      setSelectedTopic(remaining[0] || null);
-    }
-
-    try {
-      const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-      targetIds.forEach((id) => {
-        delete curOverrides[id];
-      });
-      localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-    } catch {}
-
-    await Promise.all(
-      targetIds.map((id) => api.deleteChapter(id).catch(() => null))
+    if (!selectedTopicIds.size || !confirm('Delete selected topics?')) return;
+    const batch = await runConfirmedBatch(Array.from(selectedTopicIds), (id) =>
+      api.deleteChapter(id)
     );
-
-    setSelectedTopicIds(new Set());
+    const gone = new Set(batch.results.map((r) => r.input));
+    setTopicsList((prev) => prev.filter((t) => !gone.has(t.id)));
+    setSelectedTopic((prev) => (prev && gone.has(prev.id) ? null : prev));
+    setSelectedTopicIds(new Set(batch.failures.map((f) => f.input)));
     setActionNotice({
-      type: 'info',
-      message: `${targetIds.length} topic${targetIds.length > 1 ? 's' : ''} deleted.`,
+      type: batch.failures.length ? 'error' : 'success',
+      message:
+        gone.size +
+        ' deleted; ' +
+        batch.failures.length +
+        ' failed.' +
+        (batch.failures[0] ? ' ' + batch.failures[0].error : ''),
     });
   };
 
   // Delete Topic
-  const handleDeleteTopic = async (topicId: string) => {
+  const handleDeleteTopic = async (id: string) => {
+    if (!confirm('Delete this topic? Linked records may block deletion.')) return;
     try {
-      await api.deleteChapter(topicId).catch(() => null);
-      setTopicsList((prev) => prev.filter((t) => t.id !== topicId));
-      if (selectedTopic?.id === topicId) {
-        const remaining = topicsList.filter((t) => t.id !== topicId);
-        setSelectedTopic(remaining[0] || null);
-      }
-      try {
-        const curOverrides = JSON.parse(localStorage.getItem('pk_admin_topic_status_overrides') || '{}');
-        delete curOverrides[topicId];
-        localStorage.setItem('pk_admin_topic_status_overrides', JSON.stringify(curOverrides));
-      } catch {}
-      setActionNotice({
-        type: 'info',
-        message: 'Topic deleted successfully.',
-      });
+      await api.deleteChapter(id);
+      setTopicsList((prev) => prev.filter((t) => t.id !== id));
+      setSelectedTopic((prev) => (prev?.id === id ? null : prev));
+      setActionNotice({ type: 'success', message: 'Topic deleted.' });
     } catch (err) {
-      alert(`Could not delete topic: ${getErrorMessage(err, 'Failed to delete topic')}`);
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Delete failed') });
     }
   };
 
   // Duplicate Topic
-  const handleDuplicateTopic = (topic: EnrichedTopicRow) => {
-    const copy: EnrichedTopicRow = {
-      ...topic,
-      id: `top-copy-${Date.now()}`,
-      name: `${topic.name} (Copy)`,
-      slug: `${topic.slug}-copy`,
-      orderIndex: topic.orderIndex + 1,
-      statusLabel: 'Draft',
-      isActive: false,
-      createdAtFormatted: 'Just now',
-      updatedAtFormatted: 'Just now',
-    };
-    setTopicsList((prev) => [copy, ...prev]);
-    setSelectedTopic(copy);
-    setActionNotice({
-      type: 'success',
-      message: `Topic duplicate created as Draft.`,
-    });
+  const handleDuplicateTopic = async (topic: EnrichedTopicRow) => {
+    try {
+      await api.createChapter({
+        ...topic,
+        name: topic.name + ' (Copy)',
+        slug: topic.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
+        isActive: false,
+      });
+      await loadData();
+      setActionNotice({ type: 'success', message: 'Draft topic created.' });
+    } catch (err) {
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Duplicate failed') });
+    }
   };
 
   // Open Reorder Modal
   const handleOpenOrderModal = () => {
-    const targetSubId = selectedSubjectFilter !== 'all' ? selectedSubjectFilter : 'sub-general-science';
+    const targetSubId =
+      selectedSubjectFilter !== 'all' ? selectedSubjectFilter : 'sub-general-science';
     setOrderSubjectId(targetSubId);
     const subTopics = topicsList
       .filter((t) => t.subjectId === targetSubId || t.subjectName.toLowerCase().includes('science'))
@@ -1168,19 +985,24 @@ export const AdminTopics: React.FC = () => {
 
   // Save new ordering
   const handleSaveOrder = async () => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      const updatedList = topicsList.map((t) => {
-        const foundIdx = orderList.findIndex((item) => item.id === t.id);
-        if (foundIdx !== -1) {
-          return { ...t, orderIndex: foundIdx + 1 };
-        }
-        return t;
-      });
-      setTopicsList(updatedList);
+      const batch = await runConfirmedBatch(orderList, (t) =>
+        api.updateChapter(t.id, { orderIndex: orderList.findIndex((x) => x.id === t.id) + 1 })
+      );
+      await loadData();
+      if (batch.failures.length)
+        throw new Error(
+          batch.results.length +
+            ' saved; ' +
+            batch.failures.length +
+            ' failed: ' +
+            batch.failures[0].error
+        );
       setIsOrderModalOpen(false);
+      setActionNotice({ type: 'success', message: 'Topic order saved.' });
     } catch (err) {
-      console.error('Failed to save topic order:', err);
+      setActionNotice({ type: 'error', message: getErrorMessage(err, 'Order save failed') });
     } finally {
       setIsSubmitting(false);
     }
@@ -1238,14 +1060,20 @@ export const AdminTopics: React.FC = () => {
             actionNotice.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
               : actionNotice.type === 'error'
-              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
-              : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+                ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
           )}
         >
           <div className="flex items-center gap-2">
-            {actionNotice.type === 'success' && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-            {actionNotice.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />}
-            {actionNotice.type === 'info' && <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />}
+            {actionNotice.type === 'success' && (
+              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            )}
+            {actionNotice.type === 'error' && (
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            )}
+            {actionNotice.type === 'info' && (
+              <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            )}
             <span className="font-medium">{actionNotice.message}</span>
           </div>
           <button
@@ -1367,7 +1195,9 @@ export const AdminTopics: React.FC = () => {
         <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xs">
           <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium">
             <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>{selectedTopicIds.size} topic{selectedTopicIds.size > 1 ? 's' : ''} selected</span>
+            <span>
+              {selectedTopicIds.size} topic{selectedTopicIds.size > 1 ? 's' : ''} selected
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -1442,7 +1272,9 @@ export const AdminTopics: React.FC = () => {
           {/* All Status Dropdown */}
           <select
             value={selectedStatusFilter}
-            onChange={(e) => setSelectedStatusFilter(e.target.value as 'all' | 'published' | 'draft')}
+            onChange={(e) =>
+              setSelectedStatusFilter(e.target.value as 'all' | 'published' | 'draft')
+            }
             className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-200"
           >
             <option value="all">All Status</option>
@@ -1489,7 +1321,10 @@ export const AdminTopics: React.FC = () => {
                     <th className="py-3 px-3 w-10 text-center">
                       <input
                         type="checkbox"
-                        checked={selectedTopicIds.size > 0 && selectedTopicIds.size === filteredTopics.length}
+                        checked={
+                          selectedTopicIds.size > 0 &&
+                          selectedTopicIds.size === filteredTopics.length
+                        }
                         onChange={toggleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                       />
@@ -1523,7 +1358,10 @@ export const AdminTopics: React.FC = () => {
                           onClick={() => toggleGroupCollapse(group.name)}
                           className="bg-slate-50/70 dark:bg-slate-900/50 hover:bg-slate-100/70 dark:hover:bg-slate-900/80 transition-colors cursor-pointer select-none"
                         >
-                          <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td
+                            className="py-3 px-3 text-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <input
                               type="checkbox"
                               onChange={(e) => {
@@ -1549,8 +1387,8 @@ export const AdminTopics: React.FC = () => {
                                   group.colorScheme === 'purple'
                                     ? 'bg-[#F6EEFD] text-[#8B5CF6]'
                                     : group.colorScheme === 'red'
-                                    ? 'bg-[#FEECEC] text-[#EF4444]'
-                                    : 'bg-[#EBF3FF] text-[#026BFC]'
+                                      ? 'bg-[#FEECEC] text-[#EF4444]'
+                                      : 'bg-[#EBF3FF] text-[#026BFC]'
                                 )}
                               >
                                 {groupIcon}
@@ -1575,15 +1413,17 @@ export const AdminTopics: React.FC = () => {
                         {/* Topics under this subject */}
                         {!isCollapsed &&
                           group.topics.map((topic, tIdx) => {
-                            const isSelected = Boolean(showDetailsPanel && selectedTopic?.id === topic.id);
+                            const isSelected = Boolean(
+                              showDetailsPanel && selectedTopic?.id === topic.id
+                            );
                             const isChecked = selectedTopicIds.has(topic.id);
                             const isPublished = topic.statusLabel === 'Published';
                             const rowNumber =
                               group.name === 'General Science'
                                 ? tIdx + 1
                                 : group.name === 'Indian Polity'
-                                ? tIdx + 6
-                                : tIdx + 11;
+                                  ? tIdx + 6
+                                  : tIdx + 11;
 
                             return (
                               <tr
@@ -1884,9 +1724,7 @@ export const AdminTopics: React.FC = () => {
           <div className="w-full lg:w-[350px] xl:w-[370px] shrink-0 bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs p-4 self-start sticky top-4 space-y-3.5 animate-in fade-in-50 duration-200">
             {/* Header: Topic Details & Close X */}
             <div className="flex items-center justify-between pb-0.5">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Topic Details
-              </h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Topic Details</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -2088,7 +1926,8 @@ export const AdminTopics: React.FC = () => {
 
                       <span className="text-slate-400 font-medium">Total Questions</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                        {selectedTopic.subjectTotalQuestionsCount?.toLocaleString('en-IN') || '3,280'}
+                        {selectedTopic.subjectTotalQuestionsCount?.toLocaleString('en-IN') ||
+                          '3,280'}
                       </span>
                     </div>
                   </div>
@@ -2145,7 +1984,9 @@ export const AdminTopics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm(`Are you sure you want to delete topic "${selectedTopic.name}"?`)) {
+                      if (
+                        confirm(`Are you sure you want to delete topic "${selectedTopic.name}"?`)
+                      ) {
                         handleDeleteTopic(selectedTopic.id);
                       }
                     }}
@@ -2243,7 +2084,17 @@ export const AdminTopics: React.FC = () => {
                         Topic Visibility
                       </span>
                       <span className="text-[11px] text-slate-400">
-                        Status: <strong className={selectedTopic.statusLabel === 'Published' ? 'text-emerald-600' : 'text-amber-600'}>{selectedTopic.statusLabel}</strong> (Visible to students)
+                        Status:{' '}
+                        <strong
+                          className={
+                            selectedTopic.statusLabel === 'Published'
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                          }
+                        >
+                          {selectedTopic.statusLabel}
+                        </strong>{' '}
+                        (Visible to students)
                       </span>
                     </div>
                     <input
@@ -2461,7 +2312,11 @@ export const AdminTopics: React.FC = () => {
                         )}
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        {isUploadingTopicIcon ? 'Uploading...' : formData.iconName ? 'Change Icon' : 'Upload Icon'}
+                        {isUploadingTopicIcon
+                          ? 'Uploading...'
+                          : formData.iconName
+                            ? 'Change Icon'
+                            : 'Upload Icon'}
                         <input
                           type="file"
                           accept="image/*"
@@ -2472,7 +2327,10 @@ export const AdminTopics: React.FC = () => {
                             if (!file) return;
                             try {
                               setIsUploadingTopicIcon(true);
-                              const uploadedUrl = await api.uploadTopicIcon(file, selectedTopic?.id || 'new');
+                              const uploadedUrl = await api.uploadTopicIcon(
+                                file,
+                                selectedTopic?.id || 'new'
+                              );
                               setFormData((prev) => ({ ...prev, iconName: uploadedUrl }));
                             } catch (err) {
                               alert('Failed to upload icon: ' + getErrorMessage(err, 'Error'));
@@ -2539,9 +2397,7 @@ export const AdminTopics: React.FC = () => {
           <div className="bg-white dark:bg-[#0A1024] rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Topic Order
-                </h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Topic Order</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Change the display sequence of topics for students
                 </p>
@@ -2589,7 +2445,11 @@ export const AdminTopics: React.FC = () => {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
                       <span className="w-5 font-bold text-slate-400 text-center">{index + 1}</span>
-                      <TopicIconBadge name={item.name} iconName={item.iconName} className="w-6 h-6 shrink-0" />
+                      <TopicIconBadge
+                        name={item.name}
+                        iconName={item.iconName}
+                        className="w-6 h-6 shrink-0"
+                      />
                       <span className="font-bold text-slate-900 dark:text-white truncate">
                         {item.name}
                       </span>

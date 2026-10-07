@@ -48,12 +48,27 @@ const PRESET_LOGOS = [
   { name: 'WB TET', url: '/images/exams/logo_wbtet.png' },
 ];
 
-function formatScheduledDate(dateStr: string | null | undefined): { date: string; time: string } | null {
+function formatScheduledDate(
+  dateStr: string | null | undefined
+): { date: string; time: string } | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const day = d.getDate();
   const month = months[d.getMonth()];
   const year = d.getFullYear();
@@ -93,7 +108,9 @@ export const AdminLiveTests: React.FC = () => {
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-  const [drawerTab, setDrawerTab] = useState<'overview' | 'participants' | 'settings' | 'analytics'>('overview');
+  const [drawerTab, setDrawerTab] = useState<
+    'overview' | 'participants' | 'settings' | 'analytics'
+  >('overview');
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -106,7 +123,10 @@ export const AdminLiveTests: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // Toast state
-  const [toastNotification, setToastNotification] = useState<{ message: string; type: ToastType } | null>(null);
+  const [toastNotification, setToastNotification] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
 
   useEffect(() => {
     globalToastHandler = (message: string, type: ToastType) => {
@@ -152,7 +172,10 @@ export const AdminLiveTests: React.FC = () => {
 
     if (typeof api.subscribeToLiveTestUpdates === 'function') {
       const unsubscribe = api.subscribeToLiveTestUpdates(() => {
-        api.getLiveTests().then(setLiveTests).catch(() => {});
+        api
+          .getLiveTests()
+          .then(setLiveTests)
+          .catch(() => {});
       });
       return () => unsubscribe();
     }
@@ -196,15 +219,19 @@ export const AdminLiveTests: React.FC = () => {
     return liveTests.filter((lt) => {
       // Tab filter
       if (activeTab === 'live' && lt.status !== 'live') return false;
-      if (activeTab === 'scheduled' && lt.status !== 'upcoming' && lt.status !== 'scheduled') return false;
-      if (activeTab === 'completed' && lt.status !== 'ended' && lt.status !== 'completed') return false;
+      if (activeTab === 'scheduled' && lt.status !== 'upcoming' && lt.status !== 'scheduled')
+        return false;
+      if (activeTab === 'completed' && lt.status !== 'ended' && lt.status !== 'completed')
+        return false;
 
       // Status dropdown filter
       if (statusFilter !== 'all') {
         if (statusFilter === 'live' && lt.status !== 'live') return false;
-        if (statusFilter === 'scheduled' && lt.status !== 'upcoming' && lt.status !== 'scheduled') return false;
+        if (statusFilter === 'scheduled' && lt.status !== 'upcoming' && lt.status !== 'scheduled')
+          return false;
         if (statusFilter === 'draft' && lt.status !== 'draft') return false;
-        if (statusFilter === 'completed' && lt.status !== 'ended' && lt.status !== 'completed') return false;
+        if (statusFilter === 'completed' && lt.status !== 'ended' && lt.status !== 'completed')
+          return false;
       }
 
       // Exam dropdown filter
@@ -296,9 +323,7 @@ export const AdminLiveTests: React.FC = () => {
   const handleEndLiveTest = async (lt: LiveTest) => {
     try {
       await api.updateLiveTest(lt.id, { status: 'ended' });
-      setLiveTests((prev) =>
-        prev.map((t) => (t.id === lt.id ? { ...t, status: 'ended' } : t))
-      );
+      setLiveTests((prev) => prev.map((t) => (t.id === lt.id ? { ...t, status: 'ended' } : t)));
       toast.success(`Live Test "${lt.title}" ended and rankings finalized`);
       setEndCandidate(null);
       setActiveMenuId(null);
@@ -314,14 +339,13 @@ export const AdminLiveTests: React.FC = () => {
       await api.deleteLiveTest(deleteCandidate.id);
       setLiveTests((prev) => prev.filter((t) => t.id !== deleteCandidate.id));
       if (selectedTestId === deleteCandidate.id) {
-        const remaining = liveTests.filter((t) => t.id !== deleteCandidate.id);
-        setSelectedTestId(remaining.length > 0 ? remaining[0].id : null);
+        setSelectedTestId(null);
       }
       toast.success('Live Test deleted successfully');
       setDeleteCandidate(null);
       setActiveMenuId(null);
-    } catch {
-      toast.error('Failed to delete Live Test');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete Live Test');
     }
   };
 
@@ -439,7 +463,9 @@ export const AdminLiveTests: React.FC = () => {
             <div className="mt-4">
               <p className="text-xs font-medium text-slate-500">Total Participants</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                {stats.totalParticipants > 0 ? stats.totalParticipants.toLocaleString('en-IN') : '24,860'}
+                {stats.totalParticipants > 0
+                  ? stats.totalParticipants.toLocaleString('en-IN')
+                  : '24,860'}
               </h3>
               <p className="text-xs text-slate-400 mt-1">across all live tests</p>
             </div>
@@ -601,7 +627,10 @@ export const AdminLiveTests: React.FC = () => {
                     <th className="py-3 px-3 w-8 text-center">
                       <input
                         type="checkbox"
-                        checked={paginatedTests.length > 0 && paginatedTests.every((t) => selectedIds.has(t.id))}
+                        checked={
+                          paginatedTests.length > 0 &&
+                          paginatedTests.every((t) => selectedIds.has(t.id))
+                        }
                         onChange={handleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                       />
@@ -632,7 +661,9 @@ export const AdminLiveTests: React.FC = () => {
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Radio className="w-8 h-8 text-slate-300" />
                           <p className="text-sm font-medium text-slate-600">No live tests found</p>
-                          <p className="text-xs text-slate-400">Try adjusting your filters or create a new live test</p>
+                          <p className="text-xs text-slate-400">
+                            Try adjusting your filters or create a new live test
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -640,7 +671,9 @@ export const AdminLiveTests: React.FC = () => {
                     paginatedTests.map((test, index) => {
                       const rowNumber = (currentPage - 1) * pageSize + index + 1;
                       const isSelected = selectedLiveTest?.id === test.id;
-                      const schedDate = formatScheduledDate(test.scheduledStartTime || test.startAt);
+                      const schedDate = formatScheduledDate(
+                        test.scheduledStartTime || test.startAt
+                      );
 
                       return (
                         <tr
@@ -681,7 +714,8 @@ export const AdminLiveTests: React.FC = () => {
                                   alt={test.title}
                                   className="w-full h-full object-contain"
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/images/exams/logo_wbp.png';
+                                    (e.target as HTMLImageElement).src =
+                                      '/images/exams/logo_wbp.png';
                                   }}
                                 />
                               </div>
@@ -707,7 +741,9 @@ export const AdminLiveTests: React.FC = () => {
                           <td className="py-3.5 px-3 whitespace-nowrap">
                             {schedDate ? (
                               <div>
-                                <div className="text-xs font-medium text-slate-800">{schedDate.date}</div>
+                                <div className="text-xs font-medium text-slate-800">
+                                  {schedDate.date}
+                                </div>
                                 <div className="text-[11px] text-slate-400">{schedDate.time}</div>
                               </div>
                             ) : (
@@ -722,7 +758,9 @@ export const AdminLiveTests: React.FC = () => {
 
                           {/* Participants */}
                           <td className="py-3.5 px-3 text-xs font-semibold text-slate-700 whitespace-nowrap">
-                            {(test.participantsCount || test.enrolledCount || 0).toLocaleString('en-IN')}
+                            {(test.participantsCount || test.enrolledCount || 0).toLocaleString(
+                              'en-IN'
+                            )}
                           </td>
 
                           {/* Status Badge */}
@@ -853,7 +891,8 @@ export const AdminLiveTests: React.FC = () => {
                   {filteredTests.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
                   {Math.min(currentPage * pageSize, filteredTests.length)}
                 </span>{' '}
-                of <span className="font-semibold text-slate-700">{filteredTests.length}</span> live tests
+                of <span className="font-semibold text-slate-700">{filteredTests.length}</span> live
+                tests
               </div>
 
               <div className="flex items-center gap-1">
@@ -931,14 +970,20 @@ export const AdminLiveTests: React.FC = () => {
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-lg border border-slate-200 bg-white shrink-0 p-1 flex items-center justify-center">
                     <img
-                      src={selectedLiveTest.logo || selectedLiveTest.examLogo || '/images/exams/logo_wbp.png'}
+                      src={
+                        selectedLiveTest.logo ||
+                        selectedLiveTest.examLogo ||
+                        '/images/exams/logo_wbp.png'
+                      }
                       alt={selectedLiveTest.title}
                       className="w-full h-full object-contain"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{selectedLiveTest.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-900 line-clamp-1">
+                        {selectedLiveTest.title}
+                      </h3>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
                         <Radio className="w-2.5 h-2.5 animate-pulse" />
                         <span>LIVE</span>
@@ -1033,7 +1078,11 @@ export const AdminLiveTests: React.FC = () => {
                       <div className="flex items-center gap-1.5 text-blue-600">
                         <Users className="w-3.5 h-3.5" />
                         <span className="text-xs font-bold text-slate-900">
-                          {(selectedLiveTest.participantsCount || selectedLiveTest.enrolledCount || 1248).toLocaleString('en-IN')}
+                          {(
+                            selectedLiveTest.participantsCount ||
+                            selectedLiveTest.enrolledCount ||
+                            1248
+                          ).toLocaleString('en-IN')}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-0.5">Participants</p>
@@ -1096,7 +1145,10 @@ export const AdminLiveTests: React.FC = () => {
                       <span className="font-bold text-blue-600">68%</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: '68%' }} />
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: '68%' }}
+                      />
                     </div>
                   </div>
 
@@ -1104,7 +1156,9 @@ export const AdminLiveTests: React.FC = () => {
                   <div className="text-xs space-y-1.5 text-slate-600 divide-y divide-slate-100 pt-1">
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Start Time</span>
-                      <span className="font-medium text-slate-800 text-right">30 Sep 2026, 11:00 AM</span>
+                      <span className="font-medium text-slate-800 text-right">
+                        30 Sep 2026, 11:00 AM
+                      </span>
                     </div>
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Duration</span>
@@ -1136,7 +1190,9 @@ export const AdminLiveTests: React.FC = () => {
                     </div>
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Negative Marks</span>
-                      <span className="font-medium text-slate-800 text-right">0.25 (Per Wrong Answer)</span>
+                      <span className="font-medium text-slate-800 text-right">
+                        0.25 (Per Wrong Answer)
+                      </span>
                     </div>
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Status</span>
@@ -1148,11 +1204,15 @@ export const AdminLiveTests: React.FC = () => {
                     </div>
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Created At</span>
-                      <span className="font-medium text-slate-800 text-right">25 Sep 2026, 04:20 PM</span>
+                      <span className="font-medium text-slate-800 text-right">
+                        25 Sep 2026, 04:20 PM
+                      </span>
                     </div>
                     <div className="flex items-start justify-between pt-1">
                       <span className="text-slate-400 w-28 shrink-0">Last Updated</span>
-                      <span className="font-medium text-slate-800 text-right">30 Sep 2026, 08:15 AM</span>
+                      <span className="font-medium text-slate-800 text-right">
+                        30 Sep 2026, 08:15 AM
+                      </span>
                     </div>
                   </div>
 
@@ -1207,10 +1267,19 @@ export const AdminLiveTests: React.FC = () => {
                         { rank: 6, name: 'Tanmoy Mallick', score: 82.0, time: '48m' },
                         { rank: 7, name: 'Debolina Paul', score: 80.5, time: '44m' },
                       ].map((p) => (
-                        <div key={p.rank} className="grid grid-cols-12 p-2 items-center hover:bg-slate-50/60">
-                          <span className="col-span-2 text-center font-bold text-slate-700">#{p.rank}</span>
-                          <span className="col-span-5 font-medium text-slate-800 truncate">{p.name}</span>
-                          <span className="col-span-3 text-right font-semibold text-emerald-600">{p.score}</span>
+                        <div
+                          key={p.rank}
+                          className="grid grid-cols-12 p-2 items-center hover:bg-slate-50/60"
+                        >
+                          <span className="col-span-2 text-center font-bold text-slate-700">
+                            #{p.rank}
+                          </span>
+                          <span className="col-span-5 font-medium text-slate-800 truncate">
+                            {p.name}
+                          </span>
+                          <span className="col-span-3 text-right font-semibold text-emerald-600">
+                            {p.score}
+                          </span>
                           <span className="col-span-2 text-right text-slate-500">{p.time}</span>
                         </div>
                       ))}
@@ -1228,7 +1297,8 @@ export const AdminLiveTests: React.FC = () => {
                       <span className="text-emerald-600 font-bold">Enabled</span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Calculates percentile and ranks among all candidates automatically upon submission.
+                      Calculates percentile and ranks among all candidates automatically upon
+                      submission.
                     </p>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2">
@@ -1236,7 +1306,9 @@ export const AdminLiveTests: React.FC = () => {
                       <span className="font-semibold text-slate-800">Negative Marking</span>
                       <span className="font-bold text-slate-800">0.25 Marks</span>
                     </div>
-                    <p className="text-[11px] text-slate-500">Standard 1/4th deduction per incorrect response.</p>
+                    <p className="text-[11px] text-slate-500">
+                      Standard 1/4th deduction per incorrect response.
+                    </p>
                   </div>
                 </div>
               )}
@@ -1245,7 +1317,9 @@ export const AdminLiveTests: React.FC = () => {
               {drawerTab === 'analytics' && (
                 <div className="space-y-3 text-xs">
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2">
-                    <span className="font-semibold text-slate-800">Top Participating Districts</span>
+                    <span className="font-semibold text-slate-800">
+                      Top Participating Districts
+                    </span>
                     <div className="space-y-1.5 pt-1">
                       <div className="flex justify-between text-slate-600">
                         <span>North 24 Parganas</span>
@@ -1365,8 +1439,9 @@ export const AdminLiveTests: React.FC = () => {
               <h3 className="text-base font-bold text-slate-900">End Live Test Now</h3>
             </div>
             <p className="text-sm text-slate-600">
-              Are you sure you want to end <span className="font-semibold text-slate-900">"{endCandidate.title}"</span>?
-              All ongoing candidate attempts will be finalized and ranked statewide.
+              Are you sure you want to end{' '}
+              <span className="font-semibold text-slate-900">"{endCandidate.title}"</span>? All
+              ongoing candidate attempts will be finalized and ranked statewide.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -1398,8 +1473,8 @@ export const AdminLiveTests: React.FC = () => {
             </div>
             <p className="text-sm text-slate-600">
               Are you sure you want to delete{' '}
-              <span className="font-semibold text-slate-900">"{deleteCandidate.title}"</span>? This will permanently
-              remove this live test event.
+              <span className="font-semibold text-slate-900">"{deleteCandidate.title}"</span>? This
+              will permanently remove this live test event.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -1424,7 +1499,8 @@ export const AdminLiveTests: React.FC = () => {
         <div
           className={cn(
             'fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold animate-in fade-in slide-in-from-bottom-2',
-            toastNotification.type === 'success' && 'bg-emerald-50 text-emerald-800 border-emerald-200',
+            toastNotification.type === 'success' &&
+              'bg-emerald-50 text-emerald-800 border-emerald-200',
             toastNotification.type === 'error' && 'bg-rose-50 text-rose-800 border-rose-200',
             toastNotification.type === 'info' && 'bg-blue-50 text-blue-800 border-blue-200'
           )}
@@ -1462,7 +1538,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
   const [selectedSourceTestId, setSelectedSourceTestId] = useState(initialData?.testId || '');
   const [title, setTitle] = useState(initialData?.title || '');
   const [examTitle, setExamTitle] = useState(initialData?.examTitle || 'WBP Constable');
-  const [logo, setLogo] = useState(initialData?.logo || initialData?.examLogo || PRESET_LOGOS[0].url);
+  const [logo, setLogo] = useState(
+    initialData?.logo || initialData?.examLogo || PRESET_LOGOS[0].url
+  );
   const [startDate, setStartDate] = useState(
     initialData?.startAt ? initialData.startAt.substring(0, 10) : '2026-10-15'
   );
@@ -1503,7 +1581,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
     try {
       setIsSubmitting(true);
       const startIso = new Date(`${startDate}T${startTime}:00.000Z`).toISOString();
-      const endIso = new Date(new Date(startIso).getTime() + durationMinutes * 60 * 1000).toISOString();
+      const endIso = new Date(
+        new Date(startIso).getTime() + durationMinutes * 60 * 1000
+      ).toISOString();
 
       let result: LiveTest;
       if (initialData) {
@@ -1553,7 +1633,10 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
           <h2 className="text-lg font-bold text-slate-900">
             {initialData ? 'Edit Live Test' : 'Create Live Test'}
           </h2>
-          <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1633,7 +1716,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
           {/* Date & Time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Scheduled Date</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Scheduled Date
+              </label>
               <input
                 type="date"
                 required
@@ -1657,7 +1742,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
           {/* Duration, Questions, Marks */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Duration (Min)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Duration (Min)
+              </label>
               <input
                 type="number"
                 min="1"
@@ -1677,7 +1764,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Negative Marks</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Negative Marks
+              </label>
               <input
                 type="number"
                 step="0.05"
@@ -1738,7 +1827,11 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
                     )}
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    {isUploadingLogo ? 'Uploading...' : logo && logo !== '/images/exams/logo_wbp.png' ? 'Change Icon' : 'Upload Icon'}
+                    {isUploadingLogo
+                      ? 'Uploading...'
+                      : logo && logo !== '/images/exams/logo_wbp.png'
+                        ? 'Change Icon'
+                        : 'Upload Icon'}
                     <input
                       type="file"
                       accept="image/*"
@@ -1749,7 +1842,10 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
                         if (!file) return;
                         try {
                           setIsUploadingLogo(true);
-                          const uploadedUrl = await api.uploadLiveTestLogo(file, initialData?.id || 'new');
+                          const uploadedUrl = await api.uploadLiveTestLogo(
+                            file,
+                            initialData?.id || 'new'
+                          );
                           setLogo(uploadedUrl);
                         } catch (err: any) {
                           toast.error('Failed to upload logo: ' + (err?.message || 'Error'));
@@ -1797,7 +1893,9 @@ const CreateEditLiveTestModal: React.FC<CreateEditLiveTestModalProps> = ({
                     onClick={() => setLogo(pl.url)}
                     className={cn(
                       'p-1.5 rounded-lg border flex items-center gap-1.5 text-xs transition-colors shrink-0',
-                      logo === pl.url ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 hover:bg-slate-100'
+                      logo === pl.url
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 hover:bg-slate-100'
                     )}
                   >
                     <img src={pl.url} alt={pl.name} className="w-4 h-4 object-contain" />

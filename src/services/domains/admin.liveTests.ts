@@ -1,5 +1,11 @@
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { localExams, localLiveTests, localLiveTestParticipations, localTests } from '@/services/domains/localStore';
+import {
+  localExams,
+  localLiveTests,
+  localLiveTestParticipations,
+  localTests,
+} from '@/services/domains/localStore';
 import type { LiveTest, LiveTestParticipant, MockTest } from '@/types';
 
 /**
@@ -110,7 +116,8 @@ function mapRowToMockTest(row: any): MockTest {
     isPremium: Boolean(row.is_premium),
     isActive: Boolean(row.is_active ?? true),
     orderIndex: Number(row.order_index || 0),
-    status: (row.status || (row.is_active ? 'published' : 'draft')) as 'draft' | 'published' | 'archived',
+    status: (row.status || (row.is_active ? 'published' : 'draft')) as
+      'draft' | 'published' | 'archived',
     examId: row.exam_id ?? undefined,
     testSeriesId: row.test_series_id ?? undefined,
     examTitle: row.exams?.title ?? undefined,
@@ -152,7 +159,11 @@ async function fetchSourceTestsMap(testIds: string[]): Promise<Map<string, MockT
 
 /** Format / enrich live test with source test data */
 function enrichLiveTest(lt: any, sourceTest?: MockTest | null): LiveTest {
-  const test = sourceTest || lt.test || localTests.find((t) => t.id === lt.testId || t.id === lt.test_id) || null;
+  const test =
+    sourceTest ||
+    lt.test ||
+    localTests.find((t) => t.id === lt.testId || t.id === lt.test_id) ||
+    null;
   const exam = localExams.find((e) => e.id === (lt.examId || lt.exam_id || test?.examId));
 
   const startAt =
@@ -209,7 +220,9 @@ function enrichLiveTest(lt: any, sourceTest?: MockTest | null): LiveTest {
     durationMinutes: duration,
     totalQuestions: Number(test?.totalQuestions || lt.totalQuestions || lt.total_questions || 100),
     totalMarks: Number(test?.totalMarks || lt.totalMarks || lt.total_marks || 100),
-    negativeMarking: Number(test?.negativeMarking ?? lt.negativeMarking ?? lt.negative_marking ?? 0.25),
+    negativeMarking: Number(
+      test?.negativeMarking ?? lt.negativeMarking ?? lt.negative_marking ?? 0.25
+    ),
     instructions:
       test?.description ||
       lt.instructions ||
@@ -332,7 +345,7 @@ async function syncLiveTestsToRemote(list: LiveTest[]): Promise<void> {
   }
 }
 
-async function fetchRemoteAppSettingsLiveTests(): Promise< any[] | null > {
+async function fetchRemoteAppSettingsLiveTests(): Promise<any[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await supabase
@@ -364,6 +377,17 @@ async function fetchRemoteAppSettingsLiveTests(): Promise< any[] | null > {
 }
 
 export async function getLiveTests(examId?: string): Promise<LiveTest[]> {
+  if (isSupabaseConfigured) {
+    let q = supabase
+      .from('live_tests')
+      .select('*, tests(*, exams:exam_id(id,title))')
+      .order('start_at');
+    if (examId) q = q.eq('exam_id', examId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => enrichLiveTest(r, r.tests ? mapRowToMockTest(r.tests) : null));
+  }
+
   if (!isSupabaseConfigured) {
     const stored = getStoredLiveTests();
     const sourceList = stored.length > 0 ? stored : localLiveTests;
@@ -407,7 +431,9 @@ export async function getLiveTests(examId?: string): Promise<LiveTest[]> {
   }
 
   // Batch-enrich with real MockTest rows from `public.tests`
-  const testIds = rawItems.map((item: any) => String(item.testId || item.test_id || '')).filter(Boolean);
+  const testIds = rawItems
+    .map((item: any) => String(item.testId || item.test_id || ''))
+    .filter(Boolean);
   const sourceTestsMap = await fetchSourceTestsMap(testIds);
 
   const enriched = rawItems.map((item: any) => {
@@ -540,7 +566,7 @@ export async function scheduleLiveTest(input: ScheduleLiveTestInput): Promise<Li
 
   // Persist to Tier 2 (app_settings) & Tier 3 (localStorage + in-memory)
   const updatedList = sortLiveTests([newLiveTest, ...currentList.filter((lt) => lt.id !== id)]);
-  await syncLiveTestsToRemote(updatedList);
+  if (!isSupabaseConfigured) await syncLiveTestsToRemote(updatedList);
 
   // Also attempt Tier 1 (`public.live_tests` table) if migrated
   if (isSupabaseConfigured) {
@@ -566,9 +592,9 @@ export async function scheduleLiveTest(input: ScheduleLiveTestInput): Promise<Li
         exam_logo: newLiveTest.examLogo,
       };
 
-      await supabase.from('live_tests').upsert(payload, { onConflict: 'id' });
+      requireSavedRow(await supabase.from('live_tests').insert(payload).select('id').single(), id);
     } catch {
-      // Handled via app_settings & localStorage
+      throw new Error('Live-test persistence failed. Check the backend schema and permissions.');
     }
   }
 
@@ -580,16 +606,15 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
   const currentList = await getLiveTests();
   const existing = currentList.find((lt) => lt.id === id);
 
-  const testId = updates.testId || existing?.testId || '';
+  if (!existing) throw new Error('Live test not found.');
+  const testId = updates.testId || existing.testId;
   const sourceTestsMap = testId ? await fetchSourceTestsMap([testId]) : new Map<string, MockTest>();
   const sourceTest = sourceTestsMap.get(testId) || existing?.test || null;
 
   // If status is explicitly being set to 'upcoming' or 'live' (e.g. re-scheduling or starting now),
   // allow deriveLiveTestStatus to compute from the new startAt unless 'cancelled' or 'ended' was requested.
   const nextStatus =
-    updates.status === 'cancelled' || updates.status === 'ended'
-      ? updates.status
-      : 'upcoming';
+    updates.status === 'cancelled' || updates.status === 'ended' ? updates.status : 'upcoming';
 
   const updatedItem = enrichLiveTest(
     {
@@ -605,7 +630,7 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
     ? currentList.map((lt) => (lt.id === id ? updatedItem : lt))
     : [updatedItem, ...currentList];
 
-  await syncLiveTestsToRemote(sortLiveTests(nextList));
+  if (!isSupabaseConfigured) await syncLiveTestsToRemote(sortLiveTests(nextList));
 
   if (isSupabaseConfigured) {
     try {
@@ -642,7 +667,19 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
         payload.enrolled_count = updates.enrolledCount;
       }
 
-      await supabase.from('live_tests').update(payload).eq('id', id);
+      requireSavedRow(
+        await supabase
+          .from('live_tests')
+          .update({
+            ...payload,
+            ...(updates.testId ? { test_id: updates.testId } : {}),
+            ...(updates.instructions !== undefined ? { instructions: updates.instructions } : {}),
+          })
+          .eq('id', id)
+          .select('id')
+          .single(),
+        id
+      );
     } catch {
       // Handled via app_settings & localStorage
     }
@@ -652,29 +689,28 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
 }
 
 /** Upload Exam/Test Logo for Live Test to Supabase Storage */
-export async function uploadLiveTestLogo(file: File, liveTestId: string = 'custom'): Promise<string> {
+export async function uploadLiveTestLogo(file: File, id: string = 'custom'): Promise<string> {
   if (isSupabaseConfigured) {
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-      const safeId = liveTestId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const path = `live-tests/${safeId}/logo-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-      if (!error && data) {
-        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-      }
-    } catch {
-      // Fallback to data URL
-    }
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024)
+      throw new Error('Choose an image smaller than 5 MB.');
+    const ext =
+      file.name
+        .split('.')
+        .pop()
+        ?.replace(/[^a-z0-9]/gi, '') || 'png';
+    const path =
+      'live-tests/' + id.replace(/[^a-z0-9_-]/gi, '-') + '/' + crypto.randomUUID() + '.' + ext;
+    const { data, error } = await supabase.storage
+      .from('banners')
+      .upload(path, file, { upsert: false });
+    if (error || !data?.path) throw new Error(error?.message || 'Upload not confirmed');
+    return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
   }
-
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file);
   });
 }
 
@@ -685,17 +721,10 @@ export async function cancelLiveTest(id: string): Promise<boolean> {
 
 /** Delete a live test */
 export async function deleteLiveTest(id: string): Promise<boolean> {
-  const currentList = await getLiveTests();
-  const filtered = currentList.filter((lt) => lt.id !== id);
-  await syncLiveTestsToRemote(filtered);
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from('live_tests').delete().eq('id', id);
-    } catch {
-      // Handled via app_settings
-    }
-  }
+  if (isSupabaseConfigured) return deleteAdminRecord('live_tests', id);
+  const rows = await getLiveTests();
+  if (!rows.some((r) => r.id === id)) throw new Error('Live test not found.');
+  await syncLiveTestsToRemote(rows.filter((r) => r.id !== id));
   return true;
 }
 
@@ -745,7 +774,11 @@ async function fetchRemoteParticipations(): Promise<LiveTestParticipant[]> {
           if (p && p.liveTestId && p.userId) {
             const key = `${p.liveTestId}:${p.userId}`;
             const prev = mergedMap.get(key);
-            if (!prev || p.status === 'completed' || (p.score !== undefined && prev.score === undefined)) {
+            if (
+              !prev ||
+              p.status === 'completed' ||
+              (p.score !== undefined && prev.score === undefined)
+            ) {
               mergedMap.set(key, p);
             }
           }
