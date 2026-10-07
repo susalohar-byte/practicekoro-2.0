@@ -645,7 +645,7 @@ export const AdminQuestionBank: React.FC = () => {
 
   // Active / Opened Question in Right Drawer (Defaults to null - neutral initial state)
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
-  const [drawerTab, setDrawerTab] = useState<'details' | 'explanation' | 'short_notes' | 'history'>('details');
+  const [drawerTab, setDrawerTab] = useState<'details' | 'explanation' | 'history'>('details');
 
   // Drawer Edit Form States
   const [drawerBengaliText, setDrawerBengaliText] = useState('');
@@ -668,9 +668,8 @@ export const AdminQuestionBank: React.FC = () => {
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdatingDrawer, setIsUpdatingDrawer] = useState(false);
 
-  // Drawer Explanation / Notes Edit States
+  // Drawer Explanation Edit State
   const [editExplanation, setEditExplanation] = useState('');
-  const [editShortNotes, setEditShortNotes] = useState('');
 
   // Floating Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -703,7 +702,6 @@ export const AdminQuestionBank: React.FC = () => {
   const [addMarks, setAddMarks] = useState(1);
   const [addNegativeMarks, setAddNegativeMarks] = useState(0.25);
   const [addExplanation, setAddExplanation] = useState('');
-  const [addShortNotes, setAddShortNotes] = useState('');
   const [addSource, setAddSource] = useState('Official PYQ');
   const [addTags, setAddTags] = useState<string[]>([]);
   const [addTagInput, setAddTagInput] = useState('');
@@ -810,9 +808,12 @@ export const AdminQuestionBank: React.FC = () => {
             : 'Reference'
       );
       setDrawerStatus((activeQuestion.status as QuestionBankStatus) || 'published');
-      setDrawerTags(activeQuestion.tags || ['WBP', 'Modern India']);
-      setEditExplanation(activeQuestion.explanationBengali || activeQuestion.explanation || '');
-      setEditShortNotes(activeQuestion.shortNotes || '');
+      setEditExplanation(
+        activeQuestion.explanationBengali ||
+        activeQuestion.explanation ||
+        activeQuestion.shortNotes ||
+        ''
+      );
     }
   }, [activeQuestion]);
 
@@ -1069,7 +1070,7 @@ export const AdminQuestionBank: React.FC = () => {
         tags: drawerTags,
         explanation: editExplanation.trim(),
         explanationBengali: editExplanation.trim(),
-        shortNotes: editShortNotes.trim(),
+        shortNotes: editExplanation.trim(),
       };
 
       try {
@@ -1207,7 +1208,7 @@ export const AdminQuestionBank: React.FC = () => {
         section: modalUploadMode === 'exam' ? addSection : undefined,
         explanation: addExplanation.trim(),
         explanationBengali: addExplanation.trim(),
-        shortNotes: addShortNotes.trim(),
+        shortNotes: addExplanation.trim(),
         tags: addTags.length > 0 ? addTags : [modalUploadMode === 'exam' ? addExam : addSubject],
         status: addStatus,
         isActive: true,
@@ -1241,7 +1242,6 @@ export const AdminQuestionBank: React.FC = () => {
       setAddOptC('');
       setAddOptD('');
       setAddExplanation('');
-      setAddShortNotes('');
       setAddTags([]);
       setDuplicateWarning(null);
       showToast(`Question #${newId} created successfully!`);
@@ -2500,9 +2500,9 @@ export const AdminQuestionBank: React.FC = () => {
               </button>
             </div>
 
-            {/* 4 Tabs: Details, Explanation, Short Notes, History */}
+            {/* 3 Tabs: Details, Explanation, History */}
             <div className="flex items-center border-b border-slate-100 px-4 text-xs font-bold text-slate-500">
-              {(['details', 'explanation', 'short_notes', 'history'] as const).map((tab) => (
+              {(['details', 'explanation', 'history'] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -2514,7 +2514,7 @@ export const AdminQuestionBank: React.FC = () => {
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   )}
                 >
-                  {tab === 'short_notes' ? 'Short Notes' : tab}
+                  {tab}
                 </button>
               ))}
             </div>
@@ -2884,36 +2884,6 @@ export const AdminQuestionBank: React.FC = () => {
               </div>
             )}
 
-            {/* DRAWER TAB 3: SHORT NOTES */}
-            {drawerTab === 'short_notes' && (
-              <div className="p-4 space-y-4 text-xs">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase">
-                      Exam-Relevant Short Notes (4–5 Key Points)
-                    </label>
-                    <span className="text-[10px] text-amber-600 font-bold">Bullet format</span>
-                  </div>
-                  <textarea
-                    rows={8}
-                    value={editShortNotes}
-                    onChange={(e) => setEditShortNotes(e.target.value)}
-                    placeholder="• Point 1: Key exam takeaway&#10;• Point 2: Related year or date&#10;• Point 3: Important related act or treaty"
-                    className="w-full p-3 rounded-xl border border-slate-200 bg-[#F8FAFC] font-medium text-slate-900 focus:outline-none focus:border-[#026BFC] resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleUpdateDrawer}
-                    className="px-4 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-600 text-white font-bold cursor-pointer"
-                  >
-                    Save Short Notes
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* DRAWER TAB 4: HISTORY */}
             {drawerTab === 'history' && (
@@ -3236,33 +3206,18 @@ export const AdminQuestionBank: React.FC = () => {
                 })}
               </div>
 
-              {/* Explanation & Short Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Explanation
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={addExplanation}
-                    onChange={(e) => setAddExplanation(e.target.value)}
-                    placeholder="Concise explanation of the correct answer..."
-                    className="w-full p-2 rounded-xl border border-slate-200 bg-white resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Short Notes (4–5 revision points)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={addShortNotes}
-                    onChange={(e) => setAddShortNotes(e.target.value)}
-                    placeholder="• Point 1&#10;• Point 2"
-                    className="w-full p-2 rounded-xl border border-slate-200 bg-white resize-none"
-                  />
-                </div>
+              {/* Comprehensive Explanation */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Explanation
+                </label>
+                <textarea
+                  rows={3}
+                  value={addExplanation}
+                  onChange={(e) => setAddExplanation(e.target.value)}
+                  placeholder="Concise explanation of the correct answer..."
+                  className="w-full p-2 rounded-xl border border-slate-200 bg-white resize-none"
+                />
               </div>
 
               {/* Marks, Negative Marks & Source */}
