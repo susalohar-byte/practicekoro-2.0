@@ -691,7 +691,7 @@ export const AdminBanners: React.FC = () => {
 
   // Banners state
   const [banners, setBanners] = useState<AdminBannerItem[]>(INITIAL_BANNERS);
-  const [selectedBannerId, setSelectedBannerId] = useState<string>('banner-1');
+  const [selectedBannerId, setSelectedBannerId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -711,8 +711,8 @@ export const AdminBanners: React.FC = () => {
 
   // Right Panel State (Active editing copy)
   const [activeTab, setActiveTab] = useState<'Details' | 'Settings' | 'Preview'>('Details');
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [editFormData, setEditFormData] = useState<AdminBannerItem>(INITIAL_BANNERS[0]);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<AdminBannerItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const fileUploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -769,13 +769,17 @@ export const AdminBanners: React.FC = () => {
           }
           merged.sort((a, b) => a.order - b.order);
           setBanners(merged);
-          setSelectedBannerId(merged[0]?.id || 'banner-1');
-          setEditFormData(merged[0] || INITIAL_BANNERS[0]);
+          setSelectedBannerId((prev) => {
+            if (!prev) return null;
+            return merged.some((m) => m.id === prev) ? prev : null;
+          });
+          setEditFormData((prev) => {
+            if (!prev) return null;
+            return merged.find((m) => m.id === prev.id) || null;
+          });
         } else {
           // Initialize storage with presets
           setBanners(INITIAL_BANNERS);
-          setSelectedBannerId(INITIAL_BANNERS[0].id);
-          setEditFormData(INITIAL_BANNERS[0]);
 
           // Seed banners into bannerService
           try {
@@ -876,6 +880,7 @@ export const AdminBanners: React.FC = () => {
 
   // Save changes from Right Panel
   const handleUpdateBanner = async () => {
+    if (!editFormData) return;
     try {
       setIsUpdating(true);
       // Update local state
@@ -921,6 +926,7 @@ export const AdminBanners: React.FC = () => {
 
   // Delete banner handler
   const handleDeleteConfirm = async () => {
+    if (!editFormData) return;
     try {
       const idToDelete = editFormData.id;
       setBanners((prev) => prev.filter((b) => b.id !== idToDelete));
@@ -928,11 +934,15 @@ export const AdminBanners: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['hero-banners'] });
       setIsDeleteDialogOpen(false);
 
-      // Select next available banner
+      // Select next available banner if panel was open
       const remaining = banners.filter((b) => b.id !== idToDelete);
       if (remaining.length > 0) {
         setSelectedBannerId(remaining[0].id);
         setEditFormData(remaining[0]);
+      } else {
+        setSelectedBannerId(null);
+        setEditFormData(null);
+        setIsPanelOpen(false);
       }
       showToast('success', 'Banner deleted successfully.');
     } catch (err) {
@@ -945,24 +955,25 @@ export const AdminBanners: React.FC = () => {
   // Image upload with compression and live preview update
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !editFormData) return;
 
     if (!file.type.startsWith('image/')) {
       showToast('error', 'Please select a valid image file (PNG, JPG, WebP).');
       return;
     }
 
+    const activeId = editFormData.id;
     try {
       // Optimize image client-side via bannerService
       const { url } = await bannerService.uploadBannerImage(file);
-      setEditFormData((prev) => ({
+      setEditFormData((prev) => (prev ? {
         ...prev,
         imageUrl: url,
         fileName: file.name,
-      }));
+      } : null));
       // Update in banners list immediately so table preview updates live
       setBanners((prev) =>
-        prev.map((b) => (b.id === editFormData.id ? { ...b, imageUrl: url, fileName: file.name } : b))
+        prev.map((b) => (b.id === activeId ? { ...b, imageUrl: url, fileName: file.name } : b))
       );
       showToast('success', `Selected image: ${file.name}`);
     } catch {
@@ -970,13 +981,13 @@ export const AdminBanners: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const result = uploadEvent.target?.result as string;
-        setEditFormData((prev) => ({
+        setEditFormData((prev) => (prev ? {
           ...prev,
           imageUrl: result,
           fileName: file.name,
-        }));
+        } : null));
         setBanners((prev) =>
-          prev.map((b) => (b.id === editFormData.id ? { ...b, imageUrl: result, fileName: file.name } : b))
+          prev.map((b) => (b.id === activeId ? { ...b, imageUrl: result, fileName: file.name } : b))
         );
         showToast('success', `Selected image: ${file.name}`);
       };
@@ -1383,7 +1394,7 @@ export const AdminBanners: React.FC = () => {
                     </tr>
                   ) : (
                     visibleBanners.map((banner) => {
-                      const isSelected = banner.id === selectedBannerId;
+                      const isSelected = Boolean(isPanelOpen && selectedBannerId === banner.id);
 
                       // Badge Color mapping
                       let badgeClasses = 'bg-[#EBF3FE] text-[#026BFC]';
@@ -1620,7 +1631,7 @@ export const AdminBanners: React.FC = () => {
           {/* =============================================================== */}
           {/* RIGHT: BANNER DETAILS PANEL                                     */}
           {/* =============================================================== */}
-          {isPanelOpen && (
+          {isPanelOpen && editFormData && (
             <div className="w-full lg:w-[410px] shrink-0 bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 transition-all">
               {/* Panel Header */}
               <div className="flex items-center justify-between mb-4">
@@ -1628,7 +1639,11 @@ export const AdminBanners: React.FC = () => {
                   Banner Details
                 </h3>
                 <button
-                  onClick={() => setIsPanelOpen(false)}
+                  onClick={() => {
+                    setIsPanelOpen(false);
+                    setSelectedBannerId(null);
+                    setEditFormData(null);
+                  }}
                   className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-50 transition-colors"
                   title="Close panel"
                 >
@@ -1690,7 +1705,7 @@ export const AdminBanners: React.FC = () => {
                       type="text"
                       value={editFormData.title}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({ ...prev, title: e.target.value }))
+                        setEditFormData((prev) => (prev ? { ...prev, title: e.target.value } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#026BFC] transition-colors"
                     />
@@ -1705,11 +1720,11 @@ export const AdminBanners: React.FC = () => {
                       type="text"
                       value={editFormData.description}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({
+                        setEditFormData((prev) => (prev ? {
                           ...prev,
                           description: e.target.value,
                           subtitle: e.target.value,
-                        }))
+                        } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#026BFC] transition-colors"
                     />
@@ -1748,10 +1763,10 @@ export const AdminBanners: React.FC = () => {
                     <select
                       value={editFormData.bannerType}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({
+                        setEditFormData((prev) => (prev ? {
                           ...prev,
                           bannerType: e.target.value as BannerType,
-                        }))
+                        } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:outline-none focus:border-[#026BFC]"
                     >
@@ -1772,7 +1787,7 @@ export const AdminBanners: React.FC = () => {
                       type="text"
                       value={editFormData.linkUrl}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({ ...prev, linkUrl: e.target.value }))
+                        setEditFormData((prev) => (prev ? { ...prev, linkUrl: e.target.value } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono focus:outline-none focus:border-[#026BFC] transition-colors"
                     />
@@ -1786,10 +1801,10 @@ export const AdminBanners: React.FC = () => {
                     <select
                       value={editFormData.openIn}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({
+                        setEditFormData((prev) => (prev ? {
                           ...prev,
                           openIn: e.target.value as OpenInTarget,
-                        }))
+                        } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:outline-none focus:border-[#026BFC]"
                     >
@@ -1809,10 +1824,10 @@ export const AdminBanners: React.FC = () => {
                           type="checkbox"
                           checked={editFormData.devices.desktop}
                           onChange={(e) =>
-                            setEditFormData((prev) => ({
+                            setEditFormData((prev) => (prev ? {
                               ...prev,
                               devices: { ...prev.devices, desktop: e.target.checked },
-                            }))
+                            } : null))
                           }
                           className="rounded border-slate-300 text-[#026BFC] focus:ring-0"
                         />
@@ -1824,10 +1839,10 @@ export const AdminBanners: React.FC = () => {
                           type="checkbox"
                           checked={editFormData.devices.mobile}
                           onChange={(e) =>
-                            setEditFormData((prev) => ({
+                            setEditFormData((prev) => (prev ? {
                               ...prev,
                               devices: { ...prev.devices, mobile: e.target.checked },
-                            }))
+                            } : null))
                           }
                           className="rounded border-slate-300 text-[#026BFC] focus:ring-0"
                         />
@@ -1844,10 +1859,10 @@ export const AdminBanners: React.FC = () => {
                     <select
                       value={editFormData.status}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({
+                        setEditFormData((prev) => (prev ? {
                           ...prev,
                           status: e.target.value as BannerStatus,
-                        }))
+                        } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 cursor-pointer focus:outline-none focus:border-[#026BFC]"
                     >
@@ -1867,10 +1882,10 @@ export const AdminBanners: React.FC = () => {
                       type="number"
                       value={editFormData.order}
                       onChange={(e) =>
-                        setEditFormData((prev) => ({
+                        setEditFormData((prev) => (prev ? {
                           ...prev,
                           order: Number(e.target.value) || 1,
-                        }))
+                        } : null))
                       }
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#026BFC] transition-colors"
                     />
@@ -1887,11 +1902,11 @@ export const AdminBanners: React.FC = () => {
                           type="text"
                           value={editFormData.startDate || '01-09-2026'}
                           onChange={(e) =>
-                            setEditFormData((prev) => ({
+                            setEditFormData((prev) => (prev ? {
                               ...prev,
                               startDate: e.target.value,
                               hasDateRange: true,
-                            }))
+                            } : null))
                           }
                           placeholder="DD-MM-YYYY"
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-[#026BFC]"
@@ -1903,11 +1918,11 @@ export const AdminBanners: React.FC = () => {
                           type="text"
                           value={editFormData.endDate || '30-09-2026'}
                           onChange={(e) =>
-                            setEditFormData((prev) => ({
+                            setEditFormData((prev) => (prev ? {
                               ...prev,
                               endDate: e.target.value,
                               hasDateRange: true,
-                            }))
+                            } : null))
                           }
                           placeholder="DD-MM-YYYY"
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-[#026BFC]"
@@ -2287,7 +2302,7 @@ export const AdminBanners: React.FC = () => {
             <p className="text-xs text-slate-500 mt-1">
               Are you sure you want to delete{' '}
               <span className="font-semibold text-slate-800">
-                "{editFormData.title}"
+                "{editFormData?.title || 'this banner'}"
               </span>
               ? This action cannot be undone.
             </p>

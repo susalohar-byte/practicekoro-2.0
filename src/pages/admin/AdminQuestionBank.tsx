@@ -643,26 +643,18 @@ export const AdminQuestionBank: React.FC = () => {
   // Selected Rows for Bulk Actions
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
-  // Active / Opened Question in Right Drawer (Defaults to row 10421 matching reference image)
-  const [activeQuestion, setActiveQuestion] = useState<Question | null>(
-    isSupabaseConfigured ? null : INITIAL_DEMO_QUESTIONS[0]
-  );
+  // Active / Opened Question in Right Drawer (Defaults to null - neutral initial state)
+  const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
   const [drawerTab, setDrawerTab] = useState<'details' | 'explanation' | 'short_notes' | 'history'>('details');
 
   // Drawer Edit Form States
-  const [drawerBengaliText, setDrawerBengaliText] = useState(
-    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].questionBengaliText || '')
-  );
-  const [drawerOptions, setDrawerOptions] = useState<{ [key: string]: string }>(
-    isSupabaseConfigured
-      ? { A: '', B: '', C: '', D: '' }
-      : {
-          A: INITIAL_DEMO_QUESTIONS[0].optionA,
-          B: INITIAL_DEMO_QUESTIONS[0].optionB,
-          C: INITIAL_DEMO_QUESTIONS[0].optionC,
-          D: INITIAL_DEMO_QUESTIONS[0].optionD,
-        }
-  );
+  const [drawerBengaliText, setDrawerBengaliText] = useState('');
+  const [drawerOptions, setDrawerOptions] = useState<{ [key: string]: string }>({
+    A: '',
+    B: '',
+    C: '',
+    D: '',
+  });
   const [drawerCorrectOption, setDrawerCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [drawerUploadMode, setDrawerUploadMode] = useState<UploadMode>('exam');
   const [drawerExam, setDrawerExam] = useState('WBP Constable');
@@ -672,19 +664,13 @@ export const AdminQuestionBank: React.FC = () => {
   const [drawerYear, setDrawerYear] = useState<number | string>(2025);
   const [drawerSource, setDrawerSource] = useState('Official PYQ');
   const [drawerStatus, setDrawerStatus] = useState<QuestionBankStatus>('published');
-  const [drawerTags, setDrawerTags] = useState<string[]>(
-    isSupabaseConfigured ? [] : ['WBP', 'Modern India', 'Governor General']
-  );
+  const [drawerTags, setDrawerTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [isUpdatingDrawer, setIsUpdatingDrawer] = useState(false);
 
   // Drawer Explanation / Notes Edit States
-  const [editExplanation, setEditExplanation] = useState(
-    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].explanationBengali || '')
-  );
-  const [editShortNotes, setEditShortNotes] = useState(
-    isSupabaseConfigured ? '' : (INITIAL_DEMO_QUESTIONS[0].shortNotes || '')
-  );
+  const [editExplanation, setEditExplanation] = useState('');
+  const [editShortNotes, setEditShortNotes] = useState('');
 
   // Floating Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -777,11 +763,6 @@ export const AdminQuestionBank: React.FC = () => {
 
       if (isSupabaseConfigured) {
         setQuestions(allQuestions || []);
-        if (allQuestions && allQuestions.length > 0) {
-          setActiveQuestion(allQuestions[0]);
-        } else {
-          setActiveQuestion(null);
-        }
       } else {
         if (allQuestions && allQuestions.length > 0) {
           // Merge without losing initial demo questions
@@ -1494,7 +1475,6 @@ export const AdminQuestionBank: React.FC = () => {
     }
 
     setQuestions((prev) => [...parsedImportQuestions, ...prev]);
-    setActiveQuestion(parsedImportQuestions[0]);
     setIsImporting(false);
     setIsImportModalOpen(false);
     setImportFile(null);

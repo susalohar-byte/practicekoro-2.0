@@ -457,11 +457,9 @@ export const AdminTopics: React.FC = () => {
   // Collapsed Subject Groups state (all open by default)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  // Active Selected Topic for the Right-hand Details Panel
-  const [selectedTopic, setSelectedTopic] = useState<EnrichedTopicRow | null>(
-    CANONICAL_TOPICS_PRESET[0]
-  );
-  const [showDetailsPanel, setShowDetailsPanel] = useState(true);
+  // Active Selected Topic for the Right-hand Details Panel (Neutral initial state)
+  const [selectedTopic, setSelectedTopic] = useState<EnrichedTopicRow | null>(null);
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'tests' | 'questions' | 'settings'>(
     'overview'
   );
@@ -609,9 +607,9 @@ export const AdminTopics: React.FC = () => {
 
       setTopicsList(merged);
       setSelectedTopic((prev) => {
-        if (!prev) return merged[0] || null;
+        if (!prev) return null;
         const matched = merged.find((t) => t.id === prev.id || t.slug === prev.slug);
-        return matched || merged[0] || null;
+        return matched || null;
       });
     } catch (err) {
       console.error('Failed to load topics data:', err);
@@ -1577,7 +1575,7 @@ export const AdminTopics: React.FC = () => {
                         {/* Topics under this subject */}
                         {!isCollapsed &&
                           group.topics.map((topic, tIdx) => {
-                            const isSelected = selectedTopic?.id === topic.id;
+                            const isSelected = Boolean(showDetailsPanel && selectedTopic?.id === topic.id);
                             const isChecked = selectedTopicIds.has(topic.id);
                             const isPublished = topic.statusLabel === 'Published';
                             const rowNumber =
@@ -1891,7 +1889,10 @@ export const AdminTopics: React.FC = () => {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowDetailsPanel(false)}
+                onClick={() => {
+                  setShowDetailsPanel(false);
+                  setSelectedTopic(null);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 title="Close details"
               >

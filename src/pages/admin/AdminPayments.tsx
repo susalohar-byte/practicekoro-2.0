@@ -114,7 +114,7 @@ export const AdminPayments: React.FC = () => {
   const [recordsLoading, setRecordsLoading] = useState(true);
   const [recordsError, setRecordsError] = useState('');
   const [selectedRowId, setSelectedRowId] = useState<number | string>('');
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(false);
 
   // Load real payments from database on mount
   useEffect(() => {
@@ -176,9 +176,10 @@ export const AdminPayments: React.FC = () => {
           };
         });
         setPaymentsList(mapped);
-        if (mapped.length > 0) {
-          setSelectedRowId(mapped[0].id);
-        }
+        setSelectedRowId((prev) => {
+          if (!prev) return '';
+          return mapped.some((m) => m.id === prev) ? prev : '';
+        });
       })
       .catch((err) => {
         console.warn('Failed to load admin payments from database:', err);
@@ -236,10 +237,8 @@ export const AdminPayments: React.FC = () => {
 
   // Selected payment record
   const selectedPayment = useMemo(() => {
-    return (
-      paymentsList.find((p) => p.id === selectedRowId) ||
-      (paymentsList.length > 0 ? paymentsList[0] : null)
-    );
+    if (!selectedRowId) return null;
+    return paymentsList.find((p) => p.id === selectedRowId) || null;
   }, [paymentsList, selectedRowId]);
 
   // Computed summary metrics
@@ -1057,7 +1056,7 @@ export const AdminPayments: React.FC = () => {
                     </tr>
                   ) : (
                     filteredRows.slice(0, 10).map((row, idx) => {
-                      const isSelected = selectedRowId === row.id;
+                      const isSelected = Boolean(isDetailsPanelOpen && selectedRowId === row.id);
                       const isChecked = selectedCheckboxes.includes(row.id);
                       return (
                         <tr
@@ -1298,20 +1297,21 @@ export const AdminPayments: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: PAYMENT DETAILS PANEL */}
-        {isDetailsPanelOpen && (
+        {isDetailsPanelOpen && selectedPayment && (
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            {selectedPayment ? (
-              <>
-                {/* Header */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900">Payment Details</h2>
-                  <button
-                    onClick={() => setIsDetailsPanelOpen(false)}
-                    className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-900">Payment Details</h2>
+              <button
+                onClick={() => {
+                  setIsDetailsPanelOpen(false);
+                  setSelectedRowId('');
+                }}
+                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
                 {/* Student Profile Card */}
                 <div className="flex items-start justify-between gap-3">
@@ -1500,12 +1500,6 @@ export const AdminPayments: React.FC = () => {
                     <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
                   </button>
                 </div>
-              </>
-            ) : (
-              <div className="py-16 text-center text-slate-400 text-xs">
-                No payment record selected.
-              </div>
-            )}
           </div>
         )}
       </div>

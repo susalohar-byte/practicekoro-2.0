@@ -89,7 +89,7 @@ function formatPublishedDate(dateStr: string | null | undefined): { date: string
 export const AdminBlog: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedPostId, setSelectedPostId] = useState<string | null>('blog-post-001');
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'scheduled' | 'archived'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -106,8 +106,8 @@ export const AdminBlog: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Drawer
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  // Drawer (Neutral initial state - closed by default)
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'content' | 'seo' | 'analytics'>('overview');
 
   // Modals
@@ -140,16 +140,17 @@ export const AdminBlog: React.FC = () => {
       setLoading(true);
       const data = await api.getAllBlogPosts();
       setPosts(data);
-      if (data.length > 0 && !selectedPostId) {
-        setSelectedPostId(data[0].id);
-      }
+      setSelectedPostId((prev) => {
+        if (!prev) return null;
+        return data.some((p) => p.id === prev) ? prev : null;
+      });
     } catch (err) {
       console.error('Failed to load blog posts:', err);
       toast.error('Failed to load blog posts');
     } finally {
       setLoading(false);
     }
-  }, [selectedPostId]);
+  }, []);
 
   useEffect(() => {
     loadPosts();
@@ -280,8 +281,9 @@ export const AdminBlog: React.FC = () => {
 
   // Selected Post for Drawer
   const selectedPost = useMemo(() => {
-    return posts.find((p) => p.id === selectedPostId) || paginatedPosts[0] || posts[0] || null;
-  }, [posts, selectedPostId, paginatedPosts]);
+    if (!selectedPostId) return null;
+    return posts.find((p) => p.id === selectedPostId) || null;
+  }, [posts, selectedPostId]);
 
   // Featured Toggle Handler
   const handleToggleFeatured = async (post: BlogPost, e: React.MouseEvent) => {
@@ -801,7 +803,7 @@ export const AdminBlog: React.FC = () => {
                   ) : (
                     paginatedPosts.map((post, index) => {
                       const rowNumber = (currentPage - 1) * pageSize + index + 1;
-                      const isSelected = selectedPost?.id === post.id;
+                      const isSelected = Boolean(isDrawerOpen && selectedPost?.id === post.id);
                       const pubDate = formatPublishedDate(post.publishedAt);
                       const catStyle = CATEGORY_COLORS[post.category] || {
                         bg: 'bg-slate-50',
@@ -1114,7 +1116,10 @@ export const AdminBlog: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h2 className="text-base font-bold text-slate-900">Post Details</h2>
                 <button
-                  onClick={() => setIsDrawerOpen(false)}
+                  onClick={() => {
+                    setIsDrawerOpen(false);
+                    setSelectedPostId(null);
+                  }}
                   className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
                 >
                   <X className="w-4 h-4" />

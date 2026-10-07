@@ -752,12 +752,12 @@ export const AdminExams: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   // Selected Exam & Side Panel
-  const [selectedExam, setSelectedExam] = useState<EnrichedExamRow | null>(CANONICAL_EXAMS_PRESET[0]);
-  const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(true);
+  const [selectedExam, setSelectedExam] = useState<EnrichedExamRow | null>(null);
+  const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(false);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'subjects' | 'test_series' | 'settings'>('overview');
 
-  // Row selection checkboxes (Row 1 checked by default matching screenshot)
-  const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set([CANONICAL_EXAMS_PRESET[0].id]));
+  // Row selection checkboxes
+  const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set());
 
   // Actions Dropdown Menu
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
@@ -1038,9 +1038,9 @@ export const AdminExams: React.FC = () => {
 
       setExams(mergedList);
       setSelectedExam((prev) => {
-        if (!prev) return mergedList[0] || null;
+        if (!prev) return null;
         const found = mergedList.find((e) => e.id === prev.id);
-        return found || prev;
+        return found || null;
       });
     } catch (err) {
       console.error('Error loading exams data:', err);
@@ -1155,8 +1155,6 @@ export const AdminExams: React.FC = () => {
     }
     setSelectedExam(exam);
     setShowDetailsPanel(true);
-    // Also toggle checked state
-    setSelectedExamIds(new Set([exam.id]));
   };
 
   // Open Create Modal
@@ -1644,7 +1642,7 @@ export const AdminExams: React.FC = () => {
                   ) : (
                     pagedExams.map((e, index) => {
                       const rowNumber = startIndex + index + 1;
-                      const isSelected = selectedExam?.id === e.id;
+                      const isSelected = Boolean(showDetailsPanel && selectedExam?.id === e.id);
                       const isChecked = selectedExamIds.has(e.id);
                       const isPublished = e.statusLabel === 'Published';
 
@@ -1958,7 +1956,10 @@ export const AdminExams: React.FC = () => {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowDetailsPanel(false)}
+                onClick={() => {
+                  setShowDetailsPanel(false);
+                  setSelectedExam(null);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 title="Close details"
               >

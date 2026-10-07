@@ -685,13 +685,13 @@ export const AdminSubjects: React.FC = () => {
   const [, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Selected Subject & Side Panel (Row 1 selected by default matching screenshot)
-  const [selectedSubject, setSelectedSubject] = useState<EnrichedSubjectRow | null>(CANONICAL_SUBJECTS_PRESET[0]);
-  const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(true);
+  // Selected Subject & Side Panel (Neutral initial state - nothing selected by default)
+  const [selectedSubject, setSelectedSubject] = useState<EnrichedSubjectRow | null>(null);
+  const [showDetailsPanel, setShowDetailsPanel] = useState<boolean>(false);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'topics' | 'topic_tests'>('overview');
 
-  // Row selection checkboxes (Row 1 checked by default matching screenshot)
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set([CANONICAL_SUBJECTS_PRESET[0].id]));
+  // Row selection checkboxes (Neutral initial state)
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set());
 
   // Actions Dropdown Menu
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
@@ -776,15 +776,16 @@ export const AdminSubjects: React.FC = () => {
       }
 
       setSubjectsList(merged);
-      if (!selectedSubject && merged.length > 0) {
-        setSelectedSubject(merged[0]);
-      }
+      setSelectedSubject((prev) => {
+        if (!prev) return null;
+        return merged.find((s) => s.id === prev.id) || null;
+      });
     } catch (err) {
       console.error('Failed to load subjects:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSubject]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -872,7 +873,6 @@ export const AdminSubjects: React.FC = () => {
   const handleSelectSubjectRow = (sub: EnrichedSubjectRow) => {
     setSelectedSubject(sub);
     setShowDetailsPanel(true);
-    setSelectedSubjectIds(new Set([sub.id]));
   };
 
   // Create / Edit modal handlers
@@ -1281,7 +1281,7 @@ export const AdminSubjects: React.FC = () => {
                   ) : (
                     pagedSubjects.map((s, index) => {
                       const rowNumber = startIndex + index + 1;
-                      const isSelected = selectedSubject?.id === s.id;
+                      const isSelected = Boolean(showDetailsPanel && selectedSubject?.id === s.id);
                       const isChecked = selectedSubjectIds.has(s.id);
                       const isPublished = s.statusLabel === 'Published';
 
@@ -1524,7 +1524,10 @@ export const AdminSubjects: React.FC = () => {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowDetailsPanel(false)}
+                onClick={() => {
+                  setShowDetailsPanel(false);
+                  setSelectedSubject(null);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 title="Close details"
               >

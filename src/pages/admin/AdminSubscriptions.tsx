@@ -427,9 +427,10 @@ export const AdminSubscriptions: React.FC = () => {
         }
         const mapped = remote.map(mapAdminSubscriptionRow);
         setSubscriptionsList(mapped);
-        if (mapped.length > 0) {
-          setSelectedRowId(mapped[0].id);
-        }
+        setSelectedRowId((prev) => {
+          if (!prev) return null;
+          return mapped.some((m) => m.id === prev) ? prev : null;
+        });
       })
       .catch((err) => {
         console.warn('Failed to load admin subscriptions from database:', err);
@@ -445,9 +446,9 @@ export const AdminSubscriptions: React.FC = () => {
     };
   }, []);
 
-  // Selected row
-  const [selectedRowId, setSelectedRowId] = useState<number | string>(1);
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
+  // Selected row (Neutral initial state - nothing selected by default)
+  const [selectedRowId, setSelectedRowId] = useState<number | string | null>(null);
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(false);
 
   // Dynamic KPI computations
   const totalSubscriptionsCount = subscriptionsList.length;
@@ -529,10 +530,8 @@ export const AdminSubscriptions: React.FC = () => {
 
   // Selected subscription
   const selectedSubscription = useMemo(() => {
-    return (
-      subscriptionsList.find((s) => s.id === selectedRowId) ||
-      (subscriptionsList.length > 0 ? subscriptionsList[0] : null)
-    );
+    if (!selectedRowId) return null;
+    return subscriptionsList.find((s) => s.id === selectedRowId) || null;
   }, [subscriptionsList, selectedRowId]);
 
   // Filtered rows
@@ -1012,7 +1011,7 @@ export const AdminSubscriptions: React.FC = () => {
                     </tr>
                   ) : (
                     filteredRows.slice(0, 10).map((row, idx) => {
-                      const isSelected = selectedRowId === row.id;
+                      const isSelected = Boolean(isDetailsPanelOpen && selectedRowId === row.id);
                       const isChecked = selectedCheckboxes.includes(row.id);
                       return (
                         <tr
@@ -1259,20 +1258,21 @@ export const AdminSubscriptions: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: SUBSCRIPTION DETAILS DOCKED PANEL */}
-        {isDetailsPanelOpen && (
+        {isDetailsPanelOpen && selectedSubscription && (
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            {selectedSubscription ? (
-              <>
-                {/* Header */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900">Subscription Details</h2>
-                  <button
-                    onClick={() => setIsDetailsPanelOpen(false)}
-                    className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-900">Subscription Details</h2>
+              <button
+                onClick={() => {
+                  setIsDetailsPanelOpen(false);
+                  setSelectedRowId(null);
+                }}
+                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
                 {/* Student Profile Card */}
                 <div className="flex items-start justify-between gap-3">
@@ -1578,12 +1578,6 @@ export const AdminSubscriptions: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="py-16 text-center text-slate-400 text-xs">
-                No subscription record selected.
-              </div>
-            )}
           </div>
         )}
       </div>

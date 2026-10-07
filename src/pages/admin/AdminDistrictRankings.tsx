@@ -237,9 +237,9 @@ export const AdminDistrictRankings: React.FC = () => {
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState('All Districts');
   const [timePeriod, setTimePeriod] = useState('Last 30 Days');
 
-  // Active district for details & map
-  const [selectedDistrictName, setSelectedDistrictName] = useState<string>('Purulia');
-  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
+  // Active district for details & map (Neutral initial state - closed by default)
+  const [selectedDistrictName, setSelectedDistrictName] = useState<string | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // Live districts ranking state
   const [districtsList, setDistrictsList] = useState<DistrictRankData[]>(INITIAL_DISTRICTS);
@@ -314,10 +314,8 @@ export const AdminDistrictRankings: React.FC = () => {
 
   // Active district resolved
   const activeDistrict = useMemo(() => {
-    return (
-      districtsList.find((d) => d.name === selectedDistrictName) ||
-      (districtsList.length > 0 ? districtsList[0] : null)
-    );
+    if (!selectedDistrictName) return null;
+    return districtsList.find((d) => d.name === selectedDistrictName) || null;
   }, [districtsList, selectedDistrictName]);
 
   // Outside click for row actions popover
@@ -664,7 +662,7 @@ export const AdminDistrictRankings: React.FC = () => {
                     </tr>
                   ) : (
                     filteredDistricts.map((district) => {
-                    const isSelected = selectedDistrictName === district.name;
+                    const isSelected = Boolean(isDetailsOpen && selectedDistrictName === district.name);
 
                     return (
                       <tr
@@ -920,7 +918,7 @@ export const AdminDistrictRankings: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <select
-                    value={selectedDistrictName}
+                    value={selectedDistrictName || ''}
                     onChange={(e) => setSelectedDistrictName(e.target.value)}
                     className="appearance-none bg-white border border-[#E2E8F0] rounded-xl pl-3 pr-7 py-1.5 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer"
                   >
@@ -1140,15 +1138,16 @@ export const AdminDistrictRankings: React.FC = () => {
           </div>
 
           {/* 3. DISTRICT DETAILS WIDGET */}
-          {isDetailsOpen && (
+          {isDetailsOpen && activeDistrict && (
             <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs space-y-4 animate-in fade-in duration-150">
-              {activeDistrict ? (
-                <>
-                  {/* Header: Title & Close */}
+              {/* Header: Title & Close */}
               <div className="flex items-center justify-between pb-1">
                 <h3 className="text-xs font-bold text-[#0F172A]">District Details</h3>
                 <button
-                  onClick={() => setIsDetailsOpen(false)}
+                  onClick={() => {
+                    setIsDetailsOpen(false);
+                    setSelectedDistrictName(null);
+                  }}
                   className="text-[#94A3B8] hover:text-[#0F172A] p-1 rounded-md transition-colors"
                   title="Close district details"
                 >
@@ -1259,12 +1258,6 @@ export const AdminDistrictRankings: React.FC = () => {
                   </p>
                 </div>
               </div>
-              </>
-            ) : (
-              <div className="py-16 text-center text-slate-400 text-xs">
-                No district selected.
-              </div>
-            )}
             </div>
           )}
         </div>

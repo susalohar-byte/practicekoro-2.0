@@ -593,7 +593,10 @@ export const AdminSupport: React.FC = () => {
         }
         const mapped = remote.map(mapAdminSupportTicket);
         setTicketsList(mapped);
-        if (mapped.length > 0) setSelectedTicketId(mapped[0].id);
+        setSelectedTicketId((prev) => {
+          if (!prev) return '';
+          return mapped.some((m) => m.id === prev) ? prev : '';
+        });
       })
       .catch((err) => {
         setToastError(true);
@@ -606,10 +609,8 @@ export const AdminSupport: React.FC = () => {
     };
   }, []);
 
-  // Selected Ticket in Right Panel
-  const [selectedTicketId, setSelectedTicketId] = useState<string>(
-    isSupabaseConfigured ? '' : 'tkt-1'
-  );
+  // Selected Ticket in Right Panel (Neutral initial state - nothing selected by default)
+  const [selectedTicketId, setSelectedTicketId] = useState<string>('');
 
   // Search in filters
   const [filterSearch, setFilterSearch] = useState('');
@@ -668,10 +669,8 @@ export const AdminSupport: React.FC = () => {
 
   // Active selected ticket
   const activeTicket = useMemo(() => {
-    return (
-      ticketsList.find((t) => t.id === selectedTicketId) ||
-      (ticketsList.length > 0 ? ticketsList[0] : null)
-    );
+    if (!selectedTicketId) return null;
+    return ticketsList.find((t) => t.id === selectedTicketId) || null;
   }, [ticketsList, selectedTicketId]);
 
   // Filtered tickets
@@ -1227,7 +1226,7 @@ export const AdminSupport: React.FC = () => {
               filteredTickets
                 .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
                 .map((tkt) => {
-                  const isSelected = selectedTicketId === tkt.id;
+                  const isSelected = Boolean(selectedTicketId && selectedTicketId === tkt.id);
 
                   return (
                     <div
@@ -1407,30 +1406,28 @@ export const AdminSupport: React.FC = () => {
             <>
               {/* Header Line */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <span className="font-bold text-sm text-slate-900">
-                  {activeTicket.ticketNumber}
-                </span>
+                <span className="font-bold text-sm text-slate-900">{activeTicket.ticketNumber}</span>
 
-                {/* Status Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsStatusDropdownOpen(!isStatusDropdownOpen);
-                    }}
-                    className={cn(
-                      'px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors',
-                      getStatusBadgeClass(activeTicket.status)
-                    )}
-                  >
-                    <span>{activeTicket.status}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
+                <div className="flex items-center gap-2">
+                  {/* Status Dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                      }}
+                      className={cn(
+                        'px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors',
+                        getStatusBadgeClass(activeTicket.status)
+                      )}
+                    >
+                      <span>{activeTicket.status}</span>
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
 
-                  {isStatusDropdownOpen && (
-                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                      {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map(
-                        (st) => (
+                    {isStatusDropdownOpen && (
+                      <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                        {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map((st) => (
                           <button
                             key={st}
                             onClick={() => {
@@ -1440,14 +1437,20 @@ export const AdminSupport: React.FC = () => {
                             className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between"
                           >
                             <span>{st}</span>
-                            {activeTicket.status === st && (
-                              <Check className="w-3.5 h-3.5 text-blue-600" />
-                            )}
+                            {activeTicket.status === st && <Check className="w-3.5 h-3.5 text-blue-600" />}
                           </button>
-                        )
-                      )}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedTicketId('')}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    title="Close details"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 

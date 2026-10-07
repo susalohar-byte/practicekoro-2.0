@@ -436,11 +436,9 @@ export const AdminAuditLogs: React.FC = () => {
     isSupabaseConfigured ? [] : INITIAL_AUDIT_LOGS
   );
 
-  // Selected Log (Defaults to Row 1 Susanta Lohar matching screenshot)
-  const [selectedLogId, setSelectedLogId] = useState<string>(
-    isSupabaseConfigured ? '' : 'log-1'
-  );
-  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(!isSupabaseConfigured);
+  // Selected Log (Defaults to neutral unselected state)
+  const [selectedLogId, setSelectedLogId] = useState<string>('');
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(false);
 
   // Fetch real audit logs on mount
   useEffect(() => {
@@ -546,10 +544,10 @@ export const AdminAuditLogs: React.FC = () => {
         });
 
         setLogsList(mapped);
-        if (mapped.length > 0) {
-          setSelectedLogId(mapped[0].id);
-          setIsDetailsPanelOpen(true);
-        }
+        setSelectedLogId((prev) => {
+          if (!prev) return '';
+          return mapped.some((m) => m.id === prev) ? prev : '';
+        });
       })
       .catch((err) => {
         console.warn('[AdminAuditLogs] Failed to fetch real logs:', err);
@@ -597,7 +595,8 @@ export const AdminAuditLogs: React.FC = () => {
 
   // Selected audit log record
   const selectedLog = useMemo(() => {
-    return logsList.find((l) => l.id === selectedLogId) || (logsList.length > 0 ? logsList[0] : null);
+    if (!selectedLogId) return null;
+    return logsList.find((l) => l.id === selectedLogId) || null;
   }, [logsList, selectedLogId]);
 
   const mostActiveArea = useMemo(() => {
@@ -985,7 +984,7 @@ export const AdminAuditLogs: React.FC = () => {
                     </tr>
                   ) : (
                     filteredLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
-                    const isSelected = selectedLogId === row.id;
+                    const isSelected = Boolean(isDetailsPanelOpen && selectedLogId === row.id);
                     const isChecked = selectedIds.includes(row.id);
 
                     return (
@@ -1228,7 +1227,10 @@ export const AdminAuditLogs: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900">Log Details</h2>
               <button
-                onClick={() => setIsDetailsPanelOpen(false)}
+                onClick={() => {
+                  setIsDetailsPanelOpen(false);
+                  setSelectedLogId('');
+                }}
                 className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />

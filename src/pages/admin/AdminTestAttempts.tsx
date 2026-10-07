@@ -586,18 +586,19 @@ export const AdminTestAttempts: React.FC = () => {
         return;
       }
       setAttempts(remote);
-      if (remote.length > 0) {
-        setSelectedAttemptId(remote[0].id);
-      }
+      setSelectedAttemptId((prev) => {
+        if (!prev) return null;
+        return remote.some((a) => a.id === prev) ? prev : null;
+      });
     }).catch((err) => {
       console.warn('Failed to fetch real test attempts from database:', err);
     });
     return () => { isMounted = false; };
   }, []);
 
-  // Selected attempt for right panel
-  const [selectedAttemptId, setSelectedAttemptId] = useState<string>('att_1');
-  const [isPanelOpen, setIsPanelOpen] = useState<boolean>(true);
+  // Selected attempt for right panel (Neutral initial state)
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'Overview' | 'Answers' | 'Analysis'>('Overview');
   const [answersTabFilter, setAnswersTabFilter] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
 
@@ -650,7 +651,8 @@ export const AdminTestAttempts: React.FC = () => {
 
   // Active attempt resolved
   const selectedAttempt = useMemo(() => {
-    return attempts.find((a) => a.id === selectedAttemptId) || (attempts.length > 0 ? attempts[0] : null);
+    if (!selectedAttemptId) return null;
+    return attempts.find((a) => a.id === selectedAttemptId) || null;
   }, [attempts, selectedAttemptId]);
 
   // Dynamic question breakdown for selected attempt
@@ -1511,15 +1513,16 @@ export const AdminTestAttempts: React.FC = () => {
         {/* ==================================================================== */}
         {/* 5. ATTEMPT DETAILS PANEL (RIGHT SIDE - EXACT MATCH) */}
         {/* ==================================================================== */}
-        {isPanelOpen && (
+        {isPanelOpen && selectedAttempt && (
           <div className="w-full xl:w-[380px] shrink-0 bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs flex flex-col space-y-4 animate-in fade-in duration-200">
-            {selectedAttempt ? (
-              <>
-                {/* Header: Title & Close Button */}
+            {/* Header: Title & Close Button */}
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-sm font-bold text-[#0F172A]">Attempt Details</h2>
               <button
-                onClick={() => setIsPanelOpen(false)}
+                onClick={() => {
+                  setIsPanelOpen(false);
+                  setSelectedAttemptId(null);
+                }}
                 className="text-[#94A3B8] hover:text-[#0F172A] p-1 rounded-md transition-colors"
                 title="Close panel"
               >
@@ -1892,12 +1895,6 @@ export const AdminTestAttempts: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            </>
-            ) : (
-              <div className="py-16 text-center text-slate-400 text-xs">
-                No attempt record selected.
               </div>
             )}
           </div>

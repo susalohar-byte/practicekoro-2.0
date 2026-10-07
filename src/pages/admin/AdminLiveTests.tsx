@@ -75,7 +75,7 @@ export const AdminLiveTests: React.FC = () => {
   const [liveTests, setLiveTests] = useState<LiveTest[]>([]);
   const [availableTests, setAvailableTests] = useState<MockTest[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedTestId, setSelectedTestId] = useState<string | null>('live-test-001');
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
 
   // Tabs & Filters
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
@@ -92,7 +92,7 @@ export const AdminLiveTests: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
 
   // Drawer
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'participants' | 'settings' | 'analytics'>('overview');
 
   // Modals
@@ -139,9 +139,6 @@ export const AdminLiveTests: React.FC = () => {
       ]);
       setLiveTests(allLive);
       setAvailableTests(tests.filter((t: any) => t.testType === 'full_mock'));
-      if (allLive.length > 0 && !selectedTestId) {
-        setSelectedTestId(allLive[0].id);
-      }
     } catch (err) {
       console.error('Failed to load live tests:', err);
       toast.error('Failed to load live tests');
@@ -235,8 +232,9 @@ export const AdminLiveTests: React.FC = () => {
 
   // Selected Test for Right Drawer
   const selectedLiveTest = useMemo(() => {
-    return liveTests.find((t) => t.id === selectedTestId) || paginatedTests[0] || liveTests[0] || null;
-  }, [liveTests, selectedTestId, paginatedTests]);
+    if (!selectedTestId) return null;
+    return liveTests.find((t) => t.id === selectedTestId) || null;
+  }, [liveTests, selectedTestId]);
 
   // Select all checkbox
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -753,7 +751,10 @@ export const AdminLiveTests: React.FC = () => {
                           </td>
 
                           {/* Actions */}
-                          <td className="py-3.5 px-3 text-right relative action-menu-container">
+                          <td
+                            className="py-3.5 px-3 text-right relative action-menu-container"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -915,8 +916,11 @@ export const AdminLiveTests: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h2 className="text-base font-bold text-slate-900">Live Test Details</h2>
                 <button
-                  onClick={() => setIsDrawerOpen(false)}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  onClick={() => {
+                    setIsDrawerOpen(false);
+                    setSelectedTestId(null);
+                  }}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>

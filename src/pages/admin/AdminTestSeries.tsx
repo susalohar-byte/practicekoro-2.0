@@ -195,33 +195,27 @@ export const AdminTestSeries: React.FC = () => {
   // Selected Table Rows (for batch actions)
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
-  // Active / Opened Test Series in Right Details Drawer (Defaults to first row)
-  const [activeSeries, setActiveSeries] = useState<TestSeries | null>(() =>
-    isSupabaseConfigured ? null : DEFAULT_SHOWCASE_SERIES[0]
-  );
+  // Active / Opened Test Series in Right Details Drawer (Defaults to null - neutral initial state)
+  const [activeSeries, setActiveSeries] = useState<TestSeries | null>(null);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'tests' | 'settings' | 'analytics'>('overview');
-  const [activeSeriesTests, setActiveSeriesTests] = useState<MockTest[]>(() =>
-    isSupabaseConfigured ? [] : DEFAULT_WBP_SERIES_TESTS
-  );
+  const [activeSeriesTests, setActiveSeriesTests] = useState<MockTest[]>([]);
   const [isLoadingDrawerTests, setIsLoadingDrawerTests] = useState(false);
 
   // Drawer Inline Edit Description State
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [drawerDescriptionText, setDrawerDescriptionText] = useState(
-    isSupabaseConfigured ? '' : (DEFAULT_SHOWCASE_SERIES[0]?.description || '')
-  );
+  const [drawerDescriptionText, setDrawerDescriptionText] = useState('');
 
   // Drawer Settings State
   const [drawerSettingsForm, setDrawerSettingsForm] = useState({
-    title: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.title || '',
-    subtitle: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.subtitle || '',
-    examId: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.examId || '',
+    title: '',
+    subtitle: '',
+    examId: '',
     isPremium: false,
     isActive: true,
     orderIndex: 1,
     status: 'published' as TestSeriesStatus,
-    description: isSupabaseConfigured ? '' : DEFAULT_SHOWCASE_SERIES[0]?.description || '',
-    iconUrl: isSupabaseConfigured ? '/images/exams/logo_wbp.png' : DEFAULT_SHOWCASE_SERIES[0]?.iconUrl || '/images/exams/logo_wbp.png',
+    description: '',
+    iconUrl: '/images/exams/logo_wbp.png',
     bannerUrl: '',
   });
 
@@ -322,9 +316,9 @@ export const AdminTestSeries: React.FC = () => {
       if (allSeries && allSeries.length > 0) {
         setSeriesList(allSeries);
         setActiveSeries((prev) => {
-          if (!prev) return allSeries[0];
+          if (!prev) return null;
           const matched = allSeries.find((s) => s.id === prev.id);
-          return matched || allSeries[0];
+          return matched || null;
         });
       } else if (isSupabaseConfigured) {
         setSeriesList([]);

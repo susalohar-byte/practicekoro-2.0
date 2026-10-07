@@ -977,10 +977,8 @@ export const AdminNotifications: React.FC = () => {
   // Detailed Modal state
   const [inspectingItem, setInspectingItem] = useState<NotificationRecord | null>(null);
 
-  // Currently focused/active row for preview in the mobile mockup (defaults to row 1)
-  const [activePreviewItem, setActivePreviewItem] = useState<NotificationRecord>(
-    INITIAL_NOTIFICATIONS_42[0]
-  );
+  // Currently focused/active row for preview in the mobile mockup (neutral initial state - no selection by default)
+  const [activePreviewItem, setActivePreviewItem] = useState<NotificationRecord | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -1435,8 +1433,8 @@ export const AdminNotifications: React.FC = () => {
   };
 
   // Effective preview title and message
-  const displayPreviewTitle = formTitle.trim() || activePreviewItem.title;
-  const displayPreviewMessage = formMessage.trim() || activePreviewItem.message;
+  const displayPreviewTitle = formTitle.trim() || activePreviewItem?.title || 'Notification Title';
+  const displayPreviewMessage = formMessage.trim() || activePreviewItem?.message || 'Notification message will appear here...';
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -1895,7 +1893,7 @@ export const AdminNotifications: React.FC = () => {
                       .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
                       .map((row) => {
                         const isChecked = selectedIds.includes(row.id);
-                        const isCurrentActivePreview = activePreviewItem.id === row.id;
+                        const isCurrentActivePreview = Boolean(activePreviewItem && activePreviewItem.id === row.id);
                         const typeBadge = getTypeBadge(row.type);
 
                         return (
@@ -2576,8 +2574,9 @@ export const AdminNotifications: React.FC = () => {
               {/* Notification Banner */}
               <div
                 onClick={() => {
-                  if (formActionLink || activePreviewItem.actionLink) {
-                    window.open(formActionLink || activePreviewItem.actionLink, '_blank');
+                  const targetLink = formActionLink || activePreviewItem?.actionLink;
+                  if (targetLink) {
+                    window.open(targetLink, '_blank');
                   } else {
                     showToast('Notification tap registered');
                   }

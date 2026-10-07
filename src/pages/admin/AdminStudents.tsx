@@ -638,11 +638,9 @@ function mapDbRowToStudent(row: AdminStudentRow, index: number): EnrichedStudent
 export const AdminStudents: React.FC = () => {
   // State: pure database state, no fake preset records
   const [students, setStudents] = useState<EnrichedStudent[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<
-    'Overview' | 'Test History' | 'Subscriptions' | 'Notes'
-  >('Overview');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Test History' | 'Subscriptions' | 'Notes'>('Overview');
   const [isLoading, setIsLoading] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
@@ -735,9 +733,7 @@ export const AdminStudents: React.FC = () => {
         if (data && data.length > 0) {
           const mapped = data.map((row, i) => mapDbRowToStudent(row, i));
           setStudents(mapped);
-          setSelectedStudentId((prev) =>
-            prev && mapped.some((s) => s.id === prev) ? prev : mapped[0].id
-          );
+          setSelectedStudentId((prev) => (prev && mapped.some((s) => s.id === prev) ? prev : null));
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
           } catch {
@@ -745,7 +741,7 @@ export const AdminStudents: React.FC = () => {
           }
         } else {
           setStudents([]);
-          setSelectedStudentId('');
+          setSelectedStudentId(null);
         }
       } catch (err) {
         setToastMessage({
@@ -761,9 +757,8 @@ export const AdminStudents: React.FC = () => {
 
   // Currently Selected student
   const selectedStudent = useMemo(() => {
-    return (
-      students.find((s) => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null)
-    );
+    if (!selectedStudentId) return null;
+    return students.find((s) => s.id === selectedStudentId) || null;
   }, [students, selectedStudentId]);
 
   // Keep Edit Form updated when selectedStudent changes
@@ -1152,7 +1147,7 @@ export const AdminStudents: React.FC = () => {
       const remaining = students.filter((s) => !deleted.has(s.id));
       saveStudents(remaining);
       setSelectedRowIds(requested.filter((id) => !deleted.has(id)));
-      setSelectedStudentId((current) => (deleted.has(current) ? remaining[0]?.id || '' : current));
+      setSelectedStudentId((current) => (current && deleted.has(current) ? null : current));
       showToast(
         result.success ? 'success' : 'error',
         `${deleted.size} account(s) deleted. ${requested.length - deleted.size} not confirmed.${result.error ? ` ${result.error}` : ''}`
@@ -1956,8 +1951,11 @@ export const AdminStudents: React.FC = () => {
                   Student Details
                 </h3>
                 <button
-                  onClick={() => setIsPanelOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-50 transition-colors"
+                  onClick={() => {
+                    setIsPanelOpen(false);
+                    setSelectedStudentId(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
                   title="Close panel"
                 >
                   <X className="w-4 h-4" />

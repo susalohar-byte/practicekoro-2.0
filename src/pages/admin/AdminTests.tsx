@@ -309,10 +309,8 @@ export const AdminTests: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
 
   // Split-screen Test Details panel
-  const [selectedTest, setSelectedTest] = useState<MockTest | null>(
-    isSupabaseConfigured ? null : REFERENCE_DEFAULT_TESTS[0]
-  );
-  const [showDetailsPanel, setShowDetailsPanel] = useState(!isSupabaseConfigured);
+  const [selectedTest, setSelectedTest] = useState<MockTest | null>(null);
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'questions' | 'settings' | 'analytics'>(
     'overview'
   );
@@ -345,13 +343,6 @@ export const AdminTests: React.FC = () => {
 
       if (isSupabaseConfigured) {
         setTests(testsData || []);
-        if (testsData && testsData.length > 0) {
-          setSelectedTest(testsData[0]);
-          setShowDetailsPanel(true);
-        } else {
-          setSelectedTest(null);
-          setShowDetailsPanel(false);
-        }
       } else {
         // If DB tests exist, merge with reference tests prioritizing DB tests
         if (testsData && testsData.length > 0) {
@@ -361,10 +352,8 @@ export const AdminTests: React.FC = () => {
             ...REFERENCE_DEFAULT_TESTS.filter((ref) => !dbSlugs.has(ref.slug)),
           ];
           setTests(combined);
-          if (!selectedTest) setSelectedTest(combined[0]);
         } else {
           setTests(REFERENCE_DEFAULT_TESTS);
-          if (!selectedTest) setSelectedTest(REFERENCE_DEFAULT_TESTS[0]);
         }
       }
 
@@ -526,7 +515,6 @@ export const AdminTests: React.FC = () => {
   const handleSelectRow = (test: MockTest) => {
     setSelectedTest(test);
     setShowDetailsPanel(true);
-    setSelectedTestIds(new Set([test.id]));
   };
 
   // Actions
@@ -1263,8 +1251,11 @@ export const AdminTests: React.FC = () => {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowDetailsPanel(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                onClick={() => {
+                  setShowDetailsPanel(false);
+                  setSelectedTest(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 title="Close details"
               >
                 <X className="w-4 h-4" />

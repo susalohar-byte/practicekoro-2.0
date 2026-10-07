@@ -410,9 +410,10 @@ export const AdminCutoff: React.FC = () => {
         };
       });
       setCutoffsList(mapped);
-      if (mapped.length > 0) {
-        setSelectedRowId(mapped[0].id);
-      }
+      setSelectedRowId((prev) => {
+        if (!prev) return '';
+        return mapped.some((m) => m.id === prev) ? prev : '';
+      });
     }).catch((err) => {
       console.warn('Failed to load cutoff records from database:', err);
       if (isSupabaseConfigured) {
@@ -435,10 +436,8 @@ export const AdminCutoff: React.FC = () => {
     stage: 'Final Merit',
   });
 
-  // Selected Row state
-  const [selectedRowId, setSelectedRowId] = useState<number | string>(() =>
-    isSupabaseConfigured ? '' : 1
-  );
+  // Selected Row state (Neutral initial state - nothing selected by default)
+  const [selectedRowId, setSelectedRowId] = useState<number | string>('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -689,7 +688,7 @@ export const AdminCutoff: React.FC = () => {
     const targetId = deleteConfirmItem.id;
     setCutoffsList((prev) => prev.filter((c) => c.id !== targetId));
     if (selectedRowId === targetId) {
-      setSelectedRowId(1);
+      setSelectedRowId('');
     }
     showToast(`Cutoff record #${targetId} deleted.`);
     setDeleteConfirmItem(null);

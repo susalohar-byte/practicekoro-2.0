@@ -357,11 +357,9 @@ export const AdminStaff: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Side Panel state: Create New Admin
-  const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>(
-    'Basic Info'
-  );
+  // Side Panel state: Create New Admin (Neutral initial state - closed by default)
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>('Basic Info');
 
   // Form Fields
   const [formName, setFormName] = useState('');
@@ -574,10 +572,17 @@ export const AdminStaff: React.FC = () => {
           </p>
         </div>
 
-        <div className="shrink-0 self-start">
+        <div className="shrink-0 self-start flex items-center gap-2">
+          <button
+            onClick={() => setIsSidePanelOpen(true)}
+            className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Admin</span>
+          </button>
           <button
             onClick={() => setIsCreateRoleModalOpen(true)}
-            className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Create Role</span>
