@@ -20,11 +20,11 @@ Live `/admin/subjects` redirected the agent browser to login. Findings were esta
 - PNG/JPEG/WebP icons <=2 MB use durable Supabase Storage HTTPS URLs. Temporary blob/data/insecure references are rejected for production saves. Save/close are blocked during upload; storage errors preserve the form. Known named icons and broken-image fallback render correctly.
 - Synchronous mutation/upload locks prevent duplicate requests. Better form/dialog labels, visible feedback, mobile editor scrolling, background-scroll lock, current-page checkbox membership, dynamic category filters, correct topic/practice links.
 
-## Production database guard — NOT APPLIED
+## Production database guard — applied after explicit approval
 
-`supabase/migrations/20261007203000_subjects_global_slug_guard.sql` adds a narrowly scoped partial unique index on `lower(trim(slug))` for subjects with `exam_id IS NULL`. Existing UNIQUE(exam_id,slug) does not prevent duplicate NULL/global scopes. Fresh frontend/API checks cannot eliminate concurrent-writer races; the index is required for race-proof global uniqueness.
+`supabase/migrations/20261007203958_subjects_global_slug_guard.sql` adds a narrowly scoped partial unique index on `lower(trim(slug))` for subjects with `exam_id IS NULL`. Existing UNIQUE(exam_id,slug) does not prevent duplicate NULL/global scopes. Fresh frontend/API checks cannot eliminate concurrent-writer races; the index is required for race-proof global uniqueness.
 
-Read-only production inspection found no duplicate global slug groups at inspection time. No subject/history/storage rows were changed and no production migration was run for this task. Explicit approval is needed before applying this migration; recheck duplicates immediately before application. If duplicates exist, the index must fail rather than silently rewrite/delete records. Do not replay historical migrations or weaken RLS.
+After explicit user approval, the guard was applied through Supabase MCP as `subjects_global_slug_guard`, recorded version `20261007203958`. The originally proposed file `20261007203000_subjects_global_slug_guard.sql` was renamed to match the production ledger; do not reapply it under the old version. Preflight and postflight found 0 duplicate global slug groups. The index is unique, valid, ready, normalized by lower(trim(slug)), and scoped to exam_id IS NULL. Before/after counts remained 12 subjects / 10 global subjects. No subject/history/storage rows were rewritten. Do not replay historical migrations or weaken RLS.
 
 The SQL fixture test is disposable/in-memory and verifies duplicate rejection, preservation of exam-scoped subjects, rollback on failed edits, and safe reapplication. Run with `PGLITE_MODULE` pointing to an installed @electric-sql/pglite module if not installed in this checkout.
 
@@ -42,3 +42,9 @@ Verification results are recorded below after final checks. UI/backend tests use
 - Untouched current-main baseline: **453 passed / 35 failed / 488 total**. Integrated Subjects fixes: **495 passed / 35 failed / 530 total**. Exact failed-test identities are unchanged: **no new regression failures**. The suite remains red due to pre-existing failures, not fully passing.
 - Concurrent Dashboard removal and sidebar changes were preserved. Baseline/reports were isolated from production by demo/mocked test configuration.
 - Live login prevented authenticated CRUD verification. No real subjects, topics, attempts, paid access, messages, or shared storage files were deleted/modified for testing.
+
+### Approved production rollout confirmation
+
+- Supabase migration `subjects_global_slug_guard` applied successfully; version `20261007203958` and the actual index metadata independently verified.
+- Hostinger now serves Subjects chunk `AdminSubjects-B4IU1HL9.js` with all four new workflow/loading/reporting markers present. This verifies deployed code, not authenticated CRUD operation.
+- The browser still redirects to login; no real-account writes or destructive production tests were performed.
