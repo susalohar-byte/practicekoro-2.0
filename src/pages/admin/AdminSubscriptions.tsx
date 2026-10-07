@@ -455,6 +455,8 @@ export const AdminSubscriptions: React.FC = () => {
   // Action Menu State
   const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -469,8 +471,9 @@ export const AdminSubscriptions: React.FC = () => {
   const [formAmount, setFormAmount] = useState('');
   const [formMethod, setFormMethod] = useState<'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card'>('Razorpay');
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(msg);
+    setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
@@ -592,10 +595,17 @@ export const AdminSubscriptions: React.FC = () => {
   };
 
   // Cancel Subscription
-  const handleCancelSubscription = async () => {
-    if (!selectedSubscription) return;
-    if (window.confirm(`Cancel subscription access for ${selectedSubscription.studentName}?`)) {
-      const targetId = selectedSubscription.id;
+  const handleCancelSubscription = async (target: SubscriptionRecord | null) => {
+    if (!target || isCancellingSubscription || target.status !== 'Active') return;
+    if (!window.confirm(`Cancel subscription access for ${target.studentName}?`)) return;
+    const targetId = target.id;
+    setIsCancellingSubscription(true);
+    try {
+      const result = await api.cancelSubscription(String(targetId));
+      if (!result.success) {
+        showToast(result.error || 'Could not cancel the subscription.', 'error');
+        return;
+      }
       setSubscriptionsList((prev) =>
         prev.map((s) =>
           s.id === targetId
@@ -604,18 +614,20 @@ export const AdminSubscriptions: React.FC = () => {
                 status: 'Expired',
                 statusBadgeClass: 'bg-[#FEE2E2] text-[#DC2626]',
                 daysLeft: 0,
+                endDate: result.expiresAt
+                  ? new Date(result.expiresAt).toLocaleDateString('en-GB', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })
+                  : s.endDate,
               }
             : s
         )
       );
-      showToast(`Subscription cancelled for ${selectedSubscription.studentName}.`);
-
-      // Persist to database
-      try {
-        await api.cancelSubscription(String(targetId));
-      } catch (err) {
-        console.warn('Failed to cancel subscription in database:', err);
-      }
+      showToast(`Subscription cancelled for ${target.studentName}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not cancel the subscription.', 'error');
+    } finally {
+      setIsCancellingSubscription(false);
     }
   };
 
@@ -651,8 +663,8 @@ export const AdminSubscriptions: React.FC = () => {
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div role={toastType === 'error' ? 'alert' : 'status'} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
+          {toastType === 'error' ? <XCircle className="w-4 h-4 text-rose-400 shrink-0" /> : <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -1075,11 +1087,12 @@ export const AdminSubscriptions: React.FC = () => {
                                 </button>
                                 <div className="border-t border-slate-100 my-1" />
                                 <button
+                                  disabled={isCancellingSubscription || row.status !== 'Active'}
                                   onClick={() => {
-                                    handleCancelSubscription();
+                                    handleCancelSubscription(row);
                                     setActiveMenuId(null);
                                   }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                  className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                                   <span>Cancel Plan</span>
@@ -1381,11 +1394,12 @@ export const AdminSubscriptions: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={handleCancelSubscription}
-                      className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      onClick={() => handleCancelSubscription(selectedSubscription)}
+                      disabled={isCancellingSubscription || selectedSubscription.status !== 'Active'}
+                      className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Cancel Subscription</span>
+                      <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
                     </button>
                   </div>
                 </div>

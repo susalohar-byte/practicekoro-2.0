@@ -1001,18 +1001,29 @@ export const adminCommerceApi = {
     return { success: true };
   },
 
-  async cancelSubscription(subscriptionId: string): Promise<{ success: boolean; error?: string }> {
+  async cancelSubscription(
+    subscriptionId: string
+  ): Promise<{ success: boolean; error?: string; expiresAt?: string }> {
+    if (!subscriptionId.trim()) {
+      return { success: false, error: 'A subscription ID is required.' };
+    }
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('subscriptions')
           .update({
             status: 'cancelled',
             expires_at: new Date().toISOString(),
           })
-          .eq('id', subscriptionId);
+          .eq('id', subscriptionId)
+          .eq('status', 'active')
+          .select('id, status, expires_at')
+          .maybeSingle();
         if (error) return { success: false, error: error.message };
-        return { success: true };
+        if (!data || data.id !== subscriptionId || data.status !== 'cancelled') {
+          return { success: false, error: 'No active subscription was cancelled. Refresh and try again.' };
+        }
+        return { success: true, expiresAt: data.expires_at };
       } catch (err) {
         return {
           success: false,
@@ -1020,7 +1031,7 @@ export const adminCommerceApi = {
         };
       }
     }
-    return { success: true };
+    return { success: false, error: 'Subscription cancellation requires a configured backend.' };
   },
 
   async extendSubscription(

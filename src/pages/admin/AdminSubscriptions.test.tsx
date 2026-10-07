@@ -1,16 +1,66 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { api } from '@/services/api';
 import { AdminSubscriptions, mapAdminSubscriptionRow } from './AdminSubscriptions';
 import type { AdminSubscriptionRow } from '@/types';
 
 vi.mock('@/services/api', () => ({
-  api: { getAdminSubscriptions: vi.fn() },
+  api: { getAdminSubscriptions: vi.fn(), cancelSubscription: vi.fn() },
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+});
+
+describe('AdminSubscriptions cancellation', () => {
+  it('updates the subscription after backend success without changing recorded revenue', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.getAdminSubscriptions).mockResolvedValue([row]);
+    vi.mocked(api.cancelSubscription).mockResolvedValue({
+      success: true, expiresAt: '2026-10-01T00:00:00Z',
+    });
+    render(<AdminSubscriptions />);
+    await screen.findAllByText('Actual Student');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
+    await waitFor(() => expect(within(screen.getByRole('table')).getByText('Expired')).toBeInTheDocument());
+    expect(api.cancelSubscription).toHaveBeenCalledWith('s1');
+    expect(screen.getByText('Recorded Revenue').parentElement).toHaveTextContent('249.5');
+  });
+
+  it('keeps active state and shows an error when cancellation fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.getAdminSubscriptions).mockResolvedValue([row]);
+    vi.mocked(api.cancelSubscription).mockResolvedValue({ success: false, error: 'Denied' });
+    render(<AdminSubscriptions />);
+    await screen.findAllByText('Actual Student');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Denied');
+    expect(within(screen.getByRole('table')).getByText('Active')).toBeInTheDocument();
+    expect(screen.queryByText(/Subscription cancelled for/)).not.toBeInTheDocument();
+  });
+
+  it('cancels the clicked table row, not a different selected subscription', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.getAdminSubscriptions).mockResolvedValue([
+      row, { ...row, id: 's2', studentName: 'Second Student', paymentId: 'p2' },
+    ]);
+    vi.mocked(api.cancelSubscription).mockResolvedValue({
+      success: true, expiresAt: '2026-10-01T00:00:00Z',
+    });
+    render(<AdminSubscriptions />);
+    const name = await screen.findByText('Second Student');
+    const secondRow = name.closest('tr')!;
+    fireEvent.click(within(secondRow).getByRole('button'));
+    fireEvent.click(within(secondRow).getByRole('button', { name: 'Cancel Plan' }));
+    await waitFor(() => expect(api.cancelSubscription).toHaveBeenCalledWith('s2'));
+    await waitFor(() => expect(within(secondRow).getByText('Expired')).toBeInTheDocument());
+    const firstRow = within(screen.getByRole('table')).getByText('Actual Student').closest('tr')!;
+    expect(within(firstRow).getByText('Active')).toBeInTheDocument();
+  });
 });
 
 const row: AdminSubscriptionRow = {

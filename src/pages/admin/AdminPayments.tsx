@@ -190,12 +190,15 @@ export const AdminPayments: React.FC = () => {
 
   // Modals & notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
   const [refundModalPayment, setRefundModalPayment] = useState<AdminPaymentRow | null>(null);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(msg);
+    setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
@@ -344,18 +347,47 @@ export const AdminPayments: React.FC = () => {
     setIsRefundModalOpen(true);
   };
 
-  // Cancel Payment / Subscription
-  const handleCancelPayment = () => {
-    if (!selectedPayment) return;
-    if (window.confirm(`Cancel subscription and revoke plan access for ${selectedPayment.studentName}?`)) {
+  // Revoke only the linked subscription; do not change settled payment history.
+  const handleCancelPayment = async () => {
+    if (!selectedPayment || isCancellingSubscription) return;
+    const target = selectedPayment;
+    const subscriptionId = target.sourcePayment.subscriptionId;
+    if (!subscriptionId || target.subscriptionActive !== true) {
+      showToast('No active linked subscription is available to cancel.', 'error');
+      return;
+    }
+    if (!window.confirm(`Cancel subscription and revoke plan access for ${target.studentName}?`)) return;
+
+    setIsCancellingSubscription(true);
+    try {
+      const result = await api.cancelSubscription(subscriptionId);
+      if (!result.success) {
+        showToast(result.error || 'Could not cancel the subscription.', 'error');
+        return;
+      }
       setPaymentsList((prev) =>
-        prev.map((p) =>
-          p.id === selectedPayment.id
-            ? { ...p, status: 'Failed', subscriptionActive: false, subscriptionValidTill: 'Cancelled' }
-            : p
-        )
+        prev.map((p) => {
+          if (p.sourcePayment.subscriptionId !== subscriptionId) return p;
+          const sourcePayment: AdminPaymentRow = {
+            ...p.sourcePayment,
+            subscriptionStatus: 'cancelled',
+            subscriptionExpiresAt: result.expiresAt || p.sourcePayment.subscriptionExpiresAt,
+          };
+          const subscription = getAdminSubscriptionDisplay(sourcePayment);
+          return {
+            ...p,
+            sourcePayment,
+            subscriptionActive: false,
+            subscriptionValidTill: subscription.validTill,
+            subscriptionDaysLeft: 0,
+          };
+        })
       );
-      showToast(`Subscription cancelled for ${selectedPayment.studentName}.`);
+      showToast(`Subscription cancelled for ${target.studentName}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not cancel the subscription.', 'error');
+    } finally {
+      setIsCancellingSubscription(false);
     }
   };
 
@@ -369,8 +401,8 @@ export const AdminPayments: React.FC = () => {
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div role={toastType === 'error' ? 'alert' : 'status'} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
+          {toastType === 'error' ? <XCircle className="w-4 h-4 text-rose-400 shrink-0" /> : <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -1376,10 +1408,11 @@ export const AdminPayments: React.FC = () => {
 
               <button
                 onClick={handleCancelPayment}
-                className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                disabled={isCancellingSubscription || selectedPayment.subscriptionActive !== true || !selectedPayment.sourcePayment.subscriptionId}
+                className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Ban className="w-3.5 h-3.5" />
-                <span>Cancel Payment</span>
+                <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
               </button>
             </div>
             </>
