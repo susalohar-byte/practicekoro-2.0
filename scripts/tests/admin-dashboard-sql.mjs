@@ -33,7 +33,7 @@ try {
   await db.exec(
     fs.readFileSync(
       new URL(
-        '../../supabase/migrations/20261007180000_update_admin_dashboard_v2_stats.sql',
+        '../../supabase/migrations/20261007151053_update_admin_dashboard_v2_stats.sql',
         import.meta.url
       ),
       'utf8'

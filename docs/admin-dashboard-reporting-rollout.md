@@ -61,9 +61,9 @@ up to 20 records per source plus 200 audit entries within the selected range,
 with 10 displayed per filter. Deduplication uses category, entity ID and timestamp;
 distinct event types/times survive. Missing audit IDs have deterministic fallbacks.
 
-## Database rollout — not applied by this change
+## Original frontend-fix rollout — historical status at 194679f
 
-`supabase/migrations/20261007180000_update_admin_dashboard_v2_stats.sql`
+`supabase/migrations/20261007151053_update_admin_dashboard_v2_stats.sql`
 was corrected **in the repository only**. It fixes single-conversion Kolkata
 boundaries, actual answer counts, and RPC authorization/EXECUTE grants atomically.
 No production migration, roles reset, RLS weakening, or Edge Function deployment
@@ -120,3 +120,35 @@ An isolated baseline at `ebb8e60` produced **359 passed / 38 failed (397 total)*
 The merged implementation produced **385 passed / the same 38 failed (423 total)**,
 with no newly failing test names. TypeScript, changed-file ESLint and the merged
 production build passed again after rebase. The SQL fixture remained isolated.
+
+## Production SQL rollout — completed after explicit approval
+
+The user subsequently authorized production application of the corrected
+Dashboard RPC migration. It was applied to the `practicekoro` Supabase project
+(`prycanbnxuihxhskallw`) using the migration tool, without changing application
+records, resetting roles, weakening RLS, or applying unrelated migrations.
+
+- Original requested source: `20261007180000_update_admin_dashboard_v2_stats.sql`.
+- Applied migration name: `update_admin_dashboard_v2_stats`.
+- Supabase-recorded version: **20261007151053**.
+- Repository filename aligned to `20261007151053_update_admin_dashboard_v2_stats.sql`
+  so migration tooling does not see this as a second pending migration. SQL content
+  was not changed during this filename alignment.
+- Source SHA256: `ffa5da97861a5155b1ef50a0ecba00dc658e6794a9edd0ddc46302f8bcb46578`.
+
+Preflight confirmed the old RPC, both required management helpers, matching
+column types, and no dependent database objects. The previous RPC definition
+and grants were retained locally for a rollback reference. This is a function
+backup, not a full production database backup.
+
+Post-apply catalog checks confirmed the new definition, pinned search path,
+SECURITY DEFINER, authenticated EXECUTE, and no PUBLIC/anonymous EXECUTE.
+Read-only verification used transaction-local JWT/role settings (not a browser
+login) to invoke the real RPC under an active super-admin identity. Live revenue
+and response/attempt/student/subscription counts matched independent SQL totals
+in UTC, Asia/Kolkata and America/New_York. The seven-day trend returned seven
+buckets. Missing identity and an existing student's identity were rejected.
+No payment, subscription, student, attempt or history records were modified.
+
+No manual reapplication of either filename is necessary. This completes the SQL
+rollout; authenticated browser Dashboard verification remains a separate check.
