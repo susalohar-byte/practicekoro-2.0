@@ -42,6 +42,7 @@ beforeEach(() => {
     const chain: any = {
       select: () => chain,
       order: () => chain,
+      range: () => chain,
       eq: (k: string, v: any) => {
         filter = [k, v];
         return chain;
@@ -63,7 +64,7 @@ beforeEach(() => {
     function run(single: boolean) {
       if (state.error) return { data: null, error: state.error };
       if (table !== 'exams' && table !== 'notifications')
-        return { data: single ? null : [], error: null };
+        return { data: single ? null : [], count: 0, error: null };
       if (op === 'insert') {
         if (state.rows.some((r) => r.slug === payload.slug && payload.slug))
           return { data: null, error: { message: 'duplicate slug' } };
@@ -77,7 +78,7 @@ beforeEach(() => {
       }
       const rows = state.rows.filter((r) => !filter || r[filter[0]] === filter[1]);
       if (op === 'update') rows.forEach((r) => Object.assign(r, payload));
-      return { data: single ? rows[0] || null : [...rows], error: null };
+      return { data: single ? rows[0] || null : [...rows], count: rows.length, error: null };
     }
     return chain;
   });

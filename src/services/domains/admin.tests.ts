@@ -1,3 +1,4 @@
+import { readCompleteQuery } from './admin.reporting';
 import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { notifyExamsUpdated } from '@/lib/dataSync';
@@ -110,7 +111,8 @@ export async function getAllAdminTests(filter?: {
       subjects:subject_id (name),
       chapters:chapter_id (name),
       test_series:test_series_id (title)
-    `
+    `,
+      { count: 'exact' }
     )
     .order('created_at', { ascending: false });
 
@@ -121,10 +123,7 @@ export async function getAllAdminTests(filter?: {
   if (filter?.testType) query = query.eq('test_type', filter.testType);
   if (filter?.status) query = query.eq('status', filter.status);
 
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await readCompleteQuery(() => query.order('id', { ascending: true }));
 
   if (!data || data.length === 0) {
     return [];

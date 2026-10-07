@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Migration: update_admin_dashboard_v2_stats
 -- Enhances get_admin_dashboard_v2_stats to return real testsAttempted, questionsAnswered,
 -- accurate Asia/Kolkata date boundaries, net revenue, distinct pro users, and truthful activity feeds.
@@ -34,7 +36,7 @@ DECLARE
     v_recent_activity JSONB;
 BEGIN
     v_user_id := auth.uid();
-    IF v_user_id IS NULL OR NOT public.has_role(v_user_id, 'admin') THEN
+    IF v_user_id IS NULL OR NOT (public.is_management_super_admin() OR public.can_mutate_admin_record('payments')) THEN
         RAISE EXCEPTION 'Forbidden: Administrator privileges required' USING ERRCODE = '40300';
     END IF;
 
@@ -45,17 +47,17 @@ BEGIN
     SELECT COALESCE(SUM(amount - COALESCE(refund_amount, 0.00)), 0.00) INTO v_today_revenue
     FROM public.payments
     WHERE status = 'completed'
-      AND created_at >= ((NOW() AT TIME ZONE 'Asia/Kolkata')::date::timestamptz AT TIME ZONE 'Asia/Kolkata');
+      AND created_at >= ((NOW() AT TIME ZONE 'Asia/Kolkata')::date::timestamp AT TIME ZONE 'Asia/Kolkata');
 
     SELECT COALESCE(SUM(amount - COALESCE(refund_amount, 0.00)), 0.00) INTO v_month_revenue
     FROM public.payments
     WHERE status = 'completed'
-      AND created_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Kolkata')::timestamptz AT TIME ZONE 'Asia/Kolkata');
+      AND created_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata');
 
     SELECT COALESCE(SUM(amount - COALESCE(refund_amount, 0.00)), 0.00) INTO v_year_revenue
     FROM public.payments
     WHERE status = 'completed'
-      AND created_at >= (date_trunc('year', NOW() AT TIME ZONE 'Asia/Kolkata')::timestamptz AT TIME ZONE 'Asia/Kolkata');
+      AND created_at >= (date_trunc('year', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata');
 
     -- Student Metrics (Strictly role = 'student', excluding staff/admin)
     SELECT COUNT(*) INTO v_total_students
@@ -93,11 +95,6 @@ BEGIN
     FROM public.attempt_answers
     WHERE selected_option IS NOT NULL;
 
-    IF v_questions_answered = 0 THEN
-        SELECT COALESCE(SUM(correct_count + wrong_count), 0) INTO v_questions_answered
-        FROM public.test_attempts;
-    END IF;
-
     -- Content Metrics
     SELECT COUNT(*) INTO v_total_exams FROM public.exams;
 
@@ -115,13 +112,13 @@ BEGIN
     SELECT COALESCE(jsonb_agg(d.item), '[]'::jsonb) INTO v_trend
     FROM (
         SELECT jsonb_build_object(
-            'date', to_char(day_series AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD'),
-            'label', to_char(day_series AT TIME ZONE 'Asia/Kolkata', 'Mon DD'),
+            'date', to_char(day_series, 'YYYY-MM-DD'),
+            'label', to_char(day_series, 'Mon DD'),
             'amount', COALESCE(SUM(p.amount - COALESCE(p.refund_amount, 0.00)), 0)
         ) AS item
         FROM generate_series(
-            date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '6 days',
-            date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata'),
+            (date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '6 days')::timestamp,
+            date_trunc('day', NOW() AT TIME ZONE 'Asia/Kolkata')::timestamp,
             INTERVAL '1 day'
         ) day_series
         LEFT JOIN public.payments p
@@ -210,4 +207,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
+REVOKE ALL ON FUNCTION public.get_admin_dashboard_v2_stats() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_admin_dashboard_v2_stats() TO authenticated;
+NOTIFY pgrst, 'reload schema';
+COMMIT;

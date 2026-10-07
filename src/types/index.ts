@@ -1069,6 +1069,8 @@ export interface QuestionItemAnalysis {
 }
 
 export interface ItemAnalysisFilterOptions {
+  startIso?: string;
+  endIso?: string;
   filterType?: 'all' | 'high_failure' | 'time_traps' | 'misclassified' | 'hardest' | 'easiest';
   preset?: 'all' | 'high_failure' | 'time_traps' | 'misclassified' | 'hardest' | 'easiest';
   subjectId?: string;
@@ -1089,6 +1091,7 @@ export type DateRangePreset =
   | '30d'
   | 'last_30_days'
   | 'this_year'
+  | 'all_time'
   | 'custom';
 
 export interface DateRangeDailyPoint {

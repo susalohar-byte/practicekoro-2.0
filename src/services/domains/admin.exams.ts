@@ -1,3 +1,4 @@
+import { readCompleteQuery } from './admin.reporting';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localExams, localTests } from '@/services/domains/localStore';
@@ -117,14 +118,16 @@ export async function getAllAdminExams(): Promise<Exam[]> {
     });
   }
 
-  const [contentCounts, { data, error }] = await Promise.all([
+  const [contentCounts, data] = await Promise.all([
     getExamContentCounts(),
-    supabase.from('exams').select('*').order('order_index', { ascending: true }),
+    readCompleteQuery(() =>
+      supabase
+        .from('exams')
+        .select('*', { count: 'exact' })
+        .order('order_index', { ascending: true })
+        .order('id', { ascending: true })
+    ),
   ]);
-
-  if (error) {
-    throw new Error(error.message);
-  }
 
   if (!data || data.length === 0) {
     return [];

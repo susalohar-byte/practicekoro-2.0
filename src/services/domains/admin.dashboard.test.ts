@@ -104,7 +104,7 @@ describe('Admin Dashboard Domain Unit Tests', () => {
       const result = calculatePeriodGrowth(50, 50, 'This Month');
       expect(result.trendStr).toBe('0%');
       expect(result.isPositive).toBe(null);
-      expect(result.vsLabel).toBe('vs last month');
+      expect(result.vsLabel).toBe('vs previous equal-length period');
     });
 
     it('handles zero previous denominator without fabricating percentages', () => {

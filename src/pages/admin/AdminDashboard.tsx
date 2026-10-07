@@ -16,17 +16,12 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import type {
-  AdminDashboardV2Stats,
-  Exam,
-  MockTest,
-  QuestionItemAnalysis,
-} from '@/types';
+import type { AdminDashboardV2Stats, Exam, MockTest, QuestionItemAnalysis } from '@/types';
 import { cn } from '@/lib/utils';
+import type { DashboardPeriod } from '@/services/domains/admin.reporting';
 import {
   getDateRangeBounds,
   calculatePeriodGrowth,
-  generateChartBuckets,
   normalizeActivityItems,
   type DateRangeBounds,
   type NormalizedActivityItem,
@@ -68,8 +63,15 @@ export const AdminDashboard: React.FC = () => {
   const [dbLeaderboard, setDbLeaderboard] = useState<any[]>([]);
   const [dbAuditLogs, setDbAuditLogs] = useState<any[]>([]);
   const [itemAnalysisList, setItemAnalysisList] = useState<QuestionItemAnalysis[]>([]);
-  const [rangeRevenueStats, setRangeRevenueStats] = useState<any | null>(null);
-  const [prevRangeRevenueStats, setPrevRangeRevenueStats] = useState<any | null>(null);
+  const [periodData, setPeriodData] = useState<DashboardPeriod | null>(null);
+  const [chartPeriods, setChartPeriods] = useState<{
+    growth: DashboardPeriod;
+    attempts: DashboardPeriod;
+    revenue: DashboardPeriod;
+  } | null>(null);
+  const [examAttemptCounts, setExamAttemptCounts] = useState<Record<string, number>>({});
+  const [snapshotLabel, setSnapshotLabel] = useState('');
+  const [customDateError, setCustomDateError] = useState('');
 
   // Sequence token to prevent out-of-order race conditions
   const requestIdRef = useRef(0);
@@ -82,7 +84,6 @@ export const AdminDashboard: React.FC = () => {
       appliedCustomEnd || undefined
     );
   }, [dateRangePreset, appliedCustomStart, appliedCustomEnd]);
-
   // Load real backend data
   const loadPlatformData = useCallback(async () => {
     const currentRequestId = ++requestIdRef.current;
@@ -96,7 +97,18 @@ export const AdminDashboard: React.FC = () => {
         appliedCustomEnd || undefined
       );
 
-      // Concurrent queries across domain APIs
+      // Share identical period queries inside a refresh; chart selectors use real bounds.
+      const cache = new Map<string, Promise<DashboardPeriod>>();
+      const periodFor = (range: string) => {
+        const b = getDateRangeBounds(
+          range,
+          range === 'Custom Range' ? appliedCustomStart : undefined,
+          range === 'Custom Range' ? appliedCustomEnd : undefined
+        );
+        const key = JSON.stringify(b);
+        if (!cache.has(key)) cache.set(key, api.getDashboardPeriodData(b));
+        return cache.get(key)!;
+      };
       const [
         statsRes,
         examsRes,
@@ -104,57 +116,49 @@ export const AdminDashboard: React.FC = () => {
         lbRes,
         logsRes,
         itemRes,
-        currentRevRes,
-        prevRevRes,
+        currentPeriod,
+        growthPeriod,
+        attemptPeriod,
+        revenuePeriod,
+        systemEvents,
       ] = await Promise.all([
-        api.getAdminDashboardV2Stats().catch((err) => {
-          console.warn('Dashboard v2 stats warning:', err);
-          return null;
-        }),
-        api.getAllAdminExams().catch(() => []),
-        api.getAllAdminTests().catch(() => []),
-        api.getAppLeaderboard('west_bengal').catch(() => []),
-        api.getAdminAuditLogs({ limit: 50 }).catch(() => ({ logs: [] })),
-        api.getItemAnalysis().catch(() => []),
-        api
-          .getDateRangeRevenueStats(
-            bounds.startIso.slice(0, 10),
-            bounds.endIso.slice(0, 10),
-            bounds.isAllTime ? 'this_year' : 'custom'
-          )
-          .catch(() => null),
-        bounds.prevStartIso && bounds.prevEndIso
-          ? api
-              .getDateRangeRevenueStats(
-                bounds.prevStartIso.slice(0, 10),
-                bounds.prevEndIso.slice(0, 10),
-                'custom'
-              )
-              .catch(() => null)
-          : Promise.resolve(null),
+        api.getAdminDashboardV2Stats(),
+        api.getAllAdminExams(),
+        api.getAllAdminTests(),
+        api.getDashboardLeaderboard(bounds),
+        api.getDashboardAuditLogs(bounds),
+        api.getItemAnalysis({ startIso: bounds.startIso, endIso: bounds.endIso }),
+        periodFor(dateRangePreset),
+        periodFor(studentGrowthRange),
+        periodFor(testAttemptsRange),
+        periodFor(revenueRange),
+        api.getDashboardSystemActivity(bounds),
       ]);
-
-      // Guard against race conditions: abort if a newer request was dispatched
+      const counts = await api.getDashboardExamAttemptCounts(currentPeriod.attemptCounts);
       if (currentRequestId !== requestIdRef.current) return;
-
-      if (!statsRes && !examsRes.length && !testsRes.length) {
-        throw new Error('Failed to load dashboard data. Backend did not respond.');
-      }
-
-      if (statsRes) setStats(statsRes);
-      if (examsRes) setDbExams(examsRes);
-      if (testsRes) setDbTests(testsRes);
-      if (lbRes) setDbLeaderboard(lbRes);
-      if (logsRes?.logs) setDbAuditLogs(logsRes.logs);
-      if (itemRes) setItemAnalysisList(itemRes);
-      if (currentRevRes) setRangeRevenueStats(currentRevRes);
-      if (prevRevRes) setPrevRangeRevenueStats(prevRevRes);
-
+      // Publish one complete snapshot. A failed section preserves the previous complete one.
+      setStats({ ...statsRes, recentActivity: systemEvents });
+      setDbExams(examsRes);
+      setDbTests(
+        testsRes.map((test) => ({
+          ...test,
+          attemptsCount: currentPeriod.attemptCounts[test.id] || 0,
+        }))
+      );
+      setDbLeaderboard(lbRes);
+      setDbAuditLogs(logsRes.logs);
+      setItemAnalysisList(itemRes);
+      setPeriodData(currentPeriod);
+      setChartPeriods({ growth: growthPeriod, attempts: attemptPeriod, revenue: revenuePeriod });
+      setExamAttemptCounts(counts);
+      setSnapshotLabel(bounds.label);
       setIsStale(false);
     } catch (err: any) {
       if (currentRequestId === requestIdRef.current) {
         console.error('AdminDashboard data fetch failed:', err);
-        setLoadError(err?.message || 'Failed to load platform data.');
+        setLoadError(
+          `Failed to load dashboard data. Backend did not respond. ${err?.message || 'Please retry.'}`
+        );
         setIsStale(true);
       }
     } finally {
@@ -162,7 +166,14 @@ export const AdminDashboard: React.FC = () => {
         setIsLoading(false);
       }
     }
-  }, [dateRangePreset, appliedCustomStart, appliedCustomEnd]);
+  }, [
+    dateRangePreset,
+    appliedCustomStart,
+    appliedCustomEnd,
+    studentGrowthRange,
+    testAttemptsRange,
+    revenueRange,
+  ]);
 
   useEffect(() => {
     loadPlatformData();
@@ -170,64 +181,71 @@ export const AdminDashboard: React.FC = () => {
 
   // Handle Preset Click
   const handleSelectPreset = (preset: string) => {
-    setDateRangePreset(preset);
+    setCustomDateError('');
     if (preset === 'Custom Range') {
       setShowCustomInputs(true);
-    } else {
-      setShowCustomInputs(false);
-      setAppliedCustomStart('');
-      setAppliedCustomEnd('');
       setIsDateOpen(false);
+      return;
     }
+    setDateRangePreset(preset);
+    setStudentGrowthRange(preset);
+    setTestAttemptsRange(preset);
+    setRevenueRange(preset);
+    setShowCustomInputs(false);
+    setAppliedCustomStart('');
+    setAppliedCustomEnd('');
+    setIsDateOpen(false);
   };
-
   const handleApplyCustomDate = () => {
-    if (!customStartDate) return;
+    try {
+      getDateRangeBounds('Custom Range', customStartDate, customEndDate || customStartDate);
+    } catch (error) {
+      setCustomDateError(error instanceof Error ? error.message : 'Invalid date range');
+      return;
+    }
+    setCustomDateError('');
     setAppliedCustomStart(customStartDate);
     setAppliedCustomEnd(customEndDate || customStartDate);
     setDateRangePreset('Custom Range');
+    setStudentGrowthRange('Custom Range');
+    setTestAttemptsRange('Custom Range');
+    setRevenueRange('Custom Range');
     setIsDateOpen(false);
+    setShowCustomInputs(false);
   };
 
   // ─── 6 TOP KPI METRIC CARDS ───
   const metricCards = useMemo(() => {
     const totalStudents = stats?.totalStudents ?? 0;
-    const activeStudents = stats?.activeStudents ?? 0;
-    const testsAttempted = stats?.testsAttempted ?? 0;
-    const questionsSolved = stats?.questionsAnswered ?? 0;
+    const activeStudents = periodData?.activeStudents ?? 0;
+    const testsAttempted = periodData?.testsAttempted ?? 0;
+    const questionsSolved = periodData?.questionsAnswered ?? 0;
     const activeSubscriptions = stats?.activeSubscriptions ?? 0;
-    const totalRevenue = stats?.totalRevenue ?? 0;
+    const totalRevenue = periodData?.netRevenue ?? 0;
 
-    // Growth rates calculated from actual period comparison
     const studentGrowth = calculatePeriodGrowth(
-      stats?.newStudents ?? totalStudents,
-      stats?.newStudents != null && stats.newStudents > 0 ? Math.round(stats.newStudents * 0.9) : 0,
+      periodData?.newStudents || 0,
+      periodData?.previous?.newStudents,
       dateRangePreset
     );
-
     const activeGrowth = calculatePeriodGrowth(
       activeStudents,
-      activeStudents > 0 ? Math.round(activeStudents * 0.92) : 0,
+      periodData?.previous?.activeStudents,
       dateRangePreset
     );
-
     const attemptsGrowth = calculatePeriodGrowth(
       testsAttempted,
-      testsAttempted > 0 ? Math.round(testsAttempted * 0.85) : 0,
+      periodData?.previous?.testsAttempted,
       dateRangePreset
     );
-
     const questionsGrowth = calculatePeriodGrowth(
       questionsSolved,
-      questionsSolved > 0 ? Math.round(questionsSolved * 0.85) : 0,
+      periodData?.previous?.questionsAnswered,
       dateRangePreset
     );
-
-    const currentPeriodRevenue = rangeRevenueStats?.totalRevenue ?? totalRevenue;
-    const prevPeriodRevenue = prevRangeRevenueStats?.totalRevenue;
     const revenueGrowth = calculatePeriodGrowth(
-      currentPeriodRevenue,
-      prevPeriodRevenue,
+      totalRevenue,
+      periodData?.previous?.netRevenue,
       dateRangePreset
     );
 
@@ -238,7 +256,7 @@ export const AdminDashboard: React.FC = () => {
         value: totalStudents.toLocaleString('en-IN'),
         trend: studentGrowth.trendStr,
         isPositive: studentGrowth.isPositive,
-        vsText: studentGrowth.vsLabel,
+        vsText: `All-time students; signup growth ${studentGrowth.vsLabel}`,
         icon: Users,
         iconBg: 'bg-[#EFF6FF] dark:bg-[#1E293B]',
         iconColor: 'text-[#026BFC]',
@@ -293,61 +311,36 @@ export const AdminDashboard: React.FC = () => {
         value: `₹${totalRevenue.toLocaleString('en-IN')}`,
         trend: revenueGrowth.trendStr,
         isPositive: revenueGrowth.isPositive,
-        vsText: revenueGrowth.vsLabel,
+        vsText: `Net retained revenue; ${revenueGrowth.vsLabel}`,
         icon: IndianRupee,
         iconBg: 'bg-[#EFF6FF] dark:bg-[#1E293B]',
         iconColor: 'text-[#026BFC]',
       },
     ];
-  }, [stats, dateRangePreset, rangeRevenueStats, prevRangeRevenueStats]);
+  }, [stats, dateRangePreset, periodData]);
 
   // ─── CHART 1: STUDENT GROWTH DATASET ───
-  const studentGrowthData = useMemo(() => {
-    const bounds = getDateRangeBounds(studentGrowthRange);
-    const buckets = generateChartBuckets(bounds.startIso, bounds.endIso, 7);
-    const total = stats?.totalStudents ?? 0;
-    const active = stats?.activeStudents ?? 0;
-
-    // Distribute actual signups across buckets if live data is available
-    return buckets.map((b, idx) => {
-      // Truthful zero when no students exist
-      const newSt = total > 0 && idx === buckets.length - 1 ? stats?.newStudents ?? 0 : 0;
-      const actSt = active > 0 && idx === buckets.length - 1 ? active : 0;
-      return {
-        label: b.label,
-        dateStr: b.dateStr,
-        newStudents: newSt,
-        activeStudents: actSt,
-      };
-    });
-  }, [studentGrowthRange, stats]);
+  const studentGrowthData = useMemo(() => chartPeriods?.growth.growthSeries || [], [chartPeriods]);
 
   const maxGrowthStudents = useMemo(() => {
-    const m = Math.max(...studentGrowthData.map((d) => Math.max(d.newStudents, d.activeStudents)), 0);
+    const m = Math.max(
+      ...studentGrowthData.map((d) => Math.max(d.newStudents, d.activeStudents)),
+      0
+    );
     return Math.max(m, 10);
   }, [studentGrowthData]);
 
   // ─── CHART 2: TEST ATTEMPTS DATASET (DYNAMIC SVG PATH) ───
-  const testAttemptsData = useMemo(() => {
-    const bounds = getDateRangeBounds(testAttemptsRange);
-    const buckets = generateChartBuckets(bounds.startIso, bounds.endIso, 7);
-    const totalAttempts = stats?.testsAttempted ?? 0;
-    const uniqueStudents = stats?.activeStudents ?? 0;
-
-    return buckets.map((b, idx) => {
-      const att = totalAttempts > 0 && idx === buckets.length - 1 ? totalAttempts : 0;
-      const unq = uniqueStudents > 0 && idx === buckets.length - 1 ? uniqueStudents : 0;
-      return {
-        label: b.label,
-        dateStr: b.dateStr,
-        totalAttempts: att,
-        uniqueStudents: unq,
-      };
-    });
-  }, [testAttemptsRange, stats]);
+  const testAttemptsData = useMemo(
+    () => chartPeriods?.attempts.attemptSeries || [],
+    [chartPeriods]
+  );
 
   const maxAttempts = useMemo(() => {
-    const m = Math.max(...testAttemptsData.map((d) => Math.max(d.totalAttempts, d.uniqueStudents)), 0);
+    const m = Math.max(
+      ...testAttemptsData.map((d) => Math.max(d.totalAttempts, d.uniqueStudents)),
+      0
+    );
     return Math.max(m, 10);
   }, [testAttemptsData]);
 
@@ -377,7 +370,10 @@ export const AdminDashboard: React.FC = () => {
 
     const buildPath = (pts: { cx: number; cy: number }[]) => {
       if (pts.length === 0) return '';
-      return pts.reduce((acc, p, idx) => (idx === 0 ? `M ${p.cx},${p.cy}` : `${acc} L ${p.cx},${p.cy}`), '');
+      return pts.reduce(
+        (acc, p, idx) => (idx === 0 ? `M ${p.cx},${p.cy}` : `${acc} L ${p.cx},${p.cy}`),
+        ''
+      );
     };
 
     const buildAreaPath = (pts: { cx: number; cy: number }[]) => {
@@ -400,38 +396,7 @@ export const AdminDashboard: React.FC = () => {
   }, [testAttemptsData, maxAttempts]);
 
   // ─── CHART 3: REVENUE DATASET ───
-  const revenueData: { label: string; amount: number; highlighted: boolean }[] = useMemo(() => {
-    const bounds = getDateRangeBounds(revenueRange);
-    const buckets = generateChartBuckets(bounds.startIso, bounds.endIso, 7);
-
-    // If rangeRevenueStats loaded daily trend, prioritize it
-    if (rangeRevenueStats?.dailyTrend && rangeRevenueStats.dailyTrend.length > 0) {
-      return rangeRevenueStats.dailyTrend.map((rt: any) => ({
-        label: String(rt.label),
-        amount: Math.max(0, Number(rt.amount || 0)),
-        highlighted: false,
-      }));
-    }
-
-    // If RPC returned trend points, map them
-    if (stats?.revenueTrend && stats.revenueTrend.length > 0) {
-      return stats.revenueTrend.map((rt) => ({
-        label: rt.label,
-        amount: Math.max(0, rt.amount || 0),
-        highlighted: false,
-      }));
-    }
-
-    // Otherwise render truthful buckets from loaded payments
-    return buckets.map((b, idx) => {
-      const isLast = idx === buckets.length - 1;
-      return {
-        label: b.label,
-        amount: isLast ? (stats?.todayRevenue ?? 0) : 0,
-        highlighted: false,
-      };
-    });
-  }, [revenueRange, stats, rangeRevenueStats]);
+  const revenueData = useMemo(() => chartPeriods?.revenue.revenueSeries || [], [chartPeriods]);
 
   const maxRevenue = useMemo(() => {
     const m = Math.max(...revenueData.map((d) => d.amount), 0);
@@ -442,23 +407,10 @@ export const AdminDashboard: React.FC = () => {
   const popularExams = useMemo(() => {
     if (!dbExams || dbExams.length === 0) return [];
 
-    // Aggregate attempts per test
-    const attemptsMap = new Map<string, number>();
-    for (const t of dbTests) {
-      if (t.id) {
-        attemptsMap.set(t.id, t.attemptsCount || 0);
-      }
-    }
-
-    // Calculate total attempts per exam without double-counting
-    const examAttemptsList = dbExams.map((exam) => {
-      const examTests = dbTests.filter((t) => t.examId === exam.id);
-      const totalAttempts = examTests.reduce((acc, t) => acc + (attemptsMap.get(t.id) || 0), 0);
-      return {
-        exam,
-        attemptsCount: totalAttempts,
-      };
-    });
+    const examAttemptsList = dbExams.map((exam) => ({
+      exam,
+      attemptsCount: examAttemptCounts[exam.id] || 0,
+    }));
 
     // Sort by attempts DESC, then title ASC (stable tie-breaker)
     examAttemptsList.sort((a, b) => {
@@ -495,7 +447,7 @@ export const AdminDashboard: React.FC = () => {
         badgeText: clr.badgeText,
       };
     });
-  }, [dbExams, dbTests]);
+  }, [dbExams, examAttemptCounts]);
 
   // ─── MOST ATTEMPTED TESTS DATASET ───
   const mostAttemptedTests = useMemo(() => {
@@ -536,9 +488,9 @@ export const AdminDashboard: React.FC = () => {
       return {
         rank: st.rank || idx + 1,
         name: st.display_name || 'Aspirant',
-        exam: st.exam_title || st.district || 'West Bengal',
-        score: `${st.score || Math.round(st.average_percentage || 0)} / 100`,
-        accuracy: `${Math.round(st.average_percentage || 0)}%`,
+        location: st.district || 'Not provided',
+        score: `${Math.round(st.average_percentage ?? 0)}%`,
+        tests: st.tests_count ?? 0,
         badge,
       };
     });
@@ -579,10 +531,11 @@ export const AdminDashboard: React.FC = () => {
     for (const q of itemAnalysisList) {
       if (q.totalAttempts <= 0) continue;
       const topicName = q.chapterName || 'General Topic';
+      const topicKey = JSON.stringify([q.subjectId || q.subjectName, q.chapterId || q.chapterName]);
       const subjectName = q.subjectName || 'General Subject';
 
-      if (!topicMap.has(topicName)) {
-        topicMap.set(topicName, {
+      if (!topicMap.has(topicKey)) {
+        topicMap.set(topicKey, {
           topic: topicName,
           subject: subjectName,
           correct: 0,
@@ -590,7 +543,7 @@ export const AdminDashboard: React.FC = () => {
         });
       }
 
-      const tStats = topicMap.get(topicName)!;
+      const tStats = topicMap.get(topicKey)!;
       tStats.correct += q.correctCount;
       tStats.total += q.totalAttempts;
     }
@@ -638,6 +591,15 @@ export const AdminDashboard: React.FC = () => {
       return recentActivities.filter((a) => a.category === 'payment').slice(0, 10);
     return recentActivities.slice(0, 10);
   }, [activityFilter, recentActivities]);
+
+  if (!stats && loadError)
+    return (
+      <div className="space-y-3">
+        <h1>Dashboard</h1>
+        <div role="alert">{loadError}. No reporting values are available.</div>
+        <button onClick={() => void loadPlatformData()}>Retry</button>
+      </div>
+    );
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-300">
@@ -707,16 +669,20 @@ export const AdminDashboard: React.FC = () => {
 
                 {showCustomInputs && (
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <p className="text-[11px] font-semibold text-slate-500">Select Date Interval:</p>
+                    <p className="text-[11px] font-semibold text-slate-500">
+                      Select Date Interval:
+                    </p>
                     <div className="space-y-1">
                       <input
                         type="date"
+                        aria-label="Report start date"
                         value={customStartDate}
                         onChange={(e) => setCustomStartDate(e.target.value)}
                         className="w-full text-xs p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900"
                       />
                       <input
                         type="date"
+                        aria-label="Report end date"
                         value={customEndDate}
                         onChange={(e) => setCustomEndDate(e.target.value)}
                         className="w-full text-xs p-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900"
@@ -752,6 +718,13 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {isLoading && <p role="status">Loading authoritative Dashboard data…</p>}
+      {isStale && stats && (
+        <p className="text-amber-700">
+          Showing the last complete snapshot: {snapshotLabel}. Selected filters may not match until
+          Retry succeeds.
+        </p>
+      )}
       {/* ─── 6 TOP KPI METRIC CARDS ─── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5 sm:gap-4">
         {metricCards.map((card) => {
@@ -781,7 +754,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="mt-3">
                 <div className="flex items-baseline gap-1.5 flex-wrap">
                   <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {card.value}
+                    {stats ? card.value : 'Unavailable'}
                   </span>
                   {card.trend && (
                     <span
@@ -790,12 +763,16 @@ export const AdminDashboard: React.FC = () => {
                         card.isPositive === true
                           ? 'text-[#10B981]'
                           : card.isPositive === false
-                          ? 'text-rose-500'
-                          : 'text-slate-400'
+                            ? 'text-rose-500'
+                            : 'text-slate-400'
                       )}
                     >
-                      {card.isPositive === true && <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />}
-                      {card.isPositive === false && <ArrowDownRight className="w-3 h-3 stroke-[2.5]" />}
+                      {card.isPositive === true && (
+                        <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                      )}
+                      {card.isPositive === false && (
+                        <ArrowDownRight className="w-3 h-3 stroke-[2.5]" />
+                      )}
                       {card.trend}
                     </span>
                   )}
@@ -821,7 +798,7 @@ export const AdminDashboard: React.FC = () => {
                 Revenue & Growth Analytics
               </h2>
               <p className="text-[11px] text-slate-500">
-                Inspect gross revenue, student enrollments, and transactions by date
+                Inspect net retained revenue, student registrations, and transactions by date
               </p>
             </div>
           </div>
@@ -846,13 +823,14 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Custom Date Interval Input Fields */}
-        {dateRangePreset === 'Custom Range' && (
+        {(showCustomInputs || dateRangePreset === 'Custom Range') && (
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 text-xs">
             <span className="font-semibold text-slate-700 dark:text-slate-300">
               Select Date Interval:
             </span>
             <input
               type="date"
+              aria-label="Report start date"
               value={customStartDate}
               onChange={(e) => setCustomStartDate(e.target.value)}
               className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
@@ -860,6 +838,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="text-slate-400">to</span>
             <input
               type="date"
+              aria-label="Report end date"
               value={customEndDate}
               onChange={(e) => setCustomEndDate(e.target.value)}
               className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
@@ -874,6 +853,11 @@ export const AdminDashboard: React.FC = () => {
         )}
       </div>
 
+      {customDateError && (
+        <div role="alert" className="text-red-700">
+          {customDateError}
+        </div>
+      )}
       {/* ─── 3 MIDDLE CHARTS (STUDENT GROWTH, TEST ATTEMPTS, REVENUE) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* CHART 1: Student Growth */}
@@ -890,8 +874,8 @@ export const AdminDashboard: React.FC = () => {
                       studentGrowthRange === 'Last 30 Days'
                         ? 'Last 14 Days'
                         : studentGrowthRange === 'Last 14 Days'
-                        ? 'Last 7 Days'
-                        : 'Last 30 Days'
+                          ? 'Last 7 Days'
+                          : 'Last 30 Days'
                     )
                   }
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
@@ -937,7 +921,10 @@ export const AdminDashboard: React.FC = () => {
               {/* Bars Columns */}
               <div className="absolute inset-0 pl-7 flex items-end justify-between gap-1.5 pb-5">
                 {studentGrowthData.map((item, idx) => {
-                  const newHeightPercent = Math.min(100, (item.newStudents / maxGrowthStudents) * 100);
+                  const newHeightPercent = Math.min(
+                    100,
+                    (item.newStudents / maxGrowthStudents) * 100
+                  );
                   const activeHeightPercent = Math.min(
                     100,
                     (item.activeStudents / maxGrowthStudents) * 100
@@ -998,8 +985,8 @@ export const AdminDashboard: React.FC = () => {
                       testAttemptsRange === 'Last 30 Days'
                         ? 'Last 14 Days'
                         : testAttemptsRange === 'Last 14 Days'
-                        ? 'Last 7 Days'
-                        : 'Last 30 Days'
+                          ? 'Last 7 Days'
+                          : 'Last 30 Days'
                     )
                   }
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
@@ -1157,8 +1144,8 @@ export const AdminDashboard: React.FC = () => {
                       revenueRange === 'Last 30 Days'
                         ? 'Last 14 Days'
                         : revenueRange === 'Last 14 Days'
-                        ? 'Last 7 Days'
-                        : 'Last 30 Days'
+                          ? 'Last 7 Days'
+                          : 'Last 30 Days'
                     )
                   }
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors"
@@ -1261,9 +1248,7 @@ export const AdminDashboard: React.FC = () => {
 
             <div className="space-y-4 mt-4">
               {popularExams.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No exams found.
-                </div>
+                <div className="py-8 text-center text-slate-400 text-xs">No exams found.</div>
               ) : (
                 popularExams.map((exam, index) => (
                   <div key={exam.id} className="flex items-center justify-between gap-3 text-xs">
@@ -1384,9 +1369,9 @@ export const AdminDashboard: React.FC = () => {
                   <tr className="text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-800/60 pb-2">
                     <th className="font-medium pb-2 w-7">#</th>
                     <th className="font-medium pb-2">Name</th>
-                    <th className="font-medium pb-2">Exam</th>
-                    <th className="font-medium pb-2 text-center">Score</th>
-                    <th className="font-medium pb-2 text-right">Accuracy</th>
+                    <th className="font-medium pb-2">Location</th>
+                    <th className="font-medium pb-2 text-center">Avg. Score</th>
+                    <th className="font-medium pb-2 text-right">Tests</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1424,12 +1409,12 @@ export const AdminDashboard: React.FC = () => {
                         <td className="py-2.5 font-bold text-slate-900 dark:text-white">
                           {st.name}
                         </td>
-                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{st.exam}</td>
+                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{st.location}</td>
                         <td className="py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
                           {st.score}
                         </td>
                         <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                          {st.accuracy}
+                          {st.tests}
                         </td>
                       </tr>
                     ))
@@ -1488,7 +1473,10 @@ export const AdminDashboard: React.FC = () => {
                     </tr>
                   ) : (
                     difficultQuestions.map((q, idx) => (
-                      <tr key={q.id + idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <tr
+                        key={q.id + idx}
+                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                      >
                         <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
                         <td className="py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
                           {q.preview}
@@ -1531,7 +1519,7 @@ export const AdminDashboard: React.FC = () => {
                     <th className="font-medium pb-2 w-7">#</th>
                     <th className="font-medium pb-2">Topic</th>
                     <th className="font-medium pb-2">Subject</th>
-                    <th className="font-medium pb-2 text-right">Accuracy</th>
+                    <th className="font-medium pb-2 text-right">Tests</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1543,14 +1531,15 @@ export const AdminDashboard: React.FC = () => {
                     </tr>
                   ) : (
                     weakestTopics.map((top, idx) => (
-                      <tr key={top.id + idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <tr
+                        key={top.id + idx}
+                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                      >
                         <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
                         <td className="py-2.5 font-bold text-slate-900 dark:text-white">
                           {top.topic}
                         </td>
-                        <td className="py-2.5 text-slate-500 dark:text-slate-400">
-                          {top.subject}
-                        </td>
+                        <td className="py-2.5 text-slate-500 dark:text-slate-400">{top.subject}</td>
                         <td className="py-2.5 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -1618,7 +1607,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="space-y-3.5 mt-3.5">
               {filteredActivities.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 text-xs">
-                  No recent activities recorded.
+                  No matching events in the loaded recent activity window.
                 </div>
               ) : (
                 filteredActivities.map((act) => {
@@ -1626,19 +1615,19 @@ export const AdminDashboard: React.FC = () => {
                     act.category === 'payment'
                       ? IndianRupee
                       : act.category === 'subscription'
-                      ? Crown
-                      : act.category === 'test'
-                      ? FileCheck
-                      : Users;
+                        ? Crown
+                        : act.category === 'test'
+                          ? FileCheck
+                          : Users;
 
                   const iconBg =
                     act.category === 'payment'
                       ? 'bg-emerald-50 dark:bg-emerald-950/60 text-[#10B981]'
                       : act.category === 'subscription'
-                      ? 'bg-rose-50 dark:bg-rose-950/60 text-[#F43F5E]'
-                      : act.category === 'test'
-                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]'
-                      : 'bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6]';
+                        ? 'bg-rose-50 dark:bg-rose-950/60 text-[#F43F5E]'
+                        : act.category === 'test'
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-[#026BFC]'
+                          : 'bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6]';
 
                   const ActIcon = actIcon;
 

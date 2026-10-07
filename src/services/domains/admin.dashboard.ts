@@ -40,161 +40,49 @@ export function getDateRangeBounds(
   customStart?: string,
   customEnd?: string
 ): DateRangeBounds {
-  const now = getKolkataNow();
-  const todayStr = getKolkataDateString(now);
-  const [ty, tm, td] = todayStr.split('-').map(Number);
-
-  if (preset === 'Today') {
-    const start = parseKolkataStartOfDay(todayStr);
-    const end = parseKolkataEndOfDay(todayStr);
-    const prevDate = new Date(Date.UTC(ty, tm - 1, td - 1));
-    const prevStr = getKolkataDateString(prevDate);
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(prevStr).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(prevStr).toISOString(),
-      label: 'Today',
-      daysCount: 1,
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'Yesterday') {
-    const yestDate = new Date(Date.UTC(ty, tm - 1, td - 1));
-    const yestStr = getKolkataDateString(yestDate);
-    const start = parseKolkataStartOfDay(yestStr);
-    const end = parseKolkataEndOfDay(yestStr);
-    const dayBefore = new Date(Date.UTC(ty, tm - 1, td - 2));
-    const dayBeforeStr = getKolkataDateString(dayBefore);
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(dayBeforeStr).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(dayBeforeStr).toISOString(),
-      label: 'Yesterday',
-      daysCount: 1,
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'Last 7 Days') {
-    const sDate = new Date(Date.UTC(ty, tm - 1, td - 6));
-    const sStr = getKolkataDateString(sDate);
-    const start = parseKolkataStartOfDay(sStr);
-    const end = parseKolkataEndOfDay(todayStr);
-    const prevSDate = new Date(Date.UTC(ty, tm - 1, td - 13));
-    const prevEDate = new Date(Date.UTC(ty, tm - 1, td - 7));
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(getKolkataDateString(prevSDate)).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(getKolkataDateString(prevEDate)).toISOString(),
-      label: 'Last 7 Days',
-      daysCount: 7,
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'Last 14 Days') {
-    const sDate = new Date(Date.UTC(ty, tm - 1, td - 13));
-    const sStr = getKolkataDateString(sDate);
-    const start = parseKolkataStartOfDay(sStr);
-    const end = parseKolkataEndOfDay(todayStr);
-    const prevSDate = new Date(Date.UTC(ty, tm - 1, td - 27));
-    const prevEDate = new Date(Date.UTC(ty, tm - 1, td - 14));
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(getKolkataDateString(prevSDate)).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(getKolkataDateString(prevEDate)).toISOString(),
-      label: 'Last 14 Days',
-      daysCount: 14,
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'This Month') {
-    const sStr = `${ty}-${String(tm).padStart(2, '0')}-01`;
-    const start = parseKolkataStartOfDay(sStr);
-    const end = parseKolkataEndOfDay(todayStr);
-    // Previous calendar month
-    const prevMonthEnd = new Date(Date.UTC(ty, tm - 1, 0));
-    const prevMonthStart = new Date(Date.UTC(ty, tm - 2, 1));
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(getKolkataDateString(prevMonthStart)).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(getKolkataDateString(prevMonthEnd)).toISOString(),
-      label: 'This Month',
-      daysCount: td,
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'This Quarter') {
-    const qIndex = Math.floor((tm - 1) / 3);
-    const qStartMonth = qIndex * 3 + 1;
-    const sStr = `${ty}-${String(qStartMonth).padStart(2, '0')}-01`;
-    const start = parseKolkataStartOfDay(sStr);
-    const end = parseKolkataEndOfDay(todayStr);
-    const prevQEnd = new Date(Date.UTC(ty, qStartMonth - 1, 0));
-    const prevQStart = new Date(Date.UTC(ty, qStartMonth - 4, 1));
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: parseKolkataStartOfDay(getKolkataDateString(prevQStart)).toISOString(),
-      prevEndIso: parseKolkataEndOfDay(getKolkataDateString(prevQEnd)).toISOString(),
-      label: 'This Quarter',
-      daysCount: Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000)),
-      isAllTime: false,
-    };
-  }
-
-  if (preset === 'All Time') {
-    const start = new Date(0);
-    const end = parseKolkataEndOfDay(todayStr);
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      label: 'All Time',
-      daysCount: 3650,
-      isAllTime: true,
-    };
-  }
-
-  if (preset === 'Custom Range' && customStart) {
-    const start = parseKolkataStartOfDay(customStart);
-    const end = customEnd ? parseKolkataEndOfDay(customEnd) : parseKolkataEndOfDay(todayStr);
-    const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
-    const prevStart = new Date(start.getTime() - diffDays * 86400000);
-    const prevEnd = new Date(start.getTime() - 1);
-    return {
-      startIso: start.toISOString(),
-      endIso: end.toISOString(),
-      prevStartIso: prevStart.toISOString(),
-      prevEndIso: prevEnd.toISOString(),
-      label: `${customStart} - ${customEnd || todayStr}`,
-      daysCount: diffDays,
-      isAllTime: false,
-    };
-  }
-
-  // Default: Last 30 Days
-  const sDate = new Date(Date.UTC(ty, tm - 1, td - 29));
-  const sStr = getKolkataDateString(sDate);
-  const start = parseKolkataStartOfDay(sStr);
-  const end = parseKolkataEndOfDay(todayStr);
-  const prevSDate = new Date(Date.UTC(ty, tm - 1, td - 59));
-  const prevEDate = new Date(Date.UTC(ty, tm - 1, td - 30));
+  const today = getKolkataDateString(getKolkataNow());
+  const [y, m, d] = today.split('-').map(Number);
+  const civil = (days: number) => getKolkataDateString(new Date(Date.UTC(y, m - 1, d + days)));
+  let from = civil(-29),
+    to = today,
+    label = preset;
+  if (preset === 'Today') from = today;
+  else if (preset === 'Yesterday') from = to = civil(-1);
+  else if (preset === 'Last 7 Days') from = civil(-6);
+  else if (preset === 'Last 14 Days') from = civil(-13);
+  else if (preset === 'This Month') from = `${y}-${String(m).padStart(2, '0')}-01`;
+  else if (preset === 'This Quarter')
+    from = `${y}-${String(Math.floor((m - 1) / 3) * 3 + 1).padStart(2, '0')}-01`;
+  else if (preset === 'All Time') from = '1970-01-01';
+  else if (preset === 'Custom Range') {
+    if (!customStart) throw new Error('Choose a start date.');
+    from = customStart;
+    to = customEnd || customStart;
+    label = `${from} - ${to}`;
+  } else label = 'Last 30 Days';
+  const start = parseKolkataStartOfDay(from),
+    end = parseKolkataEndOfDay(to);
+  if (
+    !Number.isFinite(start.getTime()) ||
+    !Number.isFinite(end.getTime()) ||
+    getKolkataDateString(start) !== from ||
+    getKolkataDateString(end) !== to ||
+    start > end
+  )
+    throw new Error('Choose a valid date range with start on or before end.');
+  const days = Math.round((end.getTime() - start.getTime() + 1) / 86400000);
   return {
     startIso: start.toISOString(),
     endIso: end.toISOString(),
-    prevStartIso: parseKolkataStartOfDay(getKolkataDateString(prevSDate)).toISOString(),
-    prevEndIso: parseKolkataEndOfDay(getKolkataDateString(prevEDate)).toISOString(),
-    label: 'Last 30 Days',
-    daysCount: 30,
-    isAllTime: false,
+    label,
+    daysCount: days,
+    isAllTime: preset === 'All Time',
+    ...(preset === 'All Time'
+      ? {}
+      : {
+          prevStartIso: new Date(start.getTime() - days * 86400000).toISOString(),
+          prevEndIso: new Date(start.getTime() - 1).toISOString(),
+        }),
   };
 }
 
@@ -213,16 +101,16 @@ export function calculatePeriodGrowth(
     periodName === 'All Time'
       ? 'all-time total'
       : periodName === 'Last 7 Days'
-      ? 'vs previous 7 days'
-      : periodName === 'Last 14 Days'
-      ? 'vs previous 14 days'
-      : periodName === 'Last 30 Days'
-      ? 'vs previous 30 days'
-      : periodName === 'This Month'
-      ? 'vs last month'
-      : periodName === 'This Quarter'
-      ? 'vs last quarter'
-      : 'vs previous period';
+        ? 'vs previous 7 days'
+        : periodName === 'Last 14 Days'
+          ? 'vs previous 14 days'
+          : periodName === 'Last 30 Days'
+            ? 'vs previous 30 days'
+            : periodName === 'This Month'
+              ? 'vs previous equal-length period'
+              : periodName === 'This Quarter'
+                ? 'vs previous equal-length period'
+                : 'vs previous period';
 
   if (periodName === 'All Time' || prevVal === null || prevVal === undefined) {
     return { trendStr: 'N/A', isPositive: null, vsLabel };
@@ -255,34 +143,32 @@ export interface ChartBucket {
   endMs: number;
 }
 
-export function generateChartBuckets(startIso: string, endIso: string, targetCount = 7): ChartBucket[] {
-  const startTime = new Date(startIso).getTime();
-  const endTime = new Date(endIso).getTime();
-  const totalDuration = Math.max(1, endTime - startTime);
-  const buckets: ChartBucket[] = [];
-
-  const count = Math.min(targetCount, Math.max(2, Math.round(totalDuration / 86400000)));
-  const step = totalDuration / count;
-
-  for (let i = 0; i < count; i++) {
-    const bStart = startTime + i * step;
-    const bEnd = i === count - 1 ? endTime : startTime + (i + 1) * step;
-    const dateObj = new Date(bStart);
-    const label = dateObj.toLocaleDateString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: 'numeric',
-      month: 'short',
-    });
-    const dateStr = getKolkataDateString(dateObj);
-    buckets.push({
-      label,
-      dateStr,
-      startMs: bStart,
-      endMs: bEnd,
-    });
-  }
-
-  return buckets;
+export function generateChartBuckets(
+  startIso: string,
+  endIso: string,
+  targetCount = 7
+): ChartBucket[] {
+  const startTime = Date.parse(startIso),
+    endTime = Date.parse(endIso);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime > endTime)
+    throw new Error('Invalid chart range.');
+  const days = Math.max(1, Math.ceil((endTime - startTime + 1) / 86400000));
+  const count = Math.min(Math.max(1, targetCount), days);
+  return Array.from({ length: count }, (_, i) => {
+    const startMs = startTime + Math.floor((i * days) / count) * 86400000;
+    const endMs =
+      i === count - 1 ? endTime : startTime + Math.floor(((i + 1) * days) / count) * 86400000 - 1;
+    return {
+      startMs,
+      endMs,
+      label: new Date(startMs).toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: 'numeric',
+        month: 'short',
+      }),
+      dateStr: getKolkataDateString(new Date(startMs)),
+    };
+  });
 }
 
 export interface PopularExamItem {
@@ -323,8 +209,7 @@ export function normalizeActivityItems(
 
   // Process system events from RPC
   for (const act of rpcActivities) {
-    if (!act.id || seenIds.has(act.id)) continue;
-    seenIds.add(act.id);
+    if (!act.id) continue;
 
     let category: 'payment' | 'subscription' | 'registration' | 'test' | 'system' = 'system';
     const type = (act.type || '').toLowerCase();
@@ -333,6 +218,9 @@ export function normalizeActivityItems(
     else if (type === 'registration') category = 'registration';
     else if (type.includes('test') || type.includes('exam')) category = 'test';
 
+    const eventKey = `${category}:${act.id}:${Date.parse(act.timestamp)}`;
+    if (seenIds.has(eventKey)) continue;
+    seenIds.add(eventKey);
     const d = new Date(act.timestamp);
     const formattedTime = !isNaN(d.getTime())
       ? d.toLocaleDateString('en-IN', {
@@ -351,10 +239,10 @@ export function normalizeActivityItems(
         category === 'payment'
           ? 'Payment Confirmed'
           : category === 'subscription'
-          ? 'Subscription Active'
-          : category === 'registration'
-          ? 'Student Joined'
-          : 'Content Update',
+            ? 'Subscription Update'
+            : category === 'registration'
+              ? 'Student Joined'
+              : 'Content Update',
       desc: act.description,
       time: formattedTime,
       timestamp: act.timestamp,
@@ -363,9 +251,9 @@ export function normalizeActivityItems(
 
   // Process audit logs
   for (const log of auditLogs) {
-    const logId = log.id || `audit_${log.createdAt}_${Math.random()}`;
-    if (seenIds.has(logId)) continue;
-    seenIds.add(logId);
+    const logId =
+      log.id ||
+      `audit_${log.action}_${log.entityId || log.adminName || 'unknown'}_${log.createdAt}`;
 
     const action = (log.action || '').toLowerCase();
     let category: 'payment' | 'subscription' | 'registration' | 'test' | 'system' = 'system';
@@ -374,12 +262,15 @@ export function normalizeActivityItems(
       category = 'subscription';
     } else if (action.includes('payment') || action.includes('refund')) {
       category = 'payment';
-    } else if (action.includes('student') || action.includes('user_created')) {
+    } else if (['student_created', 'user_created', 'student_registration'].includes(action)) {
       category = 'registration';
     } else if (action.includes('test') || action.includes('exam') || action.includes('question')) {
       category = 'test';
     }
 
+    const eventKey = `${category}:${log.entityId || logId}:${Date.parse(log.createdAt)}`;
+    if (seenIds.has(eventKey)) continue;
+    seenIds.add(eventKey);
     const d = new Date(log.createdAt);
     const formattedTime = !isNaN(d.getTime())
       ? d.toLocaleDateString('en-IN', {
