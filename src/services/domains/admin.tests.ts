@@ -24,6 +24,50 @@ import type { QuestionRow } from '@/services/domains/localStore';
 // --------------------------------------------------------------------------
 // TESTS API
 // --------------------------------------------------------------------------
+/** Upload custom test icon to Supabase storage with robust bucket fallback */
+export async function uploadTestIcon(file: File, testId: string = 'custom'): Promise<string> {
+  if (isSupabaseConfigured) {
+    const extension =
+      file.name
+        .split('.')
+        .pop()
+        ?.toLowerCase()
+        .replace(/[^a-z0-9]/g, '') || 'png';
+    const safeId = testId.replace(/[^a-zA-Z0-9_-]/g, '-');
+    const path = `test-icons/${safeId}/icon-${Date.now()}.${extension}`;
+
+    // 1. Try 'banners' bucket
+    const { data, error } = await supabase.storage.from('banners').upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+    if (!error && data) {
+      return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+    }
+
+    // 2. Fallback to 'question-images' or 'avatars'
+    const fallbackBucket = 'question-images';
+    const { data: fbData, error: fbError } = await supabase.storage
+      .from(fallbackBucket)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+    if (!fbError && fbData) {
+      return supabase.storage.from(fallbackBucket).getPublicUrl(fbData.path).data.publicUrl;
+    }
+
+    throw new Error(`Icon upload failed: ${error?.message || fbError?.message || 'Storage error'}`);
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function getAllAdminTests(filter?: {
   examId?: string;
   subjectId?: string;
@@ -88,6 +132,7 @@ export async function getAllAdminTests(filter?: {
 
   return data.map((row: any) => ({
     id: row.id,
+    iconUrl: row.icon_url || undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,
@@ -172,6 +217,7 @@ export async function getTestById(testId: string): Promise<MockTest | null> {
   const row = data as any;
   return {
     id: row.id,
+    iconUrl: row.icon_url || undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,
@@ -225,44 +271,51 @@ export async function createTest(
     return newTest;
   }
 
-  const { data, error } = await supabase
-    .from('tests')
-    .insert({
-      id,
-      exam_id: testData.examId || null,
-      subject_id: testData.subjectId || null,
-      chapter_id: testData.chapterId || null,
-      test_series_id: testData.testSeriesId || null,
-      title: testData.title,
-      slug,
-      description: testData.description || null,
-      test_type: testData.testType,
-      year: testData.year || null,
-      paper_name: testData.paperName || null,
-      shift: testData.shift || null,
-      set_name: testData.setName || null,
-      exam_date: testData.examDate || null,
-      duration_minutes: testData.durationMinutes,
-      total_questions: testData.totalQuestions || 0,
-      total_marks: testData.totalMarks || 0,
-      passing_marks: testData.passingMarks || 0,
-      // Negative marking is optional and set at test creation (Full Mock / PYQ only).
-      negative_marking: testData.negativeMarking ?? 0,
-      is_premium: testData.isPremium ?? false,
-      order_index: testData.orderIndex || 0,
-      is_active: testData.isActive ?? true,
-      status: testData.status || 'draft',
-    })
-    .select(
-      `
-      *,
-      exams:exam_id (title),
-      subjects:subject_id (name),
-      chapters:chapter_id (name),
-      test_series:test_series_id (title)
-    `
-    )
-    .single();
+  const insertPayload: Record<string, unknown> = {
+    id,
+    exam_id: testData.examId || null,
+    subject_id: testData.subjectId || null,
+    chapter_id: testData.chapterId || null,
+    test_series_id: testData.testSeriesId || null,
+    title: testData.title,
+    slug,
+    description: testData.description || null,
+    test_type: testData.testType,
+    year: testData.year || null,
+    paper_name: testData.paperName || null,
+    shift: testData.shift || null,
+    set_name: testData.setName || null,
+    exam_date: testData.examDate || null,
+    duration_minutes: testData.durationMinutes,
+    total_questions: testData.totalQuestions || 0,
+    total_marks: testData.totalMarks || 0,
+    passing_marks: testData.passingMarks || 0,
+    // Negative marking is optional and set at test creation (Full Mock / PYQ only).
+    negative_marking: testData.negativeMarking ?? 0,
+    is_premium: testData.isPremium ?? false,
+    order_index: testData.orderIndex || 0,
+    is_active: testData.isActive ?? true,
+    status: testData.status || 'draft',
+    icon_url: testData.iconUrl || null,
+  };
+
+  const selectCols = `
+    *,
+    exams:exam_id (title),
+    subjects:subject_id (name),
+    chapters:chapter_id (name),
+    test_series:test_series_id (title)
+  `;
+
+  let insertRes = await supabase.from('tests').insert(insertPayload).select(selectCols).single();
+
+  // Resilience: if target DB does not have icon_url column yet, retry without icon_url
+  if (insertRes.error && insertRes.error.message.includes('icon_url')) {
+    delete insertPayload.icon_url;
+    insertRes = await supabase.from('tests').insert(insertPayload).select(selectCols).single();
+  }
+
+  const { data, error } = insertRes;
 
   if (error) {
     throw new Error(error.message);
@@ -285,6 +338,7 @@ export async function createTest(
   notifyExamsUpdated();
   return {
     id: row.id,
+    iconUrl: row.icon_url || testData.iconUrl || undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,
@@ -348,21 +402,25 @@ export async function updateTest(id: string, updates: Partial<MockTest>): Promis
   if (updates.orderIndex !== undefined) payload.order_index = updates.orderIndex;
   if (updates.isActive !== undefined) payload.is_active = updates.isActive;
   if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.iconUrl !== undefined) payload.icon_url = updates.iconUrl || null;
 
-  const { data, error } = await supabase
-    .from('tests')
-    .update(payload)
-    .eq('id', id)
-    .select(
-      `
-      *,
-      exams:exam_id (title),
-      subjects:subject_id (name),
-      chapters:chapter_id (name),
-      test_series:test_series_id (title)
-    `
-    )
-    .single();
+  const selectCols = `
+    *,
+    exams:exam_id (title),
+    subjects:subject_id (name),
+    chapters:chapter_id (name),
+    test_series:test_series_id (title)
+  `;
+
+  let updateRes = await supabase.from('tests').update(payload).eq('id', id).select(selectCols).single();
+
+  // Resilience: if target DB does not have icon_url column yet, retry without icon_url
+  if (updateRes.error && updateRes.error.message.includes('icon_url')) {
+    delete payload.icon_url;
+    updateRes = await supabase.from('tests').update(payload).eq('id', id).select(selectCols).single();
+  }
+
+  const { data, error } = updateRes;
 
   if (error) {
     throw new Error(error.message);
@@ -376,6 +434,7 @@ export async function updateTest(id: string, updates: Partial<MockTest>): Promis
   notifyExamsUpdated();
   return {
     id: row.id,
+    iconUrl: row.icon_url ?? updates.iconUrl ?? undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,
@@ -759,6 +818,7 @@ export async function archiveTest(testId: string): Promise<{ success: boolean; e
 }
 
 export const adminTestsApi = {
+  uploadTestIcon,
   getAllAdminTests,
   getSeriesTests,
   assignTestToSeries,

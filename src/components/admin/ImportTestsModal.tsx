@@ -49,6 +49,7 @@ export const ImportTestsModal: React.FC<ImportTestsModalProps> = ({
       'isPremium', // true or false
       'year',
       'paperName',
+      'iconUrl',
     ];
 
     const sampleRow1 = [
@@ -175,6 +176,7 @@ export const ImportTestsModal: React.FC<ImportTestsModalProps> = ({
           isPremium: row.ispremium === 'true',
           year: row.year ? Number(row.year) : undefined,
           paperName: row.papername || undefined,
+          iconUrl: row.iconurl || row.icon_url || row.icon || undefined,
           totalQuestions: 0,
           orderIndex: 0,
           slug: row.title

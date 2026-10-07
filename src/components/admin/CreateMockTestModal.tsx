@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, BookOpen, Clock, Sparkles, AlertCircle, Check } from 'lucide-react';
+import { X, Shield, BookOpen, Clock, Sparkles, AlertCircle, Check, Upload, Trash2 } from 'lucide-react';
 import type { Exam, Subject, Chapter, MockTest } from '@/types';
 import { api } from '@/services/api';
 import { getErrorMessage } from '@/lib/errors';
@@ -30,6 +30,8 @@ export const CreateMockTestModal: React.FC<CreateMockTestModalProps> = ({
   // Form State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [iconUrl, setIconUrl] = useState('');
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [examId, setExamId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [chapterId, setChapterId] = useState('');
@@ -126,6 +128,7 @@ export const CreateMockTestModal: React.FC<CreateMockTestModalProps> = ({
       const created = await api.createTest({
         title: title.trim(),
         description: description.trim() || undefined,
+        iconUrl: iconUrl.trim() || undefined,
         testType,
         examId: testType === 'topic' ? undefined : examId || undefined,
         subjectId: testType === 'topic' ? subjectId : undefined,
@@ -444,6 +447,100 @@ export const CreateMockTestModal: React.FC<CreateMockTestModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Test Icon / Logo Upload */}
+          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="font-semibold text-slate-800 dark:text-slate-200 text-xs block">
+                  Test Icon / Logo
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  Upload custom PNG, JPG, WebP, or SVG badge to display next to test name
+                </span>
+              </div>
+              {iconUrl && (
+                <button
+                  type="button"
+                  onClick={() => setIconUrl('')}
+                  className="text-[11px] font-medium text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              {/* Icon Preview */}
+              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden p-0.5">
+                {iconUrl ? (
+                  <img
+                    src={iconUrl}
+                    alt="Test Icon"
+                    className="w-full h-full object-contain rounded-lg"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      'w-full h-full rounded-lg flex items-center justify-center font-bold text-white',
+                      testType === 'full_mock'
+                        ? 'bg-[#026BFC]'
+                        : testType === 'topic'
+                          ? 'bg-[#10B981]'
+                          : 'bg-[#EF4444]'
+                    )}
+                  >
+                    {testType === 'full_mock' ? (
+                      <Shield className="w-5 h-5" />
+                    ) : testType === 'topic' ? (
+                      <BookOpen className="w-5 h-5" />
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls */}
+              <div className="flex-1 min-w-0">
+                <label
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                    isUploadingIcon
+                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                  )}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {isUploadingIcon ? 'Uploading...' : iconUrl ? 'Change Icon' : 'Upload Icon'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploadingIcon}
+                    className="hidden"
+                    onChange={async (ev) => {
+                      const file = ev.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        setIsUploadingIcon(true);
+                        setError(null);
+                        const uploadedUrl = await api.uploadTestIcon(file, 'new-test');
+                        setIconUrl(uploadedUrl);
+                      } catch (err: any) {
+                        setError('Failed to upload icon: ' + (err?.message || 'Error'));
+                      } finally {
+                        setIsUploadingIcon(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Duration, Marks, Negative Marking */}

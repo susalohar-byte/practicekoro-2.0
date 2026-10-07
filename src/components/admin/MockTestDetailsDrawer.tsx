@@ -17,6 +17,7 @@ import {
   ArrowUp,
   ArrowDown,
   Download,
+  Upload,
   Check,
   HelpCircle,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
   const [settingsForm, setSettingsForm] = useState({
     title: '',
     description: '',
+    iconUrl: '',
     durationMinutes: 90,
     totalMarks: 100,
     passingMarks: 40,
@@ -76,6 +78,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
     status: 'draft' as 'draft' | 'published' | 'archived',
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false);
 
   // Load questions and attempts when test changes or tab changes
   useEffect(() => {
@@ -84,6 +87,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
     setSettingsForm({
       title: test.title || '',
       description: test.description || '',
+      iconUrl: test.iconUrl || '',
       durationMinutes: test.durationMinutes || 90,
       totalMarks: test.totalMarks || 100,
       passingMarks: test.passingMarks || 40,
@@ -94,7 +98,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
 
     loadQuestions();
     loadAttempts();
-  }, [test?.id, isOpen]);
+  }, [test?.id, test?.iconUrl, isOpen]);
 
   const loadQuestions = async () => {
     if (!test) return;
@@ -199,6 +203,7 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
         negativeMarking: Number(settingsForm.negativeMarking),
         isPremium: settingsForm.isPremium,
         status: settingsForm.status,
+        iconUrl: settingsForm.iconUrl.trim() || undefined,
       });
       alert('Mock test settings updated successfully!');
       onRefreshTest();
@@ -668,6 +673,87 @@ export const MockTestDetailsDrawer: React.FC<MockTestDetailsDrawerProps> = ({
             {/* TAB 3: SETTINGS */}
             {activeTab === 'settings' && (
               <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+                {/* Test Icon Section */}
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                        Test Icon / Logo
+                      </span>
+                      <span className="text-[10.5px] text-slate-400">
+                        Upload custom badge for test name
+                      </span>
+                    </div>
+                    {settingsForm.iconUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSettingsForm({ ...settingsForm, iconUrl: '' })}
+                        className="text-[11px] font-medium text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                        title="Remove icon"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-0.5">
+                    <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden p-0.5">
+                      {settingsForm.iconUrl ? (
+                        <img
+                          src={settingsForm.iconUrl}
+                          alt="Test Icon"
+                          className="w-full h-full object-contain rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
+                          <Shield className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <label
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                          isUploadingIcon
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                        )}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploadingIcon
+                          ? 'Uploading...'
+                          : settingsForm.iconUrl
+                            ? 'Change Icon'
+                            : 'Upload Icon'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingIcon}
+                          className="hidden"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setIsUploadingIcon(true);
+                              const uploadedUrl = await api.uploadTestIcon(file, test.id);
+                              setSettingsForm((prev) => ({ ...prev, iconUrl: uploadedUrl }));
+                            } catch (err: any) {
+                              alert('Failed to upload icon: ' + (err?.message || 'Error'));
+                            } finally {
+                              setIsUploadingIcon(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Test Title *

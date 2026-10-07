@@ -339,6 +339,81 @@ export const AdminTests: React.FC = () => {
   const [isAddQuestionsModalOpen, setIsAddQuestionsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Drawer Settings editing state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDurationMinutes, setEditDurationMinutes] = useState(90);
+  const [editTotalMarks, setEditTotalMarks] = useState(100);
+  const [editPassingMarks, setEditPassingMarks] = useState(40);
+  const [editNegativeMarking, setEditNegativeMarking] = useState(0.25);
+  const [editIsPremium, setEditIsPremium] = useState(false);
+  const [editStatus, setEditStatus] = useState<'draft' | 'published' | 'archived'>('published');
+  const [editIconUrl, setEditIconUrl] = useState('');
+  const [isUploadingDrawerIcon, setIsUploadingDrawerIcon] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Sync edit form state whenever selectedTest changes
+  useEffect(() => {
+    if (selectedTest) {
+      setEditTitle(selectedTest.title || '');
+      setEditDescription(selectedTest.description || '');
+      setEditDurationMinutes(selectedTest.durationMinutes || 90);
+      setEditTotalMarks(selectedTest.totalMarks || 100);
+      setEditPassingMarks(selectedTest.passingMarks || 40);
+      setEditNegativeMarking(selectedTest.negativeMarking ?? 0.25);
+      setEditIsPremium(Boolean(selectedTest.isPremium));
+      setEditStatus(selectedTest.status || 'published');
+      setEditIconUrl(selectedTest.iconUrl || '');
+      setSaveSuccessMsg(null);
+    }
+  }, [selectedTest?.id, selectedTest?.iconUrl]);
+
+  const handleQuickIconUpload = async (file: File, targetTest: MockTest) => {
+    try {
+      setIsUploadingDrawerIcon(true);
+      const url = await api.uploadTestIcon(file, targetTest.id);
+      await api.updateTest(targetTest.id, { iconUrl: url });
+      setTests((prev) => prev.map((t) => (t.id === targetTest.id ? { ...t, iconUrl: url } : t)));
+      setSelectedTest((prev) => (prev && prev.id === targetTest.id ? { ...prev, iconUrl: url } : prev));
+      setEditIconUrl(url);
+      setSaveSuccessMsg('Icon uploaded and saved successfully!');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    } catch (err: any) {
+      alert('Failed to upload icon: ' + (err?.message || 'Error'));
+    } finally {
+      setIsUploadingDrawerIcon(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTest) return;
+    try {
+      setIsSavingSettings(true);
+      setSaveSuccessMsg(null);
+      const updated = await api.updateTest(selectedTest.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim() || undefined,
+        durationMinutes: Number(editDurationMinutes),
+        totalMarks: Number(editTotalMarks),
+        passingMarks: Number(editPassingMarks),
+        negativeMarking: Number(editNegativeMarking),
+        isPremium: editIsPremium,
+        status: editStatus,
+        iconUrl: editIconUrl.trim() || undefined,
+      });
+      setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updated : t)));
+      setSelectedTest(updated);
+      setSaveSuccessMsg('Changes saved successfully!');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    } catch (err: any) {
+      alert('Failed to save changes: ' + getErrorMessage(err, 'Save failed'));
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     loadAllData();
@@ -596,11 +671,12 @@ export const AdminTests: React.FC = () => {
       'negativeMarking',
       'status',
       'isPremium',
+      'iconUrl',
     ];
     const sample = [
-      'WBP Constable Full Mock 01,full_mock,WBP Constable,,,60,100,40,0.25,published,false',
-      'Modern India - Test 01,topic,,History,Modern India,25,30,12,0.25,published,false',
-      'WBP Constable PYQ 2024,pyq,WBP Constable,,,60,85,34,0.25,published,false',
+      'WBP Constable Full Mock 01,full_mock,WBP Constable,,,60,100,40,0.25,published,false,',
+      'Modern India - Test 01,topic,,History,Modern India,25,30,12,0.25,published,false,',
+      'WBP Constable PYQ 2024,pyq,WBP Constable,,,60,85,34,0.25,published,false,',
     ];
     const content = [headers.join(','), ...sample].join('\n');
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
@@ -613,14 +689,38 @@ export const AdminTests: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Helper to render type-specific row icon matching screenshot
-  const renderRowIcon = (t: MockTest) => {
+  // Helper to render type-specific row icon matching screenshot, with custom uploaded icon support
+  const renderRowIcon = (t: MockTest, sizeClass = 'w-8 h-8') => {
+    if (t.iconUrl) {
+      return (
+        <div
+          className={cn(
+            'rounded-lg overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs',
+            sizeClass
+          )}
+        >
+          <img
+            src={t.iconUrl}
+            alt={t.title}
+            className="w-full h-full object-contain rounded-md"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        </div>
+      );
+    }
     if (t.id === 'test-wbp-full-mock-1' || t.title.includes('WBP Constable Full Mock 1')) {
-      return <PoliceShieldBadge className="w-8 h-9" />;
+      return <PoliceShieldBadge className={sizeClass === 'w-11 h-11' ? 'w-10 h-11' : 'w-8 h-9'} />;
     }
     if (t.title.includes('PYQ') || t.testType === 'pyq') {
       return (
-        <div className="w-8 h-8 rounded-lg bg-[#EF4444] text-white flex items-center justify-center shrink-0 shadow-2xs">
+        <div
+          className={cn(
+            'rounded-lg bg-[#EF4444] text-white flex items-center justify-center shrink-0 shadow-2xs',
+            sizeClass
+          )}
+        >
           <FileText className="w-4 h-4" />
         </div>
       );
@@ -631,7 +731,12 @@ export const AdminTests: React.FC = () => {
       t.subjectName === 'History'
     ) {
       return (
-        <div className="w-8 h-8 rounded-lg bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-2xs">
+        <div
+          className={cn(
+            'rounded-lg bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-2xs',
+            sizeClass
+          )}
+        >
           <BookOpen className="w-4 h-4" />
         </div>
       );
@@ -644,14 +749,24 @@ export const AdminTests: React.FC = () => {
       t.subjectName === 'Polity'
     ) {
       return (
-        <div className="w-8 h-8 rounded-lg bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-2xs">
+        <div
+          className={cn(
+            'rounded-lg bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-2xs',
+            sizeClass
+          )}
+        >
           <BookOpen className="w-4 h-4" />
         </div>
       );
     }
     // Blue for Reasoning and Full Mock
     return (
-      <div className="w-8 h-8 rounded-lg bg-[#026BFC] text-white flex items-center justify-center shrink-0 shadow-2xs">
+      <div
+        className={cn(
+          'rounded-lg bg-[#026BFC] text-white flex items-center justify-center shrink-0 shadow-2xs',
+          sizeClass
+        )}
+      >
         <FileText className="w-4 h-4" />
       </div>
     );
@@ -1143,6 +1258,20 @@ export const AdminTests: React.FC = () => {
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null);
+                                      setSelectedTest(t);
+                                      setShowDetailsPanel(true);
+                                      setDetailsTab('settings');
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-2"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 text-blue-500" />
+                                    Edit Test & Icon
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
                                       setPreviewTest(t);
                                       setIsPreviewModalOpen(true);
                                     }}
@@ -1294,10 +1423,29 @@ export const AdminTests: React.FC = () => {
               </button>
             </div>
 
-            {/* Test Summary Banner: Shield + Title + Badges + Edit */}
+            {/* Test Summary Banner: Shield/Icon + Title + Badges + Edit */}
             <div className="flex items-start justify-between gap-2.5">
               <div className="flex items-start gap-2.5 min-w-0">
-                <PoliceShieldBadge className="w-10 h-11" />
+                <div className="relative group shrink-0">
+                  {renderRowIcon(selectedTest, 'w-11 h-11')}
+                  <label
+                    className="absolute -bottom-1 -right-1 p-1 rounded-full bg-[#026BFC] hover:bg-blue-700 text-white shadow-xs cursor-pointer transition-transform hover:scale-110"
+                    title="Upload or change test icon"
+                  >
+                    <Upload className="w-2.5 h-2.5" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingDrawerIcon}
+                      className="hidden"
+                      onChange={async (ev) => {
+                        const file = ev.target.files?.[0];
+                        if (!file || !selectedTest) return;
+                        await handleQuickIconUpload(file, selectedTest);
+                      }}
+                    />
+                  </label>
+                </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
                     {selectedTest.title}
@@ -1613,17 +1761,120 @@ export const AdminTests: React.FC = () => {
 
             {/* TAB: SETTINGS */}
             {detailsTab === 'settings' && (
-              <div className="space-y-3 text-xs">
+              <form onSubmit={handleSaveSettings} className="space-y-3.5 text-xs">
+                {saveSuccessMsg && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{saveSuccessMsg}</span>
+                  </div>
+                )}
+
+                {/* Test Icon / Logo Section */}
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                        Test Icon / Logo
+                      </span>
+                      <span className="text-[10.5px] text-slate-400">
+                        Upload custom badge for test name
+                      </span>
+                    </div>
+                    {editIconUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditIconUrl('')}
+                        className="text-[11px] font-medium text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                        title="Remove icon"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-0.5">
+                    {/* Live Preview */}
+                    <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] flex items-center justify-center shrink-0 shadow-2xs overflow-hidden p-0.5">
+                      {editIconUrl ? (
+                        <img
+                          src={editIconUrl}
+                          alt="Test Icon"
+                          className="w-full h-full object-contain rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        renderRowIcon({ ...selectedTest, iconUrl: '' }, 'w-full h-full')
+                      )}
+                    </div>
+
+                    {/* Upload button */}
+                    <div className="flex-1 min-w-0">
+                      <label
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                          isUploadingDrawerIcon
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                        )}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploadingDrawerIcon
+                          ? 'Uploading...'
+                          : editIconUrl
+                            ? 'Change Icon'
+                            : 'Upload Icon'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingDrawerIcon}
+                          className="hidden"
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setIsUploadingDrawerIcon(true);
+                              const uploadedUrl = await api.uploadTestIcon(file, selectedTest.id);
+                              setEditIconUrl(uploadedUrl);
+                            } catch (err: any) {
+                              alert('Failed to upload icon: ' + (err?.message || 'Error'));
+                            } finally {
+                              setIsUploadingDrawerIcon(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Title
+                    Title *
                   </label>
                   <input
                     type="text"
-                    defaultValue={selectedTest.title}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
@@ -1631,8 +1882,10 @@ export const AdminTests: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      defaultValue={selectedTest.durationMinutes}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                      min={1}
+                      value={editDurationMinutes}
+                      onChange={(e) => setEditDurationMinutes(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1641,15 +1894,80 @@ export const AdminTests: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      defaultValue={selectedTest.totalMarks}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                      min={1}
+                      value={editTotalMarks}
+                      onChange={(e) => setEditTotalMarks(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2">
-                  Save Changes
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Passing Marks
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editPassingMarks}
+                      onChange={(e) => setEditPassingMarks(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Negative Marking
+                    </label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min={0}
+                      value={editNegativeMarking}
+                      onChange={(e) => setEditNegativeMarking(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as any)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="published">Published</option>
+                      <option value="draft">Draft</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Access Plan
+                    </label>
+                    <select
+                      value={editIsPremium ? 'pro' : 'free'}
+                      onChange={(e) => setEditIsPremium(e.target.value === 'pro')}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="free">Free Practice</option>
+                      <option value="pro">PRO Members Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                >
+                  {isSavingSettings ? 'Saving Changes...' : 'Save Changes'}
                 </Button>
-              </div>
+              </form>
             )}
 
             {/* TAB: ANALYTICS */}
