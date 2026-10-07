@@ -34,6 +34,7 @@ import type { TestSeries, Exam, MockTest, TestSeriesStatus, PopularTestSeriesCar
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { getPageNumbers } from '@/utils/pagination';
 import { PopularTestSeriesEditModal } from '@/pages/admin/PopularTestSeriesEditModal';
 import {
   DEFAULT_POPULAR_TEST_SERIES,
@@ -552,11 +553,18 @@ export const AdminTestSeries: React.FC = () => {
   }, [seriesList, searchTerm, selectedExamFilter, selectedStatusFilter, selectedCategoryFilter]);
 
   // Pagination Calculation
-  const totalPages = Math.ceil(filteredSeries.length / pageSize) || 1;
+  const totalPages = Math.max(1, Math.ceil(filteredSeries.length / pageSize));
   const paginatedSeries = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredSeries.slice(start, start + pageSize);
   }, [filteredSeries, currentPage, pageSize]);
+
+  // Keep currentPage within bounds when series are filtered or deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Filtered Tests inside Selected Series Drawer
   const filteredDrawerTests = useMemo(() => {
@@ -1258,7 +1266,10 @@ export const AdminTestSeries: React.FC = () => {
             {searchTerm && (
               <button
                 type="button"
-                onClick={() => setSearchTerm('')}
+                onClick={() => {
+                  setSearchTerm('');
+                  setCurrentPage(1);
+                }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3 h-3" />
@@ -1696,26 +1707,32 @@ export const AdminTestSeries: React.FC = () => {
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={cn(
-                      'w-7 h-7 rounded-lg font-bold text-xs transition-colors cursor-pointer',
-                      currentPage === pageNum
-                        ? 'bg-[#026BFC] text-white shadow-2xs'
-                        : 'border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
-                    )}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
+                {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={cn(
+                        'min-w-7 h-7 px-2 rounded-lg font-bold text-xs transition-colors cursor-pointer',
+                        currentPage === item
+                          ? 'bg-[#026BFC] text-white shadow-2xs'
+                          : 'border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
 
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />

@@ -31,6 +31,7 @@ import type { Question, Exam, Subject, Chapter } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { getPageNumbers } from '@/utils/pagination';
 
 export type UploadMode = 'exam' | 'subject';
 export type QuestionBankStatus = 'published' | 'draft' | 'under_review' | 'archived';
@@ -981,11 +982,18 @@ export const AdminQuestionBank: React.FC = () => {
   }, [questions]);
 
   // Paginated List
-  const totalPages = Math.ceil(filteredQuestions.length / pageSize) || 1;
+  const totalPages = Math.max(1, Math.ceil(filteredQuestions.length / pageSize));
   const paginatedQuestions = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredQuestions.slice(start, start + pageSize);
   }, [filteredQuestions, currentPage, pageSize]);
+
+  // Keep page within bounds when filters change or questions are modified
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Checkbox Selection Handlers
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1936,7 +1944,10 @@ export const AdminQuestionBank: React.FC = () => {
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3 h-3" />
@@ -2487,9 +2498,12 @@ export const AdminQuestionBank: React.FC = () => {
             {/* Footer Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-slate-200/80 text-xs gap-3">
               <span className="font-semibold text-slate-500">
-                Showing {filteredQuestions.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
-                {Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
-                {stats.total.toLocaleString('en-IN')} questions
+                Showing{' '}
+                {filteredQuestions.length === 0
+                  ? 0
+                  : (currentPage - 1) * pageSize + 1}
+                –{Math.min(filteredQuestions.length, currentPage * pageSize)} of{' '}
+                {filteredQuestions.length.toLocaleString('en-IN')} questions
               </span>
 
               <div className="flex items-center gap-2">
@@ -2503,36 +2517,32 @@ export const AdminQuestionBank: React.FC = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {[1, 2, 3, 4, 5].map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={cn(
-                      'w-7 h-7 rounded-lg font-bold text-xs transition-colors cursor-pointer',
-                      currentPage === pageNum
-                        ? 'bg-[#026BFC] text-white shadow-2xs'
-                        : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
-
-                <span className="text-slate-400">...</span>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1243)}
-                  className="px-2 h-7 rounded-lg border border-slate-200 font-bold text-slate-700 cursor-pointer hover:bg-slate-50"
-                >
-                  1,243
-                </button>
+                {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={cn(
+                        'min-w-7 h-7 px-2 rounded-lg font-bold text-xs transition-colors cursor-pointer',
+                        currentPage === item
+                          ? 'bg-[#026BFC] text-white shadow-2xs'
+                          : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      {item.toLocaleString('en-IN')}
+                    </button>
+                  )
+                )}
 
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   className="p-1.5 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 cursor-pointer"
                   title="Next page"
                 >

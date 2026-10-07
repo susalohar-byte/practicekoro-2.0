@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { bannerService } from '@/services/bannerService';
 import type { HeroBanner } from '@/types';
 import { cn } from '@/lib/utils';
+import { getPageNumbers } from '@/utils/pagination';
 
 // ============================================================================
 // DATA MODELS & PRESETS
@@ -840,6 +841,13 @@ export const AdminBanners: React.FC = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleBanners = filteredBanners.slice(startIndex, startIndex + itemsPerPage);
 
+  // Keep currentPage within bounds when banners are filtered or deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   // Statistics for KPI Cards
   const stats = useMemo(() => {
     const total = banners.length;
@@ -1479,32 +1487,25 @@ export const AdminBanners: React.FC = () => {
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
 
-                {/* Page 1 */}
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className={cn(
-                    'w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-colors',
-                    currentPage === 1
-                      ? 'bg-[#026BFC] text-white'
-                      : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                  )}
-                >
-                  1
-                </button>
-
-                {/* Page 2 (if exists) */}
-                {totalPages > 1 && (
-                  <button
-                    onClick={() => setCurrentPage(2)}
-                    className={cn(
-                      'w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-colors',
-                      currentPage === 2
-                        ? 'bg-[#026BFC] text-white'
-                        : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    2
-                  </button>
+                {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item)}
+                      className={cn(
+                        'w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-colors cursor-pointer',
+                        currentPage === item
+                          ? 'bg-[#026BFC] text-white'
+                          : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
                 )}
 
                 {/* Next Button */}

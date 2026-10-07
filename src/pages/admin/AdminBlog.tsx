@@ -29,6 +29,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPageNumbers } from '@/utils/pagination';
 
 type ToastType = 'success' | 'error' | 'info';
 let globalToastHandler: ((msg: string, type: ToastType) => void) | null = null;
@@ -345,6 +346,13 @@ export const AdminBlog: React.FC = () => {
     const start = (currentPage - 1) * pageSize;
     return filteredPosts.slice(start, start + pageSize);
   }, [filteredPosts, currentPage, pageSize]);
+
+  // Keep currentPage within bounds when posts are filtered or deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Selected Post for Drawer
   const selectedPost = useMemo(() => {
@@ -1130,39 +1138,25 @@ export const AdminBlog: React.FC = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pNum = i + 1;
-                  return (
+                {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                      ...
+                    </span>
+                  ) : (
                     <button
-                      key={pNum}
-                      onClick={() => setCurrentPage(pNum)}
+                      key={item}
+                      onClick={() => setCurrentPage(item)}
                       className={cn(
-                        'w-7 h-7 rounded-md font-medium text-xs transition-colors',
-                        currentPage === pNum
+                        'min-w-7 h-7 px-2 rounded-md font-medium text-xs transition-colors cursor-pointer',
+                        currentPage === item
                           ? 'bg-blue-600 text-white'
                           : 'border border-slate-200 hover:bg-slate-50 text-slate-700'
                       )}
                     >
-                      {pNum}
+                      {item}
                     </button>
-                  );
-                })}
-
-                {totalPages > 5 && (
-                  <>
-                    <span className="px-1 text-slate-400">...</span>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      className={cn(
-                        'w-7 h-7 rounded-md font-medium text-xs transition-colors',
-                        currentPage === totalPages
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-slate-200 hover:bg-slate-50 text-slate-700'
-                      )}
-                    >
-                      {totalPages}
-                    </button>
-                  </>
+                  )
                 )}
 
                 <button

@@ -45,6 +45,7 @@ import {
 import type { Subject, Chapter } from '@/types';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
+import { getPageNumbers } from '@/utils/pagination';
 
 // Enriched Topic model matching all visible fields in reference UI
 export interface EnrichedTopicRow extends Chapter {
@@ -650,7 +651,34 @@ export const AdminTopics: React.FC = () => {
     });
   }, [topicsList, searchTerm, selectedSubjectFilter, selectedStatusFilter]);
 
-  // Group topics by subject to match the accordion table in screenshot
+  // Pagination calculation
+  const totalItems = filteredTopics.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  // Keep currentPage within bounds when topics are filtered or deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Sliced topics for the current page
+  const pagedTopics = useMemo(() => {
+    return filteredTopics.slice(startIndex, endIndex);
+  }, [filteredTopics, startIndex, endIndex]);
+
+  // Topic global index map for truthful sequential row numbering
+  const topicRowNumberMap = useMemo(() => {
+    const map = new Map<string, number>();
+    pagedTopics.forEach((t, idx) => {
+      map.set(t.id, startIndex + idx + 1);
+    });
+    return map;
+  }, [pagedTopics, startIndex]);
+
+  // Group current page topics by subject to match the accordion table
   const subjectGroups = useMemo<SubjectGroup[]>(() => {
     const groupsMap = new Map<string, EnrichedTopicRow[]>();
 
@@ -679,7 +707,7 @@ export const AdminTopics: React.FC = () => {
       { id: 'sub-reasoning', name: 'Reasoning', icon: 'Brain', count: 28, color: 'red' },
     ];
 
-    filteredTopics.forEach((t) => {
+    pagedTopics.forEach((t) => {
       const subName = t.subjectName || 'General Science';
       if (!groupsMap.has(subName)) {
         groupsMap.set(subName, []);
@@ -690,16 +718,18 @@ export const AdminTopics: React.FC = () => {
     const result: SubjectGroup[] = [];
 
     canonicalSubjects.forEach((cs) => {
-      const matchingTopics = groupsMap.get(cs.name) || [];
-      result.push({
-        id: cs.id,
-        name: cs.name,
-        topicsCount: cs.count,
-        iconName: cs.icon,
-        colorScheme: cs.color,
-        topics: matchingTopics,
-      });
-      groupsMap.delete(cs.name);
+      const matchingTopics = groupsMap.get(cs.name);
+      if (matchingTopics && matchingTopics.length > 0) {
+        result.push({
+          id: cs.id,
+          name: cs.name,
+          topicsCount: matchingTopics.length,
+          iconName: cs.icon,
+          colorScheme: cs.color,
+          topics: matchingTopics,
+        });
+        groupsMap.delete(cs.name);
+      }
     });
 
     // Add any remaining dynamic subjects
@@ -715,13 +745,7 @@ export const AdminTopics: React.FC = () => {
     });
 
     return result;
-  }, [filteredTopics]);
-
-  // Pagination calculation
-  const totalItems = 186; // Locked to screenshot metric
-  const totalPages = Math.ceil(totalItems / pageSize) || 19;
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  }, [pagedTopics]);
 
   // Toggle Collapse of a Subject Group
   const toggleGroupCollapse = (groupName: string) => {
@@ -1340,7 +1364,14 @@ export const AdminTopics: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {subjectGroups.map((group) => {
+                  {filteredTopics.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        No topics found matching your filter criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    subjectGroups.map((group) => {
                     const isCollapsed = collapsedGroups[group.name];
                     const groupIcon =
                       group.iconName === 'FlaskConical' ? (
@@ -1418,12 +1449,7 @@ export const AdminTopics: React.FC = () => {
                             );
                             const isChecked = selectedTopicIds.has(topic.id);
                             const isPublished = topic.statusLabel === 'Published';
-                            const rowNumber =
-                              group.name === 'General Science'
-                                ? tIdx + 1
-                                : group.name === 'Indian Polity'
-                                  ? tIdx + 6
-                                  : tIdx + 11;
+                            const rowNumber = topicRowNumberMap.get(topic.id) ?? (startIndex + tIdx + 1);
 
                             return (
                               <tr
@@ -1624,7 +1650,7 @@ export const AdminTopics: React.FC = () => {
                           })}
                       </React.Fragment>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>
@@ -1632,7 +1658,7 @@ export const AdminTopics: React.FC = () => {
             {/* Pagination Controls matching screenshot */}
             <div className="p-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
               <span>
-                Showing {startIndex + 1}–{endIndex} of {totalItems} topics
+                Showing {totalItems === 0 ? 0 : startIndex + 1}–{endIndex} of {totalItems} topics
               </span>
 
               <div className="flex items-center gap-3">
@@ -1640,65 +1666,40 @@ export const AdminTopics: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40 cursor-pointer"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    className={cn(
-                      'w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors',
-                      currentPage === 1
-                        ? 'bg-[#026BFC] text-white shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-100'
-                    )}
-                  >
-                    1
-                  </button>
+                  {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                    item === 'ellipsis' ? (
+                      <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setCurrentPage(item)}
+                        className={cn(
+                          'min-w-7 h-7 px-2 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer',
+                          item === currentPage
+                            ? 'bg-[#026BFC] text-white shadow-2xs'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        )}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
 
                   <button
                     type="button"
-                    onClick={() => setCurrentPage(2)}
-                    className="w-7 h-7 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center justify-center"
-                  >
-                    2
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(3)}
-                    className="w-7 h-7 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center justify-center"
-                  >
-                    3
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(4)}
-                    className="w-7 h-7 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center justify-center"
-                  >
-                    4
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(5)}
-                    className="w-7 h-7 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center justify-center"
-                  >
-                    5
-                  </button>
-
-                  <span className="w-6 text-center text-slate-400">...</span>
-
-                  <button
-                    type="button"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40 cursor-pointer"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -1707,8 +1708,11 @@ export const AdminTopics: React.FC = () => {
                 {/* Page Size Dropdown */}
                 <select
                   value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-300"
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   <option value={10}>10 / page</option>
                   <option value={25}>25 / page</option>

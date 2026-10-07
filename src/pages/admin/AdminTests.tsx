@@ -30,6 +30,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/common/Button';
 import { cn } from '@/lib/utils';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { getPageNumbers } from '@/utils/pagination';
 import { CreateMockTestModal } from '@/components/admin/CreateMockTestModal';
 import { MockTestPreviewModal } from '@/components/admin/MockTestPreviewModal';
 import { AddQuestionsToTestModal } from '@/components/admin/AddQuestionsToTestModal';
@@ -505,6 +506,13 @@ export const AdminTests: React.FC = () => {
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const pagedTests = filteredTests.slice(startIndex, startIndex + pageSize);
+
+  // Keep currentPage within bounds when tests are filtered or deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Row selection
   const toggleSelectAll = () => {
@@ -1210,35 +1218,39 @@ export const AdminTests: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => p - 1)}
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
 
-                  {[1, 2, 3, 4, 5].map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={cn(
-                        'w-7 h-7 rounded-md text-xs font-semibold transition-colors flex items-center justify-center',
-                        currentPage === pageNum
-                          ? 'bg-[#026BFC] text-white shadow-2xs'
-                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      )}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-
-                  <span className="text-slate-400 px-1">...</span>
+                  {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                    item === 'ellipsis' ? (
+                      <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setCurrentPage(item)}
+                        className={cn(
+                          'min-w-7 h-7 px-2 rounded-md text-xs font-semibold transition-colors flex items-center justify-center',
+                          currentPage === item
+                            ? 'bg-[#026BFC] text-white shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
 
                   <button
                     type="button"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => p + 1)}
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 flex items-center justify-center disabled:opacity-40"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -1248,7 +1260,10 @@ export const AdminTests: React.FC = () => {
                 {/* Page Size Dropdown */}
                 <select
                   value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-xs text-slate-700 dark:text-slate-300"
                 >
                   <option value={10}>10 / page</option>

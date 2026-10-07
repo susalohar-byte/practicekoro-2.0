@@ -39,6 +39,8 @@ import { ShortNotesBox } from '@/components/common/ShortNotesBox';
 import { isMathematicsQuestion, isMathematicsSubject } from '@/utils/shortNotes';
 import { MathText } from '@/components/common/MathText';
 import { useContentLanguage } from '@/context/MaintenanceContext';
+import { cn } from '@/lib/utils';
+import { getPageNumbers } from '@/utils/pagination';
 
 export const AdminTestQuestions: React.FC = () => {
   const { testId: routeTestId } = useParams<{ testId: string }>();
@@ -303,7 +305,14 @@ export const AdminTestQuestions: React.FC = () => {
     return eligibleBankQuestions.slice(start, start + pageSize);
   }, [eligibleBankQuestions, currentPage]);
 
-  const totalPages = Math.ceil(eligibleBankQuestions.length / pageSize) || 1;
+  const totalPages = Math.max(1, Math.ceil(eligibleBankQuestions.length / pageSize));
+
+  // Keep currentPage within bounds when eligible questions change
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // ---------------------------------------------------------------------------
   // Multi-Select & Random Selection Handlers
@@ -1324,7 +1333,10 @@ export const AdminTestQuestions: React.FC = () => {
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => {
+                      setSearchQuery('');
+                      setCurrentPage(1);
+                    }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -1671,25 +1683,44 @@ export const AdminTestQuestions: React.FC = () => {
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-[#152347] text-xs font-semibold shadow-sm">
+          {eligibleBankQuestions.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0a1226] border border-slate-200 dark:border-[#152347] text-xs font-semibold shadow-sm">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-bold"
+                disabled={currentPage <= 1}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-bold cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" /> Previous
               </button>
 
-              <span className="text-slate-600 dark:text-slate-400">
-                Page <strong className="text-slate-900 dark:text-white">{currentPage}</strong> of{' '}
-                <strong className="text-slate-900 dark:text-white">{totalPages}</strong>
-              </span>
+              <div className="flex items-center gap-1">
+                {getPageNumbers(currentPage, totalPages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="text-slate-400 px-1">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={cn(
+                        'min-w-7 h-7 px-2 rounded-lg font-bold text-xs transition-colors cursor-pointer',
+                        currentPage === item
+                          ? 'bg-[#0075FF] text-white shadow-2xs'
+                          : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+              </div>
 
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-bold"
+                disabled={currentPage >= totalPages}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 flex items-center gap-1 font-bold cursor-pointer"
               >
                 Next <ChevronRight className="w-3.5 h-3.5" />
               </button>
