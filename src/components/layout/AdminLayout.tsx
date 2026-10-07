@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   Sparkles,
   AlertTriangle,
   ExternalLink,
@@ -86,7 +87,24 @@ export const AdminLayout: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSidebarUserOpen, setIsSidebarUserOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const sidebarUserRef = useRef<HTMLDivElement>(null);
+
+  // Close sidebar user menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sidebarUserRef.current && !sidebarUserRef.current.contains(e.target as Node)) {
+        setIsSidebarUserOpen(false);
+      }
+    };
+    if (isSidebarUserOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSidebarUserOpen]);
 
   // Toggle collapsed state and persist in local storage
   const handleToggleCollapse = () => {
@@ -681,74 +699,146 @@ export const AdminLayout: React.FC = () => {
           ))}
         </div>
 
-        {/* Bottom User Info & Quick Action Area */}
-        <div className="p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0 space-y-2">
-          {/* Quick View Student Portal Link (Only when expanded) */}
-          {!isCollapsed && (
-            <Link
-              to="/dashboard"
-              target="_blank"
-              rel="noreferrer"
-              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] hover:border-blue-500/30 text-slate-400 hover:text-blue-300 text-[11px] font-medium transition-all duration-150 group"
-              title="Open Student App Dashboard in new tab"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="truncate">Student App Portal</span>
-              </span>
-              <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
-          )}
-
-          {/* User Account Card */}
-          <div
+        {/* Bottom User Info Area (Shadcn NavUser Style) */}
+        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0">
+          {/* User Profile Card Button */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarUserOpen(!isSidebarUserOpen)}
             className={cn(
-              'flex items-center rounded-xl bg-[#0E1738] border border-[#1A2A56] transition-all duration-150',
-              isCollapsed ? 'justify-center p-1.5' : 'justify-between p-2'
+              'group w-full flex items-center rounded-xl transition-all duration-150 text-left select-none cursor-pointer',
+              'bg-[#0E1738]/90 hover:bg-[#142048] border border-[#1A2A56] hover:border-slate-700/80',
+              'active:scale-[0.98] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
+              isCollapsed ? 'justify-center p-2' : 'gap-3 p-2'
             )}
+            title={isCollapsed ? `${user?.fullName || 'Admin'} (${user?.email || 'admin@practicekoro.online'})` : undefined}
+            aria-expanded={isSidebarUserOpen}
+            aria-label="User profile menu"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-black flex items-center justify-center text-xs shadow-sm">
-                  {user?.fullName?.charAt(0) || 'A'}
-                </div>
-                {/* Active Presence Dot with Micro-Pulse */}
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-[#0A1024]" />
-                </span>
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0 animate-in fade-in-50 duration-200">
-                  <p className="text-xs font-bold text-white truncate leading-tight">
-                    {user?.fullName || 'Admin'}
-                  </p>
-                  <p className="text-[10px] font-medium truncate text-blue-300/80">
-                    {adminRole === 'content_writer'
-                      ? 'Content Writer'
-                      : adminRole === 'support_agent'
-                        ? 'Support Team'
-                        : 'Super Admin'}
-                  </p>
-                </div>
+            {/* Avatar */}
+            <div className="relative shrink-0 w-8.5 h-8.5 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-sm ring-1 ring-white/10">
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName || 'Admin'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.fullName?.charAt(0).toUpperCase() || 'A'
               )}
             </div>
 
             {!isCollapsed && (
+              <>
+                {/* Name & Email */}
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-xs font-semibold text-white truncate leading-tight">
+                    {user?.fullName || 'Admin'}
+                  </p>
+                  <p className="text-[11px] font-normal text-slate-400 truncate leading-tight mt-0.5">
+                    {user?.email || 'admin@practicekoro.online'}
+                  </p>
+                </div>
+
+                {/* Chevrons Up Down */}
+                <ChevronsUpDown className="w-4 h-4 text-slate-400 shrink-0 ml-auto transition-colors group-hover:text-slate-200" />
+              </>
+            )}
+          </button>
+
+          {/* Floating Dropdown Menu (Pop up upwards) */}
+          {isSidebarUserOpen && (
+            <div
+              className={cn(
+                'absolute z-50 rounded-xl bg-[#0B132B] border border-[#1E2D5A] shadow-2xl p-1.5 text-xs font-medium animate-in fade-in-50 duration-150',
+                isCollapsed
+                  ? 'left-[calc(100%+8px)] bottom-2 w-60'
+                  : 'bottom-[calc(100%+8px)] left-2 right-2'
+              )}
+            >
+              {/* Header inside popup */}
+              <div className="flex items-center gap-2.5 p-2 border-b border-[#182650]/80 mb-1">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm ring-1 ring-white/10">
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.fullName || 'Admin'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    user?.fullName?.charAt(0).toUpperCase() || 'A'
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white truncate leading-tight">
+                    {user?.fullName || 'Admin'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+                    {user?.email || 'admin@practicekoro.online'}
+                  </p>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                  {adminRole === 'content_writer'
+                    ? 'Writer'
+                    : adminRole === 'support_agent'
+                      ? 'Support'
+                      : 'Super Admin'}
+                </span>
+              </div>
+
+              {/* Menu items */}
+              <div className="py-0.5 space-y-0.5">
+                <Link
+                  to="/dashboard"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setIsSidebarUserOpen(false)}
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/[0.08] transition-colors group"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Student App Portal</span>
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 transition-colors shrink-0" />
+                </Link>
+
+                <Link
+                  to="/admin/settings"
+                  onClick={() => setIsSidebarUserOpen(false)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Platform Settings</span>
+                </Link>
+
+                <Link
+                  to="/admin/audit-logs"
+                  onClick={() => setIsSidebarUserOpen(false)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Audit Logs</span>
+                </Link>
+              </div>
+
+              {/* Divider */}
+              <div className="my-1 border-t border-[#182650]" />
+
+              {/* Sign Out */}
               <button
                 type="button"
                 onClick={() => {
+                  setIsSidebarUserOpen(false);
                   logout();
                   navigate('/login');
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all duration-150"
-                title="Sign Out"
-                aria-label="Sign Out"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors text-left font-semibold cursor-pointer"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span>Sign Out</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </aside>
 
