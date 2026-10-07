@@ -1,5 +1,9 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { isAdminEmail } from '@/lib/authPolicy';
+import {
+  enrichAdminPaymentSubscriptions,
+  enrichAdminSubscriptionPayments,
+} from './admin.financialDetails';
 import { MOCK_SUBSCRIPTION_PLANS } from '@/services/mockData';
 import { logAdminActivity } from '@/services/domains/auditLog';
 import type {
@@ -61,7 +65,7 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return data.map((d) => ({
+          return enrichAdminSubscriptionPayments(data.map((d) => ({
             id: d.id,
             userId: d.user_id,
             studentName: d.student_name || 'Student Aspirant',
@@ -75,7 +79,7 @@ export const adminCommerceApi = {
             paymentId: d.payment_id || undefined,
             daysRemaining: Number(d.days_remaining || 0),
             createdAt: d.created_at,
-          }));
+          })));
         }
       } catch (err) {
         console.warn('Could not fetch admin subscriptions from RPC, trying direct query:', err);
@@ -108,7 +112,7 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return data
+          return enrichAdminSubscriptionPayments(data
             .filter((d: any) => {
               if (!search) return true;
               const s = search.toLowerCase();
@@ -135,7 +139,7 @@ export const adminCommerceApi = {
                 daysRemaining,
                 createdAt: d.created_at,
               };
-            });
+            }));
         }
       } catch (err) {
         console.warn('Direct query on subscriptions failed:', err);
@@ -162,7 +166,7 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return data.map((d) => ({
+          return enrichAdminPaymentSubscriptions(data.map((d) => ({
             id: d.id,
             userId: d.user_id,
             studentName: d.student_name || 'Student Aspirant',
@@ -182,7 +186,7 @@ export const adminCommerceApi = {
             refundReason: d.refund_reason || undefined,
             refundedAt: d.refunded_at || undefined,
             createdAt: d.created_at,
-          }));
+          })));
         }
       } catch (err) {
         console.warn('Could not fetch admin payments from RPC, trying direct query:', err);
@@ -223,7 +227,7 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return data
+          return enrichAdminPaymentSubscriptions(data
             .filter((d: any) => {
               if (!search) return true;
               const s = search.toLowerCase();
@@ -252,7 +256,7 @@ export const adminCommerceApi = {
               refundReason: d.refund_reason || undefined,
               refundedAt: d.refunded_at || undefined,
               createdAt: d.created_at,
-            }));
+            })));
         }
       } catch (err) {
         console.warn('Direct query on payments failed:', err);
@@ -1071,7 +1075,7 @@ export const adminCommerceApi = {
     if (isSupabaseConfigured) {
       try {
         const email = params.studentEmail.trim().toLowerCase();
-        let { data: profile } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('id, full_name')
           .ilike('email', email)
@@ -2583,9 +2587,9 @@ export const adminCommerceApi = {
           : 0;
     const testsAttempted = attempts.length > 0 ? attempts.length : !isSupabaseConfigured ? 48 : 0;
 
-    let totalCorrect = attempts.reduce((acc, curr) => acc + Number(curr.correct_count || 0), 0);
-    let totalWrong = attempts.reduce((acc, curr) => acc + Number(curr.wrong_count || 0), 0);
-    let questionsAnswered = totalCorrect + totalWrong;
+    const totalCorrect = attempts.reduce((acc, curr) => acc + Number(curr.correct_count || 0), 0);
+    const totalWrong = attempts.reduce((acc, curr) => acc + Number(curr.wrong_count || 0), 0);
+    const questionsAnswered = totalCorrect + totalWrong;
 
     // questionsAnswered, totalCorrect, totalWrong directly from real attempts data
 

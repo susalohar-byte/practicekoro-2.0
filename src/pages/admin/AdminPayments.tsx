@@ -23,6 +23,11 @@ import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
 import { AdminRefundModal } from '@/components/admin/AdminRefundModal';
 import type { AdminPaymentRow } from '@/types';
+import {
+  getAdminPaymentDisplayStatus,
+  getAdminSubscriptionDisplay,
+  type AdminPaymentDisplayStatus,
+} from '@/utils/adminFinancialDisplay';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -46,13 +51,14 @@ export interface PaymentItem {
   transactionId: string;
   date: string;
   time: string;
-  status: 'Success' | 'Failed' | 'Refunded';
+  status: AdminPaymentDisplayStatus;
+  sourcePayment: AdminPaymentRow;
   statusBadgeClass: string;
   gatewayOrderId?: string;
   paymentId?: string;
   bankReference?: string;
   subscriptionValidTill?: string;
-  subscriptionMonthsLeft?: number;
+  subscriptionDaysLeft?: number;
   subscriptionActive?: boolean;
 }
 
@@ -123,15 +129,8 @@ export const AdminPayments: React.FC = () => {
         const dateStr = dDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = dDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        let displayStatus: 'Success' | 'Failed' | 'Refunded' = 'Success';
-        let statusBadge = 'bg-[#DCFCE7] text-[#15803D]';
-        if (d.status === 'failed') {
-          displayStatus = 'Failed';
-          statusBadge = 'bg-[#FEE2E2] text-[#DC2626]';
-        } else if (d.status === 'refunded' || d.refundId) {
-          displayStatus = 'Refunded';
-          statusBadge = 'bg-[#FEF3C7] text-[#B45309]';
-        }
+        const { status: displayStatus, badgeClass: statusBadge } = getAdminPaymentDisplayStatus(d);
+        const subscription = getAdminSubscriptionDisplay(d);
 
         let method: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—' = 'Razorpay';
         if (d.gateway === 'phonepe') method = 'PhonePe';
@@ -148,17 +147,18 @@ export const AdminPayments: React.FC = () => {
           planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
           amount: d.amount,
           paymentMethod: method,
-          transactionId: d.transactionId || d.razorpayPaymentId || `pay_${d.id.slice(0, 8)}`,
+          transactionId: d.transactionId || d.razorpayPaymentId || 'Unavailable',
           date: dateStr,
           time: timeStr,
           status: displayStatus,
+          sourcePayment: d,
           statusBadgeClass: statusBadge,
           gatewayOrderId: d.orderId || d.razorpayOrderId,
           paymentId: d.razorpayPaymentId || d.transactionId,
           bankReference: d.transactionId,
-          subscriptionValidTill: '12 Feb 2027',
-          subscriptionMonthsLeft: 6,
-          subscriptionActive: displayStatus === 'Success',
+          subscriptionValidTill: subscription.validTill,
+          subscriptionDaysLeft: subscription.daysRemaining,
+          subscriptionActive: subscription.active,
         };
       });
       setPaymentsList(mapped);
@@ -339,21 +339,8 @@ export const AdminPayments: React.FC = () => {
 
   // Open Refund Dialog
   const handleOpenRefund = (payment: PaymentItem) => {
-    const mapped: AdminPaymentRow = {
-      id: String(payment.id),
-      userId: `user_${payment.id}`,
-      studentName: payment.studentName,
-      studentEmail: payment.studentEmail,
-      amount: payment.amount,
-      currency: 'INR',
-      gateway: payment.paymentMethod === 'Razorpay' ? 'razorpay' : 'manual',
-      status: payment.status === 'Success' ? 'completed' : payment.status === 'Refunded' ? 'refunded' : 'failed',
-      orderId: payment.gatewayOrderId || `ord_${payment.id}`,
-      transactionId: payment.transactionId,
-      createdAt: `${payment.date} ${payment.time}`,
-      planTitle: payment.planDuration,
-    };
-    setRefundModalPayment(mapped);
+    if (payment.status !== 'Success') return;
+    setRefundModalPayment(payment.sourcePayment);
     setIsRefundModalOpen(true);
   };
 
@@ -854,8 +841,10 @@ export const AdminPayments: React.FC = () => {
           >
             <option value="All Status">All Status</option>
             <option value="Success">Success</option>
+            <option value="Pending">Pending</option>
             <option value="Failed">Failed</option>
             <option value="Refunded">Refunded</option>
+            <option value="Unknown">Unknown</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -1110,11 +1099,12 @@ export const AdminPayments: React.FC = () => {
                                   View Details
                                 </button>
                                 <button
+                                  disabled={row.status !== 'Success'}
                                   onClick={() => {
                                     handleOpenRefund(row);
                                     setActiveMenuId(null);
                                   }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
+                                  className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Refund Payment
                                 </button>
@@ -1346,12 +1336,13 @@ export const AdminPayments: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-800">Subscription Status</span>
                     <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                      {selectedPayment.subscriptionActive ? 'Active' : 'Inactive'}
+                      {selectedPayment.subscriptionActive == null ? 'Unavailable' : selectedPayment.subscriptionActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Valid till {selectedPayment.subscriptionValidTill || '12 Feb 2027'} (
-                    {selectedPayment.subscriptionMonthsLeft || 4} months left)
+                    {selectedPayment.subscriptionValidTill
+                      ? `Valid till ${selectedPayment.subscriptionValidTill} (${selectedPayment.subscriptionDaysLeft ?? 0} days left)`
+                      : 'Subscription details unavailable'}
                   </span>
                 </div>
               </div>
@@ -1376,7 +1367,8 @@ export const AdminPayments: React.FC = () => {
 
               <button
                 onClick={() => handleOpenRefund(selectedPayment)}
-                className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                disabled={selectedPayment.status !== 'Success'}
+                className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Refund Payment</span>

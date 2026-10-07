@@ -773,6 +773,11 @@ export interface AdminSubscriptionRow {
   startsAt: string;
   expiresAt: string;
   paymentId?: string;
+  paymentAmount?: number;
+  paymentStatus?: PaymentStatus;
+  paymentGateway?: string;
+  paymentTransactionId?: string;
+  paymentCurrency?: string;
   daysRemaining: number;
   createdAt: string;
 }
@@ -798,6 +803,9 @@ export interface AdminPaymentRow {
   refundedAt?: string;
   createdAt: string;
   created_at?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  subscriptionExpiresAt?: string;
 }
 
 export interface ProcessRefundRequest {

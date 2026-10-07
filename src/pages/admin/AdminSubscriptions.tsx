@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import type { AdminSubscriptionRow, PaymentStatus } from '@/types';
+import { formatRecordedAmount, getRecordedSubscriptionRevenue } from '@/utils/adminFinancialDisplay';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -41,7 +43,10 @@ export interface SubscriptionRecord {
   plan: string;
   planFullTitle: string;
   planBadgeClass: string;
-  amount: number;
+  amount?: number;
+  paymentId?: string;
+  paymentStatus?: PaymentStatus;
+  paymentCurrency?: string;
   paymentMethod: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—';
   startDate: string;
   endDate: string;
@@ -52,6 +57,49 @@ export interface SubscriptionRecord {
   transactionId?: string;
   createdAt?: string;
   lastUpdated?: string;
+}
+
+export function mapAdminSubscriptionRow(d: AdminSubscriptionRow): SubscriptionRecord {
+  const isAct = d.status === 'active' && new Date(d.expiresAt).getTime() > Date.now();
+  const formatDate = (value?: string) => {
+    if (!value || !Number.isFinite(new Date(value).getTime())) return 'Unavailable';
+    return new Date(value).toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+  };
+  const method: SubscriptionRecord['paymentMethod'] =
+    d.paymentGateway === 'razorpay' ? 'Razorpay' :
+    d.paymentGateway === 'phonepe' ? 'PhonePe' :
+    d.paymentGateway === 'upi' ? 'UPI' : '—';
+  return {
+    id: d.id,
+    studentName: d.studentName || 'Student Aspirant',
+    studentEmail: d.studentEmail || '',
+    studentPhone: d.studentPhone,
+    avatarType: 'initials',
+    avatarInitials: (d.studentName || 'ST').slice(0, 2).toUpperCase(),
+    avatarBgColor: 'bg-blue-100',
+    avatarTextColor: 'text-blue-600',
+    plan: d.planTitle || 'Pro Pass',
+    planFullTitle: d.planTitle || 'Pro Pass',
+    planBadgeClass: isAct ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FEE2E2] text-[#DC2626]',
+    amount: d.paymentAmount,
+    paymentId: d.paymentId,
+    paymentStatus: d.paymentStatus,
+    paymentCurrency: d.paymentCurrency,
+    paymentMethod: method,
+    startDate: formatDate(d.startsAt),
+    endDate: formatDate(d.expiresAt),
+    status: isAct ? 'Active' : 'Expired',
+    statusBadgeClass: isAct ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FEE2E2] text-[#DC2626]',
+    daysLeft: Number.isFinite(new Date(d.expiresAt).getTime())
+      ? Math.max(0, Math.ceil((new Date(d.expiresAt).getTime() - Date.now()) / 86400000))
+      : undefined,
+    autoRenew: false,
+    transactionId: d.paymentTransactionId,
+    createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString('en-GB') : undefined,
+    lastUpdated: d.createdAt ? new Date(d.createdAt).toLocaleString('en-GB') : undefined,
+  };
 }
 
 // Initial dataset strictly matching screenshot media_1791202130865.jpg
@@ -334,15 +382,8 @@ const MethodIcon: React.FC<{ method: string }> = ({ method }) => {
 // ============================================================================
 
 export const AdminSubscriptions: React.FC = () => {
-  const [subscriptionsList, setSubscriptionsList] = useState<SubscriptionRecord[]>(() => {
-    try {
-      const stored = localStorage.getItem('practicekoro_admin_subscriptions_v2');
-      if (stored) return JSON.parse(stored);
-    } catch {
-      // ignore
-    }
-    return [];
-  });
+  // Financial records always start from the backend, not stale demo/cache prices.
+  const [subscriptionsList, setSubscriptionsList] = useState<SubscriptionRecord[]>([]);
 
   useEffect(() => {
     try {
@@ -361,38 +402,7 @@ export const AdminSubscriptions: React.FC = () => {
         setSubscriptionsList([]);
         return;
       }
-      const mapped: SubscriptionRecord[] = remote.map((d, index) => {
-        const isAct = d.status === 'active';
-        const startFormatted = d.startsAt
-          ? new Date(d.startsAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          : 'Today';
-        const endFormatted = d.expiresAt
-          ? new Date(d.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          : '12 Feb 2027';
-
-        return {
-          id: d.id,
-          studentName: d.studentName || 'Student Aspirant',
-          studentEmail: d.studentEmail || '',
-          studentPhone: d.studentPhone || undefined,
-          avatarType: 'photo',
-          avatarSrc: `https://images.unsplash.com/photo-${1535713875002 + (index % 5)}?w=100&auto=format&fit=crop&q=80`,
-          plan: d.planTitle || 'Pro Pass',
-          planFullTitle: d.planTitle || 'Pro Pass',
-          planBadgeClass: isAct ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FEE2E2] text-[#DC2626]',
-          amount: 99,
-          paymentMethod: 'Razorpay',
-          startDate: startFormatted,
-          endDate: endFormatted,
-          status: isAct ? 'Active' : 'Expired',
-          statusBadgeClass: isAct ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FEE2E2] text-[#DC2626]',
-          daysLeft: d.daysRemaining,
-          autoRenew: false,
-          transactionId: d.paymentId || `pay_${d.id.slice(0, 8)}`,
-          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString('en-GB') : undefined,
-          lastUpdated: d.createdAt ? new Date(d.createdAt).toLocaleString('en-GB') : undefined,
-        };
-      });
+      const mapped = remote.map(mapAdminSubscriptionRow);
       setSubscriptionsList(mapped);
       if (mapped.length > 0) {
         setSelectedRowId(mapped[0].id);
@@ -419,8 +429,12 @@ export const AdminSubscriptions: React.FC = () => {
     return subscriptionsList.filter((s) => s.status === 'Expired').length;
   }, [subscriptionsList]);
   const totalRevenueAmount = useMemo(() => {
-    return subscriptionsList.reduce((acc, s) => acc + (s.amount || 0), 0);
+    return getRecordedSubscriptionRevenue(subscriptionsList);
   }, [subscriptionsList]);
+  const revenueUnavailable = subscriptionsList.some(
+    (s) => s.paymentId && (s.amount == null || !s.paymentStatus ||
+      (s.paymentCurrency != null && s.paymentCurrency !== 'INR'))
+  );
 
   // Checkbox selections
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<(number | string)[]>([]);
@@ -452,7 +466,7 @@ export const AdminSubscriptions: React.FC = () => {
   const [formStudentName, setFormStudentName] = useState('');
   const [formStudentEmail, setFormStudentEmail] = useState('');
   const [formPlan, setFormPlan] = useState('6 Months');
-  const [formAmount, setFormAmount] = useState('99');
+  const [formAmount, setFormAmount] = useState('');
   const [formMethod, setFormMethod] = useState<'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card'>('Razorpay');
 
   const showToast = (msg: string) => {
@@ -553,52 +567,27 @@ export const AdminSubscriptions: React.FC = () => {
       return;
     }
 
-    const newSub: SubscriptionRecord = {
-      id: Date.now(),
-      studentName: formStudentName.trim(),
-      studentEmail: formStudentEmail.trim(),
-      avatarType: 'initials',
-      avatarInitials: formStudentName.slice(0, 2).toUpperCase(),
-      avatarBgColor: 'bg-blue-100',
-      avatarTextColor: 'text-blue-600',
-      plan: formPlan,
-      planFullTitle: `${formPlan} Plan`,
-      planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-      amount: Number(formAmount) || 99,
-      paymentMethod: formMethod,
-      startDate: 'Today',
-      endDate: '12 Feb 2027',
-      status: 'Active',
-      statusBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-      daysLeft: 180,
-      autoRenew: false,
-      transactionId: `pay_${Date.now()}`,
-      createdAt: 'Today, 11:20 AM',
-      lastUpdated: 'Today, 11:20 AM',
-    };
-
-    setSubscriptionsList((prev) => [newSub, ...prev]);
-    setSelectedRowId(newSub.id);
-    setIsCreateModalOpen(false);
-    showToast(`Subscription activated for ${newSub.studentName}!`);
-
-    // Async persist to database
     try {
       const res = await api.createAdminSubscription({
         studentName: formStudentName.trim(),
         studentEmail: formStudentEmail.trim(),
         planTitle: formPlan,
-        amount: Number(formAmount) || 99,
+        amount: formAmount.trim() ? Number(formAmount) : undefined,
         paymentMethod: formMethod,
         durationDays: 180,
       });
-      if (res?.subscriptionId) {
-        setSubscriptionsList((prev) =>
-          prev.map((s) => (s.id === newSub.id ? { ...s, id: res.subscriptionId! } : s))
-        );
+      if (!res.success) {
+        showToast(res.error || 'Subscription creation failed.');
+        return;
       }
+      const records = await api.getAdminSubscriptions();
+      setSubscriptionsList(records.map(mapAdminSubscriptionRow));
+      if (res.subscriptionId) setSelectedRowId(res.subscriptionId);
+      setIsCreateModalOpen(false);
+      showToast(`Subscription activated for ${formStudentName.trim()}!`);
     } catch (err) {
-      console.warn('Background subscription creation error:', err);
+      console.warn('Subscription creation error:', err);
+      showToast('Could not save or reload the subscription. Please refresh and verify.');
     }
   };
 
@@ -789,16 +778,13 @@ export const AdminSubscriptions: React.FC = () => {
             ₹
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
+            <span className="text-[11px] font-medium text-slate-500 block">Recorded Revenue</span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
-                ₹{totalRevenueAmount.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 32%
+                {revenueUnavailable ? 'Unavailable' : formatRecordedAmount(totalRevenueAmount)}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5">Completed linked payments in loaded records</span>
           </div>
         </div>
       </div>
@@ -1016,7 +1002,7 @@ export const AdminSubscriptions: React.FC = () => {
 
                         {/* Amount */}
                         <td className="py-3 px-3 font-semibold text-slate-800">
-                          ₹{row.amount}
+                          {formatRecordedAmount(row.amount, row.paymentCurrency)}
                         </td>
 
                         {/* Payment Method */}
@@ -1306,7 +1292,7 @@ export const AdminSubscriptions: React.FC = () => {
 
                   <div className="flex justify-between py-1 border-b border-slate-50">
                     <span className="text-slate-400 font-normal">Amount</span>
-                    <span className="font-bold text-slate-900">₹{selectedSubscription.amount}</span>
+                    <span className="font-bold text-slate-900">{formatRecordedAmount(selectedSubscription.amount, selectedSubscription.paymentCurrency)}</span>
                   </div>
 
                   <div className="flex justify-between py-1 border-b border-slate-50">
@@ -1412,15 +1398,15 @@ export const AdminSubscriptions: React.FC = () => {
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="flex justify-between font-semibold text-slate-800">
                     <span>Initial Activation</span>
-                    <span>₹{selectedSubscription.amount}</span>
+                    <span>{formatRecordedAmount(selectedSubscription.amount, selectedSubscription.paymentCurrency)}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                     <span>{selectedSubscription.startDate}</span>
-                    <span className="text-emerald-600 font-semibold">Settled</span>
+                    <span className="text-emerald-600 font-semibold">{selectedSubscription.paymentStatus || 'Unavailable'}</span>
                   </div>
                 </div>
                 <div className="text-[11px] text-slate-400 text-center py-4">
-                  No pending dues or refund requests recorded.
+                  Only linked payment data is shown.
                 </div>
               </div>
             )}
@@ -1538,7 +1524,7 @@ export const AdminSubscriptions: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                    Amount (₹)
+                    Reference Amount (₹)
                   </label>
                   <input
                     type="number"
@@ -1546,6 +1532,9 @@ export const AdminSubscriptions: React.FC = () => {
                     onChange={(e) => setFormAmount(e.target.value)}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    A manual grant is not a collected payment. Revenue requires a linked completed payment record.
+                  </p>
                 </div>
               </div>
 
