@@ -699,25 +699,8 @@ export const AdminLayout: React.FC = () => {
           ))}
         </div>
 
-        {/* Bottom User Info & Quick Action Area (Shadcn NavUser Style) */}
-        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0 space-y-2">
-          {/* Quick View Student Portal Link (Only when expanded) */}
-          {!isCollapsed && (
-            <Link
-              to="/dashboard"
-              target="_blank"
-              rel="noreferrer"
-              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] hover:border-blue-500/30 text-slate-400 hover:text-blue-300 text-[11px] font-medium transition-all duration-150 group"
-              title="Open Student App Dashboard in new tab"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="truncate">Student App Portal</span>
-              </span>
-              <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
-          )}
-
+        {/* Bottom User Info Area (Shadcn NavUser Style) */}
+        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0">
           {/* User Profile Card Button */}
           <button
             type="button"
