@@ -105,6 +105,38 @@ describe('AdminDashboard Component Tests', () => {
         expect(val).toBeLessThanOrEqual(100);
       }
     }
+
+    // Verify exam emblems/logos are rendered
+    const popularSection = screen.getByText('Most Popular Exams').closest('div');
+    expect(popularSection).toBeInTheDocument();
+  });
+
+  it('renders custom exam logo images in Popular Exams when iconName is set', async () => {
+    vi.spyOn(api, 'getAllAdminExams').mockResolvedValueOnce([
+      {
+        id: 'custom-exam-1',
+        title: 'Custom Police Exam',
+        slug: 'custom-police',
+        iconName: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        orderIndex: 1,
+        isActive: true,
+        testsCount: 10,
+      } as any,
+    ]);
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Most Popular Exams')).toBeInTheDocument();
+    const logoImg = await screen.findByAltText('Custom Police Exam');
+    expect(logoImg).toBeInTheDocument();
+    expect(logoImg).toHaveAttribute(
+      'src',
+      expect.stringContaining('data:image/png;base64')
+    );
   });
 
   it('filters recent activity items by category (payments, tests, etc.)', async () => {

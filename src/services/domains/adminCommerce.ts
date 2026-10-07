@@ -2526,8 +2526,8 @@ export const adminCommerceApi = {
               subject_id,
               chapter_id,
               difficulty,
-              subjects ( id, name ),
-              chapters ( id, name )
+              subjects:subjects!questions_subject_id_fkey ( id, name ),
+              chapters:chapters!questions_chapter_id_fkey ( id, name )
             )
           `),
           ]);

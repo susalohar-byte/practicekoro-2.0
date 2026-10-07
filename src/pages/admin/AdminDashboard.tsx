@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { AdminDashboardV2Stats, Exam, MockTest, QuestionItemAnalysis } from '@/types';
 import { cn } from '@/lib/utils';
+import { ExamEmblemBadge } from '@/components/common/ExamEmblemBadge';
 import type { DashboardPeriod } from '@/services/domains/admin.reporting';
 import {
   getDateRangeBounds,
@@ -440,6 +441,8 @@ export const AdminDashboard: React.FC = () => {
       return {
         id: item.exam.id,
         name: item.exam.title,
+        slug: item.exam.slug,
+        iconName: item.exam.iconName,
         attempts: `${item.attemptsCount.toLocaleString('en-IN')} attempts`,
         percentage: pct,
         code: (item.exam.title || 'EXAM').split(' ')[0],
@@ -474,6 +477,7 @@ export const AdminDashboard: React.FC = () => {
       exam: test.examTitle || (test as any).examName || 'Mock Test',
       attempts: `${(test.attemptsCount || 0).toLocaleString('en-IN')} attempts`,
       iconBg: colors[idx % colors.length],
+      iconUrl: test.iconUrl,
     }));
   }, [dbTests]);
 
@@ -1256,15 +1260,12 @@ export const AdminDashboard: React.FC = () => {
                       <span className="text-xs font-bold text-slate-400 w-3 text-center">
                         {index + 1}
                       </span>
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs',
-                          exam.bg,
-                          exam.badgeText
-                        )}
-                      >
-                        {exam.code}
-                      </div>
+                      <ExamEmblemBadge
+                        title={exam.name}
+                        slug={exam.slug}
+                        iconName={exam.iconName}
+                        className="w-8 h-8 rounded-lg shrink-0"
+                      />
                       <div className="min-w-0">
                         <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
                           {exam.name}
@@ -1319,14 +1320,27 @@ export const AdminDashboard: React.FC = () => {
                       <span className="text-xs font-bold text-slate-400 w-3 text-center">
                         {index + 1}
                       </span>
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                          test.iconBg
-                        )}
-                      >
-                        <FileText className="w-4 h-4" />
-                      </div>
+                      {test.iconUrl ? (
+                        <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs">
+                          <img
+                            src={test.iconUrl}
+                            alt={test.title}
+                            className="w-full h-full object-contain rounded-md"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                            test.iconBg
+                          )}
+                        >
+                          <FileText className="w-4 h-4" />
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
                           {test.title}

@@ -330,7 +330,7 @@ export const catalogApi = {
 
       let query = supabase
         .from('tests')
-        .select('*, exams(title), subjects(name), chapters(name), test_series(title)')
+        .select('*, exams:exam_id(title), subjects:subject_id(name), chapters:chapter_id(name), test_series:test_series_id(title)')
         .eq('is_active', true)
         .eq('status', 'published');
       if (chapterId) query = query.eq('chapter_id', chapterId);
@@ -405,7 +405,7 @@ export const catalogApi = {
 
         let query = supabase
           .from('tests')
-          .select('*, exams(title), subjects(name), chapters(name), test_series(title)')
+          .select('*, exams:exam_id(title), subjects:subject_id(name), chapters:chapter_id(name), test_series:test_series_id(title)')
           .eq('is_active', true)
           .eq('status', 'published')
           .in('test_type', ['topic', 'chapter_mock', 'subject_mock']);
@@ -1225,9 +1225,9 @@ export const catalogApi = {
             is_premium,
             test_type,
             year,
-            exams (title),
-            subjects (name),
-            chapters (name)
+            exams:exam_id (title),
+            subjects:subject_id (name),
+            chapters:chapter_id (name)
           )
         `
         )
@@ -1287,11 +1287,11 @@ export const catalogApi = {
           created_at,
           questions (
             *,
-            chapters (
+            chapters:chapters!questions_chapter_id_fkey (
               name,
-              subjects (
+              subjects:subjects!chapters_subject_id_fkey (
                 name,
-                exams (title)
+                exams:exams!subjects_exam_id_fkey (title)
               )
             )
           )
@@ -1387,11 +1387,11 @@ export const catalogApi = {
           created_at,
           questions (
             *,
-            chapters (
+            chapters:chapters!questions_chapter_id_fkey (
               name,
-              subjects (
+              subjects:subjects!chapters_subject_id_fkey (
                 name,
-                exams (title)
+                exams:exams!subjects_exam_id_fkey (title)
               )
             )
           )
