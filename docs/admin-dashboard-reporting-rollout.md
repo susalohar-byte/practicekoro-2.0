@@ -152,3 +152,30 @@ No payment, subscription, student, attempt or history records were modified.
 
 No manual reapplication of either filename is necessary. This completes the SQL
 rollout; authenticated browser Dashboard verification remains a separate check.
+
+## Item-analysis relationship blocker correction
+
+Live PostgREST parsing revealed two relationship errors in the pre-existing
+item-analysis select: ambiguous `questions → chapters` (chapter and topic FKs,
+HTTP 300 / PGRST201) and a nonexistent direct `questions → exams` relationship
+(HTTP 400 / PGRST200). This reporting read is required by the Dashboard complete
+snapshot loader, so its failure can block the initial Dashboard load.
+
+The select now explicitly uses `questions_chapter_id_fkey` for chapter identity
+and obtains exams via `questions → subjects → exams`, with a legitimate
+`questions → chapters → subjects → exams` fallback when the question has no
+direct subject assignment. All embed FK hints were checked against production
+constraint metadata. Left embeds preserve unassigned questions. No synthetic
+exam ID/title or additional schema migration was introduced.
+
+The exact corrected query extracted from the exported source constant was
+validated against the live API with `limit=0` and returned HTTP 200. This checks
+PostgREST relationship parsing without reading private student records; it does
+not claim authenticated browser Dashboard verification. Six dedicated service
+regressions cover FK selection, all-page answer aggregation, real exam filtering,
+chapter-parent fallback, unassigned questions, exact date bounds and read errors.
+The combined Dashboard/analytics targeted suite passed 19 tests.
+
+Relationship-fix verification: TypeScript, changed-file ESLint and production
+build passed. Full suite: **391 passed / the same 38 failed (429 total)** versus
+385 passed / 38 failed before this fix, with no newly failing test names.

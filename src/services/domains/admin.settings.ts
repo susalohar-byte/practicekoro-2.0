@@ -371,6 +371,40 @@ export async function updatePaymentGatewayConfig(
   return { success: true };
 }
 
+/** Explicit FK hints avoid chapter/topic ambiguity. Questions have no direct exam FK. */
+export const ADMIN_ITEM_ANALYSIS_SELECT = `
+  id,
+  question_id,
+  selected_option,
+  is_correct,
+  time_spent_seconds,
+  questions:questions!attempt_answers_question_id_fkey (
+    id,
+    question_text,
+    question_bengali_text,
+    subject_id,
+    chapter_id,
+    difficulty,
+    option_a,
+    option_b,
+    option_c,
+    option_d,
+    correct_option,
+    explanation,
+    subjects:subjects!questions_subject_id_fkey (
+      id, name,
+      exams:exams!subjects_exam_id_fkey ( id, title )
+    ),
+    chapters:chapters!questions_chapter_id_fkey (
+      id, name,
+      subjects:subjects!chapters_subject_id_fkey (
+        id, name,
+        exams:exams!subjects_exam_id_fkey ( id, title )
+      )
+    )
+  )
+`;
+
 /**
  * Question-level Item Analysis (psychometrics, accuracy %, failure rate %, time traps, distractor distribution).
  * Identifies questions where >= 80% students got it wrong or took unusually long time (>90s).
@@ -384,32 +418,7 @@ export async function getItemAnalysis(
     const answersData = await readCompleteQuery(() => {
       let query = supabase
         .from('attempt_answers')
-        .select(
-          `
-          question_id,
-          selected_option,
-          is_correct,
-          time_spent_seconds,
-          questions (
-            id,
-            question_text,
-            question_bengali_text,
-            subject_id,
-            chapter_id,
-            difficulty,
-            option_a,
-            option_b,
-            option_c,
-            option_d,
-            correct_option,
-            explanation,
-            subjects ( id, name ),
-            chapters ( id, name ),
-            exams ( id, title )
-          )
-        `,
-          { count: 'exact' }
-        )
+        .select(ADMIN_ITEM_ANALYSIS_SELECT, { count: 'exact' })
         .order('id', { ascending: true });
       if (filters?.startIso) query = query.gte('created_at', filters.startIso);
       if (filters?.endIso) query = query.lte('created_at', filters.endIso);
@@ -495,16 +504,21 @@ export async function getItemAnalysis(
         const optD =
           answeredTotal > 0 ? Number(((s.optionsCount.D / answeredTotal) * 100).toFixed(1)) : 0;
 
+        // Prefer the question's own subject, falling back to the chapter's parent.
+        // Left embeds preserve unassigned questions; no synthetic exam ID/title is invented.
+        const subject = s.qInfo?.subjects || s.qInfo?.chapters?.subjects;
+        const exam = s.qInfo?.subjects?.exams || s.qInfo?.chapters?.subjects?.exams;
+
         return {
           questionId: qId,
           questionText: s.qInfo?.question_text || 'Question Text',
           questionBengali: s.qInfo?.question_bengali_text || undefined,
-          subjectId: s.qInfo?.subject_id,
-          subjectName: s.qInfo?.subjects?.name || 'General Subject',
+          subjectId: s.qInfo?.subject_id || subject?.id,
+          subjectName: subject?.name || 'General Subject',
           chapterId: s.qInfo?.chapter_id,
           chapterName: s.qInfo?.chapters?.name || 'Topic Chapter',
-          examId: s.qInfo?.exams?.id,
-          examTitle: s.qInfo?.exams?.title || 'Competitive Exam',
+          examId: exam?.id,
+          examTitle: exam?.title,
           declaredDifficulty: declaredDiff,
           empiricalDifficulty,
           totalAttempts: s.total,
