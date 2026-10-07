@@ -17,10 +17,27 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, p
       WHERE id = p_user_id AND role = 'admin' AND admin_role IS NOT NULL))
   );
 $$;
-CREATE OR REPLACE FUNCTION public.has_active_subscription(p_user_id UUID)
-RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-  SELECT public.account_is_active(p_user_id) AND EXISTS (SELECT 1 FROM public.subscriptions
-    WHERE user_id = p_user_id AND status = 'active' AND expires_at > NOW());
+CREATE OR REPLACE FUNCTION public.has_active_subscription(p_user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_target_user UUID;
+BEGIN
+  -- Preserve the live API's default argument and caller scoping.
+  IF auth.uid() IS NOT NULL THEN
+    IF p_user_id IS NOT NULL AND p_user_id <> auth.uid() AND public.has_role(auth.uid(), 'admin') THEN
+      v_target_user := p_user_id;
+    ELSE
+      v_target_user := auth.uid();
+    END IF;
+  ELSE
+    v_target_user := p_user_id;
+  END IF;
+  RETURN public.account_is_active(v_target_user) AND EXISTS (
+    SELECT 1 FROM public.subscriptions s
+    JOIN public.subscription_plans p ON p.id = s.plan_id
+    WHERE s.user_id = v_target_user AND s.status = 'active'
+      AND s.starts_at <= NOW() AND s.expires_at > NOW() AND p.is_active = TRUE
+  );
+END;
 $$;
 CREATE OR REPLACE FUNCTION public.is_management_super_admin()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
