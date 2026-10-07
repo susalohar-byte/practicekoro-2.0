@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
@@ -32,11 +32,10 @@ import {
   X,
   Search,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Sparkles,
   AlertTriangle,
-  PanelLeftClose,
-  PanelLeftOpen,
   ExternalLink,
   Radio,
 } from 'lucide-react';
@@ -101,6 +100,27 @@ export const AdminLayout: React.FC = () => {
       return next;
     });
   };
+
+  // Keyboard shortcut (Cmd/Ctrl + B) to toggle sidebar on desktop
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        handleToggleCollapse();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Locked final admin sidebar matching exact reference screenshot
   const rawNavSections: NavSection[] = [
@@ -389,12 +409,33 @@ export const AdminLayout: React.FC = () => {
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 bg-[#0A1024] text-slate-100 border-r border-[#152146] flex flex-col justify-between shadow-2xl transition-[width,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none dark',
-          'lg:sticky lg:top-0 lg:h-screen lg:overflow-hidden lg:translate-x-0',
+          'lg:sticky lg:top-0 lg:h-screen lg:overflow-visible lg:translate-x-0 relative',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           isCollapsed ? 'lg:w-[72px] w-64' : 'lg:w-[260px] w-64'
         )}
       >
-        {/* Top Header Logo & Collapse Toggle */}
+        {/* Desktop Edge-Mounted Collapse / Expand Button */}
+        <button
+          type="button"
+          onClick={handleToggleCollapse}
+          className={cn(
+            'hidden lg:flex absolute -right-3.5 top-5 z-50 w-7 h-7 rounded-full items-center justify-center cursor-pointer',
+            'bg-[#0B132B] text-slate-300 hover:text-white',
+            'border border-[#20315C] hover:border-blue-500/80',
+            'shadow-[0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_2px_12px_rgba(2,107,252,0.4)]',
+            'hover:bg-[#15234E] active:scale-90 transition-all duration-200 group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500'
+          )}
+          title={isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5 text-blue-400" />
+          ) : (
+            <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5 text-slate-300 group-hover:text-white" />
+          )}
+        </button>
+
+        {/* Top Header Logo */}
         <div className="h-16 flex items-center justify-between px-3.5 border-b border-[#152146]/80 shrink-0 bg-[#070B1A]">
           <Link
             to="/admin"
@@ -419,36 +460,19 @@ export const AdminLayout: React.FC = () => {
             )}
           </Link>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Desktop Collapse / Expand Toggle Button */}
-            <button
-              type="button"
-              onClick={handleToggleCollapse}
-              className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-150"
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4 transition-transform duration-200 hover:scale-110" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4 transition-transform duration-200 hover:scale-110" />
-              )}
-            </button>
-
-            {/* Mobile Close Button */}
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-              aria-label="Close sidebar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Mobile Close Button */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Navigation List - Fluid scrolling & Micro-Interactions */}
-        <div className="flex-1 py-2 px-2.5 space-y-4 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+        <div className="flex-1 min-h-0 py-2 px-2.5 space-y-4 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           {navSections.map((section, sIdx) => (
             <div key={section.title || `sec-${sIdx}`} className="space-y-1">
               {/* Section Header */}
@@ -490,6 +514,7 @@ export const AdminLayout: React.FC = () => {
                       <NavLink
                         to={item.path || (hasChildren ? item.children![0].path : '#')}
                         end={item.end}
+                        title={item.label}
                         className={cn(
                           'relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-105 active:scale-95',
                           isParentActive
