@@ -821,6 +821,7 @@ export const AdminExams: React.FC = () => {
   const [testSeriesList, setTestSeriesList] = useState<TestSeries[]>([]);
   const [, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // Selected Exam & Side Panel
   const [selectedExam, setSelectedExam] = useState<EnrichedExamRow | null>(null);
@@ -908,10 +909,39 @@ export const AdminExams: React.FC = () => {
     });
   };
 
+  // The confirmed backend record remains authoritative even if a later refresh fails.
+  const applySavedExam = (saved: Exam) => {
+    const merge = (previous?: EnrichedExamRow): EnrichedExamRow => ({
+      subjectsCount: 0,
+      testSeriesCount: 0,
+      totalTestsCount: 0,
+      enrollmentsCount: 0,
+      enrollmentsFormatted: 'Unavailable',
+      createdByName: 'Unavailable',
+      createdAtFormatted: 'Unavailable',
+      updatedAtFormatted: 'Unavailable',
+      avgScoreFormatted: 'Unavailable',
+      completionRateFormatted: 'Unavailable',
+      ...previous,
+      ...saved,
+      shortName: saved.shortName || saved.title.split(' ')[0],
+      subtitle: saved.subtitle || saved.description || '',
+      categoryLabel: saved.category,
+      statusLabel: saved.isActive ? 'Published' : 'Draft',
+    });
+    setExams((previous) =>
+      previous.some((exam) => exam.id === saved.id)
+        ? previous.map((exam) => (exam.id === saved.id ? merge(exam) : exam))
+        : [...previous, merge()]
+    );
+    setSelectedExam((previous) => (previous?.id === saved.id ? merge(previous) : previous));
+  };
+
   // Quick direct upload exam logo (e.g. from drawer or table hover)
   const handleQuickUploadExamLogo = async (examId: string, logoUrl: string) => {
     try {
-      await api.updateExam(examId, { iconName: logoUrl });
+      const saved = await api.updateExam(examId, { iconName: logoUrl });
+      applySavedExam(saved);
       await loadData();
       setActionSuccessMessage('Exam logo saved.');
     } catch (err) {
@@ -936,7 +966,8 @@ export const AdminExams: React.FC = () => {
   // Quick Toggle Exam Status (Published <-> Draft)
   const handleToggleExamStatus = async (exam: EnrichedExamRow, forcedStatus?: boolean) => {
     try {
-      await api.updateExam(exam.id, { isActive: forcedStatus ?? !exam.isActive });
+      const saved = await api.updateExam(exam.id, { isActive: forcedStatus ?? !exam.isActive });
+      applySavedExam(saved);
       await loadData();
       setActionSuccessMessage('Exam status saved.');
     } catch (err) {
@@ -950,11 +981,12 @@ export const AdminExams: React.FC = () => {
     if (!selectedExam || isSavingSettings) return;
     try {
       setIsSavingSettings(true);
-      await api.updateExam(selectedExam.id, {
+      const saved = await api.updateExam(selectedExam.id, {
         title: settingsTitle.trim(),
         category: settingsCategory,
         isActive: settingsStatus === 'Published',
       });
+      applySavedExam(saved);
       await loadData();
       setActionSuccessMessage('Exam settings saved.');
     } catch (err) {
@@ -964,10 +996,11 @@ export const AdminExams: React.FC = () => {
     }
   };
 
-  // Load live DB data and merge with enriched canonical exam records
+  // Load authoritative records; presets only enrich matching backend identities.
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError('');
       const [rawExams, allTests, allSubjects, allSeries, dbCats] = await Promise.all([
         api.getAllAdminExams(),
         api.getAllAdminTests().catch(() => []),
@@ -1021,7 +1054,7 @@ export const AdminExams: React.FC = () => {
       });
     } catch (err) {
       console.error('Error loading exams data:', err);
-      setFormError(getErrorMessage(err, 'Exams could not be loaded.'));
+      setLoadError(getErrorMessage(err, 'Exams could not be loaded.'));
     } finally {
       setIsLoading(false);
     }
@@ -1203,20 +1236,8 @@ export const AdminExams: React.FC = () => {
         ? await api.updateExam(editingExam.id, input)
         : await api.createExam(input);
       if (!saved?.id) throw new Error('Exam save was not confirmed.');
+      applySavedExam(saved);
       await loadData();
-      if (selectedExam?.id === saved.id)
-        setSelectedExam((prev) =>
-          prev
-            ? {
-                ...prev,
-                ...saved,
-                shortName: saved.shortName || saved.title.split(' ')[0],
-                subtitle: saved.subtitle || '',
-                categoryLabel: saved.category,
-                statusLabel: saved.isActive ? 'Published' : 'Draft',
-              }
-            : null
-        );
       setIsModalOpen(false);
       setActionSuccessMessage('Exam saved in the backend.');
     } catch (err) {
@@ -1230,7 +1251,8 @@ export const AdminExams: React.FC = () => {
   const handleArchiveExam = async (exam: EnrichedExamRow) => {
     if (!confirm('Archive "' + exam.title + '"?')) return;
     try {
-      await api.updateExam(exam.id, { isActive: false });
+      const saved = await api.updateExam(exam.id, { isActive: false });
+      applySavedExam(saved);
       await loadData();
       setActionSuccessMessage('Exam archived.');
     } catch (err) {
@@ -1255,12 +1277,19 @@ export const AdminExams: React.FC = () => {
         next.delete(examId);
         return next;
       });
-      const logos = getExamLogoCache();
-      delete logos[examId];
-      localStorage.setItem(EXAM_LOGO_CACHE_KEY, JSON.stringify(logos));
-      const overrides = getExamOverridesCache();
-      delete overrides[examId];
-      localStorage.setItem(EXAM_OVERRIDES_CACHE_KEY, JSON.stringify(overrides));
+      // Cache cleanup is best-effort and cannot turn a confirmed deletion into a failure.
+      for (const [key, readCache] of [
+        [EXAM_LOGO_CACHE_KEY, getExamLogoCache],
+        [EXAM_OVERRIDES_CACHE_KEY, getExamOverridesCache],
+      ] as const) {
+        try {
+          const cache = readCache();
+          delete cache[examId];
+          localStorage.setItem(key, JSON.stringify(cache));
+        } catch (error) {
+          console.warn('Exam deleted; optional browser cache cleanup failed.', error);
+        }
+      }
       setCurrentPage(1);
       setActionSuccessMessage('Exam deleted in the backend.');
     } catch (err) {
@@ -1271,12 +1300,13 @@ export const AdminExams: React.FC = () => {
   // Duplicate Exam
   const handleDuplicateExam = async (exam: EnrichedExamRow) => {
     try {
-      await api.createExam({
+      const saved = await api.createExam({
         ...exam,
         title: exam.title + ' (Copy)',
         slug: exam.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
         isActive: false,
       });
+      applySavedExam(saved);
       await loadData();
       setActionSuccessMessage('Draft exam created.');
     } catch (err) {
@@ -1302,6 +1332,14 @@ export const AdminExams: React.FC = () => {
       {formError && !isModalOpen && (
         <div role="alert" className="p-3 bg-red-50 text-red-700 rounded-xl">
           {formError}
+        </div>
+      )}
+      {loadError && (
+        <div role="alert" className="rounded-xl bg-amber-50 p-3 text-amber-800">
+          Exam list refresh failed: {loadError}. Any confirmed changes are retained below.
+          <button type="button" onClick={() => void loadData()} className="ml-2 underline">
+            Retry exam list
+          </button>
         </div>
       )}
       {/* Toast Notification */}

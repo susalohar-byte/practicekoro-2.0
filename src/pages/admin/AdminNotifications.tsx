@@ -36,6 +36,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { notificationDateInput, notificationDateMatches } from '@/utils/adminNotificationDates';
 import { api } from '@/services/api';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -68,6 +69,7 @@ export interface NotificationRecord {
   sentAtDate?: string;
   sentAtTime?: string;
   scheduledAt?: string;
+  eventAt?: string;
   stats?: {
     delivered: number; // e.g. 96
     opened: number; // e.g. 82
@@ -905,7 +907,9 @@ export const AdminNotifications: React.FC = () => {
       const remote = await api.getNotifications();
       if (remote && Array.isArray(remote)) {
         const mapped: NotificationRecord[] = remote.map((r, idx) => {
-          const dateObj = r.sentAt ? new Date(r.sentAt) : new Date(r.createdAt || Date.now());
+          const eventAt = r.status === 'scheduled' ? r.scheduledAt : r.sentAt || r.createdAt;
+          const parsedDate = eventAt ? new Date(eventAt) : null;
+          const dateObj = parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate : null;
           return {
             id: r.id,
             num: idx + 1,
@@ -920,15 +924,16 @@ export const AdminNotifications: React.FC = () => {
                   : r.targetAudience || 'All Students',
             audienceCount: 'All',
             status: r.status === 'sent' ? 'Sent' : r.status === 'scheduled' ? 'Scheduled' : 'Draft',
-            sentAtDate: dateObj.toLocaleDateString('en-GB', {
+            sentAtDate: dateObj?.toLocaleDateString('en-GB', {
               day: '2-digit',
               month: 'short',
               year: 'numeric',
             }),
-            sentAtTime: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            sentAtTime: dateObj?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             stats: undefined,
             actionLink: r.actionLink,
             scheduledAt: r.scheduledAt,
+            eventAt,
             sendPush: false,
             sendEmail: r.channel === 'both',
           };
@@ -966,10 +971,12 @@ export const AdminNotifications: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Date range filter
-  const [dateRangePreset, setDateRangePreset] = useState('01 Sep 2026 → 30 Sep 2026');
+  const [dateRangePreset, setDateRangePreset] = useState('All Time');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState('2026-09-01');
-  const [customEndDate, setCustomEndDate] = useState('2026-09-30');
+  const [customStartDate, setCustomStartDate] = useState(() =>
+    notificationDateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  );
+  const [customEndDate, setCustomEndDate] = useState(() => notificationDateInput());
 
   // Table selection checkboxes
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1038,42 +1045,10 @@ export const AdminNotifications: React.FC = () => {
         if (!matches) return false;
       }
 
-      // 3. Date range filter
-      if (dateRangePreset === '01 Sep 2026 → 30 Sep 2026') {
-        // September 2026 filter
-        if (item.sentAtDate && !item.sentAtDate.includes('Sep 2026')) {
-          if (item.scheduledAt && !item.scheduledAt.startsWith('2026-09')) return false;
-          if (!item.scheduledAt) return false;
-        }
-      } else if (dateRangePreset === 'August 2026') {
-        if (item.sentAtDate && !item.sentAtDate.includes('Aug 2026')) return false;
-      } else if (dateRangePreset === 'Custom Range') {
-        // check custom date bounds
-        if (item.sentAtDate) {
-          const parts = item.sentAtDate.split(' ');
-          if (parts.length === 3) {
-            const day = parts[0].padStart(2, '0');
-            const monthMap: Record<string, string> = {
-              Jan: '01',
-              Feb: '02',
-              Mar: '03',
-              Apr: '04',
-              May: '05',
-              Jun: '06',
-              Jul: '07',
-              Aug: '08',
-              Sep: '09',
-              Oct: '10',
-              Nov: '11',
-              Dec: '12',
-            };
-            const month = monthMap[parts[1]] || '09';
-            const year = parts[2];
-            const iso = `${year}-${month}-${day}`;
-            if (iso < customStartDate || iso > customEndDate) return false;
-          }
-        }
-      }
+      // Filter raw timestamps, not locale-formatted labels. Demo records retain label support.
+      const dateValue = item.eventAt || item.scheduledAt || item.sentAtDate;
+      if (!notificationDateMatches(dateValue, dateRangePreset, customStartDate, customEndDate))
+        return false;
 
       return true;
     });
@@ -1098,10 +1073,10 @@ export const AdminNotifications: React.FC = () => {
     if (isSupabaseConfigured) {
       return {
         totalSentFormatted: sentCount.toLocaleString('en-IN'),
-        deliveredFormatted: sentCount > 0 ? (sentCount * 0.96).toFixed(0) : '0',
-        openedFormatted: sentCount > 0 ? (sentCount * 0.79).toFixed(0) : '0',
-        clickedFormatted: sentCount > 0 ? (sentCount * 0.2).toFixed(0) : '0',
-        failedFormatted: '0',
+        deliveredFormatted: 'Unavailable',
+        openedFormatted: 'Unavailable',
+        clickedFormatted: 'Unavailable',
+        failedFormatted: 'Unavailable',
         sentNoticesCount: sentCount,
       };
     }
@@ -1376,16 +1351,22 @@ export const AdminNotifications: React.FC = () => {
             <Send className="w-5 h-5 -rotate-12 translate-x-0.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Sent</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              {isSupabaseConfigured ? 'Sent Notices' : 'Total Sent'}
+            </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {metrics.totalSentFormatted}
               </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 28%
-              </span>
+              {!isSupabaseConfigured && (
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  ↑ 28%
+                </span>
+              )}
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">all time</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              {isSupabaseConfigured ? 'loaded records' : 'all time'}
+            </span>
           </div>
         </div>
 
@@ -1416,9 +1397,11 @@ export const AdminNotifications: React.FC = () => {
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {metrics.openedFormatted}
               </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                79%
-              </span>
+              {!isSupabaseConfigured && (
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  79%
+                </span>
+              )}
             </div>
             <div className="h-4" />
           </div>
@@ -1435,9 +1418,11 @@ export const AdminNotifications: React.FC = () => {
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {metrics.clickedFormatted}
               </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 20%
-              </span>
+              {!isSupabaseConfigured && (
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  ↑ 20%
+                </span>
+              )}
             </div>
             <div className="h-4" />
           </div>
@@ -1454,14 +1439,23 @@ export const AdminNotifications: React.FC = () => {
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {metrics.failedFormatted}
               </span>
-              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                ↓ 3%
-              </span>
+              {!isSupabaseConfigured && (
+                <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                  ↓ 3%
+                </span>
+              )}
             </div>
             <div className="h-4" />
           </div>
         </div>
       </div>
+
+      {isSupabaseConfigured && (
+        <p className="text-xs text-slate-500">
+          Sent counts are saved notifications, not recipient deliveries. Delivery, open, click and
+          failure tracking is unavailable.
+        </p>
+      )}
 
       {/* ==================================================================== */}
       {/* 3. SPLIT MAIN SECTION (TABLE 8 COLS, FORM & PREVIEW 4 COLS)          */}
@@ -1621,36 +1615,31 @@ export const AdminNotifications: React.FC = () => {
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-1">
                       Filter Date Range
                     </span>
-                    {[
-                      '01 Sep 2026 → 30 Sep 2026',
-                      'August 2026',
-                      'Last 7 Days',
-                      'Last 30 Days',
-                      'All Time',
-                      'Custom Range',
-                    ].map((dr) => (
-                      <button
-                        key={dr}
-                        type="button"
-                        onClick={() => {
-                          setDateRangePreset(dr);
-                          if (dr !== 'Custom Range') {
-                            setShowDatePicker(false);
-                            setCurrentPage(1);
-                            showToast(`Filter applied: ${dr}`);
-                          }
-                        }}
-                        className={cn(
-                          'w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center justify-between',
-                          dateRangePreset === dr
-                            ? 'bg-blue-50 text-blue-600 font-bold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        )}
-                      >
-                        <span>{dr}</span>
-                        {dateRangePreset === dr && <Check className="w-3 h-3 text-blue-600" />}
-                      </button>
-                    ))}
+                    {['This Month', 'Last 7 Days', 'Last 30 Days', 'All Time', 'Custom Range'].map(
+                      (dr) => (
+                        <button
+                          key={dr}
+                          type="button"
+                          onClick={() => {
+                            setDateRangePreset(dr);
+                            if (dr !== 'Custom Range') {
+                              setShowDatePicker(false);
+                              setCurrentPage(1);
+                              showToast(`Filter applied: ${dr}`);
+                            }
+                          }}
+                          className={cn(
+                            'w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center justify-between',
+                            dateRangePreset === dr
+                              ? 'bg-blue-50 text-blue-600 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          )}
+                        >
+                          <span>{dr}</span>
+                          {dateRangePreset === dr && <Check className="w-3 h-3 text-blue-600" />}
+                        </button>
+                      )
+                    )}
 
                     {/* Custom range date pickers */}
                     {dateRangePreset === 'Custom Range' && (
@@ -1659,6 +1648,7 @@ export const AdminNotifications: React.FC = () => {
                           <label className="text-[10px] text-slate-500 font-semibold">From</label>
                           <input
                             type="date"
+                            aria-label="Notification date from"
                             value={customStartDate}
                             onChange={(e) => setCustomStartDate(e.target.value)}
                             className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
@@ -1668,13 +1658,24 @@ export const AdminNotifications: React.FC = () => {
                           <label className="text-[10px] text-slate-500 font-semibold">To</label>
                           <input
                             type="date"
+                            aria-label="Notification date to"
                             value={customEndDate}
                             onChange={(e) => setCustomEndDate(e.target.value)}
                             className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
                           />
                         </div>
+                        {(!customStartDate ||
+                          !customEndDate ||
+                          customStartDate > customEndDate) && (
+                          <p role="alert" className="text-xs text-red-600">
+                            Choose a valid date range with From on or before To.
+                          </p>
+                        )}
                         <button
                           type="button"
+                          disabled={
+                            !customStartDate || !customEndDate || customStartDate > customEndDate
+                          }
                           onClick={() => {
                             setShowDatePicker(false);
                             setCurrentPage(1);

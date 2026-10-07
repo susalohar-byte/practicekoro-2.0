@@ -20,44 +20,17 @@ import type {
 // APP SETTINGS API
 // --------------------------------------------------------------------------
 export async function getAppSettings(): Promise<AppSettingItem[]> {
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.from('app_settings').select('*');
-      if (error) {
-        console.warn(
-          'Could not fetch app_settings from Supabase, using local defaults:',
-          error.message
-        );
-        return [...localAppSettings];
-      }
-      if (data && data.length > 0) {
-        const fetched: AppSettingItem[] = data.map((d: any) => ({
-          id: d.id,
-          category: d.category,
-          key: d.key,
-          value: parseSettingValue(d.value),
-          description: d.description || undefined,
-          updatedAt: d.updated_at,
-        }));
-
-        // Sync into localAppSettings cache
-        fetched.forEach((f) => {
-          const idx = localAppSettings.findIndex((l) => l.id === f.id || l.key === f.key);
-          if (idx >= 0) {
-            localAppSettings[idx] = f;
-          } else {
-            localAppSettings.push(f);
-          }
-        });
-
-        return fetched;
-      }
-    } catch (err) {
-      console.warn('Failed to query app_settings, falling back to local defaults:', err);
-    }
-  }
-
-  return [...localAppSettings];
+  if (!isSupabaseConfigured) return [...localAppSettings];
+  const { data, error } = await supabase.from('app_settings').select('*');
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((d: any) => ({
+    id: d.id,
+    category: d.category,
+    key: d.key,
+    value: parseSettingValue(d.value),
+    description: d.description || undefined,
+    updatedAt: d.updated_at,
+  }));
 }
 
 export async function updateAppSetting(
@@ -75,6 +48,11 @@ export async function updateAppSettings(
       category: 'general',
       key: 'app_name',
       description: 'Platform name displayed across UI',
+    },
+    general_admin_email: {
+      category: 'general',
+      key: 'admin_email',
+      description: 'Administrative contact email',
     },
     general_support_email: {
       category: 'general',
@@ -241,54 +219,32 @@ export async function getPaymentGatewayConfig(gateway = 'razorpay'): Promise<Pay
   const targetGateway = gateway.toLowerCase().trim();
 
   if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.rpc('admin_get_payment_gateway', {
-        p_gateway: targetGateway,
-      });
-
-      let keyIdFromDb = data?.key_id || '';
-
-      // Check app_settings fallback if key_id is empty
-      if (!keyIdFromDb) {
-        try {
-          const { data: settingRow } = await supabase
-            .from('app_settings')
-            .select('value')
-            .eq('id', 'payment_gateway_razorpay_key_id')
-            .maybeSingle();
-          if (settingRow?.value) {
-            keyIdFromDb =
-              typeof settingRow.value === 'string'
-                ? settingRow.value.replace(/^"|"$/g, '').trim()
-                : String(settingRow.value).trim();
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      if (data) {
-        return {
-          gateway: data.gateway || targetGateway,
-          keyId: keyIdFromDb,
-          isActive: Boolean(data.is_active),
-          hasSecret: Boolean(data.has_secret),
-          secretPreview: data.secret_preview || null,
-          hasWebhookSecret: Boolean(data.has_webhook_secret),
-          webhookPreview: data.webhook_preview || null,
-          updatedAt: data.updated_at || null,
-        };
-      }
-
-      if (error) {
-        console.warn(
-          'Could not fetch payment gateway config via RPC, checking fallback:',
-          error.message
-        );
-      }
-    } catch (err) {
-      console.warn('Failed to call admin_get_payment_gateway RPC:', err);
+    const { data, error } = await supabase.rpc('admin_get_payment_gateway', {
+      p_gateway: targetGateway,
+    });
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Payment gateway configuration could not be loaded.');
+    let keyId = data.key_id || '';
+    // An older public Key ID may still be stored in the authoritative settings table.
+    if (!keyId) {
+      const { data: settingRow, error: settingError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('id', 'payment_gateway_razorpay_key_id')
+        .maybeSingle();
+      if (settingError) throw new Error(settingError.message);
+      if (settingRow?.value) keyId = String(parseSettingValue(settingRow.value)).trim();
     }
+    return {
+      gateway: data.gateway || targetGateway,
+      keyId,
+      isActive: Boolean(data.is_active),
+      hasSecret: Boolean(data.has_secret),
+      secretPreview: data.secret_preview || null,
+      hasWebhookSecret: Boolean(data.has_webhook_secret),
+      webhookPreview: data.webhook_preview || null,
+      updatedAt: data.updated_at || null,
+    };
   }
 
   // Local mock fallback

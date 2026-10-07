@@ -121,6 +121,8 @@ export const AdminSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [settingsLoadError, setSettingsLoadError] = useState('');
 
   // --------------------------------------------------------------------------
   // General Platform Information
@@ -215,10 +217,12 @@ export const AdminSettings: React.FC = () => {
   // Initial Data Fetching from app_settings
   // --------------------------------------------------------------------------
   const loadSettings = useCallback(async () => {
+    setIsLoadingSettings(true);
+    setSettingsLoadError('');
     try {
       const [data, gatewayConfig] = await Promise.all([
-        api.getAppSettings().catch(() => []),
-        api.getPaymentGatewayConfig('razorpay').catch(() => null),
+        api.getAppSettings(),
+        api.getPaymentGatewayConfig('razorpay'),
       ]);
 
       if (data && Array.isArray(data)) {
@@ -228,6 +232,7 @@ export const AdminSettings: React.FC = () => {
           if (s.key === 'website_url' || s.id === 'general_website_url') setWebsiteUrl(String(val));
           if (s.key === 'support_email' || s.id === 'general_support_email')
             setSupportEmail(String(val));
+          if (s.key === 'admin_email' || s.id === 'general_admin_email') setAdminEmail(String(val));
           if (s.key === 'support_phone' || s.id === 'general_support_phone')
             setContactPhone(String(val));
           if (s.key === 'support_address' || s.id === 'general_support_address')
@@ -247,7 +252,9 @@ export const AdminSettings: React.FC = () => {
         setRzpIsActive(gatewayConfig.isActive);
       }
     } catch (err) {
-      console.warn('Settings load warning:', err);
+      setSettingsLoadError(err instanceof Error ? err.message : 'Settings could not be loaded.');
+    } finally {
+      setIsLoadingSettings(false);
     }
   }, []);
 
@@ -265,7 +272,8 @@ export const AdminSettings: React.FC = () => {
       const res = await api.updateAppSettings([
         { id: 'general_app_name', value: platformName },
         { id: 'general_website_url', value: websiteUrl },
-        { id: 'general_support_email', value: adminEmail },
+        { id: 'general_support_email', value: supportEmail },
+        { id: 'general_admin_email', value: adminEmail },
         { id: 'general_support_phone', value: contactPhone },
         { id: 'general_support_address', value: address },
         { id: 'sys_maintenance_mode', value: maintenanceMode },
@@ -405,6 +413,26 @@ export const AdminSettings: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  // Do not expose editable defaults when the authoritative load failed or is pending.
+  if (isLoadingSettings) return <div role="status">Loading saved settings…</div>;
+  if (settingsLoadError)
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">
+          Settings could not be loaded: {settingsLoadError}. Editing is unavailable until reload
+          succeeds.
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadSettings()}
+          className="rounded-lg border px-4 py-2"
+        >
+          Retry settings load
+        </button>
+      </div>
+    );
 
   return (
     <div className="space-y-6 pb-16">

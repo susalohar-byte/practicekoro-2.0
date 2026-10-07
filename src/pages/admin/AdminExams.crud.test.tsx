@@ -183,3 +183,63 @@ describe('AdminExams backend-first workflow', () => {
     await waitFor(() => expect(screen.queryByText('Create Target Exam')).not.toBeInTheDocument());
   });
 });
+
+// Confirmed backend changes survive optional cache and refresh failures.
+describe('Exam save and delete feedback regressions', () => {
+  it('confirmed deletion remains successful when browser cache cleanup throws', async () => {
+    mocks.rows = [{ ...row }];
+    mount();
+    await openActions();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('Browser cache quota exceeded');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Permanently' }));
+    expect(await screen.findByText('Exam deleted in the backend.')).toBeInTheDocument();
+    expect(window.alert).not.toHaveBeenCalled();
+    expect(mocks.rows).toEqual([]);
+    expect(
+      screen.queryByRole('button', { name: 'Actions for Disposable Exam' })
+    ).not.toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+  it('confirmed edit replaces old row even when reload fails and retry clears warning', async () => {
+    mocks.rows = [{ ...row }];
+    mount();
+    await openActions();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Exam' }));
+    fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
+      target: { value: 'Actually Saved' },
+    });
+    mocks.load.mockRejectedValue(new Error('Reload failed after save'));
+    fireEvent.submit(form());
+    expect(await screen.findByText('Exam saved in the backend.')).toBeInTheDocument();
+    expect(mocks.rows[0].title).toBe('Actually Saved');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reload failed after save');
+    expect(screen.getByRole('button', { name: 'Actions for Actually Saved' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Actions for Disposable Exam' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('e.g. WBP Constable')).not.toBeInTheDocument();
+    mocks.load.mockImplementation(async () => [...mocks.rows]);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry exam list' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+});
+
+it('confirmed create remains visible and editable when list refresh fails', async () => {
+  mount();
+  await waitFor(() => expect(mocks.load).toHaveBeenCalled());
+  openCreate();
+  fireEvent.change(screen.getByPlaceholderText('e.g. WBP Constable'), {
+    target: { value: 'Saved despite reload' },
+  });
+  mocks.load.mockRejectedValue(new Error('Refresh disconnected'));
+  fireEvent.submit(form());
+  expect(
+    await screen.findByRole('button', { name: 'Actions for Saved despite reload' })
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for Saved despite reload' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Exam' }));
+  expect(screen.getByPlaceholderText('e.g. WBP Constable')).toHaveValue('Saved despite reload');
+  expect(mocks.rows[0].id).toBe('returned-backend-id');
+});
