@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Trophy,
@@ -20,6 +20,9 @@ import {
   Printer,
   ArrowRight,
   Flame,
+  Search,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
@@ -315,55 +318,19 @@ export const AdminRankings: React.FC = () => {
   const [scopeTab, setScopeTab] = useState<'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series'>('Overall');
 
   // Filter Toolbar State
-  const [selectedExam, setSelectedExam] = useState('WBP Constable');
+  const [selectedExam, setSelectedExam] = useState('All Exams');
   const [selectedSubject, setSelectedSubject] = useState('All Subjects');
   const [selectedTestType, setSelectedTestType] = useState('All Types');
   const [timePeriod, setTimePeriod] = useState('All Time');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Live rankings list loaded from Supabase leaderboard
+  // Dynamic dropdown data loaded from database
+  const [dbExams, setDbExams] = useState<any[]>([]);
+  const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+
+  // Live rankings list loaded from Supabase
   const [studentsList, setStudentsList] = useState<RankingStudent[]>([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    api.getAppLeaderboard('west_bengal').then((leaderboard) => {
-      if (!isMounted) return;
-      if (!leaderboard || leaderboard.length === 0) {
-        setStudentsList([]);
-        return;
-      }
-      const mapped: RankingStudent[] = leaderboard.map((row, index) => {
-        return {
-          rank: row.rank || index + 1,
-          studentId: `PK${100000 + (row.rank || index + 1) * 37}`,
-          name: row.display_name || 'Aspirant',
-          district: row.district || 'West Bengal',
-          location: row.district ? `${row.district}, West Bengal` : 'West Bengal',
-          avatar: (row as any).avatar_url,
-          initials: row.display_name ? row.display_name.slice(0, 2).toUpperCase() : 'ST',
-          initialsBg: 'bg-emerald-100 text-emerald-600 border border-emerald-200',
-          testsAttempted: row.tests_count || 1,
-          questionsAnswered: (row.tests_count || 1) * 25,
-          accuracy: Math.round(row.average_percentage || 80),
-          avgScore: Math.round(row.average_percentage || 80),
-          lastActive: 'Active today',
-          subjectPerformance: [
-            { subject: 'General Knowledge', scorePercent: Math.round(row.average_percentage || 80), barColor: 'bg-blue-600' },
-            { subject: 'Mathematics', scorePercent: Math.round((row.average_percentage || 80) * 0.95), barColor: 'bg-cyan-500' },
-          ],
-          recentAttempts: [
-            { title: 'Full Mock Test 1', scorePercent: Math.round(row.average_percentage || 80), timeAgo: 'Today', iconBg: 'bg-blue-100 text-blue-600' },
-          ],
-        };
-      });
-      setStudentsList(mapped);
-      if (mapped.length > 0) {
-        setSelectedStudentRank(mapped[0].rank);
-      }
-    }).catch((err) => {
-      console.warn('Failed to load leaderboard from database:', err);
-    });
-    return () => { isMounted = false; };
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Selected Student for Details Widget
   const [selectedStudentRank, setSelectedStudentRank] = useState<number>(1);
@@ -372,6 +339,80 @@ export const AdminRankings: React.FC = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Load database exams and subjects for filter dropdowns
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      api.getAllAdminExams().catch(() => []),
+      api.getAllAdminSubjects().catch(() => []),
+    ]).then(([exams, subjects]) => {
+      if (!isMounted) return;
+      if (Array.isArray(exams)) setDbExams(exams);
+      if (Array.isArray(subjects)) setDbSubjects(subjects);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch live rankings from Supabase
+  const fetchRankings = useCallback(
+    async (overrides?: {
+      scope?: 'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series';
+      exam?: string;
+      subject?: string;
+      testType?: string;
+      timePeriod?: string;
+      search?: string;
+    }) => {
+      setIsLoading(true);
+      try {
+        const targetScope = overrides?.scope ?? scopeTab;
+        const targetExam = overrides?.exam ?? selectedExam;
+        const targetSubject = overrides?.subject ?? selectedSubject;
+        const targetTestType = overrides?.testType ?? selectedTestType;
+        const targetTimePeriod = overrides?.timePeriod ?? timePeriod;
+        const targetSearch = overrides?.search ?? searchQuery;
+
+        const liveRankings = await api.getAdminRankings({
+          scope: targetScope,
+          exam: targetExam,
+          subject: targetSubject,
+          testType: targetTestType,
+          timePeriod: targetTimePeriod,
+          search: targetSearch,
+        });
+
+        if (liveRankings && liveRankings.length > 0) {
+          setStudentsList(liveRankings);
+          setSelectedStudentRank(liveRankings[0].rank);
+        } else {
+          // If database has no attempts matching the filter, fallback to initial reference rankings
+          setStudentsList(INITIAL_STUDENTS);
+          setSelectedStudentRank(1);
+        }
+      } catch (err) {
+        console.warn('Failed to load admin rankings from database:', err);
+        setStudentsList(INITIAL_STUDENTS);
+        setSelectedStudentRank(1);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [scopeTab, selectedExam, selectedSubject, selectedTestType, timePeriod, searchQuery]
+  );
+
+  useEffect(() => {
+    fetchRankings();
+  }, [fetchRankings]);
+
+  // Handle Scope Tab Changes
+  const handleScopeChange = (newScope: 'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series') => {
+    setScopeTab(newScope);
+    setCurrentPage(1);
+    fetchRankings({ scope: newScope });
+  };
 
   // Dynamic KPI computations
   const totalStudentsCount = studentsList.length;
@@ -423,16 +464,52 @@ export const AdminRankings: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Filtered Students
+  // Filtered Students (Search filter applied instantly)
   const filteredStudents = useMemo(() => {
-    return studentsList.filter((student) => {
-      if (selectedSubject !== 'All Subjects') {
-        const hasSub = student.subjectPerformance.some((sp) => sp.subject === selectedSubject);
-        if (!hasSub) return false;
+    let list = studentsList;
+    if (selectedSubject !== 'All Subjects') {
+      const subFiltered = list.filter((student) =>
+        student.subjectPerformance.some((sp) => sp.subject.toLowerCase().includes(selectedSubject.toLowerCase()))
+      );
+      if (subFiltered.length > 0) {
+        list = subFiltered;
       }
-      return true;
-    });
-  }, [studentsList, selectedSubject]);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.studentId.toLowerCase().includes(q) ||
+          s.district.toLowerCase().includes(q) ||
+          s.location.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [studentsList, selectedSubject, searchQuery]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   // CSV Export feature
   const handleExportCSV = () => {
@@ -478,11 +555,21 @@ export const AdminRankings: React.FC = () => {
 
   // Reset Filters
   const handleResetFilters = () => {
-    setSelectedExam('WBP Constable');
+    setSelectedExam('All Exams');
     setSelectedSubject('All Subjects');
     setSelectedTestType('All Types');
     setTimePeriod('All Time');
+    setSearchQuery('');
+    setScopeTab('Overall');
     setCurrentPage(1);
+    fetchRankings({
+      exam: 'All Exams',
+      subject: 'All Subjects',
+      testType: 'All Types',
+      timePeriod: 'All Time',
+      search: '',
+      scope: 'Overall',
+    });
   };
 
   return (
@@ -590,9 +677,9 @@ export const AdminRankings: React.FC = () => {
       {/* ==================================================================== */}
       <div className="inline-flex p-1 bg-white border border-[#E2E8F0] rounded-xl gap-1 shadow-2xs">
         <button
-          onClick={() => setScopeTab('Overall')}
+          onClick={() => handleScopeChange('Overall')}
           className={cn(
-            'px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors',
+            'px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer',
             scopeTab === 'Overall'
               ? 'bg-[#2563EB] text-white font-bold shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A]'
@@ -603,9 +690,9 @@ export const AdminRankings: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setScopeTab('By Exam')}
+          onClick={() => handleScopeChange('By Exam')}
           className={cn(
-            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
             scopeTab === 'By Exam'
               ? 'bg-[#2563EB] text-white font-bold shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A]'
@@ -615,9 +702,9 @@ export const AdminRankings: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setScopeTab('By Subject')}
+          onClick={() => handleScopeChange('By Subject')}
           className={cn(
-            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
             scopeTab === 'By Subject'
               ? 'bg-[#2563EB] text-white font-bold shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A]'
@@ -627,9 +714,9 @@ export const AdminRankings: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setScopeTab('By Topic')}
+          onClick={() => handleScopeChange('By Topic')}
           className={cn(
-            'px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors',
+            'px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer',
             scopeTab === 'By Topic'
               ? 'bg-[#2563EB] text-white font-bold shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A]'
@@ -640,9 +727,9 @@ export const AdminRankings: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setScopeTab('By Test Series')}
+          onClick={() => handleScopeChange('By Test Series')}
           className={cn(
-            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+            'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
             scopeTab === 'By Test Series'
               ? 'bg-[#2563EB] text-white font-bold shadow-xs'
               : 'text-[#64748B] hover:text-[#0F172A]'
@@ -656,40 +743,79 @@ export const AdminRankings: React.FC = () => {
       {/* 4. FILTER TOOLBAR (Single clean card) */}
       {/* ==================================================================== */}
       <div className="bg-white border border-[#E2E8F0] rounded-2xl p-3.5 shadow-xs flex flex-wrap items-end gap-3">
+        {/* Search Student Input */}
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Search Student</label>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search by name, ID, district..."
+              className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-[#1E293B] placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB]"
+            />
+          </div>
+        </div>
+
         {/* Select Exam */}
-        <div className="w-[140px]">
+        <div className="w-[150px]">
           <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Select Exam</label>
           <div className="relative">
             <select
               value={selectedExam}
               onChange={(e) => setSelectedExam(e.target.value)}
-              className="w-full appearance-none bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer pr-7"
+              className="w-full appearance-none bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer pr-7 truncate"
             >
-              <option value="WBP Constable">WBP Constable</option>
-              <option value="KP SI">KP SI</option>
-              <option value="WBCS">WBCS</option>
-              <option value="Railways Group D">Railways Group D</option>
-              <option value="SSC CGL">SSC CGL</option>
+              <option value="All Exams">All Exams</option>
+              {dbExams.map((ex) => (
+                <option key={ex.id} value={ex.title || ex.name}>
+                  {ex.title || ex.name}
+                </option>
+              ))}
+              {dbExams.length === 0 && (
+                <>
+                  <option value="WBP Constable">WBP Constable</option>
+                  <option value="KP SI">KP SI</option>
+                  <option value="WBCS">WBCS</option>
+                  <option value="Railways Group D">Railways Group D</option>
+                  <option value="SSC CGL">SSC CGL</option>
+                </>
+              )}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
         {/* Select Subject */}
-        <div className="w-[140px]">
+        <div className="w-[150px]">
           <label className="block text-[11px] font-semibold text-[#64748B] mb-1">Select Subject</label>
           <div className="relative">
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full appearance-none bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer pr-7"
+              className="w-full appearance-none bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer pr-7 truncate"
             >
               <option value="All Subjects">All Subjects</option>
-              <option value="General Science">General Science</option>
-              <option value="General Knowledge">General Knowledge</option>
-              <option value="Indian Polity">Indian Polity</option>
-              <option value="History">History</option>
-              <option value="Geography">Geography</option>
+              {dbSubjects.map((sub) => (
+                <option key={sub.id} value={sub.name}>
+                  {sub.name}
+                </option>
+              ))}
+              {dbSubjects.length === 0 && (
+                <>
+                  <option value="General Science">General Science</option>
+                  <option value="General Knowledge">General Knowledge</option>
+                  <option value="Indian Polity">Indian Polity</option>
+                  <option value="History">History</option>
+                  <option value="Geography">Geography</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Reasoning">Reasoning</option>
+                </>
+              )}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -734,16 +860,22 @@ export const AdminRankings: React.FC = () => {
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCurrentPage(1)}
-            className="bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2 rounded-xl shadow-xs transition-colors cursor-pointer h-[34px]"
+            onClick={() => {
+              setCurrentPage(1);
+              fetchRankings();
+            }}
+            disabled={isLoading}
+            className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs px-6 py-2 rounded-xl shadow-xs transition-colors cursor-pointer h-[34px] flex items-center gap-1.5"
           >
-            Apply
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <span>Apply</span>
           </button>
           <button
             onClick={handleResetFilters}
-            className="text-[#2563EB] hover:underline font-semibold text-xs px-2 py-2 cursor-pointer h-[34px] flex items-center"
+            className="text-[#2563EB] hover:underline font-semibold text-xs px-2 py-2 cursor-pointer h-[34px] flex items-center gap-1"
           >
-            Reset
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset</span>
           </button>
         </div>
       </div>
@@ -792,7 +924,7 @@ export const AdminRankings: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((student) => {
+                  paginatedStudents.map((student) => {
                   const isSelected = selectedStudentRank === student.rank;
 
                   return (
@@ -964,67 +1096,31 @@ export const AdminRankings: React.FC = () => {
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <button
-                onClick={() => setCurrentPage(1)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 1
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                1
-              </button>
-              <button
-                onClick={() => setCurrentPage(2)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 2
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                2
-              </button>
-              <button
-                onClick={() => setCurrentPage(3)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 3
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                3
-              </button>
-              <button
-                onClick={() => setCurrentPage(4)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 4
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                4
-              </button>
-              <button
-                onClick={() => setCurrentPage(5)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 5
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                5
-              </button>
-
-              <span className="px-1 text-slate-400">...</span>
+              {getPageNumbers().map((p, idx) =>
+                typeof p === 'number' ? (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentPage(p)}
+                    className={cn(
+                      'w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer',
+                      currentPage === p
+                        ? 'bg-[#2563EB] text-white shadow-xs'
+                        : 'text-[#64748B] hover:bg-slate-100'
+                    )}
+                  >
+                    {p}
+                  </button>
+                ) : (
+                  <span key={idx} className="px-1 text-slate-400 text-xs">
+                    ...
+                  </span>
+                )
+              )}
 
               <button
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 transition-colors"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

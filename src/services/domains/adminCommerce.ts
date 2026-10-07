@@ -25,6 +25,8 @@ import type {
   SubjectInsightRow,
   PerformanceTrendPoint,
   PlatformAnalyticsData,
+  RankingStudent,
+  AdminRankingFilter,
 } from '@/types';
 import {
   localExams,
@@ -1218,6 +1220,329 @@ export const adminCommerceApi = {
       }
     }
     return [];
+  },
+
+  async getAdminRankings(filters?: AdminRankingFilter): Promise<RankingStudent[]> {
+    if (!isSupabaseConfigured) {
+      return [];
+    }
+
+    try {
+      // 1. Fetch completed test attempts, profiles, tests, exams, and subjects in parallel
+      const [attemptsRes, profilesRes, testsRes, examsRes, subjectsRes] = await Promise.all([
+        supabase
+          .from('test_attempts')
+          .select('id, user_id, test_id, status, score, total_marks, correct_count, wrong_count, skipped_count, accuracy, time_spent_seconds, created_at, end_time')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, avatar_url, district, role, created_at'),
+        supabase
+          .from('tests')
+          .select('id, title, test_type, exam_id, subject_id, total_questions, total_marks'),
+        supabase
+          .from('exams')
+          .select('id, title'),
+        supabase
+          .from('subjects')
+          .select('id, name'),
+      ]);
+
+      const rawAttempts = Array.isArray(attemptsRes.data) ? attemptsRes.data : [];
+      const profilesMap = new Map<string, any>();
+      if (Array.isArray(profilesRes.data)) {
+        profilesRes.data.forEach((p) => {
+          if (p.id) profilesMap.set(p.id, p);
+        });
+      }
+
+      const testsMap = new Map<string, any>();
+      if (Array.isArray(testsRes.data)) {
+        testsRes.data.forEach((t) => {
+          if (t.id) testsMap.set(t.id, t);
+        });
+      }
+
+      const examsMap = new Map<string, string>();
+      if (Array.isArray(examsRes.data)) {
+        examsRes.data.forEach((e) => {
+          if (e.id) examsMap.set(e.id, e.title || '');
+        });
+      }
+
+      const subjectsMap = new Map<string, string>();
+      if (Array.isArray(subjectsRes.data)) {
+        subjectsRes.data.forEach((s) => {
+          if (s.id) subjectsMap.set(s.id, s.name || '');
+        });
+      }
+
+      // Filter attempts where status is 'completed' (or score is present)
+      let completedAttempts = rawAttempts.filter(
+        (a: any) => a.status === 'completed' || (a.score !== null && a.score !== undefined)
+      );
+
+      // Filter out admin users from attempts
+      completedAttempts = completedAttempts.filter((a: any) => {
+        const p = profilesMap.get(a.user_id);
+        if (!p) return true;
+        if (p.role === 'admin') return false;
+        if (p.email && isAdminEmail(p.email)) return false;
+        return true;
+      });
+
+      // Filter by Time Period
+      if (filters?.timePeriod && filters.timePeriod !== 'All Time') {
+        const period = filters.timePeriod.toLowerCase();
+        const now = new Date();
+        let cutoffDate: Date | null = null;
+        if (period === 'today') {
+          cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else if (period === 'this week') {
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (period === 'this month') {
+          cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        if (cutoffDate) {
+          completedAttempts = completedAttempts.filter((a: any) => {
+            const d = new Date(a.created_at || a.end_time || 0);
+            return d >= cutoffDate!;
+          });
+        }
+      }
+
+      // Filter by Test Type
+      if (filters?.testType && filters.testType !== 'All Types') {
+        const typeFilter = filters.testType.toLowerCase();
+        completedAttempts = completedAttempts.filter((a: any) => {
+          const test = testsMap.get(a.test_id);
+          const tType = (test?.test_type || '').toLowerCase();
+          if (typeFilter.includes('full mock')) return tType === 'full_mock' || tType === 'full';
+          if (typeFilter.includes('topic')) return tType === 'topic' || tType === 'topic_test' || tType === 'chapter_mock' || tType === 'subject_mock';
+          if (typeFilter.includes('pyq')) return tType === 'pyq' || tType === 'previous_year';
+          return true;
+        });
+      }
+
+      // Filter by Exam
+      if (filters?.exam && filters.exam !== 'All Exams') {
+        const examTerm = filters.exam.toLowerCase().trim();
+        completedAttempts = completedAttempts.filter((a: any) => {
+          const test = testsMap.get(a.test_id);
+          const examTitle = (test?.exam_id ? examsMap.get(test.exam_id) || '' : '').toLowerCase().trim();
+          return examTitle.includes(examTerm) || examTerm.includes(examTitle) || test?.exam_id === filters.exam;
+        });
+      }
+
+      // Filter by Subject
+      if (filters?.subject && filters.subject !== 'All Subjects') {
+        const subjTerm = filters.subject.toLowerCase().trim();
+        completedAttempts = completedAttempts.filter((a: any) => {
+          const test = testsMap.get(a.test_id);
+          const subjName = (test?.subject_id ? subjectsMap.get(test.subject_id) || '' : '').toLowerCase().trim();
+          return subjName.includes(subjTerm) || subjTerm.includes(subjName) || test?.subject_id === filters.subject;
+        });
+      }
+
+      // Filter by Scope Tab
+      if (filters?.scope) {
+        if (filters.scope === 'By Topic') {
+          completedAttempts = completedAttempts.filter((a: any) => {
+            const test = testsMap.get(a.test_id);
+            const tType = (test?.test_type || '').toLowerCase();
+            return tType === 'topic' || tType === 'topic_test' || tType === 'chapter_mock' || tType === 'subject_mock';
+          });
+        } else if (filters.scope === 'By Test Series') {
+          completedAttempts = completedAttempts.filter((a: any) => {
+            const test = testsMap.get(a.test_id);
+            const tType = (test?.test_type || '').toLowerCase();
+            return tType === 'full_mock' || tType === 'full';
+          });
+        }
+      }
+
+      // Group attempts by user_id
+      const userAttemptsMap = new Map<string, any[]>();
+      completedAttempts.forEach((att: any) => {
+        const uid = att.user_id;
+        if (!uid) return;
+        if (!userAttemptsMap.has(uid)) {
+          userAttemptsMap.set(uid, []);
+        }
+        userAttemptsMap.get(uid)!.push(att);
+      });
+
+      // Format Relative Time Helper
+      const formatTimeAgo = (dateInput: string | Date | null | undefined): string => {
+        if (!dateInput) return 'Active recently';
+        const now = Date.now();
+        const time = new Date(dateInput).getTime();
+        if (isNaN(time)) return 'Active recently';
+        const diffSec = Math.max(0, Math.round((now - time) / 1000));
+        if (diffSec < 60) return 'Just now';
+        const diffMin = Math.round(diffSec / 60);
+        if (diffMin < 60) return `${diffMin} min${diffMin > 1 ? 's' : ''} ago`;
+        const diffHour = Math.round(diffMin / 60);
+        if (diffHour < 24) return `${diffHour} hour${diffHour > 1 ? 's' : ''} ago`;
+        const diffDays = Math.round(diffHour / 24);
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return new Date(time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      };
+
+      // Helper for Initials
+      const getInitials = (name: string): string => {
+        if (!name) return 'ST';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      };
+
+      const students: RankingStudent[] = [];
+
+      userAttemptsMap.forEach((userAttempts, userId) => {
+        const profile = profilesMap.get(userId) || userAttempts[0]?.profiles || {};
+        const rawName = (profile.full_name || '').trim();
+        const name = rawName || (profile.email ? profile.email.split('@')[0] : 'Aspirant Student');
+        const district = profile.district || 'West Bengal';
+        const location = profile.district ? `${profile.district}, West Bengal` : 'West Bengal';
+        const avatar = profile.avatar_url || undefined;
+        const initials = getInitials(name);
+        const initialsBg = 'bg-emerald-100 text-emerald-600 border border-emerald-200';
+
+        const testsAttempted = userAttempts.length;
+
+        let totalScore = 0;
+        let totalMaxMarks = 0;
+        let totalCorrect = 0;
+        let totalWrong = 0;
+        let totalSkipped = 0;
+        let latestDate = 0;
+        let maxPercentage = 0;
+
+        const subjectMap = new Map<string, { totalScore: number; totalMarks: number; count: number }>();
+        const recentAttempts: { title: string; scorePercent: number; timeAgo: string; iconBg: string }[] = [];
+
+        userAttempts.forEach((att: any, idx: number) => {
+          const test = testsMap.get(att.test_id);
+          const sc = Number(att.score || 0);
+          const max = Number(att.total_marks || test?.total_marks || 100);
+          const cor = Number(att.correct_count || 0);
+          const wr = Number(att.wrong_count || 0);
+          const sk = Number(att.skipped_count || 0);
+
+          totalScore += sc;
+          totalMaxMarks += max;
+          totalCorrect += cor;
+          totalWrong += wr;
+          totalSkipped += sk;
+
+          const perc = Math.round((sc / Math.max(1, max)) * 100);
+          if (perc > maxPercentage) maxPercentage = perc;
+
+          const timeVal = new Date(att.end_time || att.created_at || 0).getTime();
+          if (timeVal > latestDate) latestDate = timeVal;
+
+          const subj = (test?.subject_id ? subjectsMap.get(test.subject_id) : '') ||
+                       (test?.exam_id ? examsMap.get(test.exam_id) : '') ||
+                       'General Knowledge';
+
+          if (!subjectMap.has(subj)) {
+            subjectMap.set(subj, { totalScore: 0, totalMarks: 0, count: 0 });
+          }
+          const sEntry = subjectMap.get(subj)!;
+          sEntry.totalScore += sc;
+          sEntry.totalMarks += max;
+          sEntry.count += 1;
+
+          if (recentAttempts.length < 3) {
+            recentAttempts.push({
+              title: test?.title || 'Practice Mock Test',
+              scorePercent: perc,
+              timeAgo: formatTimeAgo(att.end_time || att.created_at),
+              iconBg: idx === 0 ? 'bg-blue-100 text-blue-600' : idx === 1 ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600',
+            });
+          }
+        });
+
+        const questionsAnswered = (totalCorrect + totalWrong + totalSkipped) || testsAttempted * 25;
+        const avgScore = Math.round((totalScore / Math.max(1, totalMaxMarks)) * 100);
+        const accuracy = (totalCorrect + totalWrong) > 0
+          ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100)
+          : avgScore;
+
+        const colors = ['bg-blue-600', 'bg-cyan-500', 'bg-indigo-600', 'bg-purple-600', 'bg-emerald-500'];
+        let colorIdx = 0;
+        const subjectPerformance: { subject: string; scorePercent: number; barColor: string }[] = [];
+        subjectMap.forEach((val, sName) => {
+          subjectPerformance.push({
+            subject: sName,
+            scorePercent: Math.round((val.totalScore / Math.max(1, val.totalMarks)) * 100),
+            barColor: colors[colorIdx % colors.length],
+          });
+          colorIdx++;
+        });
+
+        if (subjectPerformance.length === 0) {
+          subjectPerformance.push({
+            subject: 'General Knowledge',
+            scorePercent: avgScore,
+            barColor: 'bg-blue-600',
+          });
+        }
+
+        const studentId = profile.id
+          ? `PK${profile.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`
+          : `PK${String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`;
+
+        students.push({
+          rank: 0,
+          studentId,
+          name,
+          district,
+          location,
+          avatar,
+          initials,
+          initialsBg,
+          testsAttempted,
+          questionsAnswered,
+          accuracy,
+          avgScore,
+          bestScore: maxPercentage || avgScore,
+          lastActive: formatTimeAgo(latestDate || profile.created_at),
+          subjectPerformance,
+          recentAttempts,
+        });
+      });
+
+      // Sort students by: avgScore DESC, then testsAttempted DESC, then accuracy DESC
+      students.sort((a, b) => {
+        if (b.avgScore !== a.avgScore) return b.avgScore - a.avgScore;
+        if (b.testsAttempted !== a.testsAttempted) return b.testsAttempted - a.testsAttempted;
+        return b.accuracy - a.accuracy;
+      });
+
+      // Assign ranks: 1, 2, 3, ...
+      students.forEach((s, idx) => {
+        s.rank = idx + 1;
+      });
+
+      // Search filter if provided
+      if (filters?.search && filters.search.trim()) {
+        const q = filters.search.toLowerCase().trim();
+        return students.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.studentId.toLowerCase().includes(q) ||
+            s.district.toLowerCase().includes(q)
+        );
+      }
+
+      return students;
+    } catch (err) {
+      console.warn('Failed to calculate admin rankings:', err);
+      return [];
+    }
   },
 
   async deleteAdminTestAttempt(attemptId: string): Promise<{ success: boolean; error?: string }> {

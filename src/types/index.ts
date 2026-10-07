@@ -1136,6 +1136,43 @@ export interface StudentRankRow {
   lastActive?: string;
 }
 
+export interface RankingStudent {
+  rank: number;
+  studentId: string;
+  name: string;
+  district: string;
+  location: string;
+  avatar?: string;
+  initials?: string;
+  initialsBg?: string;
+  testsAttempted: number;
+  questionsAnswered: number;
+  accuracy: number;
+  avgScore: number;
+  bestScore?: number;
+  lastActive: string;
+  subjectPerformance: {
+    subject: string;
+    scorePercent: number;
+    barColor: string;
+  }[];
+  recentAttempts: {
+    title: string;
+    scorePercent: number;
+    timeAgo: string;
+    iconBg: string;
+  }[];
+}
+
+export interface AdminRankingFilter {
+  scope?: 'Overall' | 'By Exam' | 'By Subject' | 'By Topic' | 'By Test Series';
+  exam?: string;
+  subject?: string;
+  testType?: string;
+  timePeriod?: string;
+  search?: string;
+}
+
 export interface QuestionInsightRow {
   questionId: string;
   questionText: string;

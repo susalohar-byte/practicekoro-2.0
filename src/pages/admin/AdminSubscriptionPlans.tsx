@@ -16,6 +16,7 @@ import {
   BarChart2,
   Headphones,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
@@ -471,6 +472,84 @@ export const AdminSubscriptionPlans: React.FC = () => {
     }
   };
 
+  // ============================================================================
+  // EDIT PLAN HANDLERS & STATE
+  // ============================================================================
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
+  const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false);
+  const [editPlanName, setEditPlanName] = useState('');
+  const [editPlanSubtitle, setEditPlanSubtitle] = useState('');
+  const [editMonthlyPrice, setEditMonthlyPrice] = useState('99');
+  const [editMonthlyDuration, setEditMonthlyDuration] = useState('6 months');
+  const [editYearlyPrice, setEditYearlyPrice] = useState('179');
+  const [editYearlyDuration, setEditYearlyDuration] = useState('12 months');
+  const [editPlanBadge, setEditPlanBadge] = useState('');
+  const [editPlanFeatures, setEditPlanFeatures] = useState('');
+  const [editButtonText, setEditButtonText] = useState('');
+
+  const handleOpenEditModal = (plan: SubscriptionPlanItem) => {
+    setEditingPlan(plan);
+    setEditPlanName(plan.name);
+    setEditPlanSubtitle(plan.subtitle);
+    setEditMonthlyPrice(String(plan.monthlyPrice));
+    setEditMonthlyDuration(plan.monthlyDuration.replace(/^\/\s*/, '') || '6 months');
+    setEditYearlyPrice(String(plan.yearlyPrice));
+    setEditYearlyDuration(plan.yearlyDuration.replace(/^\/\s*/, '') || '12 months');
+    setEditPlanBadge(plan.badge || '');
+    setEditPlanFeatures(plan.features.map((f) => f.text).join(', '));
+    setEditButtonText(plan.buttonText);
+    setIsEditPlanModalOpen(true);
+  };
+
+  const handleUpdatePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlan || !editPlanName.trim()) return;
+
+    const featureItems: PlanFeature[] = editPlanFeatures
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)
+      .map((text) => ({ text, included: true }));
+
+    const updatedMonthlyPrice = Number(editMonthlyPrice) || 0;
+    const updatedYearlyPrice = Number(editYearlyPrice) || 0;
+
+    const updatedPlan: SubscriptionPlanItem = {
+      ...editingPlan,
+      name: editPlanName.trim(),
+      subtitle: editPlanSubtitle.trim(),
+      monthlyPrice: updatedMonthlyPrice,
+      monthlyDuration: `/ ${editMonthlyDuration.trim()}`,
+      yearlyPrice: updatedYearlyPrice,
+      yearlyDuration: `/ ${editYearlyDuration.trim()}`,
+      badge: editPlanBadge.trim() || undefined,
+      buttonText:
+        editButtonText.trim() ||
+        (updatedMonthlyPrice === 0 ? 'Current Plan' : `Get ${editPlanName.trim()}`),
+      features: featureItems.length > 0 ? featureItems : editingPlan.features,
+    };
+
+    setPlans((prev) =>
+      prev.map((p) => (p.id === editingPlan.id ? updatedPlan : p))
+    );
+
+    setIsEditPlanModalOpen(false);
+    showToast(`Subscription plan "${editPlanName}" updated successfully.`);
+
+    try {
+      await api.updateSubscriptionPlan(editingPlan.id, {
+        title: editPlanName.trim(),
+        name: editPlanName.trim(),
+        description: editPlanSubtitle.trim(),
+        price: updatedMonthlyPrice,
+        originalPrice: updatedYearlyPrice,
+        features: featureItems.map((f) => f.text),
+      });
+    } catch (err) {
+      console.warn('Failed to update subscription plan in database:', err);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
@@ -654,10 +733,38 @@ export const AdminSubscriptionPlans: React.FC = () => {
               )}
             >
               <div>
-                {/* Icon & Plan Title */}
-                <div className="mb-4">
+                {/* Icon & Top Actions Row */}
+                <div className="flex items-start justify-between mb-4">
                   {renderPlanIcon(plan.iconType)}
-                  <h3 className="text-base font-bold text-slate-900 mt-3">{plan.name}</h3>
+                  <div className="flex items-center gap-1.5">
+                    {plan.badge && (
+                      <span
+                        className={cn(
+                          'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                          plan.badgeColor || 'bg-blue-600 text-white'
+                        )}
+                      >
+                        {plan.badge}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditModal(plan);
+                      }}
+                      className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 text-slate-600 hover:text-blue-600 transition-colors shadow-2xs flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
+                      title={`Edit ${plan.name}`}
+                    >
+                      <Pencil className="w-3 h-3 text-slate-500 hover:text-blue-600" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Plan Title & Subtitle */}
+                <div className="mb-4">
+                  <h3 className="text-base font-bold text-slate-900">{plan.name}</h3>
                   <p className="text-xs text-slate-500 font-normal">{plan.subtitle}</p>
                 </div>
 
@@ -665,16 +772,6 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 <div className="flex items-baseline gap-1 mb-4 flex-wrap">
                   <span className="text-2xl font-bold text-slate-900">₹{displayPrice}</span>
                   <span className="text-xs text-slate-400 font-normal">{displayDuration}</span>
-                  {plan.badge && (
-                    <span
-                      className={cn(
-                        'ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full',
-                        plan.badgeColor || 'bg-blue-600 text-white'
-                      )}
-                    >
-                      {plan.badge}
-                    </span>
-                  )}
                 </div>
 
                 {/* Features List */}
@@ -703,22 +800,32 @@ export const AdminSubscriptionPlans: React.FC = () => {
                 </ul>
               </div>
 
-              {/* Bottom Action Button */}
-              <button
-                onClick={() => {
-                  if (plan.id === 'free') {
-                    showToast('Free plan is active by default for all registered students.');
-                  } else {
-                    setSelectedPlanForPurchase(plan);
-                  }
-                }}
-                className={cn(
-                  'w-full py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center',
-                  plan.buttonClass
-                )}
-              >
-                {plan.buttonText}
-              </button>
+              {/* Bottom Action Buttons */}
+              <div className="space-y-2 pt-2 border-t border-slate-100/60 mt-auto">
+                <button
+                  onClick={() => {
+                    if (plan.id === 'free') {
+                      showToast('Free plan is active by default for all registered students.');
+                    } else {
+                      setSelectedPlanForPurchase(plan);
+                    }
+                  }}
+                  className={cn(
+                    'w-full py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center',
+                    plan.buttonClass
+                  )}
+                >
+                  {plan.buttonText}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditModal(plan)}
+                  className="w-full py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#2563EB] hover:bg-blue-50/70 border border-slate-200/90 bg-white/80 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Edit Plan</span>
+                </button>
+              </div>
             </div>
           );
         })}
@@ -1077,6 +1184,186 @@ export const AdminSubscriptionPlans: React.FC = () => {
                   className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
                 >
                   Save Plan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 6.1. EDIT PLAN MODAL                                                 */}
+      {/* ==================================================================== */}
+      {isEditPlanModalOpen && editingPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Edit Subscription Plan</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Update pricing, duration, and features for {editingPlan.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditPlanModalOpen(false)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePlan} className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                    Plan Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editPlanName}
+                    onChange={(e) => setEditPlanName(e.target.value)}
+                    placeholder="e.g. Pro Plan"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                    Tagline / Subtitle
+                  </label>
+                  <input
+                    type="text"
+                    value={editPlanSubtitle}
+                    onChange={(e) => setEditPlanSubtitle(e.target.value)}
+                    placeholder="e.g. Complete preparation"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Pricing & Duration Block */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                <span className="text-[11px] font-bold text-slate-800 block">Pricing & Duration</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
+                      Monthly Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={editMonthlyPrice}
+                      onChange={(e) => setEditMonthlyPrice(e.target.value)}
+                      className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
+                      Monthly Duration Label
+                    </label>
+                    <input
+                      type="text"
+                      value={editMonthlyDuration}
+                      onChange={(e) => setEditMonthlyDuration(e.target.value)}
+                      placeholder="e.g. 6 months or month"
+                      className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
+                      Yearly Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={editYearlyPrice}
+                      onChange={(e) => setEditYearlyPrice(e.target.value)}
+                      className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 mb-1 block">
+                      Yearly Duration Label
+                    </label>
+                    <input
+                      type="text"
+                      value={editYearlyDuration}
+                      onChange={(e) => setEditYearlyDuration(e.target.value)}
+                      placeholder="e.g. 12 months or year"
+                      className="w-full border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                    Badge Tag (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editPlanBadge}
+                    onChange={(e) => setEditPlanBadge(e.target.value)}
+                    placeholder="e.g. Most Popular, Best Value"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                    Button CTA Text
+                  </label>
+                  <input
+                    type="text"
+                    value={editButtonText}
+                    onChange={(e) => setEditButtonText(e.target.value)}
+                    placeholder="e.g. Get Pro Plan"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                  Features List (comma separated)
+                </label>
+                <textarea
+                  rows={4}
+                  value={editPlanFeatures}
+                  onChange={(e) => setEditPlanFeatures(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                  placeholder="Unlimited mock tests, Statewide rank analysis, Video explanations..."
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Separate each feature with a comma to list them on the plan card.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEditPlanModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Update Plan</span>
                 </button>
               </div>
             </form>
