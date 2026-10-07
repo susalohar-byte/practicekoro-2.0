@@ -310,6 +310,10 @@ export async function createTest(
 
   // Resilience: if target DB does not have icon_url column yet, retry without icon_url
   if (insertRes.error && insertRes.error.message.includes('icon_url')) {
+    if (testData.iconUrl)
+      throw new Error(
+        'Test icon storage is unavailable. Apply the tests icon_url migration before saving an icon.'
+      );
     delete insertPayload.icon_url;
     insertRes = await supabase.from('tests').insert(insertPayload).select(selectCols).single();
   }
@@ -334,10 +338,12 @@ export async function createTest(
   }
 
   const row = data as any;
+  if (testData.iconUrl && row.icon_url !== testData.iconUrl)
+    throw new Error('The backend did not confirm the saved test icon.');
   notifyExamsUpdated();
   return {
     id: row.id,
-    iconUrl: row.icon_url || testData.iconUrl || undefined,
+    iconUrl: row.icon_url || undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,
@@ -411,12 +417,26 @@ export async function updateTest(id: string, updates: Partial<MockTest>): Promis
     test_series:test_series_id (title)
   `;
 
-  let updateRes = await supabase.from('tests').update(payload).eq('id', id).select(selectCols).single();
+  let updateRes = await supabase
+    .from('tests')
+    .update(payload)
+    .eq('id', id)
+    .select(selectCols)
+    .single();
 
   // Resilience: if target DB does not have icon_url column yet, retry without icon_url
   if (updateRes.error && updateRes.error.message.includes('icon_url')) {
+    if (updates.iconUrl !== undefined)
+      throw new Error(
+        'Test icon storage is unavailable. Apply the tests icon_url migration before changing an icon.'
+      );
     delete payload.icon_url;
-    updateRes = await supabase.from('tests').update(payload).eq('id', id).select(selectCols).single();
+    updateRes = await supabase
+      .from('tests')
+      .update(payload)
+      .eq('id', id)
+      .select(selectCols)
+      .single();
   }
 
   const { data, error } = updateRes;
@@ -430,10 +450,12 @@ export async function updateTest(id: string, updates: Partial<MockTest>): Promis
   }
 
   const row = data as any;
+  if (updates.iconUrl !== undefined && (row.icon_url || '') !== (updates.iconUrl || ''))
+    throw new Error('The backend did not confirm the saved test icon.');
   notifyExamsUpdated();
   return {
     id: row.id,
-    iconUrl: row.icon_url ?? updates.iconUrl ?? undefined,
+    iconUrl: row.icon_url || undefined,
     examId: row.exam_id ?? undefined,
     subjectId: row.subject_id ?? undefined,
     chapterId: row.chapter_id ?? undefined,

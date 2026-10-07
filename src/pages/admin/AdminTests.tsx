@@ -373,9 +373,13 @@ export const AdminTests: React.FC = () => {
     try {
       setIsUploadingDrawerIcon(true);
       const url = await api.uploadTestIcon(file, targetTest.id);
-      await api.updateTest(targetTest.id, { iconUrl: url });
+      const saved = await api.updateTest(targetTest.id, { iconUrl: url });
+      if (saved.iconUrl !== url)
+        throw new Error('The backend did not confirm the saved test icon.');
       setTests((prev) => prev.map((t) => (t.id === targetTest.id ? { ...t, iconUrl: url } : t)));
-      setSelectedTest((prev) => (prev && prev.id === targetTest.id ? { ...prev, iconUrl: url } : prev));
+      setSelectedTest((prev) =>
+        prev && prev.id === targetTest.id ? { ...prev, iconUrl: url } : prev
+      );
       setEditIconUrl(url);
       setSaveSuccessMsg('Icon uploaded and saved successfully!');
       setTimeout(() => setSaveSuccessMsg(null), 3000);
@@ -401,7 +405,7 @@ export const AdminTests: React.FC = () => {
         negativeMarking: Number(editNegativeMarking),
         isPremium: editIsPremium,
         status: editStatus,
-        iconUrl: editIconUrl.trim() || undefined,
+        iconUrl: editIconUrl.trim(),
       });
       setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updated : t)));
       setSelectedTest(updated);

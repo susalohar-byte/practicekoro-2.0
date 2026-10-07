@@ -20,7 +20,7 @@ try {
   await db.exec(
     fs.readFileSync(
       new URL(
-        '../../supabase/migrations/20261007164000_admin_settings_gateway_guard.sql',
+        '../../supabase/migrations/20261007162922_admin_settings_gateway_guard.sql',
         import.meta.url
       ),
       'utf8'

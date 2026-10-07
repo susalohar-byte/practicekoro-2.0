@@ -1,4 +1,4 @@
--- Pending explicit production approval. No settings values are changed by this migration.
+-- Applied to production under this Supabase migration version. No settings values are changed by this migration.
 -- Align the gateway mutation with the existing active-super-admin settings policy.
 CREATE OR REPLACE FUNCTION public.admin_update_payment_gateway(
   p_gateway text, p_key_id text, p_key_secret text DEFAULT NULL,

@@ -42,24 +42,21 @@ The live browser redirected `/admin/settings` to login. Component and service
 workflows were verified with mocks; deployed-bundle verification is distinct from
 an authenticated, account-specific live Settings check.
 
-## Pending server-side authorization hardening
+## Applied server-side authorization hardening
 
 Read-only inspection found the existing gateway mutation RPC accepts broader
 legacy administrator checks than `admin_update_app_settings`, which already
 requires an active Super Admin. Client gates are not a substitute for this server
 policy. A narrow corrective migration is included:
 
-`supabase/migrations/20261007164000_admin_settings_gateway_guard.sql`
+`supabase/migrations/20261007162922_admin_settings_gateway_guard.sql`
 
 It requires `is_management_super_admin()`, rejects invalid/unsupported public
 keys and client secret writes, preserves existing secrets, synchronizes public
 configuration atomically, and denies PUBLIC/anonymous execution. It changes
 only the function/grants, not production settings values or roles.
 
-**This migration has not been applied to production. Explicit approval is
-required.** The frontend persistence fixes use the already-deployed atomic RPC
-and do not require the migration to save public configuration. Until approval,
-the old backend authorization weakness is not claimed fixed.
+**Applied to production with explicit approval** as Supabase migration version `20261007162922`, name `admin_settings_gateway_guard`. Verified the active Super Admin guard, anonymous EXECUTE denial, and unauthenticated request rejection. Stored settings, secrets and roles were not changed.
 
 The guard migration was validated in disposable PostgreSQL fixtures: null identity,
 content writer, inactive super admin and student denied; active super admin save

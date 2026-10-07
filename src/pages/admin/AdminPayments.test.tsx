@@ -23,8 +23,14 @@ const payment: AdminPaymentRow = {
   gateway: 'razorpay',
   status: 'completed',
   transactionId: 'pay_verified',
-  createdAt: '2026-10-01T00:00:00Z',
+  createdAt: new Date().toISOString(),
 };
+
+// Details are explicitly selected by the user, never auto-opened on load.
+async function renderAndSelectPayment() {
+  render(<AdminPayments />);
+  fireEvent.click(await screen.findByText('Paid Student'));
+}
 
 describe('AdminPayments status and subscription display', () => {
   it('excludes pending, failed, and refunded amounts from successful revenue', async () => {
@@ -34,11 +40,13 @@ describe('AdminPayments status and subscription display', () => {
       { ...payment, id: 'p3', studentName: 'Failed Student', amount: 999, status: 'failed' },
       { ...payment, id: 'p4', studentName: 'Refunded Student', amount: 499, status: 'refunded' },
     ]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Pending Student');
-    expect(screen.getAllByText('Total Revenue')[0].parentElement).toHaveTextContent('₹199');
+    expect(screen.getAllByText('Retained Revenue')[0].parentElement).toHaveTextContent('₹199');
     expect(screen.getAllByText('Successful')[0].parentElement).toHaveTextContent('25%');
-    expect(within(screen.getByRole('table')).getByText('Pending')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('table', { name: 'Payment records' })).getByText('Pending')
+    ).toBeInTheDocument();
   });
 
   it('offers a Pending filter that only displays pending payments', async () => {
@@ -46,23 +54,23 @@ describe('AdminPayments status and subscription display', () => {
       payment,
       { ...payment, id: 'p2', studentName: 'Pending Student', status: 'pending' },
     ]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Pending Student');
     fireEvent.change(screen.getByDisplayValue('All Status'), { target: { value: 'Pending' } });
-    const table = within(screen.getByRole('table'));
+    const table = within(screen.getByRole('table', { name: 'Payment records' }));
     expect(table.getByText('Pending Student')).toBeInTheDocument();
     expect(table.queryByText('Paid Student')).not.toBeInTheDocument();
   });
 
   it('disables refund for a pending payment and does not invent subscription expiry', async () => {
     vi.mocked(api.getAllAdminPayments).mockResolvedValue([{ ...payment, status: 'pending' }]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Refund Payment' })).toBeDisabled()
     );
     expect(screen.getByText('Subscription details unavailable')).toBeInTheDocument();
     expect(screen.queryByText(/12 Feb 2027/)).not.toBeInTheDocument();
-    expect(screen.getAllByText('Total Revenue')[0].parentElement).toHaveTextContent('₹0');
+    expect(screen.getAllByText('Retained Revenue')[0].parentElement).toHaveTextContent('₹0');
   });
 
   it('shows real expired subscription date and zero days left for a completed payment', async () => {
@@ -73,7 +81,7 @@ describe('AdminPayments status and subscription display', () => {
         subscriptionExpiresAt: '2020-01-02T00:00:00Z',
       },
     ]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     expect(await screen.findByText(/Valid till.*2020.*0 days left/)).toBeInTheDocument();
     expect(screen.getByText('Inactive')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refund Payment' })).toBeEnabled();
@@ -98,7 +106,7 @@ describe('AdminPayments subscription cancellation', () => {
           finish = resolve;
         })
     );
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
     expect(api.cancelSubscription).toHaveBeenCalledWith('subscription-real-id');
@@ -111,8 +119,10 @@ describe('AdminPayments subscription cancellation', () => {
     await act(async () => finish({ success: true, expiresAt: '2026-10-01T00:00:00Z' }));
     expect(await screen.findByText('Inactive')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel Subscription' })).toBeDisabled();
-    expect(within(screen.getByRole('table')).getByText('Success')).toBeInTheDocument();
-    expect(screen.getAllByText('Total Revenue')[0].parentElement).toHaveTextContent('₹199');
+    expect(
+      within(screen.getByRole('table', { name: 'Payment records' })).getByText('Success')
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Retained Revenue')[0].parentElement).toHaveTextContent('₹199');
   });
 
   it('retains active access in the UI and shows an error when backend denies cancellation', async () => {
@@ -122,7 +132,7 @@ describe('AdminPayments subscription cancellation', () => {
       success: false,
       error: 'Permission denied',
     });
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Permission denied');
@@ -135,7 +145,7 @@ describe('AdminPayments subscription cancellation', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
     vi.mocked(api.cancelSubscription).mockRejectedValue(new Error('Network unavailable'));
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Network unavailable');
@@ -145,7 +155,7 @@ describe('AdminPayments subscription cancellation', () => {
   it('does not revoke access when the confirmation is declined', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
     expect(api.cancelSubscription).not.toHaveBeenCalled();
@@ -153,7 +163,7 @@ describe('AdminPayments subscription cancellation', () => {
 
   it('disables cancellation if no linked active subscription is known', async () => {
     vi.mocked(api.getAllAdminPayments).mockResolvedValue([payment]);
-    render(<AdminPayments />);
+    await renderAndSelectPayment();
     await screen.findByText('Subscription details unavailable');
     expect(screen.getByRole('button', { name: 'Cancel Subscription' })).toBeDisabled();
     expect(api.cancelSubscription).not.toHaveBeenCalled();

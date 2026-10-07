@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Ticket,
   CheckCircle2,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import type { CouponItem } from '@/types';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
@@ -44,6 +45,7 @@ export interface CouponRowItem {
   statusBadgeClass: string;
   description?: string;
   isFirstTimeOnly?: boolean;
+  source?: CouponItem;
 }
 
 // Initial dataset strictly matching screenshot media_1791200584260.jpg
@@ -275,12 +277,14 @@ export const AdminCoupons: React.FC = () => {
     };
   }, []);
 
-  const loadCoupons = async () => {
+  const [recordsError, setRecordsError] = useState('');
+  const loadCoupons = useCallback(async () => {
+    setRecordsError('');
     try {
       const remote = await api.getAdminCoupons();
       if (!remote || remote.length === 0) {
         if (isSupabaseConfigured) setCouponsList([]);
-        return;
+        return true;
       }
       const mapped: CouponRowItem[] = remote.map((c) => {
         const isPct = c.discountType === 'percentage';
@@ -309,6 +313,7 @@ export const AdminCoupons: React.FC = () => {
         }
 
         return {
+          source: c,
           id: c.id,
           code: c.code,
           title: c.code.replace(/_/g, ' '),
@@ -319,7 +324,7 @@ export const AdminCoupons: React.FC = () => {
           applicablePlans: planName,
           planBadgeClass: planBadge,
           usedCount: c.usedCount,
-          totalLimit: c.maxUses || 500,
+          totalLimit: c.maxUses ?? 0,
           validFrom: validFromStr,
           validUntil: validUntilStr,
           status: isAct ? 'Active' : 'Expired',
@@ -329,15 +334,18 @@ export const AdminCoupons: React.FC = () => {
         };
       });
       setCouponsList(mapped);
+      return true;
     } catch (err) {
       console.warn('Failed to load coupons from database:', err);
       if (isSupabaseConfigured) setCouponsList([]);
+      setRecordsError(err instanceof Error ? err.message : 'Coupons could not be loaded.');
+      return false;
     }
-  };
+  }, [availablePlans]);
 
   useEffect(() => {
     loadCoupons();
-  }, [availablePlans]);
+  }, [loadCoupons]);
 
   // Checkbox selection
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<(number | string)[]>([]);
@@ -371,12 +379,33 @@ export const AdminCoupons: React.FC = () => {
   const [formValidUntil, setFormValidUntil] = useState('');
   const [formActiveImmediately, setFormActiveImmediately] = useState(true);
   const [formFirstTimeOnly, setFormFirstTimeOnly] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<CouponItem | null>(null);
+  const submitLock = useRef(false);
   const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
   const [isDeletingCouponId, setIsDeletingCouponId] = useState<string | number | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const beginEditing = (row: CouponRowItem) => {
+    if (!row.source || submitLock.current) return;
+    const c = row.source;
+    setEditingCoupon(c);
+    setFormCode(c.code);
+    setFormTitle(row.title);
+    setFormDescription(c.description || '');
+    setFormDiscountType(c.discountType);
+    setFormDiscountValue(String(c.discountValue));
+    setFormMaxDiscount(c.maxDiscountAmount == null ? '' : String(c.maxDiscountAmount));
+    setFormApplicablePlanId(c.applicablePlanId || '');
+    setFormUsageLimit(c.maxUses == null ? '' : String(c.maxUses));
+    setFormValidFrom(c.validFrom?.slice(0, 10) || '');
+    setFormValidUntil(c.validUntil?.slice(0, 10) || '');
+    setFormActiveImmediately(c.isActive);
+    setFormFirstTimeOnly(c.maxUsesPerUser === 1);
+    setActiveMenuId(null);
   };
 
   // Close menus on outside click
@@ -419,6 +448,15 @@ export const AdminCoupons: React.FC = () => {
     });
   }, [couponsList, filterStatus, filterPlan, filterType, searchQuery]);
 
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedCheckboxes([]);
+  }, [searchQuery, filterStatus, filterPlan, filterType, rowsPerPage]);
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pageCount));
+  }, [pageCount]);
+
   // Checkbox handlers
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -438,7 +476,7 @@ export const AdminCoupons: React.FC = () => {
   // Create Coupon Submit
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingCoupon) return;
+    if (submitLock.current) return;
 
     if (!formCode.trim()) {
       showToast('Coupon code is required.');
@@ -476,32 +514,53 @@ export const AdminCoupons: React.FC = () => {
       return;
     }
 
+    submitLock.current = true;
     setIsSubmittingCoupon(true);
 
     try {
-      const res = await api.createAdminCoupon({
+      const payload = {
         code: formCode.trim().toUpperCase(),
         description: formDescription.trim() || undefined,
         discountType: formDiscountType,
         discountValue: discountNum,
-        maxDiscountAmount: maxDiscountNum,
-        minOrderAmount: 0,
-        maxUses: maxUsesNum,
-        maxUsesPerUser: formFirstTimeOnly ? 1 : 5,
-        applicablePlanId: formApplicablePlanId || undefined,
-        validFrom: formValidFrom ? new Date(formValidFrom).toISOString() : new Date().toISOString(),
-        validUntil: formValidUntil ? new Date(formValidUntil).toISOString() : undefined,
+        maxDiscountAmount: maxDiscountNum ?? 0,
+        minOrderAmount: editingCoupon?.minOrderAmount ?? 0,
+        maxUses: maxUsesNum ?? 0,
+        maxUsesPerUser: formFirstTimeOnly
+          ? 1
+          : editingCoupon?.maxUsesPerUser === 1
+            ? 5
+            : (editingCoupon?.maxUsesPerUser ?? 5),
+        applicablePlanId: formApplicablePlanId,
+        validFrom:
+          editingCoupon && formValidFrom === editingCoupon.validFrom?.slice(0, 10)
+            ? editingCoupon.validFrom
+            : formValidFrom
+              ? new Date(formValidFrom).toISOString()
+              : new Date().toISOString(),
+        validUntil:
+          editingCoupon && formValidUntil === editingCoupon.validUntil?.slice(0, 10)
+            ? editingCoupon.validUntil
+            : formValidUntil
+              ? new Date(formValidUntil + 'T23:59:59.999Z').toISOString()
+              : '',
         isActive: formActiveImmediately,
-      });
+      };
+      const res = editingCoupon
+        ? await api.updateAdminCoupon(editingCoupon.id, payload)
+        : await api.createAdminCoupon(payload);
 
-      if (!res.success || !res.coupon) {
+      if (!res.success || (!editingCoupon && !('coupon' in res && res.coupon))) {
         showToast(res.error || 'Failed to create coupon on backend.');
         setIsSubmittingCoupon(false);
         return;
       }
 
-      await loadCoupons();
-      showToast(`Coupon "${res.coupon.code}" created successfully!`);
+      const refreshed = await loadCoupons();
+      showToast(
+        `Coupon "${payload.code}" ${editingCoupon ? 'updated' : 'created'} successfully!${refreshed ? '' : ' Reload failed; please retry loading. Do not create a duplicate.'}`
+      );
+      setEditingCoupon(null);
       setFormCode('');
       setFormTitle('');
       setFormDescription('');
@@ -511,6 +570,7 @@ export const AdminCoupons: React.FC = () => {
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Error creating coupon.');
     } finally {
+      submitLock.current = false;
       setIsSubmittingCoupon(false);
     }
   };
@@ -581,6 +641,14 @@ export const AdminCoupons: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {recordsError && (
+        <div role="alert" className="p-3 text-sm text-red-700">
+          Coupons unavailable: {recordsError}{' '}
+          <button onClick={() => void loadCoupons()} className="underline">
+            Retry
+          </button>
+        </div>
+      )}
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
@@ -797,6 +865,8 @@ export const AdminCoupons: React.FC = () => {
           <label className="text-[10px] font-semibold text-slate-400 mb-1 block">Created By</label>
           <div className="relative">
             <select
+              disabled
+              title="Coupon creator filtering is not supported by the current record schema."
               value={filterAdmin}
               onChange={(e) => setFilterAdmin(e.target.value)}
               className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none"
@@ -884,13 +954,7 @@ export const AdminCoupons: React.FC = () => {
                             key={row.id}
                             className="hover:bg-slate-50/60 transition-colors group cursor-pointer"
                             onClick={() => {
-                              setFormCode(row.code);
-                              setFormTitle(row.title);
-                              setFormDescription(row.description || row.subtitle);
-                              setFormDiscountType(row.discountType);
-                              setFormDiscountValue(String(row.discountValue));
-                              if (row.maxDiscount) setFormMaxDiscount(String(row.maxDiscount));
-                              setFormUsageLimit(String(row.totalLimit));
+                              beginEditing(row);
                             }}
                           >
                             {/* Checkbox */}
@@ -955,7 +1019,9 @@ export const AdminCoupons: React.FC = () => {
                             {/* Usage */}
                             <td className="py-3 px-3 font-semibold text-slate-700 whitespace-nowrap">
                               {row.usedCount}{' '}
-                              <span className="text-slate-400 font-normal">/ {row.totalLimit}</span>
+                              <span className="text-slate-400 font-normal">
+                                / {row.totalLimit || 'Unlimited'}
+                              </span>
                             </td>
 
                             {/* Validity */}
@@ -1008,10 +1074,7 @@ export const AdminCoupons: React.FC = () => {
                                     </button>
                                     <button
                                       onClick={() => {
-                                        setFormCode(row.code);
-                                        setFormTitle(row.title);
-                                        setFormDescription(row.description || row.subtitle);
-                                        setActiveMenuId(null);
+                                        beginEditing(row);
                                         showToast(`Editing coupon ${row.code} in side panel.`);
                                       }}
                                       className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -1048,6 +1111,7 @@ export const AdminCoupons: React.FC = () => {
 
               <div className="flex items-center gap-1.5">
                 <button
+                  aria-label="Previous page"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1055,27 +1119,30 @@ export const AdminCoupons: React.FC = () => {
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
 
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2563EB] text-white font-medium shadow-2xs"
-                >
-                  1
-                </button>
-                <button
-                  onClick={() => setCurrentPage(2)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  2
-                </button>
-                <button
-                  onClick={() => setCurrentPage(3)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  3
-                </button>
+                {Array.from(
+                  { length: Math.min(5, pageCount) },
+                  (_, i) => Math.max(1, Math.min(currentPage - 2, pageCount - 4)) + i
+                ).map((page) => (
+                  <button
+                    key={page}
+                    aria-label={`Page ${page}`}
+                    aria-current={currentPage === page ? 'page' : undefined}
+                    onClick={() => setCurrentPage(page)}
+                    className={cn(
+                      'w-7 h-7 rounded-lg',
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    )}
+                  >
+                    {page}
+                  </button>
+                ))}
 
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(3, p + 1))}
+                  aria-label="Next page"
+                  disabled={currentPage >= pageCount}
+                  onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
                   className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -1100,286 +1167,314 @@ export const AdminCoupons: React.FC = () => {
         {/* RIGHT COLUMN: CREATE NEW COUPON FORM PANEL (4 COLS) */}
         <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4">
           <h2 className="text-sm font-bold text-slate-900 pb-2 border-b border-slate-100">
-            Create New Coupon
+            {editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : 'Create New Coupon'}
           </h2>
 
           <form onSubmit={handleCreateCoupon} className="space-y-3.5 text-xs">
-            {/* Coupon Code with Generate button */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                Coupon Code <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex items-center gap-2">
+            <fieldset disabled={isSubmittingCoupon} className="space-y-3.5">
+              {/* Coupon Code with Generate button */}
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                  Coupon Code <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    aria-label="Coupon code"
+                    value={formCode}
+                    onChange={(e) => setFormCode(e.target.value.toUpperCase())}
+                    placeholder="WELCOME50"
+                    className="flex-1 font-mono uppercase font-bold border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateCode}
+                    className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-3 py-2 text-xs font-semibold shrink-0 cursor-pointer shadow-2xs"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                  Title <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
-                  value={formCode}
-                  onChange={(e) => setFormCode(e.target.value.toUpperCase())}
-                  placeholder="WELCOME50"
-                  className="flex-1 font-mono uppercase font-bold border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  disabled
+                  title="Display title is derived from the coupon code; it is not a stored field."
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Welcome Offer"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
-                <button
-                  type="button"
-                  onClick={handleGenerateCode}
-                  className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-3 py-2 text-xs font-semibold shrink-0 cursor-pointer shadow-2xs"
-                >
-                  Generate
-                </button>
               </div>
-            </div>
 
-            {/* Title */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                Title <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                placeholder="Welcome Offer"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-slate-700">Description</label>
-                <span className="text-[10px] text-slate-400">{formDescription.length}/200</span>
+              {/* Description */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-slate-700">Description</label>
+                  <span className="text-[10px] text-slate-400">{formDescription.length}/200</span>
+                </div>
+                <textarea
+                  rows={2}
+                  maxLength={200}
+                  aria-label="Coupon description"
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Get 50% off on your first subscription."
+                  className="w-full border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                />
               </div>
-              <textarea
-                rows={2}
-                maxLength={200}
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Get 50% off on your first subscription."
-                className="w-full border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
-              />
-            </div>
 
-            {/* Discount Type segmented pills */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1.5 block">
-                Discount Type <span className="text-rose-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormDiscountType('percentage')}
-                  className={cn(
-                    'py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all',
-                    formDiscountType === 'percentage'
-                      ? 'bg-blue-50 border-blue-300 text-[#2563EB] shadow-2xs'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  )}
-                >
-                  <Percent className="w-3.5 h-3.5" />
-                  <span>Percentage</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormDiscountType('fixed')}
-                  className={cn(
-                    'py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all',
-                    formDiscountType === 'fixed'
-                      ? 'bg-blue-50 border-blue-300 text-[#2563EB] shadow-2xs'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  )}
-                >
-                  <IndianRupee className="w-3.5 h-3.5" />
-                  <span>Fixed Amount</span>
-                </button>
+              {/* Discount Type segmented pills */}
+              <div>
+                <label className="text-[11px] font-medium text-slate-700 mb-1.5 block">
+                  Discount Type <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormDiscountType('percentage')}
+                    className={cn(
+                      'py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all',
+                      formDiscountType === 'percentage'
+                        ? 'bg-blue-50 border-blue-300 text-[#2563EB] shadow-2xs'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <Percent className="w-3.5 h-3.5" />
+                    <span>Percentage</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormDiscountType('fixed')}
+                    className={cn(
+                      'py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all',
+                      formDiscountType === 'fixed'
+                        ? 'bg-blue-50 border-blue-300 text-[#2563EB] shadow-2xs'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    <IndianRupee className="w-3.5 h-3.5" />
+                    <span>Fixed Amount</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Discount Value & Maximum Discount */}
-            <div className="grid grid-cols-2 gap-3">
+              {/* Discount Value & Maximum Discount */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                    Discount Value <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      aria-label="Discount value"
+                      value={formDiscountValue}
+                      onChange={(e) => setFormDiscountValue(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">
+                      {formDiscountType === 'percentage' ? '%' : '₹'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-slate-700 mb-1 block truncate">
+                    Maximum Discount (Optional)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      aria-label="Maximum discount"
+                      value={formMaxDiscount}
+                      onChange={(e) => setFormMaxDiscount(e.target.value)}
+                      placeholder="100"
+                      className="w-full border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">
+                      ₹
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Applicable Plan Dropdown */}
               <div>
                 <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                  Discount Value <span className="text-rose-500">*</span>
+                  Applicable Plan <span className="text-rose-500">*</span>
                 </label>
-                <div className="relative">
+                <select
+                  aria-label="Applicable plan"
+                  value={formApplicablePlanId}
+                  onChange={(e) => setFormApplicablePlanId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="">All Plans</option>
+                  {editingCoupon?.applicablePlanId &&
+                    !availablePlans.some((p) => p.id === editingCoupon.applicablePlanId) && (
+                      <option value={editingCoupon.applicablePlanId}>
+                        Current plan (details unavailable)
+                      </option>
+                    )}
+                  {availablePlans.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} (₹{p.price})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Usage Limit */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-slate-700">
+                    Usage Limit (Optional)
+                  </label>
+                  <span className="text-[10px] text-slate-400">0 = unlimited</span>
+                </div>
+                <input
+                  type="number"
+                  aria-label="Usage limit"
+                  value={formUsageLimit}
+                  onChange={(e) => setFormUsageLimit(e.target.value)}
+                  placeholder="500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Validity Period (Real Date Inputs) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                    Valid From <span className="text-rose-500">*</span>
+                  </label>
                   <input
-                    type="number"
+                    type="date"
                     required
-                    value={formDiscountValue}
-                    onChange={(e) => setFormDiscountValue(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    aria-label="Valid from"
+                    value={formValidFrom}
+                    onChange={(e) => setFormValidFrom(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">
-                    {formDiscountType === 'percentage' ? '%' : '₹'}
-                  </span>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-slate-700 mb-1 block truncate">
-                  Maximum Discount (Optional)
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-700 mb-1 block">
+                    Valid Until (Optional)
+                  </label>
                   <input
-                    type="number"
-                    value={formMaxDiscount}
-                    onChange={(e) => setFormMaxDiscount(e.target.value)}
-                    placeholder="100"
-                    className="w-full border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    type="date"
+                    aria-label="Valid until"
+                    value={formValidUntil}
+                    onChange={(e) => setFormValidUntil(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">
-                    ₹
-                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Applicable Plan Dropdown */}
-            <div>
-              <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                Applicable Plan <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={formApplicablePlanId}
-                onChange={(e) => setFormApplicablePlanId(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-              >
-                <option value="">All Plans</option>
-                {availablePlans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} (₹{p.price})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Usage Limit */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium text-slate-700">
-                  Usage Limit (Optional)
-                </label>
-                <span className="text-[10px] text-slate-400">0 = unlimited</span>
-              </div>
-              <input
-                type="number"
-                value={formUsageLimit}
-                onChange={(e) => setFormUsageLimit(e.target.value)}
-                placeholder="500"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-
-            {/* Validity Period (Real Date Inputs) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                  Valid From <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={formValidFrom}
-                  onChange={(e) => setFormValidFrom(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-700 mb-1 block">
-                  Valid Until (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={formValidUntil}
-                  onChange={(e) => setFormValidUntil(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="space-y-2.5 pt-1 border-t border-slate-100">
-              {/* Toggle 1 */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-slate-800 block text-xs">
-                    Active immediately
-                  </span>
-                  <span className="text-[10px] text-slate-400 block">
-                    Enable this coupon right after creation
-                  </span>
+              {/* Toggles */}
+              <div className="space-y-2.5 pt-1 border-t border-slate-100">
+                {/* Toggle 1 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-slate-800 block text-xs">
+                      Active immediately
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      Enable this coupon right after creation
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormActiveImmediately(!formActiveImmediately)}
+                    className={cn(
+                      'w-10 h-5 rounded-full transition-colors relative cursor-pointer',
+                      formActiveImmediately ? 'bg-[#2563EB]' : 'bg-slate-200'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs',
+                        formActiveImmediately ? 'left-5.5' : 'left-0.5'
+                      )}
+                    />
+                  </button>
                 </div>
+
+                {/* Toggle 2 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-slate-800 block text-xs">
+                      Limit to one use per user
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      Only applicable for new users
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormFirstTimeOnly(!formFirstTimeOnly)}
+                    className={cn(
+                      'w-10 h-5 rounded-full transition-colors relative cursor-pointer',
+                      formFirstTimeOnly ? 'bg-[#2563EB]' : 'bg-slate-200'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs',
+                        formFirstTimeOnly ? 'left-5.5' : 'left-0.5'
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Panel Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setFormActiveImmediately(!formActiveImmediately)}
-                  className={cn(
-                    'w-10 h-5 rounded-full transition-colors relative cursor-pointer',
-                    formActiveImmediately ? 'bg-[#2563EB]' : 'bg-slate-200'
-                  )}
+                  onClick={() => {
+                    if (submitLock.current) return;
+                    setEditingCoupon(null);
+                    setFormDiscountType('percentage');
+                    setFormUsageLimit('500');
+                    setFormFirstTimeOnly(false);
+                    setFormActiveImmediately(true);
+                    setFormCode('WELCOME50');
+                    setFormTitle('Welcome Offer');
+                    setFormDescription('Get 50% off on your first subscription.');
+                    setFormDiscountValue('50');
+                    setFormMaxDiscount('100');
+                    setFormApplicablePlanId('');
+                    setFormValidFrom(todayDateStr);
+                    setFormValidUntil('');
+                    showToast('Form reset.');
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  <span
-                    className={cn(
-                      'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs',
-                      formActiveImmediately ? 'left-5.5' : 'left-0.5'
-                    )}
-                  />
+                  Cancel
                 </button>
-              </div>
-
-              {/* Toggle 2 */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-slate-800 block text-xs">
-                    First-time users only
-                  </span>
-                  <span className="text-[10px] text-slate-400 block">
-                    Only applicable for new users
-                  </span>
-                </div>
                 <button
-                  type="button"
-                  onClick={() => setFormFirstTimeOnly(!formFirstTimeOnly)}
-                  className={cn(
-                    'w-10 h-5 rounded-full transition-colors relative cursor-pointer',
-                    formFirstTimeOnly ? 'bg-[#2563EB]' : 'bg-slate-200'
-                  )}
+                  type="submit"
+                  disabled={isSubmittingCoupon}
+                  className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  <span
-                    className={cn(
-                      'w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs',
-                      formFirstTimeOnly ? 'left-5.5' : 'left-0.5'
-                    )}
-                  />
+                  {isSubmittingCoupon
+                    ? 'Saving...'
+                    : editingCoupon
+                      ? 'Save Coupon Changes'
+                      : 'Create Coupon'}
                 </button>
               </div>
-            </div>
-
-            {/* Panel Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setFormCode('WELCOME50');
-                  setFormTitle('Welcome Offer');
-                  setFormDescription('Get 50% off on your first subscription.');
-                  setFormDiscountValue('50');
-                  setFormMaxDiscount('100');
-                  setFormApplicablePlanId('');
-                  setFormValidFrom(todayDateStr);
-                  setFormValidUntil('');
-                  showToast('Form reset.');
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmittingCoupon}
-                className="bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                {isSubmittingCoupon ? 'Creating...' : 'Create Coupon'}
-              </button>
-            </div>
+            </fieldset>
           </form>
         </div>
       </div>

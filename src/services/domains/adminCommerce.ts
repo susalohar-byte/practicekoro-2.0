@@ -1,4 +1,9 @@
-import { getDashboardOverview, getAuthoritativeRevenueRange } from './admin.reporting';
+import { getAuthoritativeAnalytics } from './admin.analytics';
+import {
+  getDashboardOverview,
+  getAuthoritativeRevenueRange,
+  readCompleteQuery,
+} from './admin.reporting';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { accountManagementApi } from './accountManagement';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -2030,44 +2035,32 @@ export const adminCommerceApi = {
   // COUPONS & DISCOUNTS API
   // --------------------------------------------------------------------------
   async getAdminCoupons(): Promise<CouponItem[]> {
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('coupons')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.warn('Failed to fetch coupons from database:', error);
-          return [];
-        }
-
-        if (data) {
-          return data.map((d: any) => ({
-            id: d.id,
-            code: d.code,
-            description: d.description || undefined,
-            discountType: d.discount_type,
-            discountValue: Number(d.discount_value),
-            maxDiscountAmount: d.max_discount_amount ? Number(d.max_discount_amount) : undefined,
-            minOrderAmount: Number(d.min_order_amount || 0),
-            maxUses: d.max_uses ? Number(d.max_uses) : undefined,
-            usedCount: Number(d.used_count || 0),
-            maxUsesPerUser: Number(d.max_uses_per_user || 1),
-            applicablePlanId: d.applicable_plan_id || undefined,
-            validFrom: d.valid_from,
-            validUntil: d.valid_until || undefined,
-            isActive: Boolean(d.is_active),
-            createdAt: d.created_at,
-            updatedAt: d.updated_at,
-          }));
-        }
-      } catch (err) {
-        console.warn('Error loading coupons:', err);
-      }
-      return [];
-    }
-    return localCoupons;
+    if (!isSupabaseConfigured) return localCoupons;
+    const data = await readCompleteQuery(() =>
+      supabase
+        .from('coupons')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+    );
+    return data.map((d: any) => ({
+      id: d.id,
+      code: d.code,
+      description: d.description || undefined,
+      discountType: d.discount_type,
+      discountValue: Number(d.discount_value),
+      maxDiscountAmount: d.max_discount_amount ? Number(d.max_discount_amount) : undefined,
+      minOrderAmount: Number(d.min_order_amount || 0),
+      maxUses: d.max_uses ? Number(d.max_uses) : undefined,
+      usedCount: Number(d.used_count || 0),
+      maxUsesPerUser: Number(d.max_uses_per_user || 1),
+      applicablePlanId: d.applicable_plan_id || undefined,
+      validFrom: d.valid_from,
+      validUntil: d.valid_until || undefined,
+      isActive: Boolean(d.is_active),
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    }));
   },
 
   async createAdminCoupon(
@@ -2475,6 +2468,7 @@ export const adminCommerceApi = {
     startDateStr?: string,
     endDateStr?: string
   ): Promise<PlatformAnalyticsData> {
+    if (isSupabaseConfigured) return getAuthoritativeAnalytics(preset, startDateStr, endDateStr);
     // 1. Revenue & Trend calculations
     const revenueRangeStats = await this.getDateRangeRevenueStats(startDateStr, endDateStr, preset);
 

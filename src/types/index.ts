@@ -1227,7 +1227,9 @@ export interface PerformanceTrendPoint {
 }
 
 export interface PlatformAnalyticsData {
+  demographics?: { districts: { district: string; studentCount: number }[] };
   studentPerformance: {
+    newStudents?: number;
     totalStudents: number;
     activeStudents: number;
     testsAttempted: number;

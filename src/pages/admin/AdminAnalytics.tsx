@@ -1,1443 +1,414 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Users,
-  UserCheck,
-  UserPlus,
-  FileText,
-  BookOpen,
-  Target,
-  Calendar,
-  Download,
-  ArrowUpRight,
-  ChevronDown,
-  CheckCircle2,
-  X,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useMemo, useState } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
 import { api } from '@/services/api';
-import type { PlatformAnalyticsData, TopicInsightRow, SubjectInsightRow } from '@/types';
+import { analyticsRange } from '@/services/domains/admin.analytics';
+import { getKolkataDateString } from '@/services/domains/admin.dashboard';
+import { AdminMoneyChart } from '@/components/admin/AdminMoneyChart';
+import type { DateRangePreset, PlatformAnalyticsData } from '@/types';
 
-// Helper component for SVG Sparklines
-const Sparkline: React.FC<{ points: number[]; color: string }> = ({ points, color }) => {
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const height = 18;
-  const width = 48;
+export function analyticsCsv(data: PlatformAnalyticsData, period: string) {
+  const rows = [
+    ['Metric', 'Value', 'Scope'],
+    ['Total students', data.studentPerformance.totalStudents, 'Current student profiles'],
+    ['New students', data.studentPerformance.newStudents ?? 'Unavailable', period],
+    ['Active students', data.studentPerformance.activeStudents, period],
+    ['Tests started', data.studentPerformance.testsAttempted, period],
+    ['Answered questions', data.studentPerformance.questionsAnswered, period],
+    ['Accuracy (%)', data.studentPerformance.overallAccuracy, period],
+    ['Retained revenue (INR)', data.revenue.totalRevenue, period],
+    ['Distinct paying students', data.revenue.paidStudents, period],
+    ['Active Pro students', data.revenue.activeSubscriptions, 'Current unexpired subscriptions'],
+  ];
+  return rows
+    .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+}
 
-  const path = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * width;
-      const y = height - ((p - min) / range) * (height - 4) - 2;
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  return (
-    <svg width={width} height={height} className="overflow-visible">
-      <path
-        d={path}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
-
-export const AdminAnalytics: React.FC = () => {
-  const [dateRange, setDateRange] = useState('01 Sep 2026 → 30 Sep 2026');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Live Database State
-  const [analyticsData, setAnalyticsData] = useState<PlatformAnalyticsData | null>(null);
-  const [examsList, setExamsList] = useState<any[]>([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function loadData() {
-      try {
-        const [overview, exams] = await Promise.all([
-          api.getPlatformAnalyticsOverview('this_month'),
-          api.getAllAdminExams(),
-        ]);
-        if (isMounted) {
-          setAnalyticsData(overview);
-          setExamsList(exams || []);
-        }
-      } catch (err) {
-        console.warn('Failed to load analytics overview:', err);
-      }
+export const AdminAnalytics = () => {
+  const [preset, setPreset] = useState<DateRangePreset>('30d');
+  const today = getKolkataDateString(new Date());
+  const [start, setStart] = useState(today);
+  const [end, setEnd] = useState(today);
+  const [reload, setReload] = useState(0);
+  const [data, setData] = useState<PlatformAnalyticsData | null>(null);
+  const [loadedPeriod, setLoadedPeriod] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const range = useMemo(() => {
+    try {
+      return analyticsRange(preset, start, end);
+    } catch {
+      return null;
     }
-    loadData();
+  }, [preset, start, end]);
+  const period = range
+    ? `${getKolkataDateString(new Date(range.startIso))} → ${getKolkataDateString(new Date(range.endIso))} (Asia/Kolkata)`
+    : '';
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    setData(null);
+    setExpanded({});
+    if (!range) {
+      setError('Choose a valid start date on or before the end date.');
+      setLoading(false);
+      return;
+    }
+    api
+      .getPlatformAnalyticsOverview(
+        preset,
+        preset === 'custom' ? start : undefined,
+        preset === 'custom' ? end : undefined
+      )
+      .then((result) => {
+        if (active) {
+          setData(result);
+          setLoadedPeriod(period);
+        }
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : 'Analytics could not be loaded.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, []);
-
-  // Computed live metrics
-  const totalStudents = analyticsData?.studentPerformance?.totalStudents ?? 0;
-  const activeStudents = analyticsData?.studentPerformance?.activeStudents ?? 0;
-  const newStudents = analyticsData?.revenue?.paidStudents ?? 0;
-  const testsAttempted = analyticsData?.studentPerformance?.testsAttempted ?? 0;
-  const questionsAnswered = analyticsData?.studentPerformance?.questionsAnswered ?? 0;
-  const overallAccuracy = analyticsData?.studentPerformance?.overallAccuracy ?? 0;
-  const totalRevenue = analyticsData?.revenue?.totalRevenue ?? 0;
-
-  const maleCount = Math.round(totalStudents * 0.65);
-  const femaleCount = Math.round(totalStudents * 0.33);
-  const otherCount = Math.max(0, totalStudents - maleCount - femaleCount);
-
-  const weakestSubjects: SubjectInsightRow[] = useMemo(() => {
-    return analyticsData?.questionInsights?.weakestSubjects || [];
-  }, [analyticsData]);
-
-  const weakestTopics: TopicInsightRow[] = useMemo(() => {
-    return analyticsData?.questionInsights?.weakestTopics || [];
-  }, [analyticsData]);
-
-  // Demographics tab state (State / District / City)
-  const [demographicTab, setDemographicTab] = useState<'State' | 'District' | 'City'>('State');
-
-  // Subscription plan filter state
-  const [planFilter, setPlanFilter] = useState<'By Subscriptions' | 'By Revenue'>('By Subscriptions');
-  const [revenuePeriod, setRevenuePeriod] = useState('This Month');
-
-  // Selected subject for "View" modal
-  const [selectedSubjectModal, setSelectedSubjectModal] = useState<{
-    subject: string;
-    weakCount: string;
-    accuracy: string;
-  } | null>(null);
-
-  // Helper toast notification
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
-  };
-
-  // Export report action
-  const handleExportReport = () => {
-    const csvContent =
-      'Category,Metric,Value,Period\n' +
-      `Students,Total Students,${totalStudents},${dateRange}\n` +
-      `Students,Active Students,${activeStudents},${dateRange}\n` +
-      `Students,New Students,${newStudents},${dateRange}\n` +
-      `Tests,Tests Attempted,${testsAttempted},${dateRange}\n` +
-      `Tests,Questions Answered,${questionsAnswered},${dateRange}\n` +
-      `Performance,Overall Accuracy,${overallAccuracy}%,${dateRange}\n` +
-      `Revenue,Total Revenue,₹${totalRevenue},${dateRange}\n`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+  }, [preset, start, end, reload, range, period]);
+  const download = () => {
+    if (!data || loading || error || loadedPeriod !== period) return;
+    const url = URL.createObjectURL(
+      new Blob([analyticsCsv(data, loadedPeriod)], { type: 'text/csv;charset=utf-8;' })
+    );
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `PracticeKoro_Analytics_Report_${Date.now()}.csv`);
+    link.download = `PracticeKoro_Analytics_${Date.now()}.csv`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-
-    showToast('Analytics summary report downloaded successfully!');
+    link.remove();
+    URL.revokeObjectURL(url);
   };
-
+  const card =
+    'bg-white dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs';
+  const showAll = (name: string, length: number) =>
+    length > 5 && (
+      <button
+        className="text-blue-600 text-xs"
+        onClick={() => setExpanded((s) => ({ ...s, [name]: !s[name] }))}
+      >
+        {expanded[name] ? 'Show fewer' : 'View All'}
+      </button>
+    );
+  const visible = <T,>(name: string, items: T[]) => (expanded[name] ? items : items.slice(0, 5));
   return (
     <div className="space-y-5 pb-16">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold">{toastMessage}</span>
-        </div>
-      )}
-
-      {/* ==================================================================== */}
-      {/* HEADER SECTION                                                       */}
-      {/* ==================================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Analytics & Insights
-          </h1>
-          <p className="text-xs sm:text-sm font-normal text-slate-500 dark:text-slate-400 mt-0.5">
-            Understand your students, content performance, subscriptions and growth.
-          </p>
+          <h1 className="text-2xl font-black">Analytics & Insights</h1>
+          <p className="text-sm text-slate-500">Recorded student, content and revenue activity.</p>
         </div>
-
-        <div className="flex items-center gap-3 relative">
-          {/* Date Range Selector Button */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-[#0B132B] border border-slate-200/90 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors shadow-2xs cursor-pointer"
+        <div className="flex flex-wrap gap-2 items-center">
+          <label className="text-xs">
+            Reporting period{' '}
+            <select
+              aria-label="Reporting period"
+              className="border rounded-lg p-2"
+              value={preset}
+              onChange={(e) => setPreset(e.target.value as DateRangePreset)}
             >
-              <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>{dateRange}</span>
-            </button>
-
-            {/* Date Range Dropdown */}
-            {showDatePicker && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-40 space-y-1 animate-in fade-in">
-                {[
-                  '01 Sep 2026 → 30 Sep 2026',
-                  'Last 7 Days',
-                  'Last 30 Days',
-                  'This Month (Sep 2026)',
-                  'Previous Month (Aug 2026)',
-                  'All Time',
-                ].map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    onClick={() => {
-                      setDateRange(range);
-                      setShowDatePicker(false);
-                      showToast(`Date range set to: ${range}`);
-                    }}
-                    className={cn(
-                      'w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-                      dateRange === range
-                        ? 'bg-blue-50 text-blue-600 font-bold dark:bg-blue-950/60'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    )}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Export Report Button */}
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="this_month">This Month</option>
+              <option value="this_year">This Year</option>
+              <option value="all_time">All Time</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </label>
+          {preset === 'custom' && (
+            <>
+              <label className="text-xs">
+                Start date{' '}
+                <input
+                  aria-label="Start date"
+                  type="date"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                />
+              </label>
+              <label className="text-xs">
+                End date{' '}
+                <input
+                  aria-label="End date"
+                  type="date"
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                />
+              </label>
+            </>
+          )}
           <button
-            type="button"
-            onClick={handleExportReport}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-[#0B132B] border border-blue-200 dark:border-blue-900/60 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 transition-colors shadow-2xs cursor-pointer"
+            disabled={!data || loading || !!error || loadedPeriod !== period}
+            onClick={download}
+            className="border rounded-xl p-2 text-xs disabled:opacity-50 flex items-center gap-2"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Report</span>
+            <Download size={14} />
+            Export Report
           </button>
         </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SECTION 1: TOP METRICS (6 KPI CARDS)                                 */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {/* Card 1: Total Students */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Users className="w-4.5 h-4.5" />
-            </div>
-            {totalStudents > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            Total Students
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {totalStudents.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            Registered Aspirants
-          </p>
+      </header>
+      <p className="text-xs text-slate-500">
+        {period}. Activity and revenue use the selected period. Total students and active Pro
+        students are current snapshots. Retained revenue excludes pending/failed payments and
+        recorded refunds; it is not a refund cash-flow report.
+      </p>
+      {loading && <p role="status">Loading complete analytics records…</p>}
+      {error && (
+        <div role="alert" className="rounded-xl p-4 border border-red-200 text-red-700">
+          Analytics unavailable: {error}{' '}
+          <button
+            onClick={() => setReload((v) => v + 1)}
+            className="ml-3 underline inline-flex items-center gap-1"
+          >
+            <RefreshCw size={14} />
+            Retry
+          </button>
         </div>
-
-        {/* Card 2: Active Students */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <UserCheck className="w-4.5 h-4.5" />
-            </div>
-            {activeStudents > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
+      )}
+      {!loading && !error && data && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              ['Total Students', data.studentPerformance.totalStudents],
+              ['New Students', data.studentPerformance.newStudents ?? 'Unavailable'],
+              ['Active Students', data.studentPerformance.activeStudents],
+              ['Tests Started', data.studentPerformance.testsAttempted],
+              ['Questions Answered', data.studentPerformance.questionsAnswered],
+              [
+                'Overall Accuracy',
+                data.studentPerformance.questionsAnswered
+                  ? `${data.studentPerformance.overallAccuracy}%`
+                  : 'No answered questions',
+              ],
+              ['Retained Revenue', `₹${data.revenue.totalRevenue.toLocaleString('en-IN')}`],
+              ['Active Pro Students', data.revenue.activeSubscriptions],
+            ].map(([label, value]) => (
+              <section key={label} className={card}>
+                <h2 className="text-xs text-slate-500">{label}</h2>
+                <p className="text-xl font-bold mt-2">{value}</p>
+              </section>
+            ))}
           </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            Active Students
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {activeStudents.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            {totalStudents > 0 ? Math.round((activeStudents / totalStudents) * 100) : 0}% of total
-          </p>
-        </div>
-
-        {/* Card 3: New Students */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-blue-100/70 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <UserPlus className="w-4.5 h-4.5" />
-            </div>
-            {newStudents > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            New Students
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {newStudents.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            this month
-          </p>
-        </div>
-
-        {/* Card 4: Tests Attempted */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-rose-100/70 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
-              <FileText className="w-4.5 h-4.5" />
-            </div>
-            {testsAttempted > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            Tests Attempted
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {testsAttempted.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            total attempts
-          </p>
-        </div>
-
-        {/* Card 5: Questions Answered */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-amber-100/70 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <BookOpen className="w-4.5 h-4.5" />
-            </div>
-            {questionsAnswered > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            Questions Answered
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {questionsAnswered.toLocaleString()}
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            total responses
-          </p>
-        </div>
-
-        {/* Card 6: Overall Accuracy */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Target className="w-4.5 h-4.5" />
-            </div>
-            {overallAccuracy > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
-            Overall Accuracy
-          </p>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
-            {overallAccuracy}%
-          </p>
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
-            platform average
-          </p>
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SECTION 2: MIDDLE CHARTS (3 CARDS)                                   */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Card 1: Student Gender Distribution (3 cols) */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              Student Gender Distribution
-            </h3>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 my-4">
-            {/* SVG Donut Chart with Center Number */}
-            <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                {/* Background Track */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F1F5F9"
-                  strokeWidth="14"
-                  className="dark:stroke-slate-800"
-                />
-                {/* Male Segment: 65% (Circumference = 2 * PI * 38 ≈ 238.76) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#2563EB"
-                  strokeWidth="14"
-                  strokeDasharray="155.2 238.76"
-                  strokeDashoffset="0"
-                />
-                {/* Female Segment: 33% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#EC4899"
-                  strokeWidth="14"
-                  strokeDasharray="78.8 238.76"
-                  strokeDashoffset="-155.2"
-                />
-                {/* Other Segment: 2% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#94A3B8"
-                  strokeWidth="14"
-                  strokeDasharray="4.8 238.76"
-                  strokeDashoffset="-234"
-                />
-              </svg>
-
-              {/* Center Text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  {totalStudents.toLocaleString()}
-                </span>
-                <span className="text-[9px] text-slate-400 font-medium">Students</span>
-              </div>
-            </div>
-
-            {/* Legend on right */}
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB] shrink-0" />
-                <span className="font-medium text-slate-600 dark:text-slate-300 text-[11px]">
-                  Male
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  {maleCount.toLocaleString()} (65%)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#EC4899] shrink-0" />
-                <span className="font-medium text-slate-600 dark:text-slate-300 text-[11px]">
-                  Female
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  {femaleCount.toLocaleString()} (33%)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#94A3B8] shrink-0" />
-                <span className="font-medium text-slate-600 dark:text-slate-300 text-[11px]">
-                  Other
-                </span>
-                <span className="font-bold text-slate-900 dark:text-white text-[11px] ml-auto">
-                  {otherCount.toLocaleString()} (2%)
-                </span>
-              </div>
-            </div>
-          </div>
-          <div />
-        </div>
-
-        {/* Card 2: Student Growth Line Chart (5 cols) */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white">Student Growth</h3>
-            <div className="flex items-center gap-3 text-[11px]">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
-                <span className="text-slate-600 dark:text-slate-300 font-medium">New Students</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <span className="text-slate-600 dark:text-slate-300 font-medium">
-                  Active Students
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Multi-Line Chart (SVG) */}
-          <div className="relative pt-2">
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-2 left-0 right-0 pointer-events-none">
-              <span>2,000</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-8 left-0 right-0 pointer-events-none">
-              <span>1,500</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-14 left-0 right-0 pointer-events-none">
-              <span>1,000</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-20 left-0 right-0 pointer-events-none">
-              <span>500</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-
-            {/* SVG Lines */}
-            <svg viewBox="0 0 350 110" className="w-full h-28 pt-2 overflow-visible">
-              {/* Active Students Line (Green) */}
-              <path
-                d="M 20 85 Q 50 82 75 75 T 130 65 T 185 45 T 240 50 T 295 32 T 340 18"
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="2.2"
-                strokeLinecap="round"
+          <div className="grid lg:grid-cols-2 gap-5">
+            <section className={card}>
+              <h2 className="font-bold mb-3">Revenue by Period</h2>
+              <AdminMoneyChart
+                points={data.revenue.revenueTrend.map((p) => ({
+                  label: p.label,
+                  revenue: p.amount,
+                }))}
               />
-              {/* Dots on Green Line */}
-              {[
-                { cx: 20, cy: 85 },
-                { cx: 75, cy: 75 },
-                { cx: 130, cy: 65 },
-                { cx: 185, cy: 45 },
-                { cx: 240, cy: 50 },
-                { cx: 295, cy: 32 },
-                { cx: 340, cy: 18 },
-              ].map((dot, i) => (
-                <circle
-                  key={`g-${i}`}
-                  cx={dot.cx}
-                  cy={dot.cy}
-                  r="3"
-                  fill="#FFFFFF"
-                  stroke="#10B981"
-                  strokeWidth="2"
-                />
-              ))}
-
-              {/* New Students Line (Blue) */}
-              <path
-                d="M 20 98 Q 50 94 75 88 T 130 80 T 185 60 T 240 68 T 295 48 T 340 30"
-                fill="none"
-                stroke="#2563EB"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
-              {/* Dots on Blue Line */}
-              {[
-                { cx: 20, cy: 98 },
-                { cx: 75, cy: 88 },
-                { cx: 130, cy: 80 },
-                { cx: 185, cy: 60 },
-                { cx: 240, cy: 68 },
-                { cx: 295, cy: 48 },
-                { cx: 340, cy: 30 },
-              ].map((dot, i) => (
-                <circle
-                  key={`b-${i}`}
-                  cx={dot.cx}
-                  cy={dot.cy}
-                  r="3"
-                  fill="#FFFFFF"
-                  stroke="#2563EB"
-                  strokeWidth="2"
-                />
-              ))}
-            </svg>
-
-            {/* X Axis Dates */}
-            <div className="flex justify-between text-[10px] text-slate-400 font-medium px-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-              <span>1 Sep</span>
-              <span>5 Sep</span>
-              <span>10 Sep</span>
-              <span>15 Sep</span>
-              <span>20 Sep</span>
-              <span>25 Sep</span>
-              <span>30 Sep</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Student Demographics Location (4 cols) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              Student Demographics (Location)
-            </h3>
-            {/* Toggle Pills */}
-            <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg p-0.5">
-              {(['State', 'District', 'City'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setDemographicTab(tab)}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-semibold rounded transition-colors cursor-pointer',
-                    demographicTab === tab
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12 gap-3 items-center pt-2">
-            {/* Vector Map outline of West Bengal (5 cols) */}
-            <div className="col-span-4 flex items-center justify-center">
-              <svg
-                viewBox="0 0 100 130"
-                className="w-full max-h-32 drop-shadow-sm"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Stylized West Bengal Geographical Silhouette */}
-                <path
-                  d="M 52 10 
-                     C 55 12, 60 16, 62 20 
-                     C 60 25, 54 28, 50 32 
-                     C 48 38, 52 45, 55 52 
-                     C 58 58, 65 65, 68 74 
-                     C 70 82, 66 90, 64 98 
-                     C 60 106, 52 115, 45 118 
-                     C 38 116, 32 108, 30 100 
-                     C 28 92, 34 85, 36 78 
-                     C 32 72, 28 65, 30 58 
-                     C 35 52, 42 48, 44 40 
-                     C 42 32, 45 22, 52 10 Z"
-                  fill="url(#wb-gradient)"
-                  stroke="#3B82F6"
-                  strokeWidth="1.5"
-                />
-                {/* District contour subdivisions */}
-                <path
-                  d="M 45 40 Q 52 45 58 52 M 36 78 Q 50 82 64 80 M 34 94 Q 48 98 60 96"
-                  stroke="#60A5FA"
-                  strokeWidth="0.8"
-                  strokeDasharray="2 2"
-                />
-                <defs>
-                  <linearGradient id="wb-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#C7D2FE" />
-                    <stop offset="100%" stopColor="#93C5FD" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            {/* Region Progress Bars (8 cols) */}
-            <div className="col-span-8 space-y-1.5">
-              {[
-                { name: 'West Bengal', pct: 68, color: 'bg-blue-600' },
-                { name: 'Other States', pct: 12, color: 'bg-purple-500' },
-                { name: 'Bihar', pct: 5, color: 'bg-purple-400' },
-                { name: 'Jharkhand', pct: 4, color: 'bg-purple-400' },
-                { name: 'Assam', pct: 3, color: 'bg-purple-400' },
-                { name: 'Odisha', pct: 3, color: 'bg-purple-400' },
-                { name: 'Others', pct: 5, color: 'bg-purple-400' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between text-[10px] gap-2">
-                  <span className="w-18 truncate font-medium text-slate-600 dark:text-slate-300">
-                    {item.name}
-                  </span>
-                  <span className="w-7 font-bold text-slate-800 dark:text-slate-200 text-right">
-                    {item.pct}%
-                  </span>
-                  <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className={cn('h-full rounded-full', item.color)}
-                      style={{ width: `${item.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div />
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SECTION 3: SUBSCRIPTION OVERVIEW ROW (2 CARDS)                       */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Card 1: Subscription Plan Overview (7 cols) */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-4">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              Subscription Plan Overview
-            </h3>
-
-            {/* Filter Dropdown */}
-            <div className="relative">
-              <select
-                value={planFilter}
-                onChange={(e) => setPlanFilter(e.target.value as typeof planFilter)}
-                className="appearance-none px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-semibold text-slate-700 dark:text-slate-300 pr-6 cursor-pointer focus:outline-none"
-              >
-                <option value="By Subscriptions">By Subscriptions</option>
-                <option value="By Revenue">By Revenue</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Vertical Bar Chart with values on top */}
-          <div className="relative pt-4 pb-2">
-            {/* Gridlines */}
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-4 left-0 right-0 pointer-events-none">
-              <span>1,200</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-12 left-0 right-0 pointer-events-none">
-              <span>900</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-20 left-0 right-0 pointer-events-none">
-              <span>600</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-slate-400 absolute top-28 left-0 right-0 pointer-events-none">
-              <span>300</span>
-              <span className="border-b border-slate-100 dark:border-slate-800/80 flex-1 mx-2" />
-            </div>
-
-            {/* 6 Bars Container */}
-            <div className="grid grid-cols-6 gap-3 items-end h-36 px-4 pt-6">
-              {[
-                { label: '6 Months Mock Test', val: 1024, max: 1200, color: 'bg-[#2563EB]' },
-                { label: '3 Months Mock Test', val: 412, max: 1200, color: 'bg-[#8B5CF6]' },
-                { label: '1 Month Mock Test', val: 268, max: 1200, color: 'bg-[#10B981]' },
-                { label: 'PYQ Pack', val: 156, max: 1200, color: 'bg-[#F59E0B]' },
-                { label: 'Subject Pack', val: 98, max: 1200, color: 'bg-[#F43F5E]' },
-                { label: 'Free Plan', val: 64, max: 1200, color: 'bg-[#64748B]' },
-              ].map((bar, idx) => {
-                const heightPct = Math.round((bar.val / bar.max) * 100);
-                return (
-                  <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                    <span className="text-[10px] font-black text-slate-800 dark:text-slate-200 mb-1">
-                      {bar.val.toLocaleString()}
-                    </span>
-                    <div className="w-full max-w-[42px] bg-slate-100 dark:bg-slate-800/80 h-28 rounded-t-lg flex items-end overflow-hidden">
-                      <div
-                        className={cn('w-full rounded-t-lg transition-all duration-500', bar.color)}
-                        style={{ height: `${heightPct}%` }}
-                      />
-                    </div>
-                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 text-center leading-tight mt-2 line-clamp-2 h-6">
-                      {bar.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div />
-        </div>
-
-        {/* Card 2: Subscription Revenue (5 cols) */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-3">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-              Subscription Revenue
-            </h3>
-
-            {/* Timeframe Dropdown */}
-            <div className="relative">
-              <select
-                value={revenuePeriod}
-                onChange={(e) => setRevenuePeriod(e.target.value)}
-                className="appearance-none px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-semibold text-slate-700 dark:text-slate-300 pr-6 cursor-pointer focus:outline-none"
-              >
-                <option value="This Month">This Month</option>
-                <option value="Last Month">Last Month</option>
-                <option value="This Quarter">This Quarter</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-2 pointer-events-none" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12 gap-4 items-center my-2">
-            {/* Donut Chart on Left (5 cols) */}
-            <div className="col-span-5 flex items-center justify-center">
-              <div className="relative w-32 h-32 flex items-center justify-center">
-                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#F1F5F9"
-                    strokeWidth="14"
-                    className="dark:stroke-slate-800"
-                  />
-                  {/* Segment 1: 52% (Blue) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#2563EB"
-                    strokeWidth="14"
-                    strokeDasharray="124.1 238.76"
-                    strokeDashoffset="0"
-                  />
-                  {/* Segment 2: 21% (Purple) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#8B5CF6"
-                    strokeWidth="14"
-                    strokeDasharray="50.1 238.76"
-                    strokeDashoffset="-124.1"
-                  />
-                  {/* Segment 3: 14% (Emerald) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="14"
-                    strokeDasharray="33.4 238.76"
-                    strokeDashoffset="-174.2"
-                  />
-                  {/* Segment 4: 8% (Orange) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#F59E0B"
-                    strokeWidth="14"
-                    strokeDasharray="19.1 238.76"
-                    strokeDashoffset="-207.6"
-                  />
-                  {/* Segment 5: 4% (Coral) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#F43F5E"
-                    strokeWidth="14"
-                    strokeDasharray="9.5 238.76"
-                    strokeDashoffset="-226.7"
-                  />
-                  {/* Segment 6: 1% (Slate) */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="38"
-                    fill="none"
-                    stroke="#64748B"
-                    strokeWidth="14"
-                    strokeDasharray="2.5 238.76"
-                    strokeDashoffset="-236.2"
-                  />
-                </svg>
-
-                {/* Center Content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                  <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                    ₹{totalRevenue.toLocaleString()}
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-medium">Total Revenue</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Revenue Breakdown Legend (7 cols) */}
-            <div className="col-span-7 space-y-1.5 text-[11px]">
-              {[
-                { name: '6 Months Mock Test', pct: '52%', amount: '₹25,142', color: 'bg-[#2563EB]' },
-                { name: '3 Months Mock Test', pct: '21%', amount: '₹10,004', color: 'bg-[#8B5CF6]' },
-                { name: '1 Month Mock Test', pct: '14%', amount: '₹6,770', color: 'bg-[#10B981]' },
-                { name: 'PYQ Pack', pct: '8%', amount: '₹3,868', color: 'bg-[#F59E0B]' },
-                { name: 'Subject Pack', pct: '4%', amount: '₹1,934', color: 'bg-[#F43F5E]' },
-                { name: 'Free Plan', pct: '1%', amount: '₹632', color: 'bg-[#64748B]' },
-              ].map((row, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className={cn('w-2 h-2 rounded-full shrink-0', row.color)} />
-                    <span className="text-slate-600 dark:text-slate-300 truncate text-[10px] font-medium">
-                      {row.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-500 font-semibold text-[10px]">{row.pct}</span>
-                    <span className="font-bold text-slate-900 dark:text-white text-[10px]">
-                      {row.amount}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div />
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SECTION 4: PERFORMANCE DIAGNOSTICS ROW (3 CARDS)                     */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-        {/* Card 1: Weakest Subjects */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-3">
-              Weakest Subjects
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            </section>
+            <section className={card}>
+              <h2 className="font-bold mb-3">Recorded Test Activity</h2>
+              <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400">
-                    <th className="pb-2 font-normal">#</th>
-                    <th className="pb-2 font-normal">Subject</th>
-                    <th className="pb-2 font-normal">Accuracy</th>
-                    <th className="pb-2 font-normal">Students</th>
-                    <th className="pb-2 font-normal text-right">Trend</th>
+                  <tr>
+                    <th>Period starting</th>
+                    <th>Tests started</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {weakestSubjects.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
-                        No subject performance data available yet.
-                      </td>
+                <tbody>
+                  {data.studentPerformance.performanceTrend.map((p) => (
+                    <tr key={p.date} className="border-t">
+                      <th className="py-3 text-left font-medium">{p.label}</th>
+                      <td>{p.attemptsCount}</td>
                     </tr>
-                  ) : (
-                    weakestSubjects.slice(0, 5).map((row, idx) => {
-                      const acc = Math.round(row.accuracyRate);
-                      const pillClass =
-                        acc < 50
-                          ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
-                          : acc < 60
-                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
-                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400';
-                      const trendPoints = [Math.max(10, acc - 5), Math.max(10, acc - 2), acc, Math.max(10, acc + 1), acc];
-                      const trendColor = acc < 50 ? '#E11D48' : acc < 60 ? '#EA580C' : '#10B981';
-
-                      return (
-                        <tr key={row.subjectId || idx} className="text-[11px]">
-                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
-                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                            {row.subjectName}
-                          </td>
-                          <td className="py-2.5">
-                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', pillClass)}>
-                              {acc}%
-                            </span>
-                          </td>
-                          <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                            {row.totalQuestionsAttempted.toLocaleString()}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Sparkline points={trendPoints} color={trendColor} />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                  ))}
                 </tbody>
               </table>
-            </div>
+              {!data.studentPerformance.performanceTrend.some((p) => p.attemptsCount) && (
+                <p className="text-xs mt-3 text-slate-500">No tests started in this period.</p>
+              )}
+            </section>
           </div>
-        </div>
-
-        {/* Card 2: Weakest Topics */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white">Weakest Topics</h3>
-              <button
-                type="button"
-                onClick={() => showToast('Full topic analytics list opened')}
-                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              >
-                View All →
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400">
-                    <th className="pb-2 font-normal">#</th>
-                    <th className="pb-2 font-normal">Topic</th>
-                    <th className="pb-2 font-normal">Accuracy</th>
-                    <th className="pb-2 font-normal">Students</th>
-                    <th className="pb-2 font-normal text-right">Trend</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {weakestTopics.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
-                        No topic performance data available yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    weakestTopics.slice(0, 5).map((row, idx) => {
-                      const acc = Math.round(row.accuracyRate);
-                      const pillClass =
-                        acc < 50
-                          ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
-                          : acc < 60
-                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
-                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400';
-                      const trendPoints = [Math.max(10, acc - 4), Math.max(10, acc - 2), acc, Math.max(10, acc + 2), acc];
-                      const trendColor = acc < 50 ? '#E11D48' : acc < 60 ? '#EA580C' : '#10B981';
-
-                      return (
-                        <tr key={row.chapterId || idx} className="text-[11px]">
-                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
-                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                            {row.chapterName}
-                          </td>
-                          <td className="py-2.5">
-                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', pillClass)}>
-                              {acc}%
-                            </span>
-                          </td>
-                          <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                            {row.totalQuestionsAttempted.toLocaleString()}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Sparkline points={trendPoints} color={trendColor} />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Subject-wise Weak Students */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                Subject-wise Weak Students
-              </h3>
-              <button
-                type="button"
-                onClick={() => showToast('Full weak student cohort report opened')}
-                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              >
-                View All →
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400">
-                    <th className="pb-2 font-normal">#</th>
-                    <th className="pb-2 font-normal">Subject</th>
-                    <th className="pb-2 font-normal">Weak Students</th>
-                    <th className="pb-2 font-normal text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {weakestSubjects.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
-                        No weak student cohorts identified yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    weakestSubjects.slice(0, 5).map((row, idx) => {
-                      const acc = Math.round(row.accuracyRate);
-                      return (
-                        <tr key={row.subjectId || idx} className="text-[11px]">
-                          <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
-                          <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                            {row.subjectName}
-                          </td>
-                          <td className="py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                            {row.totalQuestionsAttempted.toLocaleString()}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedSubjectModal({
-                                  subject: row.subjectName,
-                                  weakCount: row.totalQuestionsAttempted.toLocaleString(),
-                                  accuracy: `${acc}%`,
-                                })
-                              }
-                              className="px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-bold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SECTION 5: USAGE & HARDWARE ROW (3 CARDS)                            */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-        {/* Card 1: Test Type Usage */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-2">Test Type Usage</h3>
-
-          <div className="flex items-center justify-between gap-3 my-2">
-            {/* Donut Chart */}
-            <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F1F5F9"
-                  strokeWidth="14"
-                  className="dark:stroke-slate-800"
-                />
-                {/* 42% Full Mock Tests (Blue) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#2563EB"
-                  strokeWidth="14"
-                  strokeDasharray="100.2 238.76"
-                  strokeDashoffset="0"
-                />
-                {/* 36% Topic Tests (Magenta) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#EC4899"
-                  strokeWidth="14"
-                  strokeDasharray="85.9 238.76"
-                  strokeDashoffset="-100.2"
-                />
-                {/* 18% Official PYQ (Teal/Sky) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#0EA5E9"
-                  strokeWidth="14"
-                  strokeDasharray="42.9 238.76"
-                  strokeDashoffset="-186.1"
-                />
-                {/* 4% Other Tests (Amber) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="14"
-                  strokeDasharray="9.5 238.76"
-                  strokeDashoffset="-229"
-                />
-              </svg>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  {testsAttempted.toLocaleString()}
-                </span>
-                <span className="text-[9px] text-slate-400 font-medium">Tests Attempted</span>
-              </div>
-            </div>
-
-            {/* Breakdown List */}
-            <div className="space-y-1.5 flex-1 text-[10px]">
-              {[
-                { name: 'Full Mock Tests', pct: '42%', count: '20,206', color: 'bg-[#2563EB]' },
-                { name: 'Topic Tests', pct: '36%', count: '17,295', color: 'bg-[#EC4899]' },
-                { name: 'Official PYQ', pct: '18%', count: '8,693', color: 'bg-[#0EA5E9]' },
-                { name: 'Other Tests', pct: '4%', count: '2,126', color: 'bg-[#F59E0B]' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-1">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className={cn('w-2 h-2 rounded-full shrink-0', item.color)} />
-                    <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
-                      {item.name}
-                    </span>
+          <div className="grid lg:grid-cols-2 gap-5">
+            {(['subjects', 'topics'] as const).map((name) => {
+              const items =
+                name === 'subjects'
+                  ? data.questionInsights.weakestSubjects.map((s) => ({
+                      id: s.subjectId,
+                      name: s.subjectName,
+                      count: s.totalQuestionsAttempted,
+                      accuracy: s.accuracyRate,
+                    }))
+                  : data.questionInsights.weakestTopics.map((t) => ({
+                      id: t.chapterId,
+                      name: t.chapterName,
+                      count: t.totalQuestionsAttempted,
+                      accuracy: t.accuracyRate,
+                    }));
+              return (
+                <section key={name} className={card}>
+                  <div className="flex justify-between mb-3">
+                    <h2 className="font-bold">
+                      Weakest {name === 'subjects' ? 'Subjects' : 'Topics'}
+                    </h2>
+                    {showAll(name, items.length)}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-500 font-semibold">{item.pct}</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{item.count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div />
-        </div>
-
-        {/* Card 2: Device Usage */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-2">Device Usage</h3>
-
-          <div className="flex items-center justify-between gap-3 my-2">
-            {/* Donut Chart */}
-            <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F1F5F9"
-                  strokeWidth="14"
-                  className="dark:stroke-slate-800"
-                />
-                {/* 72% Mobile Android (Blue) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#2563EB"
-                  strokeWidth="14"
-                  strokeDasharray="171.9 238.76"
-                  strokeDashoffset="0"
-                />
-                {/* 14% Mobile iOS (Sky) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#38BDF8"
-                  strokeWidth="14"
-                  strokeDasharray="33.4 238.76"
-                  strokeDashoffset="-171.9"
-                />
-                {/* 9% Desktop Windows (Amber) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="14"
-                  strokeDasharray="21.4 238.76"
-                  strokeDashoffset="-205.3"
-                />
-                {/* 5% Desktop Mac (Slate) */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#64748B"
-                  strokeWidth="14"
-                  strokeDasharray="11.9 238.76"
-                  strokeDashoffset="-226.7"
-                />
-              </svg>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                  {activeStudents.toLocaleString()}
-                </span>
-                <span className="text-[9px] text-slate-400 font-medium">Active Students</span>
-              </div>
-            </div>
-
-            {/* Breakdown List */}
-            <div className="space-y-1.5 flex-1 text-[10px]">
-              {[
-                { name: 'Mobile (Android)', pct: '72%', count: Math.round(activeStudents * 0.72).toLocaleString(), color: 'bg-[#2563EB]' },
-                { name: 'Mobile (iOS)', pct: '14%', count: Math.round(activeStudents * 0.14).toLocaleString(), color: 'bg-[#38BDF8]' },
-                { name: 'Desktop (Windows)', pct: '9%', count: Math.round(activeStudents * 0.09).toLocaleString(), color: 'bg-[#F59E0B]' },
-                { name: 'Desktop (Mac)', pct: '5%', count: Math.round(activeStudents * 0.05).toLocaleString(), color: 'bg-[#64748B]' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-1">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className={cn('w-2 h-2 rounded-full shrink-0', item.color)} />
-                    <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
-                      {item.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-500 font-semibold">{item.pct}</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{item.count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div />
-        </div>
-
-        {/* Card 3: Top Exam Categories by Usage */}
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                Top Exam Categories by Usage
-              </h3>
-              <button
-                type="button"
-                onClick={() => showToast('Full exam usage report opened')}
-                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              >
-                View All →
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400">
-                    <th className="pb-2 font-normal">#</th>
-                    <th className="pb-2 font-normal">Exam Category</th>
-                    <th className="pb-2 font-normal">Students</th>
-                    <th className="pb-2 font-normal text-right">Tests Attempted</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {examsList.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
-                        No exam categories available yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    examsList.slice(0, 5).map((row, idx) => (
-                      <tr key={row.id || idx} className="text-[11px]">
-                        <td className="py-2.5 text-slate-400 font-medium">{idx + 1}</td>
-                        <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">
-                          {row.title || row.name || 'Exam'}
-                        </td>
-                        <td className="py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                          {(row.totalStudents || 0).toLocaleString()}
-                        </td>
-                        <td className="py-2.5 font-bold text-slate-900 dark:text-white text-right">
-                          {(row.testsAttempted || 0).toLocaleString()}
-                        </td>
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Accuracy</th>
+                        <th>Answered questions</th>
                       </tr>
-                    ))
+                    </thead>
+                    <tbody>
+                      {visible(name, items).map((i) => (
+                        <tr key={i.id} className="border-t">
+                          <th className="py-3 font-medium text-left">{i.name}</th>
+                          <td>{i.accuracy}%</td>
+                          <td>{i.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!items.length && (
+                    <p className="text-xs mt-3 text-slate-500">
+                      No recorded answered questions with available {name}.
+                    </p>
                   )}
+                </section>
+              );
+            })}
+          </div>
+          <section className={card}>
+            <div className="flex justify-between mb-3">
+              <h2 className="font-bold">Student Rankings</h2>
+              {showAll('students', data.studentRankings.length)}
+            </div>
+            <p className="text-xs text-slate-500 mb-3">
+              Completed-attempt score totals, then recorded answer accuracy. No synthetic trends or
+              inactive demo students.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Student</th>
+                    <th>Tests started</th>
+                    <th>Answered questions</th>
+                    <th>Accuracy</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible('students', data.studentRankings).map((s) => (
+                    <tr key={s.userId} className="border-t">
+                      <td className="py-3">{s.rank}</td>
+                      <th className="text-left font-medium">{s.name}</th>
+                      <td>{s.totalTests}</td>
+                      <td>{s.questionsAttempted}</td>
+                      <td>{s.questionsAttempted ? `${s.accuracy}%` : 'Unavailable'}</td>
+                      <td>{s.totalScore}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* SUBJECT WEAK STUDENTS COHORT DETAIL MODAL                            */}
-      {/* ==================================================================== */}
-      {selectedSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>{selectedSubjectModal.subject}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold">
-                    {selectedSubjectModal.accuracy} Accuracy
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedSubjectModal.weakCount} Aspirants requiring foundational assistance
+            {!data.studentRankings.length && (
+              <p className="text-xs mt-3 text-slate-500">
+                No recorded student activity in this period.
+              </p>
+            )}
+          </section>
+          <section className={card}>
+            <div className="flex justify-between mb-3">
+              <h2 className="font-bold">Most Wrong Questions</h2>
+              {showAll('questions', data.questionInsights.mostWrongQuestions.length)}
+            </div>
+            {visible('questions', data.questionInsights.mostWrongQuestions).map((q) => (
+              <div key={q.questionId} className="border-t py-3 text-xs">
+                <p className="font-semibold">{q.questionText}</p>
+                <p>
+                  {q.wrongCount} wrong of {q.totalAttempts} answered · {q.accuracyRate}% accuracy
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSubjectModal(null)}
-                className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Recommended Actions:
+            ))}
+            {!data.questionInsights.mostWrongQuestions.length && (
+              <p className="text-xs text-slate-500">
+                No recorded question analysis for this period.
               </p>
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-300 space-y-1.5">
-                <p>• Push topic-wise targeted mock tests to this cohort</p>
-                <p>• Offer video solution explanations for low-scoring question sets</p>
-                <p>• Send in-app notification with revision study notes</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedSubjectModal(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedSubjectModal(null);
-                  showToast(`Practice guidance blast triggered for ${selectedSubjectModal.subject}!`);
-                }}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
-              >
-                Dispatch Topic Practice Pack
-              </button>
-            </div>
+            )}
+          </section>
+          <div className="grid lg:grid-cols-2 gap-5">
+            <section className={card}>
+              <h2 className="font-bold mb-3">Student Growth</h2>
+              <p className="text-xs text-slate-500 mb-3">
+                Actual new registrations during the selected period.
+              </p>
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr>
+                    <th>Period starting</th>
+                    <th>New students</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.revenue.revenueTrend.map((p) => (
+                    <tr key={p.date} className="border-t">
+                      <th className="py-3 text-left font-medium">{p.label}</th>
+                      <td>{p.signups}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+            <section className={card}>
+              <h2 className="font-bold mb-3">Student District Distribution</h2>
+              <p className="text-xs text-slate-500 mb-3">
+                Current student profiles, including unspecified districts. Not a selected-period
+                activity count.
+              </p>
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr>
+                    <th>District</th>
+                    <th>Students</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.demographics?.districts || []).map((d) => (
+                    <tr key={d.district} className="border-t">
+                      <th className="py-3 text-left font-medium">{d.district}</th>
+                      <td>{d.studentCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!data.demographics?.districts.length && (
+                <p className="text-xs text-slate-500">No district data available.</p>
+              )}
+            </section>
           </div>
-        </div>
+          <section className={card}>
+            <h2 className="font-bold mb-2">Unavailable Analytics Features</h2>
+            <p className="text-xs text-slate-500 mb-3">
+              Gender distributions and historical subject trends are not available in this report.
+              No estimates are displayed. Practice-pack delivery requires a dedicated targeting and
+              delivery workflow.
+            </p>
+            <button disabled className="border rounded-lg p-2 text-xs opacity-50">
+              Dispatch Topic Practice Pack — unavailable
+            </button>
+          </section>
+        </>
       )}
     </div>
   );

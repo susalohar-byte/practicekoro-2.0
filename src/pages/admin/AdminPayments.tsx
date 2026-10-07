@@ -13,13 +13,20 @@ import {
   X,
   CreditCard,
   Crown,
-  Send,
   Ban,
   Calendar,
   Check,
   Filter,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AdminMoneyChart } from '@/components/admin/AdminMoneyChart';
+import { getKolkataDateString } from '@/services/domains/admin.dashboard';
+import {
+  paymentRange,
+  paymentInRange,
+  paymentChart,
+  retainedPaymentAmount,
+} from '@/utils/adminPaymentReporting';
 import { api } from '@/services/api';
 import { AdminRefundModal } from '@/components/admin/AdminRefundModal';
 import type { AdminPaymentRow } from '@/types';
@@ -62,7 +69,7 @@ export interface PaymentItem {
   subscriptionActive?: boolean;
 }
 
-// Payment Method Logo helper
+// Payment Gateway Logo helper
 const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
   if (method === 'Razorpay') {
     return (
@@ -108,7 +115,11 @@ const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
 // Payment Receipt Document Generator
 function downloadReceiptDocument(payment: PaymentItem) {
   const escapeHtml = (str: string | undefined | null) =>
-    (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    (str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
 
   const receiptHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -156,7 +167,7 @@ function downloadReceiptDocument(payment: PaymentItem) {
       <tr><td class="label">Transaction ID</td><td class="value" style="font-family: monospace;">${escapeHtml(payment.transactionId)}</td></tr>
       ${payment.gatewayOrderId ? `<tr><td class="label">Order ID</td><td class="value" style="font-family: monospace;">${escapeHtml(payment.gatewayOrderId)}</td></tr>` : ''}
       <tr><td class="label">Payment Date</td><td class="value">${escapeHtml(payment.date)} ${escapeHtml(payment.time)}</td></tr>
-      <tr><td class="label">Payment Method</td><td class="value">${escapeHtml(payment.paymentMethod)}</td></tr>
+      <tr><td class="label">Payment Gateway</td><td class="value">${escapeHtml(payment.paymentMethod)}</td></tr>
       <tr><td class="label">Subscription Plan</td><td class="value">${escapeHtml(payment.plan)}</td></tr>
       ${payment.subscriptionValidTill ? `<tr><td class="label">Valid Till</td><td class="value">${escapeHtml(payment.subscriptionValidTill)}</td></tr>` : ''}
       <tr class="amount-row"><td class="label">Total Amount</td><td class="value">₹${payment.amount} INR</td></tr>
@@ -203,7 +214,7 @@ export const AdminPayments: React.FC = () => {
           setSelectedRowId('');
           return;
         }
-        const mapped: PaymentItem[] = remote.map((d, index) => {
+        const mapped: PaymentItem[] = remote.map((d) => {
           const dDate = new Date(d.createdAt || Date.now());
           const dateStr = dDate.toLocaleDateString('en-GB', {
             day: '2-digit',
@@ -220,18 +231,27 @@ export const AdminPayments: React.FC = () => {
             getAdminPaymentDisplayStatus(d);
           const subscription = getAdminSubscriptionDisplay(d);
 
-          let method: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—' = 'Razorpay';
-          if (d.gateway === 'phonepe') method = 'PhonePe';
+          let method: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—' = '—';
+          if (d.gateway === 'razorpay') method = 'Razorpay';
+          else if (d.gateway === 'credit_card') method = 'Credit Card';
+          else if (d.gateway === 'phonepe') method = 'PhonePe';
           else if (d.gateway === 'upi') method = 'UPI';
 
           return {
             id: d.id,
             studentName: d.studentName || 'Student Aspirant',
             studentEmail: d.studentEmail || '',
-            avatarType: 'photo',
-            avatarSrc: `https://images.unsplash.com/photo-${1535713875002 + (index % 5)}?w=100&auto=format&fit=crop&q=80`,
-            plan: d.planTitle || 'Pro Pass',
-            planDuration: `${d.planTitle || 'Pro Pass'}`,
+            avatarType: 'initials',
+            avatarInitials: (d.studentName || 'Student')
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase(),
+            avatarBgColor: 'bg-blue-100',
+            avatarTextColor: 'text-blue-700',
+            plan: d.planTitle || 'Plan unavailable',
+            planDuration: `${d.planTitle || 'Plan unavailable'}`,
             planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
             amount: d.amount,
             paymentMethod: method,
@@ -277,7 +297,7 @@ export const AdminPayments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('All Status');
   const [filterPlan, setFilterPlan] = useState('All Plans');
-  const [filterMethod, setFilterMethod] = useState('All Payment Methods');
+  const [filterMethod, setFilterMethod] = useState('All Payment Gateways');
 
   // Time range selector
   const [timeRange, setTimeRange] = useState('Last 30 Days');
@@ -315,26 +335,43 @@ export const AdminPayments: React.FC = () => {
     return paymentsList.find((p) => p.id === selectedRowId) || null;
   }, [paymentsList, selectedRowId]);
 
+  const range = useMemo(() => paymentRange(timeRange), [timeRange]);
+  const periodPayments = useMemo(
+    () => paymentsList.filter((p) => paymentInRange(p.sourcePayment, range)),
+    [paymentsList, range]
+  );
+  const chartPoints = useMemo(
+    () =>
+      paymentChart(
+        periodPayments.map((p) => p.sourcePayment),
+        range
+      ),
+    [periodPayments, range]
+  );
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedCheckboxes([]);
+  }, [timeRange]);
   // Computed summary metrics
   const totalRevenue = useMemo(() => {
-    return paymentsList
+    return periodPayments
       .filter((p) => p.status === 'Success')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-  }, [paymentsList]);
+      .reduce((sum, p) => sum + retainedPaymentAmount(p.sourcePayment), 0);
+  }, [periodPayments]);
 
-  const totalPayments = paymentsList.length;
+  const totalPayments = periodPayments.length;
 
   const successfulPayments = useMemo(() => {
-    return paymentsList.filter((p) => p.status === 'Success').length;
-  }, [paymentsList]);
+    return periodPayments.filter((p) => p.status === 'Success').length;
+  }, [periodPayments]);
 
   const failedPayments = useMemo(() => {
-    return paymentsList.filter((p) => p.status === 'Failed').length;
-  }, [paymentsList]);
+    return periodPayments.filter((p) => p.status === 'Failed').length;
+  }, [periodPayments]);
 
   const refundedPayments = useMemo(() => {
-    return paymentsList.filter((p) => p.status === 'Refunded').length;
-  }, [paymentsList]);
+    return periodPayments.filter((p) => p.status === 'Refunded').length;
+  }, [periodPayments]);
 
   const successRate =
     totalPayments > 0 ? `${Math.round((successfulPayments / totalPayments) * 100)}%` : '0%';
@@ -342,8 +379,8 @@ export const AdminPayments: React.FC = () => {
   const methodStats = useMemo(() => {
     const total = totalRevenue || 1;
     const calc = (m: string) => {
-      const items = paymentsList.filter((p) => p.paymentMethod === m && p.status === 'Success');
-      const sum = items.reduce((acc, p) => acc + (p.amount || 0), 0);
+      const items = periodPayments.filter((p) => p.paymentMethod === m && p.status === 'Success');
+      const sum = items.reduce((acc, p) => acc + retainedPaymentAmount(p.sourcePayment), 0);
       const pct = totalRevenue > 0 ? Math.round((sum / total) * 100) : 0;
       return { sum, pct };
     };
@@ -353,25 +390,36 @@ export const AdminPayments: React.FC = () => {
       phonepe: calc('PhonePe'),
       card: calc('Credit Card'),
       other: {
-        sum: paymentsList
+        sum: periodPayments
           .filter(
             (p) =>
               !['UPI', 'Razorpay', 'PhonePe', 'Credit Card'].includes(p.paymentMethod) &&
               p.status === 'Success'
           )
-          .reduce((acc, p) => acc + (p.amount || 0), 0),
-        pct: 0,
+          .reduce((acc, p) => acc + retainedPaymentAmount(p.sourcePayment), 0),
+        pct:
+          totalRevenue > 0
+            ? Math.round(
+                (periodPayments
+                  .filter(
+                    (p) => !['UPI', 'Razorpay', 'PhonePe', 'Credit Card'].includes(p.paymentMethod)
+                  )
+                  .reduce((sum, p) => sum + retainedPaymentAmount(p.sourcePayment), 0) /
+                  totalRevenue) *
+                  100
+              )
+            : 0,
       },
     };
-  }, [paymentsList, totalRevenue]);
+  }, [periodPayments, totalRevenue]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
-    return paymentsList.filter((item) => {
+    return periodPayments.filter((item) => {
       if (filterStatus !== 'All Status' && item.status !== filterStatus) return false;
       if (filterPlan !== 'All Plans' && !item.plan.includes(filterPlan.replace(' Plans', '')))
         return false;
-      if (filterMethod !== 'All Payment Methods' && item.paymentMethod !== filterMethod)
+      if (filterMethod !== 'All Payment Gateways' && item.paymentMethod !== filterMethod)
         return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -383,7 +431,16 @@ export const AdminPayments: React.FC = () => {
       }
       return true;
     });
-  }, [paymentsList, filterStatus, filterPlan, filterMethod, searchQuery]);
+  }, [periodPayments, filterStatus, filterPlan, filterMethod, searchQuery]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedCheckboxes([]);
+  }, [searchQuery, filterStatus, filterPlan, filterMethod, rowsPerPage]);
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pageCount));
+  }, [pageCount]);
 
   // Handle Select All Checkbox
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,7 +467,7 @@ export const AdminPayments: React.FC = () => {
       'Student Email',
       'Plan',
       'Amount',
-      'Payment Method',
+      'Payment Gateway',
       'Date',
       'Status',
       'Gateway Order ID',
@@ -430,7 +487,10 @@ export const AdminPayments: React.FC = () => {
     ]);
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
+      [
+        headers.join(','),
+        ...rows.map((e) => e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -452,7 +512,7 @@ export const AdminPayments: React.FC = () => {
   const handleSendReceipt = () => {
     if (!selectedPayment) return;
     downloadReceiptDocument(selectedPayment);
-    showToast(`Receipt downloaded. (Automated email delivery requires a configured server-side mail service.)`);
+    showToast(`Receipt downloaded for ${selectedPayment.transactionId}. No email was sent.`);
   };
 
   // Open Refund Dialog
@@ -556,440 +616,274 @@ export const AdminPayments: React.FC = () => {
       </div>
 
       {/* ==================================================================== */}
-      {/* 2. FIVE SUMMARY METRICS CARDS                                       */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Card 1: Total Revenue */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
-          <div className="w-11 h-11 rounded-xl bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center font-bold text-lg shrink-0">
-            ₹
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                ₹{totalRevenue.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 32%
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
-          </div>
-        </div>
-
-        {/* Card 2: Total Payments */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
-          <div className="w-11 h-11 rounded-xl bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Payments</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                {totalPayments.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                ↑ 26%
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
-          </div>
-        </div>
-
-        {/* Card 3: Successful */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
-          <div className="w-11 h-11 rounded-xl bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Successful</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                {successfulPayments.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                {successRate}
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">success rate</span>
-          </div>
-        </div>
-
-        {/* Card 4: Failed */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
-          <div className="w-11 h-11 rounded-xl bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
-            <XCircle className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Failed</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                {failedPayments.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                ↓ 3%
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
-          </div>
-        </div>
-
-        {/* Card 5: Refunded */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
-          <div className="w-11 h-11 rounded-xl bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-            <RotateCcw className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Refunded</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                {refundedPayments.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                ↓ 2%
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">this month</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ==================================================================== */}
-      {/* 3. CHARTS ROW (Revenue Trend & Payment Methods)                      */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left: Revenue Trend */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-sm font-bold text-slate-900">Revenue Trend</h2>
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 text-[11px] text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
-                <span>Revenue</span>
+      {!recordsLoading && !recordsError && (
+        <>
+          {/* 2. FIVE SUMMARY METRICS CARDS                                       */}
+          {/* ==================================================================== */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Card 1: Retained Revenue */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+              <div className="w-11 h-11 rounded-xl bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center font-bold text-lg shrink-0">
+                ₹
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-                <span>Successful</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F43F5E]" />
-                <span>Refunded</span>
-              </div>
-            </div>
-
-            {/* Time Filter */}
-            <div className="relative">
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="Last 30 Days">Last 30 Days</option>
-                <option value="Last 90 Days">Last 90 Days</option>
-                <option value="This Year">This Year</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* SVG Multi-Day Bar and Line Chart */}
-          <div className="relative pt-2">
-            <svg viewBox="0 0 700 180" className="w-full h-44 overflow-visible">
-              {/* Y-axis grid and labels */}
-              {[
-                { label: '₹40K', y: 20 },
-                { label: '₹30K', y: 55 },
-                { label: '₹20K', y: 90 },
-                { label: '₹10K', y: 125 },
-                { label: '₹0', y: 155 },
-              ].map((tick) => (
-                <g key={tick.label}>
-                  <line x1="45" y1={tick.y} x2="690" y2={tick.y} stroke="#F1F5F9" strokeWidth="1" />
-                  <text
-                    x="35"
-                    y={tick.y + 3.5}
-                    fontSize="9"
-                    fill="#94A3B8"
-                    textAnchor="end"
-                    fontWeight="400"
-                  >
-                    {tick.label}
-                  </text>
-                </g>
-              ))}
-
-              {/* 30 Daily Vertical Bars matching screenshot proportions */}
-              {[
-                { day: 1, rev: 68, ref: 8 },
-                { day: 2, rev: 72, ref: 6 },
-                { day: 3, rev: 64, ref: 10 },
-                { day: 4, rev: 80, ref: 7 },
-                { day: 5, rev: 88, ref: 12 },
-                { day: 6, rev: 76, ref: 8 },
-                { day: 7, rev: 82, ref: 6 },
-                { day: 8, rev: 70, ref: 9 },
-                { day: 9, rev: 85, ref: 7 },
-                { day: 10, rev: 92, ref: 11 },
-                { day: 11, rev: 78, ref: 8 },
-                { day: 12, rev: 86, ref: 6 },
-                { day: 13, rev: 94, ref: 10 },
-                { day: 14, rev: 102, ref: 14 },
-                { day: 15, rev: 89, ref: 9 },
-                { day: 16, rev: 96, ref: 7 },
-                { day: 17, rev: 110, ref: 12 },
-                { day: 18, rev: 104, ref: 8 },
-                { day: 19, rev: 98, ref: 10 },
-                { day: 20, rev: 90, ref: 6 },
-                { day: 21, rev: 106, ref: 13 },
-                { day: 22, rev: 95, ref: 9 },
-                { day: 23, rev: 102, ref: 7 },
-                { day: 24, rev: 112, ref: 11 },
-                { day: 25, rev: 108, ref: 8 },
-                { day: 26, rev: 116, ref: 12 },
-                { day: 27, rev: 114, ref: 9 },
-                { day: 28, rev: 122, ref: 14 },
-                { day: 29, rev: 120, ref: 10 },
-                { day: 30, rev: 126, ref: 12 },
-              ].map((d, idx) => {
-                const x = 55 + idx * 21.2;
-                const barHeight = (d.rev / 140) * 125;
-                const refHeight = (d.ref / 140) * 125;
-                const y = 155 - barHeight;
-                return (
-                  <g key={d.day}>
-                    {/* Blue revenue pillar */}
-                    <rect
-                      x={x}
-                      y={y}
-                      width="10"
-                      height={barHeight}
-                      rx="2"
-                      fill="#93C5FD"
-                      opacity="0.85"
-                    />
-                    {/* Pink refund base */}
-                    <rect
-                      x={x}
-                      y={155 - refHeight}
-                      width="10"
-                      height={refHeight}
-                      rx="1"
-                      fill="#FDA4AF"
-                      opacity="0.9"
-                    />
-                  </g>
-                );
-              })}
-
-              {/* Green Line overlay for Successful transactions */}
-              <path
-                d="M 60 92 L 123 88 L 186 86 L 249 74 L 312 78 L 375 64 L 438 68 L 501 56 L 564 60 L 627 52 L 678 48"
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* Green dots on line */}
-              {[
-                { x: 60, y: 92 },
-                { x: 123, y: 88 },
-                { x: 186, y: 86 },
-                { x: 249, y: 74 },
-                { x: 312, y: 78 },
-                { x: 375, y: 64 },
-                { x: 438, y: 68 },
-                { x: 501, y: 56 },
-                { x: 564, y: 60 },
-                { x: 627, y: 52 },
-                { x: 678, y: 48 },
-              ].map((pt, i) => (
-                <circle
-                  key={i}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="3.5"
-                  fill="#10B981"
-                  stroke="#FFFFFF"
-                  strokeWidth="1.5"
-                />
-              ))}
-
-              {/* X-axis date labels */}
-              {[
-                { label: '1 Sep', x: 60 },
-                { label: '5 Sep', x: 145 },
-                { label: '10 Sep', x: 250 },
-                { label: '15 Sep', x: 355 },
-                { label: '20 Sep', x: 460 },
-                { label: '25 Sep', x: 565 },
-                { label: '30 Sep', x: 670 },
-              ].map((dt) => (
-                <text
-                  key={dt.label}
-                  x={dt.x}
-                  y="172"
-                  fontSize="9"
-                  fill="#64748B"
-                  textAnchor="middle"
-                  fontWeight="400"
-                >
-                  {dt.label}
-                </text>
-              ))}
-            </svg>
-          </div>
-        </div>
-
-        {/* Right: Payment Methods Donut */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs flex flex-col justify-between">
-          <h2 className="text-sm font-bold text-slate-900 mb-2">Payment Methods</h2>
-
-          <div className="flex items-center gap-4 py-2">
-            {/* SVG Donut Chart with center text */}
-            <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                {/* UPI: 52% -> strokeDasharray: 52 48, strokeDashoffset: 0 */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#0284C7"
-                  strokeWidth="16"
-                  strokeDasharray="124.2 114.6"
-                  strokeDashoffset="0"
-                />
-                {/* Razorpay: 28% -> strokeDasharray: 66.8 172 */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#06B6D4"
-                  strokeWidth="16"
-                  strokeDasharray="66.8 172"
-                  strokeDashoffset="-124.2"
-                />
-                {/* PhonePe: 12% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#A855F7"
-                  strokeWidth="16"
-                  strokeDasharray="28.6 210.2"
-                  strokeDashoffset="-191"
-                />
-                {/* Credit/Debit Card: 6% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="16"
-                  strokeDasharray="14.3 224.5"
-                  strokeDashoffset="-219.6"
-                />
-                {/* Other: 2% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="none"
-                  stroke="#64748B"
-                  strokeWidth="16"
-                  strokeDasharray="4.8 234"
-                  strokeDashoffset="-233.9"
-                />
-              </svg>
-              {/* Donut Center Label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  ₹{totalRevenue.toLocaleString('en-IN')}
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-medium text-slate-500 block">
+                  Retained Revenue
                 </span>
-                <span className="text-[9px] text-slate-400 font-normal">Total Revenue</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-slate-900 leading-tight">
+                    ₹{totalRevenue.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                  {timeRange}
+                </span>
               </div>
             </div>
 
-            {/* Methods Legend List */}
-            <div className="flex-1 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#0284C7] shrink-0" />
-                  <span className="text-slate-700 font-medium truncate">UPI</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900">{methodStats.upi.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">
-                    ₹{methodStats.upi.sum.toLocaleString('en-IN')}
+            {/* Card 2: Total Payments */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+              <div className="w-11 h-11 rounded-xl bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-medium text-slate-500 block">Total Payments</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-slate-900 leading-tight">
+                    {totalPayments.toLocaleString('en-IN')}
                   </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                  {timeRange}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Successful */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+              <div className="w-11 h-11 rounded-xl bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-medium text-slate-500 block">Successful</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-slate-900 leading-tight">
+                    {successfulPayments.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    {successRate}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                  success rate
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Failed */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+              <div className="w-11 h-11 rounded-xl bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-medium text-slate-500 block">Failed</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-slate-900 leading-tight">
+                    {failedPayments.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                  {timeRange}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 5: Refunded */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex items-center gap-3.5 hover:shadow-xs transition-shadow">
+              <div className="w-11 h-11 rounded-xl bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-medium text-slate-500 block">Refunded</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xl font-bold text-slate-900 leading-tight">
+                    {refundedPayments.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+                  {timeRange}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ==================================================================== */}
+          {/* 3. CHARTS ROW (Revenue Trend & Payment Gateways)                      */}
+          {/* ==================================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            {/* Left: Revenue Trend */}
+            <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs flex flex-col justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 className="text-sm font-bold text-slate-900">Revenue Trend</h2>
+
+                {/* Legend */}
+                <div className="flex items-center gap-4 text-[11px] text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
+                    <span>Retained revenue</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#F43F5E]" />
+                    <span>Refunded</span>
+                  </div>
+                </div>
+
+                {/* Time Filter */}
+                <div className="relative">
+                  <select
+                    aria-label="Payment reporting period"
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(e.target.value)}
+                    className="appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="Last 30 Days">Last 30 Days</option>
+                    <option value="Last 90 Days">Last 90 Days</option>
+                    <option value="This Year">This Year</option>
+                    <option value="All Time">All Time</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#06B6D4] shrink-0" />
-                  <span className="text-slate-700 font-medium truncate">Razorpay</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900">{methodStats.razorpay.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">
-                    ₹{methodStats.razorpay.sum.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                {getKolkataDateString(new Date(range.startIso))} to{' '}
+                {getKolkataDateString(new Date(range.endIso))} · Asia/Kolkata. Refunds are
+                attributed to the original payment date, not refund cash-flow date.
+              </p>
+              <AdminMoneyChart points={chartPoints} />
+            </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#A855F7] shrink-0" />
-                  <span className="text-slate-700 font-medium truncate">PhonePe</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900">{methodStats.phonepe.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">
-                    ₹{methodStats.phonepe.sum.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
+            {/* Right: Payment Gateways Donut */}
+            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 shadow-2xs flex flex-col justify-between">
+              <h2 className="text-sm font-bold text-slate-900 mb-2">Payment Gateways</h2>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0" />
-                  <span className="text-slate-700 font-medium truncate">Credit/Debit Card</span>
+              <div className="flex items-center gap-4 py-2">
+                {/* SVG Donut Chart with center text */}
+                <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    {(() => {
+                      let offset = 0;
+                      return [
+                        { ...methodStats.upi, color: '#0284C7' },
+                        { ...methodStats.razorpay, color: '#06B6D4' },
+                        { ...methodStats.phonepe, color: '#A855F7' },
+                        { ...methodStats.card, color: '#F59E0B' },
+                        { ...methodStats.other, color: '#64748B' },
+                      ].map((method, i) => {
+                        const circumference = 2 * Math.PI * 38;
+                        const length =
+                          totalRevenue > 0 ? (method.sum / totalRevenue) * circumference : 0;
+                        const previousOffset = offset;
+                        offset += length;
+                        return (
+                          <circle
+                            key={i}
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            fill="none"
+                            stroke={method.color}
+                            strokeWidth="16"
+                            strokeDasharray={`${length} ${circumference - length}`}
+                            strokeDashoffset={-previousOffset}
+                          />
+                        );
+                      });
+                    })()}
+                  </svg>
+                  {/* Donut Center Label */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                    <span className="text-xs font-bold text-slate-900 leading-tight">
+                      ₹{totalRevenue.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-normal">Retained Revenue</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900">{methodStats.card.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">
-                    ₹{methodStats.card.sum.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#64748B] shrink-0" />
-                  <span className="text-slate-700 font-medium truncate">Other</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-slate-900">{methodStats.other.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">
-                    ₹{methodStats.other.sum.toLocaleString('en-IN')}
-                  </span>
+                {/* Methods Legend List */}
+                <div className="flex-1 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-[#0284C7] shrink-0" />
+                      <span className="text-slate-700 font-medium truncate">UPI</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900">{methodStats.upi.pct}%</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        ₹{methodStats.upi.sum.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-[#06B6D4] shrink-0" />
+                      <span className="text-slate-700 font-medium truncate">Razorpay</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900">{methodStats.razorpay.pct}%</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        ₹{methodStats.razorpay.sum.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-[#A855F7] shrink-0" />
+                      <span className="text-slate-700 font-medium truncate">PhonePe</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900">{methodStats.phonepe.pct}%</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        ₹{methodStats.phonepe.sum.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0" />
+                      <span className="text-slate-700 font-medium truncate">Credit/Debit Card</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900">{methodStats.card.pct}%</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        ₹{methodStats.card.sum.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-[#64748B] shrink-0" />
+                      <span className="text-slate-700 font-medium truncate">Other</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900">{methodStats.other.pct}%</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        ₹{methodStats.other.sum.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ==================================================================== */}
+          {/* ==================================================================== */}
+        </>
+      )}
       {/* 4. FILTER TOOLBAR                                                   */}
       {/* ==================================================================== */}
       <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex flex-wrap items-center gap-3">
@@ -1039,14 +933,14 @@ export const AdminPayments: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* All Payment Methods */}
+        {/* All Payment Gateways */}
         <div className="relative min-w-[160px]">
           <select
             value={filterMethod}
             onChange={(e) => setFilterMethod(e.target.value)}
             className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="All Payment Methods">All Payment Methods</option>
+            <option value="All Payment Gateways">All Payment Gateways</option>
             <option value="UPI">UPI</option>
             <option value="Razorpay">Razorpay</option>
             <option value="PhonePe">PhonePe</option>
@@ -1056,15 +950,18 @@ export const AdminPayments: React.FC = () => {
         </div>
 
         {/* Date Range Picker */}
-        <div className="flex items-center border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 bg-white gap-2 cursor-pointer">
+        <div className="flex items-center border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 bg-white gap-2">
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-          <span>01 Sep 2026 – 30 Sep 2026</span>
+          <span>{timeRange} · Asia/Kolkata</span>
         </div>
 
         {/* Filter and Reset Buttons */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => showToast('Filters refreshed.')}
+            onClick={() => {
+              setCurrentPage(1);
+              setSelectedCheckboxes([]);
+            }}
             className="bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2 rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Filter className="w-3.5 h-3.5" />
@@ -1075,7 +972,7 @@ export const AdminPayments: React.FC = () => {
               setSearchQuery('');
               setFilterStatus('All Status');
               setFilterPlan('All Plans');
-              setFilterMethod('All Payment Methods');
+              setFilterMethod('All Payment Gateways');
               showToast('Filters reset to default view.');
             }}
             className="text-[#2563EB] hover:underline font-semibold text-xs px-2.5 py-2 cursor-pointer"
@@ -1098,7 +995,7 @@ export const AdminPayments: React.FC = () => {
         >
           <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table aria-label="Payment records" className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
                     <th className="py-3 px-3 w-8 text-center">
@@ -1116,7 +1013,7 @@ export const AdminPayments: React.FC = () => {
                     <th className="py-3 px-3">Student</th>
                     <th className="py-3 px-3">Plan</th>
                     <th className="py-3 px-3">Amount</th>
-                    <th className="py-3 px-3">Payment Method</th>
+                    <th className="py-3 px-3">Payment Gateway</th>
                     <th className="py-3 px-3">Transaction ID</th>
                     <th className="py-3 px-3">Date</th>
                     <th className="py-3 px-3">Status</th>
@@ -1212,7 +1109,7 @@ export const AdminPayments: React.FC = () => {
                           {/* Amount */}
                           <td className="py-3 px-3 font-semibold text-slate-800">₹{row.amount}</td>
 
-                          {/* Payment Method */}
+                          {/* Payment Gateway */}
                           <td className="py-3 px-3">
                             <PaymentMethodBadge method={row.paymentMethod} />
                           </td>
@@ -1282,7 +1179,9 @@ export const AdminPayments: React.FC = () => {
                                   <button
                                     onClick={() => {
                                       downloadReceiptDocument(row);
-                                      showToast(`Payment receipt downloaded for ${row.transactionId}`);
+                                      showToast(
+                                        `Payment receipt downloaded for ${row.transactionId}`
+                                      );
                                       setActiveMenuId(null);
                                     }}
                                     className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
@@ -1310,6 +1209,7 @@ export const AdminPayments: React.FC = () => {
 
               <div className="flex items-center gap-1.5">
                 <button
+                  aria-label="Previous page"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1317,40 +1217,30 @@ export const AdminPayments: React.FC = () => {
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
 
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2563EB] text-white font-medium shadow-2xs"
-                >
-                  1
-                </button>
-                <button
-                  onClick={() => setCurrentPage(2)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  2
-                </button>
-                <button
-                  onClick={() => setCurrentPage(3)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  3
-                </button>
-                <button
-                  onClick={() => setCurrentPage(4)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  4
-                </button>
-                <button
-                  onClick={() => setCurrentPage(5)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                >
-                  5
-                </button>
-                <span className="px-1 text-slate-400">...</span>
+                {Array.from(
+                  { length: Math.min(5, pageCount) },
+                  (_, i) => Math.max(1, Math.min(currentPage - 2, pageCount - 4)) + i
+                ).map((page) => (
+                  <button
+                    key={page}
+                    aria-label={`Page ${page}`}
+                    aria-current={currentPage === page ? 'page' : undefined}
+                    onClick={() => setCurrentPage(page)}
+                    className={cn(
+                      'w-7 h-7 rounded-lg',
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    )}
+                  >
+                    {page}
+                  </button>
+                ))}
 
                 <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  aria-label="Next page"
+                  disabled={currentPage >= pageCount}
+                  onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
                   className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -1390,193 +1280,183 @@ export const AdminPayments: React.FC = () => {
               </button>
             </div>
 
-                {/* Student Profile Card */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {selectedPayment.avatarType === 'photo' && selectedPayment.avatarSrc ? (
-                      <img
-                        src={selectedPayment.avatarSrc}
-                        alt={selectedPayment.studentName}
-                        className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
-                      />
-                    ) : (
-                      <div
-                        className={cn(
-                          'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
-                          selectedPayment.avatarBgColor || 'bg-blue-100',
-                          selectedPayment.avatarTextColor || 'text-blue-600'
-                        )}
-                      >
-                        {selectedPayment.avatarInitials}
-                      </div>
+            {/* Student Profile Card */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {selectedPayment.avatarType === 'photo' && selectedPayment.avatarSrc ? (
+                  <img
+                    src={selectedPayment.avatarSrc}
+                    alt={selectedPayment.studentName}
+                    className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
+                      selectedPayment.avatarBgColor || 'bg-blue-100',
+                      selectedPayment.avatarTextColor || 'text-blue-600'
                     )}
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm">
-                        {selectedPayment.studentName}
-                      </h3>
-                      <span className="text-[11px] text-slate-500 block">
-                        {selectedPayment.studentEmail}
-                      </span>
-                      <span className="text-[11px] text-slate-400 block">
-                        {selectedPayment.studentPhone || '+91 98765 43210'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      showToast(`Opening profile for ${selectedPayment.studentName}...`)
-                    }
-                    className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer"
                   >
-                    View Student
-                  </button>
+                    {selectedPayment.avatarInitials}
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {selectedPayment.studentName}
+                  </h3>
+                  <span className="text-[11px] text-slate-500 block">
+                    {selectedPayment.studentEmail}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">
+                    {selectedPayment.studentPhone || 'Unavailable'}
+                  </span>
                 </div>
+              </div>
 
-                {/* Key-Value Breakdown List */}
-                <div className="space-y-2.5 text-xs pt-1 border-t border-slate-100">
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Transaction ID</span>
-                    <span className="font-mono text-slate-700">
-                      {selectedPayment.transactionId}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Payment Method</span>
-                    <span className="font-medium text-slate-800">
-                      {selectedPayment.paymentMethod}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Status</span>
-                    <span
-                      className={cn(
-                        'px-2 py-0.5 rounded text-[11px] font-medium',
-                        selectedPayment.statusBadgeClass
-                      )}
-                    >
-                      {selectedPayment.status}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Plan Name</span>
-                    <span className="font-medium text-slate-800">
-                      {selectedPayment.planDuration}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Amount</span>
-                    <span className="font-bold text-slate-900">₹{selectedPayment.amount}</span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Paid On</span>
-                    <span className="font-medium text-slate-800">
-                      {selectedPayment.date}, {selectedPayment.time}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Payment Gateway</span>
-                    <span className="font-medium text-slate-800">
-                      {selectedPayment.paymentMethod === 'Razorpay' ? 'Razorpay' : 'PhonePe / UPI'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Gateway Order ID</span>
-                    <span className="font-mono text-slate-700">
-                      {selectedPayment.gatewayOrderId || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Payment ID</span>
-                    <span className="font-mono text-slate-700">
-                      {selectedPayment.paymentId || selectedPayment.transactionId}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-slate-400 font-normal">Bank Reference</span>
-                    <span className="font-mono text-slate-700">
-                      {selectedPayment.bankReference || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5 items-center">
-                    <span className="text-slate-400 font-normal">Receipt</span>
-                    <button
-                      onClick={handleDownloadInvoice}
-                      className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold text-xs cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download Receipt</span>
-                    </button>
-                  </div>
+              <button
+                onClick={() => showToast(`Opening profile for ${selectedPayment.studentName}...`)}
+                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer"
+              >
+                View Student
+              </button>
+            </div>
+
+            {/* Key-Value Breakdown List */}
+            <div className="space-y-2.5 text-xs pt-1 border-t border-slate-100">
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Transaction ID</span>
+                <span className="font-mono text-slate-700">{selectedPayment.transactionId}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Payment Gateway</span>
+                <span className="font-medium text-slate-800">{selectedPayment.paymentMethod}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Status</span>
+                <span
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[11px] font-medium',
+                    selectedPayment.statusBadgeClass
+                  )}
+                >
+                  {selectedPayment.status}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Plan Name</span>
+                <span className="font-medium text-slate-800">{selectedPayment.planDuration}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Amount</span>
+                <span className="font-bold text-slate-900">₹{selectedPayment.amount}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Paid On</span>
+                <span className="font-medium text-slate-800">
+                  {selectedPayment.date}, {selectedPayment.time}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Payment Gateway</span>
+                <span className="font-medium text-slate-800">
+                  {selectedPayment.paymentMethod === 'Razorpay' ? 'Razorpay' : 'PhonePe / UPI'}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Gateway Order ID</span>
+                <span className="font-mono text-slate-700">
+                  {selectedPayment.gatewayOrderId || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Payment ID</span>
+                <span className="font-mono text-slate-700">
+                  {selectedPayment.paymentId || selectedPayment.transactionId}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-400 font-normal">Bank Reference</span>
+                <span className="font-mono text-slate-700">
+                  {selectedPayment.bankReference || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 items-center">
+                <span className="text-slate-400 font-normal">Receipt</span>
+                <button
+                  onClick={handleDownloadInvoice}
+                  className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold text-xs cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Receipt</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Subscription Status Green Box */}
+            <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                  <Crown className="w-4 h-4" />
                 </div>
-
-                {/* Subscription Status Green Box */}
-                <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                      <Crown className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-800">
-                          Subscription Status
-                        </span>
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                          {selectedPayment.subscriptionActive == null
-                            ? 'Unavailable'
-                            : selectedPayment.subscriptionActive
-                              ? 'Active'
-                              : 'Inactive'}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block mt-0.5">
-                        {selectedPayment.subscriptionValidTill
-                          ? `Valid till ${selectedPayment.subscriptionValidTill} (${selectedPayment.subscriptionDaysLeft ?? 0} days left)`
-                          : 'Subscription details unavailable'}
-                      </span>
-                    </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">Subscription Status</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+                      {selectedPayment.subscriptionActive == null
+                        ? 'Unavailable'
+                        : selectedPayment.subscriptionActive
+                          ? 'Active'
+                          : 'Inactive'}
+                    </span>
                   </div>
-
-                  <button
-                    onClick={() => showToast('Managing subscription plan settings...')}
-                    className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
-                  >
-                    Manage
-                  </button>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    {selectedPayment.subscriptionValidTill
+                      ? `Valid till ${selectedPayment.subscriptionValidTill} (${selectedPayment.subscriptionDaysLeft ?? 0} days left)`
+                      : 'Subscription details unavailable'}
+                  </span>
                 </div>
+              </div>
 
-                {/* Bottom Action Buttons */}
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={handleSendReceipt}
-                    className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Receipt</span>
-                  </button>
+              <button
+                onClick={() => showToast('Managing subscription plan settings...')}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
+              >
+                Manage
+              </button>
+            </div>
 
-                  <button
-                    onClick={() => handleOpenRefund(selectedPayment)}
-                    disabled={selectedPayment.status !== 'Success'}
-                    className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Refund Payment</span>
-                  </button>
+            {/* Bottom Action Buttons */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={handleSendReceipt}
+                className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Receipt</span>
+              </button>
 
-                  <button
-                    onClick={handleCancelPayment}
-                    disabled={
-                      isCancellingSubscription ||
-                      selectedPayment.subscriptionActive !== true ||
-                      !selectedPayment.sourcePayment.subscriptionId
-                    }
-                    className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Ban className="w-3.5 h-3.5" />
-                    <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
-                  </button>
-                </div>
+              <button
+                onClick={() => handleOpenRefund(selectedPayment)}
+                disabled={selectedPayment.status !== 'Success'}
+                className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Refund Payment</span>
+              </button>
+
+              <button
+                onClick={handleCancelPayment}
+                disabled={
+                  isCancellingSubscription ||
+                  selectedPayment.subscriptionActive !== true ||
+                  !selectedPayment.sourcePayment.subscriptionId
+                }
+                className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

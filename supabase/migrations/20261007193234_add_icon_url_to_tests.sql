@@ -4,3 +4,5 @@
 ALTER TABLE public.tests ADD COLUMN IF NOT EXISTS icon_url TEXT;
 
 COMMENT ON COLUMN public.tests.icon_url IS 'Public storage URL or path to the custom icon/badge image for this mock test.';
+
+NOTIFY pgrst, 'reload schema';
