@@ -984,9 +984,9 @@ export const AdminDashboard: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    difficultQuestions.map((q) => (
+                    difficultQuestions.map((q, idx) => (
                       <tr key={q.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="py-2.5 text-slate-400 font-semibold">{q.id}</td>
+                        <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
                         <td className="py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[150px] truncate">
                           {q.preview}
                         </td>
@@ -1039,9 +1039,9 @@ export const AdminDashboard: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    weakestTopics.map((top) => (
+                    weakestTopics.map((top, idx) => (
                       <tr key={top.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="py-2.5 text-slate-400 font-semibold">{top.id}</td>
+                        <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
                         <td className="py-2.5 font-bold text-slate-900 dark:text-white">
                           {top.topic}
                         </td>

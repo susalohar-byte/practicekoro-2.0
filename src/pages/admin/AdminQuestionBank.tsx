@@ -2163,7 +2163,7 @@ export const AdminQuestionBank: React.FC = () => {
                         className="rounded border-slate-300 text-[#026BFC] focus:ring-[#026BFC] cursor-pointer"
                       />
                     </th>
-                    <th className="py-3 px-2 w-14">#</th>
+                    <th className="py-3 px-2 w-12 text-center">#</th>
                     <th className="py-3 px-4">Question (Preview)</th>
                     <th className="py-3 px-3">Mode</th>
                     <th className="py-3 px-3">Exam / Subject</th>
@@ -2184,10 +2184,11 @@ export const AdminQuestionBank: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    paginatedQuestions.map((q) => {
+                    paginatedQuestions.map((q, idx) => {
                       const isSelected = selectedRowIds.has(q.id);
                       const isActive = activeQuestion?.id === q.id;
                       const isExamMode = q.uploadMode === 'exam' || Boolean(q.sourceExam);
+                      const questionNumber = (currentPage - 1) * pageSize + idx + 1;
 
                       return (
                         <tr
@@ -2214,8 +2215,13 @@ export const AdminQuestionBank: React.FC = () => {
                             />
                           </td>
 
-                          {/* Numeric ID */}
-                          <td className="py-3 px-2 text-slate-500 font-bold">{q.id}</td>
+                          {/* Sequential Question Number */}
+                          <td
+                            className="py-3 px-2 text-slate-500 font-bold text-center"
+                            title={`Database ID: ${q.id}`}
+                          >
+                            {questionNumber}
+                          </td>
 
                           {/* Question Bengali / English Preview */}
                           <td className="py-3 px-4 max-w-[240px]">
@@ -2466,9 +2472,21 @@ export const AdminQuestionBank: React.FC = () => {
           <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-2xl shadow-2xs overflow-hidden animate-in slide-in-from-right-4">
             {/* Drawer Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">
-                Question Details
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Question Details
+                </h3>
+                <span
+                  className="text-[10px] font-mono text-slate-400 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                  title={`Click to copy database ID: ${activeQuestion.id}`}
+                  onClick={() => {
+                    navigator.clipboard.writeText(activeQuestion.id);
+                    showToast('Question ID copied to clipboard');
+                  }}
+                >
+                  #{activeQuestion.id.slice(0, 8)}…
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={(e) => {
