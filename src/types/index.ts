@@ -420,6 +420,7 @@ export interface MockTest {
   chapterName?: string;
   topicName?: string;
   testSeriesTitle?: string;
+  attemptsCount?: number;
 }
 
 export interface Question {
@@ -851,6 +852,7 @@ export interface AdminDashboardV2Stats {
   proStudents: number;
   activeSubscriptions: number;
   testsAttempted?: number;
+  completedTests?: number;
   questionsAnswered?: number;
   totalExams: number;
   totalTests: number;

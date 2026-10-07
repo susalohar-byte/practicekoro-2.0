@@ -325,7 +325,7 @@ export const adminCommerceApi = {
           supabase.from('tests').select('status'),
           supabase.from('questions').select('is_active, status'),
           supabase.from('test_attempts').select('status'),
-          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
         ]);
 
         const tests = Array.isArray(testsRes.data) ? testsRes.data : [];
@@ -393,6 +393,45 @@ export const adminCommerceApi = {
       try {
         const { data, error } = await supabase.rpc('get_admin_dashboard_v2_stats');
         if (!error && data) {
+          let testsAttempted = data.testsAttempted != null ? Number(data.testsAttempted) : undefined;
+          let completedTests = data.completedTests != null ? Number(data.completedTests) : undefined;
+          let questionsAnswered = data.questionsAnswered != null ? Number(data.questionsAnswered) : undefined;
+
+          // If the deployed RPC omitted testsAttempted or questionsAnswered, enrich with accurate table data
+          if (testsAttempted === undefined || questionsAnswered === undefined) {
+            try {
+              const [attemptsRes, answersRes] = await Promise.all([
+                testsAttempted === undefined
+                  ? supabase.from('test_attempts').select('status, correct_count, wrong_count')
+                  : Promise.resolve(null),
+                questionsAnswered === undefined
+                  ? supabase
+                      .from('attempt_answers')
+                      .select('*', { count: 'exact', head: true })
+                      .not('selected_option', 'is', null)
+                  : Promise.resolve(null),
+              ]);
+
+              if (attemptsRes && !attemptsRes.error && Array.isArray(attemptsRes.data)) {
+                testsAttempted = attemptsRes.data.length;
+                completedTests = attemptsRes.data.filter((a: any) => a.status === 'completed').length;
+                if (questionsAnswered === undefined) {
+                  if (answersRes && !answersRes.error && (answersRes.count ?? 0) > 0) {
+                    questionsAnswered = answersRes.count ?? 0;
+                  } else {
+                    questionsAnswered = attemptsRes.data.reduce(
+                      (acc: number, a: any) =>
+                        acc + (Number(a.correct_count || 0) + Number(a.wrong_count || 0)),
+                      0
+                    );
+                  }
+                }
+              }
+            } catch (enrichErr) {
+              console.warn('Enriching dashboard stats failed:', enrichErr);
+            }
+          }
+
           return {
             totalRevenue: Number(data.totalRevenue || 0),
             todayRevenue: Number(data.todayRevenue || 0),
@@ -405,6 +444,9 @@ export const adminCommerceApi = {
             freeStudents: Number(data.freeStudents || 0),
             proStudents: Number(data.proStudents || 0),
             activeSubscriptions: Number(data.activeSubscriptions || 0),
+            testsAttempted: testsAttempted ?? 0,
+            completedTests: completedTests ?? 0,
+            questionsAnswered: questionsAnswered ?? 0,
             totalExams: Number(data.totalExams || 0),
             totalTests: Number(data.totalTests || 0),
             topicTests: Number(data.topicTests || 0),
@@ -421,43 +463,109 @@ export const adminCommerceApi = {
         console.warn('Fallback computing dashboard v2 stats from database tables:', err);
       }
 
-      // Query real metrics directly from tables
+      // Authoritative direct-table query fallback
       try {
-        const [profilesRes, proSubRes, paymentsRes, examsRes, testsRes, questionsRes, attemptsRes] =
-          await Promise.all([
-            supabase.from('profiles').select('*', { count: 'exact', head: true }),
-            supabase
-              .from('subscriptions')
-              .select('*', { count: 'exact', head: true })
-              .eq('status', 'active'),
-            supabase.from('payments').select('amount, created_at').eq('status', 'completed'),
-            supabase.from('exams').select('*', { count: 'exact', head: true }),
-            supabase.from('tests').select('test_type'),
-            supabase.from('questions').select('chapter_id, exam_id'),
-            supabase.from('test_attempts').select('*', { count: 'exact', head: true }),
-          ]);
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const thirtyDaysAgoIso = new Date(now.getTime() - 30 * 86400000).toISOString();
+        const startOfTodayIso = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const startOfYearIso = new Date(now.getFullYear(), 0, 1).toISOString();
 
-        const totalStudents = profilesRes.count || 0;
-        const activeSubscriptions = proSubRes.count || 0;
-        const proStudents = activeSubscriptions;
+        const [
+          profilesRes,
+          newProfilesRes,
+          subsRes,
+          paymentsRes,
+          examsRes,
+          testsRes,
+          questionsRes,
+          attemptsRes,
+          answersRes,
+        ] = await Promise.all([
+          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+          supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('role', 'student')
+            .gte('created_at', thirtyDaysAgoIso),
+          supabase
+            .from('subscriptions')
+            .select('user_id, status, expires_at')
+            .eq('status', 'active')
+            .gt('expires_at', nowIso),
+          supabase
+            .from('payments')
+            .select('amount, refund_amount, created_at, status')
+            .in('status', ['completed', 'refunded']),
+          supabase.from('exams').select('*', { count: 'exact', head: true }),
+          supabase.from('tests').select('test_type'),
+          supabase.from('questions').select('chapter_id, exam_id, source_type'),
+          supabase
+            .from('test_attempts')
+            .select('id, user_id, status, correct_count, wrong_count, created_at'),
+          supabase
+            .from('attempt_answers')
+            .select('*', { count: 'exact', head: true })
+            .not('selected_option', 'is', null),
+        ]);
+
+        if (profilesRes.error) throw new Error(profilesRes.error.message);
+        if (subsRes.error) throw new Error(subsRes.error.message);
+        if (paymentsRes.error) throw new Error(paymentsRes.error.message);
+        if (examsRes.error) throw new Error(examsRes.error.message);
+        if (testsRes.error) throw new Error(testsRes.error.message);
+        if (questionsRes.error) throw new Error(questionsRes.error.message);
+        if (attemptsRes.error) throw new Error(attemptsRes.error.message);
+
+        const totalStudents = profilesRes.count ?? 0;
+        const newStudents = newProfilesRes.count ?? 0;
+
+        // Subscriptions & Pro students: only unexpired active subscriptions
+        const activeSubs = Array.isArray(subsRes.data)
+          ? subsRes.data.filter((s: any) => !s.expires_at || new Date(s.expires_at).getTime() > now.getTime())
+          : [];
+        const activeSubscriptions = activeSubs.length;
+        const proUserIds = new Set(activeSubs.map((s: any) => s.user_id).filter(Boolean));
+        const proStudents = proUserIds.size;
         const freeStudents = Math.max(0, totalStudents - proStudents);
-        const testsAttempted = (attemptsRes as any)?.count ?? 0;
-        const questionsAnswered = testsAttempted > 0 ? testsAttempted * 35 : 0;
 
+        // Attempts & Questions Answered
+        const attempts = Array.isArray(attemptsRes.data) ? attemptsRes.data : [];
+        const testsAttempted = attempts.length;
+        const completedTests = attempts.filter((a: any) => a.status === 'completed').length;
+        const activeUserIds = new Set(
+          attempts
+            .filter((a: any) => new Date(a.created_at).getTime() >= new Date(thirtyDaysAgoIso).getTime())
+            .map((a: any) => a.user_id)
+            .filter(Boolean)
+        );
+        const activeStudents = activeUserIds.size;
+
+        let questionsAnswered = (answersRes && !answersRes.error ? answersRes.count : 0) ?? 0;
+        if (questionsAnswered === 0 && attempts.length > 0) {
+          questionsAnswered = attempts.reduce(
+            (acc: number, a: any) =>
+              acc + (Number(a.correct_count || 0) + Number(a.wrong_count || 0)),
+            0
+          );
+        }
+
+        // Payments & Revenue (Net completed revenue)
         let totalRevenue = 0;
         let todayRevenue = 0;
         let monthRevenue = 0;
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        let yearRevenue = 0;
 
-        if (Array.isArray(paymentsRes.data)) {
-          for (const p of paymentsRes.data) {
-            const amt = Number(p.amount || 0);
-            totalRevenue += amt;
+        const paymentsList = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
+        for (const p of paymentsList) {
+          if (p.status === 'completed') {
+            const netAmt = Number(p.amount || 0) - Number(p.refund_amount || 0);
+            totalRevenue += netAmt;
             const pTime = new Date(p.created_at).getTime();
-            if (pTime >= startOfToday) todayRevenue += amt;
-            if (pTime >= startOfMonth) monthRevenue += amt;
+            if (pTime >= new Date(startOfTodayIso).getTime()) todayRevenue += netAmt;
+            if (pTime >= new Date(startOfMonthIso).getTime()) monthRevenue += netAmt;
+            if (pTime >= new Date(startOfYearIso).getTime()) yearRevenue += netAmt;
           }
         }
 
@@ -469,23 +577,26 @@ export const adminCommerceApi = {
         ).length;
 
         const questions = Array.isArray(questionsRes.data) ? questionsRes.data : [];
-        const topicQuestions = questions.filter((q: any) => q.chapter_id).length;
-        const fullMockQuestions = questions.filter((q: any) => !q.chapter_id && q.exam_id).length;
-        const pyqQuestions = Math.max(0, questions.length - topicQuestions - fullMockQuestions);
+        const topicQuestions = questions.filter((q: any) => q.chapter_id || q.source_type === 'topic').length;
+        const fullMockQuestions = questions.filter(
+          (q: any) => !q.chapter_id && (q.exam_id || q.source_type === 'other')
+        ).length;
+        const pyqQuestions = questions.filter((q: any) => q.source_type === 'pyq').length;
 
         return {
           totalRevenue,
           todayRevenue,
           monthRevenue,
-          yearRevenue: totalRevenue,
+          yearRevenue,
           revenueTrend: [],
           totalStudents,
-          newStudents: totalStudents,
-          activeStudents: totalStudents,
+          newStudents,
+          activeStudents,
           freeStudents,
           proStudents,
           activeSubscriptions,
           testsAttempted,
+          completedTests,
           questionsAnswered,
           totalExams: examsRes.count ?? 0,
           totalTests: tests.length,
@@ -499,30 +610,8 @@ export const adminCommerceApi = {
           recentActivity: [],
         };
       } catch (err) {
-        console.warn('Direct computation of stats failed:', err);
-        return {
-          totalRevenue: 0,
-          todayRevenue: 0,
-          monthRevenue: 0,
-          yearRevenue: 0,
-          revenueTrend: [],
-          totalStudents: 0,
-          newStudents: 0,
-          activeStudents: 0,
-          freeStudents: 0,
-          proStudents: 0,
-          activeSubscriptions: 0,
-          totalExams: 0,
-          totalTests: 0,
-          topicTests: 0,
-          fullMockTests: 0,
-          pyqTests: 0,
-          totalQuestions: 0,
-          topicQuestions: 0,
-          fullMockQuestions: 0,
-          pyqQuestions: 0,
-          recentActivity: [],
-        };
+        console.error('Direct computation of stats failed:', err);
+        throw err;
       }
     }
 
