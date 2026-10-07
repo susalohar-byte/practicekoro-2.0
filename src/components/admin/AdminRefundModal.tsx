@@ -36,13 +36,28 @@ export const AdminRefundModal: React.FC<AdminRefundModalProps> = ({
   onClose,
   onRefundSuccess,
 }) => {
+  if (!isOpen || !payment) return null;
+
+  return (
+    <RefundModalContent
+      key={payment.id}
+      payment={payment}
+      onClose={onClose}
+      onRefundSuccess={onRefundSuccess}
+    />
+  );
+};
+
+// Mount only for an open payment. Hooks always run in the same order, and
+// closing or switching payments starts a fresh refund form.
+const RefundModalContent: React.FC<
+  Omit<AdminRefundModalProps, 'payment' | 'isOpen'> & { payment: AdminPaymentRow }
+> = ({ payment, onClose, onRefundSuccess }) => {
   const reasonSelectId = useId();
   const notesTextareaId = useId();
   const customReasonInputId = useId();
   const refundAmountInputId = useId();
   const refundReferenceInputId = useId();
-
-  if (!isOpen || !payment) return null;
 
   const originalAmount = Number(payment.amount || 0);
   const razorpayPaymentId = payment.razorpayPaymentId || payment.transactionId;
