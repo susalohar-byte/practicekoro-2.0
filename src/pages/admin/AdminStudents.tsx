@@ -1,3 +1,4 @@
+import { parseStudentCsv } from '@/utils/parseStudentCsv';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
@@ -41,7 +42,7 @@ import { cn } from '@/lib/utils';
 // ============================================================================
 
 export type SubscriptionTier = '6 Months' | '1 Month' | '1 Year' | 'Free';
-export type StudentStatus = 'Active' | 'Inactive';
+export type StudentStatus = 'Active' | 'Inactive' | 'Unavailable';
 
 export interface StudentActivity {
   id: string;
@@ -99,8 +100,8 @@ export const PRESET_STUDENTS: EnrichedStudent[] = [
     phone: '+91 98765 43210',
     avatarUrl: '/images/leaderboard_rohit.jpg',
     subscriptionPlan: '6 Months',
-    subscriptionValidTill: '12 Feb 2027',
-    subscriptionMonthsLeft: '4 months left',
+    subscriptionValidTill: 'Unavailable',
+    subscriptionMonthsLeft: 'Unavailable',
     testsAttempted: 48,
     avgScore: 72,
     bestScore: 85,
@@ -576,24 +577,39 @@ function mapDbRowToStudent(row: AdminStudentRow, index: number): EnrichedStudent
     order: index + 1,
     fullName: row.fullName,
     email: row.email,
-    phone: row.phone || '+91 98765 00000',
+    phone: row.phone || '',
     avatarUrl: row.avatarUrl,
     initials: initials || 'ST',
     initialsBg: 'bg-blue-100',
     initialsColor: 'text-[#026BFC]',
     subscriptionPlan: plan,
     subscriptionValidTill: row.expiresAt
-      ? new Date(row.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-      : '12 Feb 2027',
-    subscriptionMonthsLeft: '4 months left',
-    testsAttempted: row.totalAttempts || 48,
+      ? new Date(row.expiresAt).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'Unavailable',
+    subscriptionMonthsLeft: row.expiresAt
+      ? `${Math.max(0, Math.ceil((new Date(row.expiresAt).getTime() - Date.now()) / 86400000))} days left`
+      : 'Unavailable',
+    testsAttempted: row.totalAttempts || 0,
     avgScore: 72,
     bestScore: 85,
     daysActive: 12,
     lastActive: row.lastActive ? 'Recently' : '2 days ago',
-    status: row.subscriptionStatus === 'expired' ? 'Inactive' : 'Active',
+    status:
+      row.accountStatus === 'active'
+        ? 'Active'
+        : row.accountStatus === 'inactive'
+          ? 'Inactive'
+          : 'Unavailable',
     joinedDate: row.createdAt
-      ? new Date(row.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      ? new Date(row.createdAt).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
       : '12 Aug 2026',
     location: row.district ? `${row.district}, WB` : 'West Bengal, India',
     targetExam: row.targetExamTitle || 'WBP Constable',
@@ -624,9 +640,15 @@ export const AdminStudents: React.FC = () => {
   const [students, setStudents] = useState<EnrichedStudent[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Test History' | 'Subscriptions' | 'Notes'>('Overview');
+  const [activeTab, setActiveTab] = useState<
+    'Overview' | 'Test History' | 'Subscriptions' | 'Notes'
+  >('Overview');
   const [isLoading, setIsLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Checkbox Selection state
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
@@ -663,7 +685,7 @@ export const AdminStudents: React.FC = () => {
     fullName: '',
     email: '',
     phone: '',
-    subscriptionPlan: '6 Months' as SubscriptionTier,
+    subscriptionPlan: 'Free' as SubscriptionTier,
     targetExam: 'WBP Constable',
     location: 'West Bengal, India',
     status: 'Active' as StudentStatus,
@@ -709,11 +731,13 @@ export const AdminStudents: React.FC = () => {
     const fetchStudents = async () => {
       try {
         setIsLoading(true);
-        const data = await api.getAdminStudents(undefined, undefined, undefined, 200);
+        const data = await api.getAllAdminStudents();
         if (data && data.length > 0) {
           const mapped = data.map((row, i) => mapDbRowToStudent(row, i));
           setStudents(mapped);
-          setSelectedStudentId((prev) => (prev && mapped.some((s) => s.id === prev) ? prev : mapped[0].id));
+          setSelectedStudentId((prev) =>
+            prev && mapped.some((s) => s.id === prev) ? prev : mapped[0].id
+          );
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
           } catch {
@@ -724,7 +748,10 @@ export const AdminStudents: React.FC = () => {
           setSelectedStudentId('');
         }
       } catch (err) {
-        console.error('Error loading students from API:', err);
+        setToastMessage({
+          type: 'error',
+          text: err instanceof Error ? err.message : 'Students could not be loaded.',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -734,7 +761,9 @@ export const AdminStudents: React.FC = () => {
 
   // Currently Selected student
   const selectedStudent = useMemo(() => {
-    return students.find((s) => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null);
+    return (
+      students.find((s) => s.id === selectedStudentId) || (students.length > 0 ? students[0] : null)
+    );
   }, [students, selectedStudentId]);
 
   // Keep Edit Form updated when selectedStudent changes
@@ -799,7 +828,10 @@ export const AdminStudents: React.FC = () => {
         return false;
       }
       // Plan
-      if (appliedFilters.plan !== 'All Subscription Plans' && s.subscriptionPlan !== appliedFilters.plan) {
+      if (
+        appliedFilters.plan !== 'All Subscription Plans' &&
+        s.subscriptionPlan !== appliedFilters.plan
+      ) {
         return false;
       }
       // Exam
@@ -829,9 +861,7 @@ export const AdminStudents: React.FC = () => {
 
   const handleToggleRow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedRowIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedRowIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   // Export CSV
@@ -894,14 +924,37 @@ export const AdminStudents: React.FC = () => {
   const handleDownloadSampleCSV = () => {
     const headers = ['Full Name', 'Email', 'Phone', 'Subscription Plan', 'Target Exam', 'Location'];
     const sampleRows = [
-      ['Rohan Mondal', 'rohan.mondal@example.com', '+91 98300 12345', '6 Months', 'WBP Constable', 'Kolkata, WB'],
-      ['Priyanka Sen', 'priyanka.sen@example.com', '+91 98311 23456', '1 Month', 'KP Constable', 'Howrah, WB'],
-      ['Bikram Roy', 'bikram.roy@example.com', '+91 98322 34567', 'Free', 'WBTET Primary', 'Siliguri, WB'],
+      [
+        'Rohan Mondal',
+        'rohan.mondal@example.com',
+        '+91 98300 12345',
+        'Free',
+        'WBP Constable',
+        'Kolkata, WB',
+      ],
+      [
+        'Priyanka Sen',
+        'priyanka.sen@example.com',
+        '+91 98311 23456',
+        'Free',
+        'KP Constable',
+        'Howrah, WB',
+      ],
+      [
+        'Bikram Roy',
+        'bikram.roy@example.com',
+        '+91 98322 34567',
+        'Free',
+        'WBTET Primary',
+        'Siliguri, WB',
+      ],
     ];
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...sampleRows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
+      [headers.join(','), ...sampleRows.map((e) => e.map((val) => `"${val}"`).join(','))].join(
+        '\n'
+      );
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -912,178 +965,111 @@ export const AdminStudents: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Real CSV File Importer
+  const reloadStudents = async () => {
+    const data = await api.getAllAdminStudents();
+    const mapped = data.map(mapDbRowToStudent);
+    saveStudents(mapped);
+    setSelectedStudentId((current) =>
+      mapped.some((s) => s.id === current) ? current : mapped[0]?.id || ''
+    );
+    return mapped;
+  };
+
   const handleCSVImport = (file: File) => {
+    if (isWorking) return;
+    setIsWorking(true);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (event) => {
+      let created = 0;
+      const failures: string[] = [];
       try {
-        const text = e.target?.result as string;
-        if (!text) throw new Error('File is empty');
-
-        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length <= 1) {
-          showToast('error', 'CSV file contains no student data rows.');
-          return;
-        }
-
-        const newImported: EnrichedStudent[] = [];
-        const baseIndex = students.length;
-
-        // Skip header line
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map((c) => c.replace(/^["']|["']$/g, '').trim());
-          if (cols.length >= 2 && cols[0]) {
-            const fullName = cols[0];
-            const email = cols[1];
-            const phone = cols[2] || '+91 98765 00000';
-            const rawPlan = (cols[3] || 'Free').toLowerCase();
-            let plan: SubscriptionTier = 'Free';
-            if (rawPlan.includes('6')) plan = '6 Months';
-            else if (rawPlan.includes('year') || rawPlan.includes('12')) plan = '1 Year';
-            else if (rawPlan.includes('1') || rawPlan.includes('month')) plan = '1 Month';
-
-            const exam = cols[4] || 'WBP Constable';
-            const location = cols[5] || 'West Bengal, India';
-
-            newImported.push({
-              id: `imported-${Date.now()}-${i}`,
-              studentIdFormatted: `#STU00${1240 + baseIndex + i}`,
-              order: baseIndex + i,
-              fullName,
-              email,
-              phone,
-              initials: fullName.slice(0, 2).toUpperCase(),
-              initialsBg: 'bg-emerald-100',
-              initialsColor: 'text-emerald-700',
-              subscriptionPlan: plan,
-              subscriptionValidTill: '12 Feb 2027',
-              subscriptionMonthsLeft: '4 months left',
-              testsAttempted: 0,
-              avgScore: 0,
-              bestScore: 0,
-              daysActive: 1,
-              lastActive: 'Today',
-              status: 'Active',
-              joinedDate: 'Today',
-              location,
-              targetExam: exam,
-              activities: [
-                {
-                  id: `act-imp-${i}`,
-                  type: 'registration',
-                  title: 'Imported via CSV into PracticeKoro',
-                  time: 'Just now',
-                },
-              ],
-            });
+        const rows = parseStudentCsv(String(event.target?.result || '')).slice(1);
+        if (!rows.length || rows.length > 100)
+          throw new Error('Import requires 1–100 student rows.');
+        for (const [index, cols] of rows.entries()) {
+          if (cols[3] && cols[3].toLowerCase() !== 'free') {
+            failures.push(
+              `Row ${index + 2}: paid access must be granted separately in Subscriptions.`
+            );
+            continue;
           }
+          const result = await api.createStudentAccount({
+            fullName: cols[0] || '',
+            email: cols[1] || '',
+            phone: cols[2],
+            targetExam: cols[4],
+            district: cols[5],
+          });
+          if (result.success && result.userId) created++;
+          else failures.push(`Row ${index + 2}: ${result.error || 'Creation not confirmed.'}`);
         }
-
-        if (newImported.length > 0) {
-          saveStudents([...newImported, ...students]);
-          setSelectedStudentId(newImported[0].id);
-          setIsImportModalOpen(false);
-          showToast('success', `Successfully imported ${newImported.length} students!`);
-        } else {
-          showToast('error', 'No valid student records found in CSV.');
-        }
+        await reloadStudents();
+        if (created) setIsImportModalOpen(false);
+        showToast(
+          failures.length ? 'error' : 'success',
+          `${created} account(s) created and invited. ${failures.length} failed.${failures.length ? ` ${failures[0]}` : ''}`
+        );
       } catch (err) {
-        console.error('CSV parse error:', err);
-        showToast('error', 'Failed to parse CSV file. Please check format.');
+        showToast(
+          'error',
+          `${created} account(s) confirmed before the error. ${err instanceof Error ? err.message : 'Import failed.'}`
+        );
+      } finally {
+        setIsWorking(false);
       }
+    };
+    reader.onerror = () => {
+      setIsWorking(false);
+      showToast('error', 'CSV file could not be read.');
     };
     reader.readAsText(file);
   };
 
-  // Add Student Handler
-  const handleAddStudentSubmit = (e: React.FormEvent) => {
+  const handleAddStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentForm.fullName.trim() || !newStudentForm.email.trim()) {
-      showToast('error', 'Name and Email are required.');
+    if (isWorking) return;
+    if (newStudentForm.subscriptionPlan !== 'Free' || newStudentForm.status !== 'Active') {
+      showToast(
+        'error',
+        'Create a free active account first. Paid access and deactivation must use their dedicated backend actions.'
+      );
       return;
     }
-
-    const newOrder = students.length + 1;
-    const newStudent: EnrichedStudent = {
-      id: `stu-${Date.now()}`,
-      studentIdFormatted: `#STU00${1240 + newOrder}`,
-      order: newOrder,
-      fullName: newStudentForm.fullName,
-      email: newStudentForm.email,
-      phone: newStudentForm.phone || '+91 98000 00000',
-      initials: newStudentForm.fullName.slice(0, 2).toUpperCase(),
-      initialsBg: 'bg-blue-100',
-      initialsColor: 'text-[#026BFC]',
-      subscriptionPlan: newStudentForm.subscriptionPlan,
-      subscriptionValidTill: '05 Nov 2027',
-      subscriptionMonthsLeft: '6 months left',
-      testsAttempted: 0,
-      avgScore: 0,
-      bestScore: 0,
-      daysActive: 1,
-      lastActive: 'Today',
-      status: newStudentForm.status,
-      joinedDate: 'Today',
-      location: newStudentForm.location,
-      targetExam: newStudentForm.targetExam,
-      activities: [
-        {
-          id: `act-new-${Date.now()}`,
-          type: 'registration',
-          title: 'Registered on PracticeKoro',
-          time: 'Just now',
-        },
-      ],
-      notes: [],
-    };
-
-    saveStudents([newStudent, ...students]);
-    setSelectedStudentId(newStudent.id);
-    setIsAddModalOpen(false);
-    showToast('success', `Student ${newStudent.fullName} added successfully!`);
-    // Reset form
-    setNewStudentForm({
-      fullName: '',
-      email: '',
-      phone: '',
-      subscriptionPlan: '6 Months',
-      targetExam: 'WBP Constable',
-      location: 'West Bengal, India',
-      status: 'Active',
-    });
+    setIsWorking(true);
+    try {
+      const result = await api.createStudentAccount({
+        fullName: newStudentForm.fullName.trim(),
+        email: newStudentForm.email.trim(),
+        phone: newStudentForm.phone.trim(),
+        targetExam: newStudentForm.targetExam,
+        district: newStudentForm.location,
+      });
+      if (!result.success || !result.userId) {
+        showToast('error', result.error || 'Account creation was not confirmed.');
+        return;
+      }
+      await reloadStudents();
+      setSelectedStudentId(result.userId);
+      setIsAddModalOpen(false);
+      showToast('success', 'Student account created. A secure account invitation was sent.');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Student creation failed.');
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Edit Student Handler
   const handleEditStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStudent) return;
-    if (!editStudentForm.fullName.trim() || !editStudentForm.email.trim()) {
-      showToast('error', 'Name and email are required.');
+    if (!selectedStudent || isWorking) return;
+    if (editStudentForm.subscriptionPlan !== selectedStudent.subscriptionPlan) {
+      showToast('error', 'Use the Subscriptions screen to change paid access.');
       return;
     }
-
-    const updated = students.map((s) => {
-      if (s.id === selectedStudent.id) {
-        return {
-          ...s,
-          fullName: editStudentForm.fullName,
-          email: editStudentForm.email,
-          phone: editStudentForm.phone,
-          subscriptionPlan: editStudentForm.subscriptionPlan,
-          targetExam: editStudentForm.targetExam,
-          location: editStudentForm.location,
-          status: editStudentForm.status,
-        };
-      }
-      return s;
-    });
-
-    saveStudents(updated);
-    setIsEditModalOpen(false);
-    showToast('success', 'Student details updated successfully!');
-
+    const targetId = selectedStudent.id;
+    setIsWorking(true);
     try {
-      await api.updateStudentProfile(selectedStudent.id, {
+      const result = await api.updateStudentProfile(targetId, {
         fullName: editStudentForm.fullName.trim(),
         email: editStudentForm.email.trim(),
         phone: editStudentForm.phone.trim(),
@@ -1091,58 +1077,91 @@ export const AdminStudents: React.FC = () => {
         district: editStudentForm.location,
         status: editStudentForm.status,
       });
+      if (!result.success) {
+        showToast('error', result.error || 'Student update was not confirmed.');
+        return;
+      }
+      await reloadStudents();
+      setIsEditModalOpen(false);
+      showToast('success', 'Student details saved in the backend.');
     } catch (err) {
-      console.warn('Failed to update student profile in database:', err);
+      showToast('error', err instanceof Error ? err.message : 'Student update failed.');
+    } finally {
+      setIsWorking(false);
     }
   };
 
-  // Toggle Single Student Status
   const handleToggleStatus = async (student: EnrichedStudent, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const newStatus: StudentStatus = student.status === 'Active' ? 'Inactive' : 'Active';
-    const updated = students.map((s) => (s.id === student.id ? { ...s, status: newStatus } : s));
-    saveStudents(updated);
-    setActiveMenuId(null);
-    showToast('success', `${student.fullName} marked as ${newStatus}`);
-
+    if (isWorking || student.status === 'Unavailable') return;
+    const status = student.status === 'Active' ? 'Inactive' : 'Active';
+    setIsWorking(true);
     try {
-      await api.updateStudentProfile(student.id, { status: newStatus });
+      const result = await api.updateStudentProfile(student.id, { status });
+      if (!result.success) {
+        showToast('error', result.error || 'Account status update failed.');
+        return;
+      }
+      saveStudents(students.map((s) => (s.id === student.id ? { ...s, status } : s)));
+      setActiveMenuId(null);
+      showToast('success', `Account status changed to ${status}.`);
     } catch (err) {
-      console.warn('Failed to update student status in database:', err);
+      showToast('error', err instanceof Error ? err.message : 'Status update failed.');
+    } finally {
+      setIsWorking(false);
     }
   };
 
-  // Delete Student
   const handleDeleteStudent = async () => {
-    if (!selectedStudent) return;
-    const idToDelete = selectedStudent.id;
-    const name = selectedStudent.fullName;
-    const remaining = students.filter((s) => s.id !== idToDelete);
-    saveStudents(remaining);
-    setIsDeleteModalOpen(false);
-    setSelectedRowIds((prev) => prev.filter((id) => id !== idToDelete));
-    if (remaining.length > 0) {
-      setSelectedStudentId(remaining[0].id);
-    }
-    showToast('success', `Student ${name} deleted successfully.`);
-
+    if (!selectedStudent || isWorking) return;
+    const target = selectedStudent;
+    setIsWorking(true);
     try {
-      await api.deleteStudentProfile(idToDelete);
+      const result = await api.deleteStudentProfile(target.id);
+      if (!result.deletedIds?.includes(target.id)) {
+        showToast('error', result.error || 'Deletion was not confirmed.');
+        return;
+      }
+      const remaining = students.filter((s) => s.id !== target.id);
+      saveStudents(remaining);
+      setSelectedStudentId(remaining[0]?.id || '');
+      setSelectedRowIds((ids) => ids.filter((id) => id !== target.id));
+      setIsDeleteModalOpen(false);
+      showToast('success', `Student account ${target.fullName} deleted in the backend.`);
     } catch (err) {
-      console.warn('Failed to delete student from database:', err);
+      showToast('error', err instanceof Error ? err.message : 'Deletion failed.');
+    } finally {
+      setIsWorking(false);
     }
   };
 
-  // Bulk Delete
-  const handleBulkDelete = () => {
-    if (selectedRowIds.length === 0) return;
-    const remaining = students.filter((s) => !selectedRowIds.includes(s.id));
-    saveStudents(remaining);
-    setSelectedRowIds([]);
-    if (remaining.length > 0) {
-      setSelectedStudentId(remaining[0].id);
+  const handleBulkDelete = async () => {
+    if (
+      !selectedRowIds.length ||
+      isWorking ||
+      !window.confirm(
+        `Permanently delete ${selectedRowIds.length} student accounts and their linked history? This cannot be undone.`
+      )
+    )
+      return;
+    const requested = [...selectedRowIds];
+    setIsWorking(true);
+    try {
+      const result = await api.bulkDeleteStudentProfiles(requested);
+      const deleted = new Set((result.deletedIds || []).filter((id) => requested.includes(id)));
+      const remaining = students.filter((s) => !deleted.has(s.id));
+      saveStudents(remaining);
+      setSelectedRowIds(requested.filter((id) => !deleted.has(id)));
+      setSelectedStudentId((current) => (deleted.has(current) ? remaining[0]?.id || '' : current));
+      showToast(
+        result.success ? 'success' : 'error',
+        `${deleted.size} account(s) deleted. ${requested.length - deleted.size} not confirmed.${result.error ? ` ${result.error}` : ''}`
+      );
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Bulk deletion failed.');
+    } finally {
+      setIsWorking(false);
     }
-    showToast('success', `Deleted ${selectedRowIds.length} students.`);
   };
 
   // Reset Password
@@ -1264,6 +1283,7 @@ export const AdminStudents: React.FC = () => {
       {/* Toast Notification */}
       {toastMessage && (
         <div
+          role={toastMessage.type === 'error' ? 'alert' : 'status'}
           className={cn(
             'fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all transform animate-in slide-in-from-bottom-5',
             toastMessage.type === 'success'
@@ -1305,9 +1325,7 @@ export const AdminStudents: React.FC = () => {
         {/* ================================================================= */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              Students
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Students</h1>
             <p className="text-sm text-slate-500 mt-1">
               Manage your students, view their progress, subscriptions and test performance.
             </p>
@@ -1353,9 +1371,7 @@ export const AdminStudents: React.FC = () => {
               <Users className="w-6 h-6 text-[#8B5CF6]" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs text-slate-500 font-medium block">
-                Total Students
-              </span>
+              <span className="text-xs text-slate-500 font-medium block">Total Students</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
                   {totalStudentsCount.toLocaleString('en-IN')}
@@ -1364,9 +1380,7 @@ export const AdminStudents: React.FC = () => {
                   ↑ 26%
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                vs last month
-              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">vs last month</span>
             </div>
           </div>
 
@@ -1376,9 +1390,7 @@ export const AdminStudents: React.FC = () => {
               <Layers className="w-6 h-6 text-[#10B981]" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs text-slate-500 font-medium block">
-                Active Students
-              </span>
+              <span className="text-xs text-slate-500 font-medium block">Active Students</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
                   {activeStudentsCount.toLocaleString('en-IN')}
@@ -1399,9 +1411,7 @@ export const AdminStudents: React.FC = () => {
               <ShoppingCart className="w-6 h-6 text-[#F59E0B]" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs text-slate-500 font-medium block">
-                Paid Students
-              </span>
+              <span className="text-xs text-slate-500 font-medium block">Paid Students</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
                   {paidStudentsCount.toLocaleString('en-IN')}
@@ -1422,9 +1432,7 @@ export const AdminStudents: React.FC = () => {
               <Clock className="w-6 h-6 text-[#F43F5E]" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs text-slate-500 font-medium block">
-                New Students
-              </span>
+              <span className="text-xs text-slate-500 font-medium block">New Students</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
                   {newStudentsCount.toLocaleString('en-IN')}
@@ -1433,9 +1441,7 @@ export const AdminStudents: React.FC = () => {
                   ↑ 12%
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                this month
-              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">this month</span>
             </div>
           </div>
 
@@ -1445,9 +1451,7 @@ export const AdminStudents: React.FC = () => {
               <BarChart2 className="w-6 h-6 text-[#026BFC]" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs text-slate-500 font-medium block">
-                Avg. Test Score
-              </span>
+              <span className="text-xs text-slate-500 font-medium block">Avg. Test Score</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-bold text-slate-900 leading-tight">
                   {avgTestScoreFormatted}
@@ -1560,6 +1564,7 @@ export const AdminStudents: React.FC = () => {
               </button>
               <button
                 onClick={handleBulkDelete}
+                disabled={isWorking}
                 className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center gap-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1608,9 +1613,7 @@ export const AdminStudents: React.FC = () => {
                     <th className="py-3 px-3 min-w-[150px]">Student</th>
                     <th className="py-3 px-3 min-w-[170px]">Phone / Email</th>
                     <th className="py-3 px-2 w-28">Subscription</th>
-                    <th className="py-3 px-2 w-24 text-center">
-                      Tests Attempted
-                    </th>
+                    <th className="py-3 px-2 w-24 text-center">Tests Attempted</th>
                     <th className="py-3 px-2 w-20 text-center">Avg. Score</th>
                     <th className="py-3 px-3 w-24">Last Active</th>
                     <th className="py-3 px-2 w-20">Status</th>
@@ -1675,9 +1678,7 @@ export const AdminStudents: React.FC = () => {
                           </td>
 
                           {/* Order Number */}
-                          <td className="py-3 px-2 text-slate-600 font-medium">
-                            {student.order}
-                          </td>
+                          <td className="py-3 px-2 text-slate-600 font-medium">{student.order}</td>
 
                           {/* Student Avatar + Name */}
                           <td className="py-3 px-3">
@@ -1815,10 +1816,13 @@ export const AdminStudents: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => handleToggleStatus(student)}
+                                  disabled={isWorking || student.status === 'Unavailable'}
                                   className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                                  <span>Mark as {student.status === 'Active' ? 'Inactive' : 'Active'}</span>
+                                  <span>
+                                    Mark as {student.status === 'Active' ? 'Inactive' : 'Active'}
+                                  </span>
                                 </button>
                                 <button
                                   onClick={() => {
@@ -1862,7 +1866,10 @@ export const AdminStudents: React.FC = () => {
                   {currentFilteredCount === 0 ? 0 : startIndex + 1}–
                   {Math.min(startIndex + itemsPerPage, currentFilteredCount)}
                 </span>{' '}
-                of <span className="font-semibold text-slate-700">{totalStudentsCount.toLocaleString()}</span>{' '}
+                of{' '}
+                <span className="font-semibold text-slate-700">
+                  {totalStudentsCount.toLocaleString()}
+                </span>{' '}
                 students
               </div>
 
@@ -1961,443 +1968,478 @@ export const AdminStudents: React.FC = () => {
                 <div className="py-16 text-center text-slate-400">
                   <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                   <p className="text-sm font-semibold text-slate-600">No student selected</p>
-                  <p className="text-xs text-slate-400 mt-1">Select a student from the list to view their full details.</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Select a student from the list to view their full details.
+                  </p>
                 </div>
               ) : (
                 <>
                   {/* Profile Card Header */}
-              <div className="flex items-center justify-between p-3 bg-slate-50/70 border border-slate-100 rounded-xl mb-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  {selectedStudent.avatarUrl ? (
-                    <img
-                      src={selectedStudent.avatarUrl}
-                      alt={selectedStudent.fullName}
-                      className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-2xs shrink-0"
-                    />
-                  ) : (
-                    <div
+                  <div className="flex items-center justify-between p-3 bg-slate-50/70 border border-slate-100 rounded-xl mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {selectedStudent.avatarUrl ? (
+                        <img
+                          src={selectedStudent.avatarUrl}
+                          alt={selectedStudent.fullName}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-2xs shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            'w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 border-white shadow-2xs',
+                            selectedStudent.initialsBg || 'bg-blue-100',
+                            selectedStudent.initialsColor || 'text-[#026BFC]'
+                          )}
+                        >
+                          {selectedStudent.initials || 'ST'}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-900 text-sm truncate">
+                            {selectedStudent.fullName}
+                          </h4>
+                          <span
+                            className={cn(
+                              'inline-block px-2 py-0.5 rounded-full text-[10px] font-medium',
+                              selectedStudent.status === 'Active'
+                                ? 'bg-[#E6F8EE] text-[#15803D]'
+                                : 'bg-[#FEE2E2] text-[#DC2626]'
+                            )}
+                          >
+                            {selectedStudent.status}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
+                          Student ID: {selectedStudent.studentIdFormatted}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors shrink-0"
+                    >
+                      <Edit2 className="w-3 h-3 text-slate-500" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+
+                  {/* 4 Tabs: Overview | Test History | Subscriptions | Notes */}
+                  <div className="flex items-center gap-5 border-b border-slate-100 mb-4 text-xs font-semibold">
+                    <button
+                      onClick={() => setActiveTab('Overview')}
                       className={cn(
-                        'w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border-2 border-white shadow-2xs',
-                        selectedStudent.initialsBg || 'bg-blue-100',
-                        selectedStudent.initialsColor || 'text-[#026BFC]'
+                        'pb-2 transition-colors relative',
+                        activeTab === 'Overview'
+                          ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
+                          : 'text-slate-500 hover:text-slate-700'
                       )}
                     >
-                      {selectedStudent.initials || 'ST'}
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-slate-900 text-sm truncate">
-                        {selectedStudent.fullName}
-                      </h4>
-                      <span
-                        className={cn(
-                          'inline-block px-2 py-0.5 rounded-full text-[10px] font-medium',
-                          selectedStudent.status === 'Active'
-                            ? 'bg-[#E6F8EE] text-[#15803D]'
-                            : 'bg-[#FEE2E2] text-[#DC2626]'
-                        )}
-                      >
-                        {selectedStudent.status}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
-                      Student ID: {selectedStudent.studentIdFormatted}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors shrink-0"
-                >
-                  <Edit2 className="w-3 h-3 text-slate-500" />
-                  <span>Edit</span>
-                </button>
-              </div>
-
-              {/* 4 Tabs: Overview | Test History | Subscriptions | Notes */}
-              <div className="flex items-center gap-5 border-b border-slate-100 mb-4 text-xs font-semibold">
-                <button
-                  onClick={() => setActiveTab('Overview')}
-                  className={cn(
-                    'pb-2 transition-colors relative',
-                    activeTab === 'Overview'
-                      ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
-                      : 'text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  Overview
-                </button>
-                <button
-                  onClick={() => setActiveTab('Test History')}
-                  className={cn(
-                    'pb-2 transition-colors relative',
-                    activeTab === 'Test History'
-                      ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
-                      : 'text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  Test History
-                </button>
-                <button
-                  onClick={() => setActiveTab('Subscriptions')}
-                  className={cn(
-                    'pb-2 transition-colors relative',
-                    activeTab === 'Subscriptions'
-                      ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
-                      : 'text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  Subscriptions
-                </button>
-                <button
-                  onClick={() => setActiveTab('Notes')}
-                  className={cn(
-                    'pb-2 transition-colors relative',
-                    activeTab === 'Notes'
-                      ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
-                      : 'text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  Notes ({selectedStudent.notes?.length || 0})
-                </button>
-              </div>
-
-              {/* OVERVIEW CONTENT */}
-              {activeTab === 'Overview' && (
-                <div className="space-y-4">
-                  {/* Quick Info Grid */}
-                  <div>
-                    <h5 className="font-bold text-slate-900 text-xs mb-2">
-                      Quick Info
-                    </h5>
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{selectedStudent.email}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Joined {selectedStudent.joinedDate}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{selectedStudent.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{selectedStudent.location}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4 Metrics Mini Grid */}
-                  <div className="grid grid-cols-4 gap-2">
-                    {/* Tests Attempted */}
-                    <div className="bg-[#F0F7FF] rounded-lg p-2.5 text-center">
-                      <span className="text-base font-bold text-[#026BFC] block leading-tight">
-                        {selectedStudent.testsAttempted}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
-                        Tests Attempted
-                      </span>
-                    </div>
-
-                    {/* Avg. Score */}
-                    <div className="bg-[#F0FDF4] rounded-lg p-2.5 text-center">
-                      <span className="text-base font-bold text-[#16A34A] block leading-tight">
-                        {selectedStudent.avgScore}%
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
-                        Avg. Score
-                      </span>
-                    </div>
-
-                    {/* Best Score */}
-                    <div className="bg-[#FAF5FF] rounded-lg p-2.5 text-center">
-                      <span className="text-base font-bold text-[#9333EA] block leading-tight">
-                        {selectedStudent.bestScore || 85}%
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
-                        Best Score
-                      </span>
-                    </div>
-
-                    {/* Days Active */}
-                    <div className="bg-[#FFFBEB] rounded-lg p-2.5 text-center">
-                      <span className="text-base font-bold text-[#D97706] block leading-tight">
-                        {selectedStudent.daysActive || 12}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
-                        Days Active
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Subscription Information */}
-                  <div>
-                    <h5 className="font-bold text-slate-900 text-xs mb-2">
-                      Subscription Information
-                    </h5>
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-[#ECFDF5] text-[#059669] flex items-center justify-center shrink-0">
-                          <Crown className="w-5 h-5 text-[#10B981]" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-slate-900 text-xs block leading-tight">
-                            {selectedStudent.subscriptionPlan} Plan
-                          </span>
-                          <span className="text-[11px] text-slate-500 block mt-0.5 leading-tight">
-                            Valid Till: {selectedStudent.subscriptionValidTill || '12 Feb 2027'} (
-                            <span className="text-[#D97706] font-medium">
-                              {selectedStudent.subscriptionMonthsLeft || '4 months left'}
-                            </span>
-                            )
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => setActiveTab('Subscriptions')}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-[#026BFC] bg-white border border-blue-200 hover:bg-blue-50/60 rounded-md transition-colors shrink-0"
-                      >
-                        View Subscription
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Recent Activity */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-bold text-slate-900 text-xs">
-                        Recent Activity
-                      </h5>
-                      <button
-                        onClick={() => setActiveTab('Test History')}
-                        className="text-[11px] font-medium text-[#026BFC] hover:underline"
-                      >
-                        View All
-                      </button>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {selectedStudent.activities.length === 0 ? (
-                        <p className="text-[11px] text-slate-400 py-2">No recent activity recorded.</p>
-                      ) : (
-                        selectedStudent.activities.map((act) => {
-                          return (
-                            <div
-                              key={act.id}
-                              className="flex items-start justify-between gap-2.5 text-xs"
-                            >
-                              <div className="flex items-start gap-2.5 min-w-0">
-                                {act.type === 'completed' ? (
-                                  <div className="w-6 h-6 rounded-full bg-blue-50 text-[#026BFC] flex items-center justify-center shrink-0 mt-0.5">
-                                    <FileCheck className="w-3.5 h-3.5 text-[#026BFC]" />
-                                  </div>
-                                ) : act.type === 'attempted' ? (
-                                  <div className="w-6 h-6 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
-                                    <FileCheck className="w-3.5 h-3.5 text-purple-600" />
-                                  </div>
-                                ) : act.type === 'purchase' ? (
-                                  <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 mt-0.5">
-                                    <Tag className="w-3.5 h-3.5 text-rose-500" />
-                                  </div>
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                                    <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                                  </div>
-                                )}
-
-                                <div className="min-w-0">
-                                  <span className="font-medium text-slate-800 text-[11px] block leading-tight">
-                                    {act.title}
-                                  </span>
-                                  {act.subtitle && (
-                                    <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
-                                      {act.subtitle}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap">
-                                {act.time}
-                              </span>
-                            </div>
-                          );
-                        })
+                      Overview
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('Test History')}
+                      className={cn(
+                        'pb-2 transition-colors relative',
+                        activeTab === 'Test History'
+                          ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
+                          : 'text-slate-500 hover:text-slate-700'
                       )}
-                    </div>
+                    >
+                      Test History
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('Subscriptions')}
+                      className={cn(
+                        'pb-2 transition-colors relative',
+                        activeTab === 'Subscriptions'
+                          ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
+                          : 'text-slate-500 hover:text-slate-700'
+                      )}
+                    >
+                      Subscriptions
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('Notes')}
+                      className={cn(
+                        'pb-2 transition-colors relative',
+                        activeTab === 'Notes'
+                          ? 'text-[#026BFC] border-b-2 border-[#026BFC]'
+                          : 'text-slate-500 hover:text-slate-700'
+                      )}
+                    >
+                      Notes ({selectedStudent.notes?.length || 0})
+                    </button>
                   </div>
-                </div>
-              )}
 
-              {/* TEST HISTORY TAB */}
-              {activeTab === 'Test History' && (
-                <div className="space-y-3 text-xs py-1">
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="font-bold text-slate-800 block text-xs">
-                      Completed Tests ({selectedStudent.testsAttempted})
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Average score across all test attempts: {selectedStudent.avgScore}% • Best: {selectedStudent.bestScore || 85}%
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
+                  {/* OVERVIEW CONTENT */}
+                  {activeTab === 'Overview' && (
+                    <div className="space-y-4">
+                      {/* Quick Info Grid */}
                       <div>
-                        <span className="font-semibold block text-slate-900">WBP Constable Full Mock 1</span>
-                        <span className="text-[11px] text-slate-500">66/85 Marks (78%) • Rank #14 in District</span>
-                      </div>
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] font-bold">Passed</span>
-                    </div>
-                    <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
-                      <div>
-                        <span className="font-semibold block text-slate-900">General Science - Heat & Temperature</span>
-                        <span className="text-[11px] text-slate-500">18/30 Marks (60%) • Topic Test</span>
-                      </div>
-                      <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold">Completed</span>
-                    </div>
-                    <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
-                      <div>
-                        <span className="font-semibold block text-slate-900">WBP Constable Speed Test (Arithmetic)</span>
-                        <span className="text-[11px] text-slate-500">22/25 Marks (88%) • Rank #4</span>
-                      </div>
-                      <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-[11px] font-bold">Top 5%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SUBSCRIPTIONS TAB */}
-              {activeTab === 'Subscriptions' && (
-                <div className="space-y-3.5 text-xs py-1">
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                    <span className="font-bold text-emerald-900 block text-xs">
-                      Current Plan: {selectedStudent.subscriptionPlan} Plan
-                    </span>
-                    <span className="text-[11px] text-emerald-700 block mt-0.5">
-                      Status: Active • Valid till {selectedStudent.subscriptionValidTill || '12 Feb 2027'} ({selectedStudent.subscriptionMonthsLeft || '4 months left'})
-                    </span>
-                  </div>
-
-                  <div className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs">
-                    <span className="font-bold text-slate-900 block text-xs">Order Details</span>
-                    <div className="flex justify-between text-[11px] text-slate-600">
-                      <span>Order ID:</span>
-                      <span className="font-mono text-slate-800">#ORD-98231</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-600">
-                      <span>Amount Paid:</span>
-                      <span className="font-bold text-slate-900">₹499 (Online)</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-600">
-                      <span>Payment Gateway:</span>
-                      <span>Razorpay UPI</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100">
-                    <span className="font-bold text-slate-800 block text-xs mb-2">Admin Plan Override:</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleQuickGrantPlan('6 Months')}
-                        className="p-2 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold text-center"
-                      >
-                        Grant 6 Months
-                      </button>
-                      <button
-                        onClick={() => handleQuickGrantPlan('1 Year')}
-                        className="p-2 border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold text-center"
-                      >
-                        Grant 1 Year Pro
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* NOTES TAB */}
-              {activeTab === 'Notes' && (
-                <div className="space-y-3 text-xs py-1">
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      Add Internal Note
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={newNoteText}
-                      onChange={(e) => setNewNoteText(e.target.value)}
-                      placeholder="e.g. Student reported difficulty in reasoning, guided to mock tests..."
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#026BFC]"
-                    />
-                    <div className="flex justify-end mt-1.5">
-                      <button
-                        onClick={handleSaveNote}
-                        disabled={!newNoteText.trim()}
-                        className="px-3 py-1.5 bg-[#026BFC] hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-colors"
-                      >
-                        Save Note
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <span className="font-bold text-slate-800 block text-xs">Notes History:</span>
-                    {(!selectedStudent.notes || selectedStudent.notes.length === 0) ? (
-                      <p className="text-slate-400 text-[11px] py-2">No notes added for this student yet.</p>
-                    ) : (
-                      selectedStudent.notes.map((note) => (
-                        <div key={note.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                          <p className="text-slate-800 text-[11px] leading-relaxed">{note.text}</p>
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
-                            <span>By: {note.author}</span>
-                            <span>{note.createdAt}</span>
+                        <h5 className="font-bold text-slate-900 text-xs mb-2">Quick Info</h5>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{selectedStudent.email}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>Joined {selectedStudent.joinedDate}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{selectedStudent.phone}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{selectedStudent.location}</span>
                           </div>
                         </div>
-                      ))
-                    )}
+                      </div>
+
+                      {/* 4 Metrics Mini Grid */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {/* Tests Attempted */}
+                        <div className="bg-[#F0F7FF] rounded-lg p-2.5 text-center">
+                          <span className="text-base font-bold text-[#026BFC] block leading-tight">
+                            {selectedStudent.testsAttempted}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                            Tests Attempted
+                          </span>
+                        </div>
+
+                        {/* Avg. Score */}
+                        <div className="bg-[#F0FDF4] rounded-lg p-2.5 text-center">
+                          <span className="text-base font-bold text-[#16A34A] block leading-tight">
+                            {selectedStudent.avgScore}%
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                            Avg. Score
+                          </span>
+                        </div>
+
+                        {/* Best Score */}
+                        <div className="bg-[#FAF5FF] rounded-lg p-2.5 text-center">
+                          <span className="text-base font-bold text-[#9333EA] block leading-tight">
+                            {selectedStudent.bestScore || 85}%
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                            Best Score
+                          </span>
+                        </div>
+
+                        {/* Days Active */}
+                        <div className="bg-[#FFFBEB] rounded-lg p-2.5 text-center">
+                          <span className="text-base font-bold text-[#D97706] block leading-tight">
+                            {selectedStudent.daysActive || 12}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                            Days Active
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Subscription Information */}
+                      <div>
+                        <h5 className="font-bold text-slate-900 text-xs mb-2">
+                          Subscription Information
+                        </h5>
+                        <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-[#ECFDF5] text-[#059669] flex items-center justify-center shrink-0">
+                              <Crown className="w-5 h-5 text-[#10B981]" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-900 text-xs block leading-tight">
+                                {selectedStudent.subscriptionPlan} Plan
+                              </span>
+                              <span className="text-[11px] text-slate-500 block mt-0.5 leading-tight">
+                                Valid Till: {selectedStudent.subscriptionValidTill || '12 Feb 2027'}{' '}
+                                (
+                                <span className="text-[#D97706] font-medium">
+                                  {selectedStudent.subscriptionMonthsLeft || '4 months left'}
+                                </span>
+                                )
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setActiveTab('Subscriptions')}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#026BFC] bg-white border border-blue-200 hover:bg-blue-50/60 rounded-md transition-colors shrink-0"
+                          >
+                            View Subscription
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Recent Activity */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-bold text-slate-900 text-xs">Recent Activity</h5>
+                          <button
+                            onClick={() => setActiveTab('Test History')}
+                            className="text-[11px] font-medium text-[#026BFC] hover:underline"
+                          >
+                            View All
+                          </button>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {selectedStudent.activities.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 py-2">
+                              No recent activity recorded.
+                            </p>
+                          ) : (
+                            selectedStudent.activities.map((act) => {
+                              return (
+                                <div
+                                  key={act.id}
+                                  className="flex items-start justify-between gap-2.5 text-xs"
+                                >
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                    {act.type === 'completed' ? (
+                                      <div className="w-6 h-6 rounded-full bg-blue-50 text-[#026BFC] flex items-center justify-center shrink-0 mt-0.5">
+                                        <FileCheck className="w-3.5 h-3.5 text-[#026BFC]" />
+                                      </div>
+                                    ) : act.type === 'attempted' ? (
+                                      <div className="w-6 h-6 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
+                                        <FileCheck className="w-3.5 h-3.5 text-purple-600" />
+                                      </div>
+                                    ) : act.type === 'purchase' ? (
+                                      <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Tag className="w-3.5 h-3.5 text-rose-500" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                                        <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                                      </div>
+                                    )}
+
+                                    <div className="min-w-0">
+                                      <span className="font-medium text-slate-800 text-[11px] block leading-tight">
+                                        {act.title}
+                                      </span>
+                                      {act.subtitle && (
+                                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                                          {act.subtitle}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap">
+                                    {act.time}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TEST HISTORY TAB */}
+                  {activeTab === 'Test History' && (
+                    <div className="space-y-3 text-xs py-1">
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <span className="font-bold text-slate-800 block text-xs">
+                          Completed Tests ({selectedStudent.testsAttempted})
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Average score across all test attempts: {selectedStudent.avgScore}% •
+                          Best: {selectedStudent.bestScore || 85}%
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
+                          <div>
+                            <span className="font-semibold block text-slate-900">
+                              WBP Constable Full Mock 1
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              66/85 Marks (78%) • Rank #14 in District
+                            </span>
+                          </div>
+                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] font-bold">
+                            Passed
+                          </span>
+                        </div>
+                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
+                          <div>
+                            <span className="font-semibold block text-slate-900">
+                              General Science - Heat & Temperature
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              18/30 Marks (60%) • Topic Test
+                            </span>
+                          </div>
+                          <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px] font-bold">
+                            Completed
+                          </span>
+                        </div>
+                        <div className="p-2.5 border border-slate-200 rounded-lg bg-white flex justify-between items-center shadow-2xs">
+                          <div>
+                            <span className="font-semibold block text-slate-900">
+                              WBP Constable Speed Test (Arithmetic)
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              22/25 Marks (88%) • Rank #4
+                            </span>
+                          </div>
+                          <span className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-[11px] font-bold">
+                            Top 5%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBSCRIPTIONS TAB */}
+                  {activeTab === 'Subscriptions' && (
+                    <div className="space-y-3.5 text-xs py-1">
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <span className="font-bold text-emerald-900 block text-xs">
+                          Current Plan: {selectedStudent.subscriptionPlan} Plan
+                        </span>
+                        <span className="text-[11px] text-emerald-700 block mt-0.5">
+                          Status: Active • Valid till{' '}
+                          {selectedStudent.subscriptionValidTill || '12 Feb 2027'} (
+                          {selectedStudent.subscriptionMonthsLeft || '4 months left'})
+                        </span>
+                      </div>
+
+                      <div className="p-3 border border-slate-200 rounded-xl bg-white space-y-1.5 shadow-2xs">
+                        <span className="font-bold text-slate-900 block text-xs">
+                          Order Details
+                        </span>
+                        <div className="flex justify-between text-[11px] text-slate-600">
+                          <span>Order ID:</span>
+                          <span className="font-mono text-slate-800">#ORD-98231</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-600">
+                          <span>Amount Paid:</span>
+                          <span className="font-bold text-slate-900">₹499 (Online)</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-600">
+                          <span>Payment Gateway:</span>
+                          <span>Razorpay UPI</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <span className="font-bold text-slate-800 block text-xs mb-2">
+                          Admin Plan Override:
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleQuickGrantPlan('6 Months')}
+                            className="p-2 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold text-center"
+                          >
+                            Grant 6 Months
+                          </button>
+                          <button
+                            onClick={() => handleQuickGrantPlan('1 Year')}
+                            className="p-2 border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold text-center"
+                          >
+                            Grant 1 Year Pro
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NOTES TAB */}
+                  {activeTab === 'Notes' && (
+                    <div className="space-y-3 text-xs py-1">
+                      <div>
+                        <label className="block text-slate-700 font-semibold mb-1">
+                          Add Internal Note
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={newNoteText}
+                          onChange={(e) => setNewNoteText(e.target.value)}
+                          placeholder="e.g. Student reported difficulty in reasoning, guided to mock tests..."
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#026BFC]"
+                        />
+                        <div className="flex justify-end mt-1.5">
+                          <button
+                            onClick={handleSaveNote}
+                            disabled={!newNoteText.trim()}
+                            className="px-3 py-1.5 bg-[#026BFC] hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold text-xs transition-colors"
+                          >
+                            Save Note
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        <span className="font-bold text-slate-800 block text-xs">
+                          Notes History:
+                        </span>
+                        {!selectedStudent.notes || selectedStudent.notes.length === 0 ? (
+                          <p className="text-slate-400 text-[11px] py-2">
+                            No notes added for this student yet.
+                          </p>
+                        ) : (
+                          selectedStudent.notes.map((note) => (
+                            <div
+                              key={note.id}
+                              className="p-2.5 bg-slate-50 rounded-lg border border-slate-200"
+                            >
+                              <p className="text-slate-800 text-[11px] leading-relaxed">
+                                {note.text}
+                              </p>
+                              <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
+                                <span>By: {note.author}</span>
+                                <span>{note.createdAt}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Actions Row (Exact 3 Buttons) */}
+                  <div className="flex items-center gap-2 pt-4 mt-4 border-t border-slate-100">
+                    {/* Send Notification Button */}
+                    <button
+                      onClick={() => setIsNotificationModalOpen(true)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-[#026BFC] border border-slate-200 text-xs font-semibold rounded-lg shadow-2xs transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5 text-[#026BFC]" />
+                      <span>Send Notification</span>
+                    </button>
+
+                    {/* Reset Password Button */}
+                    <button
+                      onClick={() => setIsResetPasswordModalOpen(true)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg shadow-2xs transition-colors"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Reset Password</span>
+                    </button>
+
+                    {/* Delete Student Button */}
+                    <button
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-rose-50/60 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Delete Student</span>
+                    </button>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Bottom Actions Row (Exact 3 Buttons) */}
-              <div className="flex items-center gap-2 pt-4 mt-4 border-t border-slate-100">
-                {/* Send Notification Button */}
-                <button
-                  onClick={() => setIsNotificationModalOpen(true)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-[#026BFC] border border-slate-200 text-xs font-semibold rounded-lg shadow-2xs transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5 text-[#026BFC]" />
-                  <span>Send Notification</span>
-                </button>
-
-                {/* Reset Password Button */}
-                <button
-                  onClick={() => setIsResetPasswordModalOpen(true)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg shadow-2xs transition-colors"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Reset Password</span>
-                </button>
-
-                {/* Delete Student Button */}
-                <button
-                  onClick={() => setIsDeleteModalOpen(true)}
-                  className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-rose-50/60 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Delete Student</span>
-                </button>
-              </div>
-            </>
+            </div>
           )}
-        </div>
-      )}
         </div>
       </div>
 
@@ -2427,7 +2469,10 @@ export const AdminStudents: React.FC = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleAddStudentSubmit} className="p-6 overflow-y-auto space-y-3.5 text-xs flex-1">
+            <form
+              onSubmit={handleAddStudentSubmit}
+              className="p-6 overflow-y-auto space-y-3.5 text-xs flex-1"
+            >
               <div>
                 <label className="block text-slate-600 font-medium mb-1">Full Name *</label>
                 <input
@@ -2531,6 +2576,7 @@ export const AdminStudents: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isWorking}
                   className="px-5 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm"
                 >
                   Add Student
@@ -2560,7 +2606,8 @@ export const AdminStudents: React.FC = () => {
               </button>
             </div>
             <p className="text-xs text-slate-500 mb-4">
-              Upload a `.csv` file containing student records with name, email, phone, and target exam.
+              Upload a `.csv` file containing student records with name, email, phone, and target
+              exam.
             </p>
 
             <div
@@ -2742,6 +2789,7 @@ export const AdminStudents: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isWorking}
                   className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm"
                 >
                   Save Changes
@@ -2772,10 +2820,7 @@ export const AdminStudents: React.FC = () => {
             </div>
             <p className="text-xs text-slate-500 mb-4">
               Send a targeted push notification or in-app message to{' '}
-              <span className="font-semibold text-slate-800">
-                {selectedStudent?.fullName}
-              </span>
-              .
+              <span className="font-semibold text-slate-800">{selectedStudent?.fullName}</span>.
             </p>
 
             <form onSubmit={handleSendNotification} className="space-y-3.5 text-xs">
@@ -2816,6 +2861,7 @@ export const AdminStudents: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isWorking}
                   className="px-4 py-2 text-xs font-semibold text-white bg-[#026BFC] hover:bg-blue-600 rounded-lg shadow-sm"
                 >
                   Send Now
@@ -2838,10 +2884,7 @@ export const AdminStudents: React.FC = () => {
             <h4 className="text-base font-bold text-slate-900">Reset Student Password</h4>
             <p className="text-xs text-slate-500 mt-1">
               Are you sure you want to send password reset link to{' '}
-              <span className="font-semibold text-slate-800">
-                {selectedStudent?.email}
-              </span>
-              ?
+              <span className="font-semibold text-slate-800">{selectedStudent?.email}</span>?
             </p>
 
             <div className="flex items-center justify-end gap-2.5 mt-5">
@@ -2874,10 +2917,8 @@ export const AdminStudents: React.FC = () => {
             <h4 className="text-base font-bold text-slate-900">Delete Student</h4>
             <p className="text-xs text-slate-500 mt-1">
               Are you sure you want to permanently delete{' '}
-              <span className="font-semibold text-slate-800">
-                "{selectedStudent?.fullName}"
-              </span>
-              ? All attempt histories and subscription access will be revoked.
+              <span className="font-semibold text-slate-800">"{selectedStudent?.fullName}"</span>?
+              All attempt histories and subscription access will be revoked.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 mt-5">
@@ -2889,6 +2930,7 @@ export const AdminStudents: React.FC = () => {
               </button>
               <button
                 onClick={handleDeleteStudent}
+                disabled={isWorking}
                 className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm"
               >
                 Delete Student

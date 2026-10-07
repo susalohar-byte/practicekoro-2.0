@@ -1,3 +1,4 @@
+import { accountManagementApi } from './accountManagement';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { isAdminEmail } from '@/lib/authPolicy';
 import {
@@ -65,21 +66,23 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return enrichAdminSubscriptionPayments(data.map((d) => ({
-            id: d.id,
-            userId: d.user_id,
-            studentName: d.student_name || 'Student Aspirant',
-            studentEmail: d.student_email || '',
-            studentPhone: d.student_phone || undefined,
-            planId: d.plan_id,
-            planTitle: d.plan_title || 'Pro Pass',
-            status: d.status,
-            startsAt: d.starts_at,
-            expiresAt: d.expires_at,
-            paymentId: d.payment_id || undefined,
-            daysRemaining: Number(d.days_remaining || 0),
-            createdAt: d.created_at,
-          })));
+          return enrichAdminSubscriptionPayments(
+            data.map((d) => ({
+              id: d.id,
+              userId: d.user_id,
+              studentName: d.student_name || 'Student Aspirant',
+              studentEmail: d.student_email || '',
+              studentPhone: d.student_phone || undefined,
+              planId: d.plan_id,
+              planTitle: d.plan_title || 'Pro Pass',
+              status: d.status,
+              startsAt: d.starts_at,
+              expiresAt: d.expires_at,
+              paymentId: d.payment_id || undefined,
+              daysRemaining: Number(d.days_remaining || 0),
+              createdAt: d.created_at,
+            }))
+          );
         }
       } catch (err) {
         console.warn('Could not fetch admin subscriptions from RPC, trying direct query:', err);
@@ -104,6 +107,7 @@ export const adminCommerceApi = {
           `
           )
           .order('created_at', { ascending: false })
+          .order('id')
           .range(offset, offset + limit - 1);
 
         if (status && status !== 'all') {
@@ -112,41 +116,44 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return enrichAdminSubscriptionPayments(data
-            .filter((d: any) => {
-              if (!search) return true;
-              const s = search.toLowerCase();
-              const name = d.profiles?.full_name?.toLowerCase() || '';
-              const email = d.profiles?.email?.toLowerCase() || '';
-              return name.includes(s) || email.includes(s);
-            })
-            .map((d: any) => {
-              const now = Date.now();
-              const exp = new Date(d.expires_at).getTime();
-              const daysRemaining = Math.max(0, Math.ceil((exp - now) / (1000 * 60 * 60 * 24)));
-              return {
-                id: d.id,
-                userId: d.user_id,
-                studentName: d.profiles?.full_name || 'Registered Student',
-                studentEmail: d.profiles?.email || '',
-                studentPhone: d.profiles?.phone || undefined,
-                planId: d.plan_id,
-                planTitle: d.subscription_plans?.title || 'Pro Pass',
-                status: d.status,
-                startsAt: d.starts_at,
-                expiresAt: d.expires_at,
-                paymentId: d.payment_id || undefined,
-                daysRemaining,
-                createdAt: d.created_at,
-              };
-            }));
+          return enrichAdminSubscriptionPayments(
+            data
+              .filter((d: any) => {
+                if (!search) return true;
+                const s = search.toLowerCase();
+                const name = d.profiles?.full_name?.toLowerCase() || '';
+                const email = d.profiles?.email?.toLowerCase() || '';
+                return name.includes(s) || email.includes(s);
+              })
+              .map((d: any) => {
+                const now = Date.now();
+                const exp = new Date(d.expires_at).getTime();
+                const daysRemaining = Math.max(0, Math.ceil((exp - now) / (1000 * 60 * 60 * 24)));
+                return {
+                  id: d.id,
+                  userId: d.user_id,
+                  studentName: d.profiles?.full_name || 'Registered Student',
+                  studentEmail: d.profiles?.email || '',
+                  studentPhone: d.profiles?.phone || undefined,
+                  planId: d.plan_id,
+                  planTitle: d.subscription_plans?.title || 'Pro Pass',
+                  status: d.status,
+                  startsAt: d.starts_at,
+                  expiresAt: d.expires_at,
+                  paymentId: d.payment_id || undefined,
+                  daysRemaining,
+                  createdAt: d.created_at,
+                };
+              })
+          );
         }
       } catch (err) {
         console.warn('Direct query on subscriptions failed:', err);
       }
     }
 
-    // Return empty list when no real database subscriptions exist
+    // Never label a failed backend read as a complete empty dataset.
+    if (isSupabaseConfigured) throw new Error('Could not load subscriptions from the backend.');
     return [];
   },
 
@@ -166,27 +173,29 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return enrichAdminPaymentSubscriptions(data.map((d) => ({
-            id: d.id,
-            userId: d.user_id,
-            studentName: d.student_name || 'Student Aspirant',
-            studentEmail: d.student_email || '',
-            planId: d.plan_id || undefined,
-            planTitle: d.plan_title || 'Pro Pass',
-            amount: Number(d.amount),
-            currency: d.currency || 'INR',
-            gateway: d.gateway || 'razorpay',
-            orderId: d.order_id || undefined,
-            razorpayOrderId: d.razorpay_order_id || undefined,
-            transactionId: d.transaction_id || undefined,
-            razorpayPaymentId: d.razorpay_payment_id || undefined,
-            status: d.status,
-            refundId: d.refund_id || undefined,
-            refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
-            refundReason: d.refund_reason || undefined,
-            refundedAt: d.refunded_at || undefined,
-            createdAt: d.created_at,
-          })));
+          return enrichAdminPaymentSubscriptions(
+            data.map((d) => ({
+              id: d.id,
+              userId: d.user_id,
+              studentName: d.student_name || 'Student Aspirant',
+              studentEmail: d.student_email || '',
+              planId: d.plan_id || undefined,
+              planTitle: d.plan_title || 'Pro Pass',
+              amount: Number(d.amount),
+              currency: d.currency || 'INR',
+              gateway: d.gateway || 'razorpay',
+              orderId: d.order_id || undefined,
+              razorpayOrderId: d.razorpay_order_id || undefined,
+              transactionId: d.transaction_id || undefined,
+              razorpayPaymentId: d.razorpay_payment_id || undefined,
+              status: d.status,
+              refundId: d.refund_id || undefined,
+              refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
+              refundReason: d.refund_reason || undefined,
+              refundedAt: d.refunded_at || undefined,
+              createdAt: d.created_at,
+            }))
+          );
         }
       } catch (err) {
         console.warn('Could not fetch admin payments from RPC, trying direct query:', err);
@@ -219,6 +228,7 @@ export const adminCommerceApi = {
           `
           )
           .order('created_at', { ascending: false })
+          .order('id')
           .range(offset, offset + limit - 1);
 
         if (status && status !== 'all') {
@@ -227,43 +237,45 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return enrichAdminPaymentSubscriptions(data
-            .filter((d: any) => {
-              if (!search) return true;
-              const s = search.toLowerCase();
-              const name = d.profiles?.full_name?.toLowerCase() || '';
-              const email = d.profiles?.email?.toLowerCase() || '';
-              const orderId = (d.order_id || d.razorpay_order_id || '').toLowerCase();
-              return name.includes(s) || email.includes(s) || orderId.includes(s);
-            })
-            .map((d: any) => ({
-              id: d.id,
-              userId: d.user_id,
-              studentName: d.profiles?.full_name || 'Registered Student',
-              studentEmail: d.profiles?.email || '',
-              planId: d.plan_id || undefined,
-              planTitle: d.subscription_plans?.title || 'Pro Pass',
-              amount: Number(d.amount || 0),
-              currency: d.currency || 'INR',
-              gateway: d.gateway || 'razorpay',
-              orderId: d.order_id || undefined,
-              razorpayOrderId: d.razorpay_order_id || undefined,
-              transactionId: d.transaction_id || undefined,
-              razorpayPaymentId: d.razorpay_payment_id || undefined,
-              status: d.status,
-              refundId: d.refund_id || undefined,
-              refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
-              refundReason: d.refund_reason || undefined,
-              refundedAt: d.refunded_at || undefined,
-              createdAt: d.created_at,
-            })));
+          return enrichAdminPaymentSubscriptions(
+            data
+              .filter((d: any) => {
+                if (!search) return true;
+                const s = search.toLowerCase();
+                const name = d.profiles?.full_name?.toLowerCase() || '';
+                const email = d.profiles?.email?.toLowerCase() || '';
+                const orderId = (d.order_id || d.razorpay_order_id || '').toLowerCase();
+                return name.includes(s) || email.includes(s) || orderId.includes(s);
+              })
+              .map((d: any) => ({
+                id: d.id,
+                userId: d.user_id,
+                studentName: d.profiles?.full_name || 'Registered Student',
+                studentEmail: d.profiles?.email || '',
+                planId: d.plan_id || undefined,
+                planTitle: d.subscription_plans?.title || 'Pro Pass',
+                amount: Number(d.amount || 0),
+                currency: d.currency || 'INR',
+                gateway: d.gateway || 'razorpay',
+                orderId: d.order_id || undefined,
+                razorpayOrderId: d.razorpay_order_id || undefined,
+                transactionId: d.transaction_id || undefined,
+                razorpayPaymentId: d.razorpay_payment_id || undefined,
+                status: d.status,
+                refundId: d.refund_id || undefined,
+                refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
+                refundReason: d.refund_reason || undefined,
+                refundedAt: d.refunded_at || undefined,
+                createdAt: d.created_at,
+              }))
+          );
         }
       } catch (err) {
         console.warn('Direct query on payments failed:', err);
       }
     }
 
-    // Return empty list when no real database payments exist
+    if (isSupabaseConfigured) throw new Error('Could not load payments from the backend.');
     return [];
   },
 
@@ -595,8 +607,12 @@ export const adminCommerceApi = {
       try {
         let query = supabase
           .from('profiles')
-          .select('id, full_name, email, phone, avatar_url, role, created_at, category, gender, district, state, target_exam_title')
+          .select(
+            'id, full_name, email, phone, avatar_url, role, created_at, category, gender, district, state, target_exam_title'
+          )
+          .eq('role', 'student')
           .order('created_at', { ascending: false })
+          .order('id')
           .range(offset, offset + limit - 1);
 
         if (search) {
@@ -608,6 +624,7 @@ export const adminCommerceApi = {
           console.warn('Direct profiles query failed:', profileError.message);
         }
 
+        if (!profileError && Array.isArray(profileData) && profileData.length === 0) return [];
         if (!profileError && Array.isArray(profileData) && profileData.length > 0) {
           // Filter out admins
           const studentProfiles = profileData.filter((d: any) => {
@@ -685,7 +702,7 @@ export const adminCommerceApi = {
       }
     }
 
-    // Return empty list when no real registered students exist in database
+    if (isSupabaseConfigured) throw new Error('Could not load students from the backend.');
     return [];
   },
 
@@ -1021,7 +1038,10 @@ export const adminCommerceApi = {
           .maybeSingle();
         if (error) return { success: false, error: error.message };
         if (!data || data.id !== subscriptionId || data.status !== 'cancelled') {
-          return { success: false, error: 'No active subscription was cancelled. Refresh and try again.' };
+          return {
+            success: false,
+            error: 'No active subscription was cancelled. Refresh and try again.',
+          };
         }
         return { success: true, expiresAt: data.expires_at };
       } catch (err) {
@@ -1145,7 +1165,8 @@ export const adminCommerceApi = {
       try {
         const { data, error } = await supabase
           .from('test_attempts')
-          .select(`
+          .select(
+            `
             id,
             user_id,
             test_id,
@@ -1164,8 +1185,10 @@ export const adminCommerceApi = {
             created_at,
             profiles:user_id(id, full_name, email, avatar_url),
             tests:test_id(id, title, test_type, exam_id, total_questions, duration_minutes, exams:exam_id(title))
-          `)
+          `
+          )
           .order('created_at', { ascending: false })
+          .order('id')
           .range(offset, offset + limit - 1);
 
         if (!error && Array.isArray(data)) {
@@ -1247,7 +1270,9 @@ export const adminCommerceApi = {
       const [attemptsRes, profilesRes, testsRes, examsRes, subjectsRes] = await Promise.all([
         supabase
           .from('test_attempts')
-          .select('id, user_id, test_id, status, score, total_marks, correct_count, wrong_count, skipped_count, accuracy, time_spent_seconds, created_at, end_time')
+          .select(
+            'id, user_id, test_id, status, score, total_marks, correct_count, wrong_count, skipped_count, accuracy, time_spent_seconds, created_at, end_time'
+          )
           .order('created_at', { ascending: false }),
         supabase
           .from('profiles')
@@ -1255,12 +1280,8 @@ export const adminCommerceApi = {
         supabase
           .from('tests')
           .select('id, title, test_type, exam_id, subject_id, total_questions, total_marks'),
-        supabase
-          .from('exams')
-          .select('id, title'),
-        supabase
-          .from('subjects')
-          .select('id, name'),
+        supabase.from('exams').select('id, title'),
+        supabase.from('subjects').select('id, name'),
       ]);
 
       const rawAttempts = Array.isArray(attemptsRes.data) ? attemptsRes.data : [];
@@ -1333,7 +1354,13 @@ export const adminCommerceApi = {
           const test = testsMap.get(a.test_id);
           const tType = (test?.test_type || '').toLowerCase();
           if (typeFilter.includes('full mock')) return tType === 'full_mock' || tType === 'full';
-          if (typeFilter.includes('topic')) return tType === 'topic' || tType === 'topic_test' || tType === 'chapter_mock' || tType === 'subject_mock';
+          if (typeFilter.includes('topic'))
+            return (
+              tType === 'topic' ||
+              tType === 'topic_test' ||
+              tType === 'chapter_mock' ||
+              tType === 'subject_mock'
+            );
           if (typeFilter.includes('pyq')) return tType === 'pyq' || tType === 'previous_year';
           return true;
         });
@@ -1344,8 +1371,14 @@ export const adminCommerceApi = {
         const examTerm = filters.exam.toLowerCase().trim();
         completedAttempts = completedAttempts.filter((a: any) => {
           const test = testsMap.get(a.test_id);
-          const examTitle = (test?.exam_id ? examsMap.get(test.exam_id) || '' : '').toLowerCase().trim();
-          return examTitle.includes(examTerm) || examTerm.includes(examTitle) || test?.exam_id === filters.exam;
+          const examTitle = (test?.exam_id ? examsMap.get(test.exam_id) || '' : '')
+            .toLowerCase()
+            .trim();
+          return (
+            examTitle.includes(examTerm) ||
+            examTerm.includes(examTitle) ||
+            test?.exam_id === filters.exam
+          );
         });
       }
 
@@ -1354,8 +1387,14 @@ export const adminCommerceApi = {
         const subjTerm = filters.subject.toLowerCase().trim();
         completedAttempts = completedAttempts.filter((a: any) => {
           const test = testsMap.get(a.test_id);
-          const subjName = (test?.subject_id ? subjectsMap.get(test.subject_id) || '' : '').toLowerCase().trim();
-          return subjName.includes(subjTerm) || subjTerm.includes(subjName) || test?.subject_id === filters.subject;
+          const subjName = (test?.subject_id ? subjectsMap.get(test.subject_id) || '' : '')
+            .toLowerCase()
+            .trim();
+          return (
+            subjName.includes(subjTerm) ||
+            subjTerm.includes(subjName) ||
+            test?.subject_id === filters.subject
+          );
         });
       }
 
@@ -1365,7 +1404,12 @@ export const adminCommerceApi = {
           completedAttempts = completedAttempts.filter((a: any) => {
             const test = testsMap.get(a.test_id);
             const tType = (test?.test_type || '').toLowerCase();
-            return tType === 'topic' || tType === 'topic_test' || tType === 'chapter_mock' || tType === 'subject_mock';
+            return (
+              tType === 'topic' ||
+              tType === 'topic_test' ||
+              tType === 'chapter_mock' ||
+              tType === 'subject_mock'
+            );
           });
         } else if (filters.scope === 'By Test Series') {
           completedAttempts = completedAttempts.filter((a: any) => {
@@ -1402,7 +1446,11 @@ export const adminCommerceApi = {
         const diffDays = Math.round(diffHour / 24);
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays} days ago`;
-        return new Date(time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        return new Date(time).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
       };
 
       // Helper for Initials
@@ -1435,8 +1483,16 @@ export const adminCommerceApi = {
         let latestDate = 0;
         let maxPercentage = 0;
 
-        const subjectMap = new Map<string, { totalScore: number; totalMarks: number; count: number }>();
-        const recentAttempts: { title: string; scorePercent: number; timeAgo: string; iconBg: string }[] = [];
+        const subjectMap = new Map<
+          string,
+          { totalScore: number; totalMarks: number; count: number }
+        >();
+        const recentAttempts: {
+          title: string;
+          scorePercent: number;
+          timeAgo: string;
+          iconBg: string;
+        }[] = [];
 
         userAttempts.forEach((att: any, idx: number) => {
           const test = testsMap.get(att.test_id);
@@ -1458,9 +1514,10 @@ export const adminCommerceApi = {
           const timeVal = new Date(att.end_time || att.created_at || 0).getTime();
           if (timeVal > latestDate) latestDate = timeVal;
 
-          const subj = (test?.subject_id ? subjectsMap.get(test.subject_id) : '') ||
-                       (test?.exam_id ? examsMap.get(test.exam_id) : '') ||
-                       'General Knowledge';
+          const subj =
+            (test?.subject_id ? subjectsMap.get(test.subject_id) : '') ||
+            (test?.exam_id ? examsMap.get(test.exam_id) : '') ||
+            'General Knowledge';
 
           if (!subjectMap.has(subj)) {
             subjectMap.set(subj, { totalScore: 0, totalMarks: 0, count: 0 });
@@ -1475,20 +1532,33 @@ export const adminCommerceApi = {
               title: test?.title || 'Practice Mock Test',
               scorePercent: perc,
               timeAgo: formatTimeAgo(att.end_time || att.created_at),
-              iconBg: idx === 0 ? 'bg-blue-100 text-blue-600' : idx === 1 ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600',
+              iconBg:
+                idx === 0
+                  ? 'bg-blue-100 text-blue-600'
+                  : idx === 1
+                    ? 'bg-purple-100 text-purple-600'
+                    : 'bg-amber-100 text-amber-600',
             });
           }
         });
 
-        const questionsAnswered = (totalCorrect + totalWrong + totalSkipped) || testsAttempted * 25;
+        const questionsAnswered = totalCorrect + totalWrong + totalSkipped || testsAttempted * 25;
         const avgScore = Math.round((totalScore / Math.max(1, totalMaxMarks)) * 100);
-        const accuracy = (totalCorrect + totalWrong) > 0
-          ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100)
-          : avgScore;
+        const accuracy =
+          totalCorrect + totalWrong > 0
+            ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100)
+            : avgScore;
 
-        const colors = ['bg-blue-600', 'bg-cyan-500', 'bg-indigo-600', 'bg-purple-600', 'bg-emerald-500'];
+        const colors = [
+          'bg-blue-600',
+          'bg-cyan-500',
+          'bg-indigo-600',
+          'bg-purple-600',
+          'bg-emerald-500',
+        ];
         let colorIdx = 0;
-        const subjectPerformance: { subject: string; scorePercent: number; barColor: string }[] = [];
+        const subjectPerformance: { subject: string; scorePercent: number; barColor: string }[] =
+          [];
         subjectMap.forEach((val, sName) => {
           subjectPerformance.push({
             subject: sName,
@@ -1507,8 +1577,14 @@ export const adminCommerceApi = {
         }
 
         const studentId = profile.id
-          ? `PK${profile.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`
-          : `PK${String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`;
+          ? `PK${profile.id
+              .replace(/[^a-zA-Z0-9]/g, '')
+              .slice(0, 6)
+              .toUpperCase()}`
+          : `PK${String(userId)
+              .replace(/[^a-zA-Z0-9]/g, '')
+              .slice(0, 6)
+              .toUpperCase()}`;
 
         students.push({
           rank: 0,
@@ -1577,7 +1653,9 @@ export const adminCommerceApi = {
     return { success: true };
   },
 
-  async bulkDeleteAdminTestAttempts(attemptIds: string[]): Promise<{ success: boolean; error?: string }> {
+  async bulkDeleteAdminTestAttempts(
+    attemptIds: string[]
+  ): Promise<{ success: boolean; error?: string }> {
     if (attemptIds.length === 0) return { success: true };
     if (isSupabaseConfigured) {
       try {
@@ -1595,7 +1673,7 @@ export const adminCommerceApi = {
     return { success: true };
   },
 
-  async updateStudentProfile(
+  updateStudentProfile(
     userId: string,
     updates: {
       fullName?: string;
@@ -1605,45 +1683,12 @@ export const adminCommerceApi = {
       district?: string;
       status?: string;
     }
-  ): Promise<{ success: boolean; error?: string }> {
-    if (isSupabaseConfigured) {
-      try {
-        const payload: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (updates.fullName !== undefined) payload.full_name = updates.fullName;
-        if (updates.email !== undefined) payload.email = updates.email;
-        if (updates.phone !== undefined) payload.phone = updates.phone;
-        if (updates.targetExam !== undefined) payload.target_exam = updates.targetExam;
-        if (updates.district !== undefined) payload.district = updates.district;
-
-        const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
-        if (error) return { success: false, error: error.message };
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Update student profile failed',
-        };
-      }
-    }
-    return { success: true };
+  ) {
+    return accountManagementApi.updateStudentProfile(userId, updates);
   },
 
-  async deleteStudentProfile(userId: string): Promise<{ success: boolean; error?: string }> {
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('profiles').delete().eq('id', userId);
-        if (error) return { success: false, error: error.message };
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Delete student failed',
-        };
-      }
-    }
-    return { success: true };
+  deleteStudentProfile(userId: string) {
+    return accountManagementApi.deleteStudentProfile(userId);
   },
 
   async bulkGrantStudentSubscription(
@@ -1751,7 +1796,10 @@ export const adminCommerceApi = {
         if (!rpcErr) {
           rpcWorked = true;
         } else {
-          console.warn('RPC mark_payment_refunded call returned error, falling back to direct SQL update:', rpcErr);
+          console.warn(
+            'RPC mark_payment_refunded call returned error, falling back to direct SQL update:',
+            rpcErr
+          );
         }
       } catch (err) {
         console.warn('RPC mark_payment_refunded error:', err);
@@ -1796,7 +1844,9 @@ export const adminCommerceApi = {
                 expires_at: nowIso,
                 updated_at: nowIso,
               })
-              .or(`payment_id.eq.${paymentId},and(user_id.eq.${payData.user_id},plan_id.eq.${payData.plan_id})`)
+              .or(
+                `payment_id.eq.${paymentId},and(user_id.eq.${payData.user_id},plan_id.eq.${payData.plan_id})`
+              )
               .eq('status', 'active');
 
             try {
@@ -1873,7 +1923,9 @@ export const adminCommerceApi = {
           if (storedStudents) {
             const students = JSON.parse(storedStudents);
             const updatedStudents = students.map((s: any) =>
-              s.id === paymentRecord.user_id ? { ...s, isPro: false, subscriptionStatus: 'cancelled' } : s
+              s.id === paymentRecord.user_id
+                ? { ...s, isPro: false, subscriptionStatus: 'cancelled' }
+                : s
             );
             localStorage.setItem('practicekoro_students', JSON.stringify(updatedStudents));
           }
@@ -1891,9 +1943,7 @@ export const adminCommerceApi = {
    * Supports both automated Razorpay API refunds via Supabase Edge Function
    * and manual/dashboard recorded refunds.
    */
-  async processPaymentRefund(
-    params: ProcessRefundRequest
-  ): Promise<ProcessRefundResponse> {
+  async processPaymentRefund(params: ProcessRefundRequest): Promise<ProcessRefundResponse> {
     const {
       paymentId,
       refundAmount,
@@ -1923,7 +1973,10 @@ export const adminCommerceApi = {
         if (edgeError) {
           let detail = edgeError.message || 'Razorpay refund processing failed';
           try {
-            if ((edgeError as any)?.context && typeof (edgeError as any).context.json === 'function') {
+            if (
+              (edgeError as any)?.context &&
+              typeof (edgeError as any).context.json === 'function'
+            ) {
               const body = await (edgeError as any).context.json();
               if (body?.error) detail = body.error;
             }
@@ -2494,32 +2547,32 @@ export const adminCommerceApi = {
 
     if (isSupabaseConfigured) {
       try {
-        const startOfMonthIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        const startOfMonthIso = new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1
+        ).toISOString();
 
         // Concurrently query database for high-efficiency loading
-        const [
-          allPaymentsRes,
-          monthPaymentsRes,
-          subsRes,
-          profilesRes,
-          attemptsRes,
-          answersRes,
-        ] = await Promise.all([
-          supabase.from('payments').select('amount, user_id, status').eq('status', 'completed'),
-          supabase
-            .from('payments')
-            .select('amount')
-            .eq('status', 'completed')
-            .gte('created_at', startOfMonthIso),
-          supabase
-            .from('subscriptions')
-            .select('user_id, status, expires_at')
-            .eq('status', 'active'),
-          supabase.from('profiles').select('id, full_name, email, role, created_at'),
-          supabase
-            .from('test_attempts')
-            .select('id, user_id, status, score, total_marks, correct_count, wrong_count, accuracy, created_at'),
-          supabase.from('attempt_answers').select(`
+        const [allPaymentsRes, monthPaymentsRes, subsRes, profilesRes, attemptsRes, answersRes] =
+          await Promise.all([
+            supabase.from('payments').select('amount, user_id, status').eq('status', 'completed'),
+            supabase
+              .from('payments')
+              .select('amount')
+              .eq('status', 'completed')
+              .gte('created_at', startOfMonthIso),
+            supabase
+              .from('subscriptions')
+              .select('user_id, status, expires_at')
+              .eq('status', 'active'),
+            supabase.from('profiles').select('id, full_name, email, role, created_at'),
+            supabase
+              .from('test_attempts')
+              .select(
+                'id, user_id, status, score, total_marks, correct_count, wrong_count, accuracy, created_at'
+              ),
+            supabase.from('attempt_answers').select(`
             question_id,
             is_correct,
             selected_option,
@@ -2534,7 +2587,7 @@ export const adminCommerceApi = {
               chapters ( id, name )
             )
           `),
-        ]);
+          ]);
 
         if (allPaymentsRes.data && Array.isArray(allPaymentsRes.data)) {
           totalRevenue = allPaymentsRes.data.reduce((acc, p) => acc + Number(p.amount || 0), 0);
@@ -2548,9 +2601,7 @@ export const adminCommerceApi = {
 
         if (subsRes.data && Array.isArray(subsRes.data)) {
           const nowIso = new Date().toISOString();
-          const validSubs = subsRes.data.filter(
-            (s) => !s.expires_at || s.expires_at > nowIso
-          );
+          const validSubs = subsRes.data.filter((s) => !s.expires_at || s.expires_at > nowIso);
           activeSubscriptions = validSubs.length;
           validSubs.forEach((s) => activeSubUserIds.add(s.user_id));
         }
@@ -2657,7 +2708,9 @@ export const adminCommerceApi = {
           questionsAttempted = totalTests * 20;
           const sampleAcc = Math.max(45, 96 - idx * 4.5);
           correctCount = Math.round((questionsAttempted * sampleAcc) / 100);
-          totalScore = Number((correctCount * 2 - (questionsAttempted - correctCount) * 0.5).toFixed(1));
+          totalScore = Number(
+            (correctCount * 2 - (questionsAttempted - correctCount) * 0.5).toFixed(1)
+          );
         }
 
         const accuracy =
@@ -2692,7 +2745,10 @@ export const adminCommerceApi = {
     const topStudent = studentRankings.length > 0 ? studentRankings[0] : undefined;
 
     // Build Performance Trend (last 7 data points)
-    const trendMap = new Map<string, { attempts: number; totalScore: number; count: number; totalAcc: number }>();
+    const trendMap = new Map<
+      string,
+      { attempts: number; totalScore: number; count: number; totalAcc: number }
+    >();
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
@@ -2712,36 +2768,41 @@ export const adminCommerceApi = {
       }
     });
 
-    const performanceTrend: PerformanceTrendPoint[] = Array.from(trendMap.entries()).map(([dateStr, val], idx) => {
-      const d = new Date(dateStr + 'T12:00:00');
-      const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      const attemptsCount =
-        val.attempts > 0 ? val.attempts : !isSupabaseConfigured ? Math.max(3, (idx + 2) * 2) : 0;
-      const averageAccuracy =
-        val.count > 0
-          ? Number((val.totalAcc / val.count).toFixed(1))
-          : !isSupabaseConfigured
-            ? Number((72 + (idx % 4) * 3).toFixed(1))
-            : 0;
-      const averageScore =
-        val.count > 0
-          ? Number((val.totalScore / val.count).toFixed(1))
-          : !isSupabaseConfigured
-            ? Number((38 + idx * 4).toFixed(1))
-            : 0;
+    const performanceTrend: PerformanceTrendPoint[] = Array.from(trendMap.entries()).map(
+      ([dateStr, val], idx) => {
+        const d = new Date(dateStr + 'T12:00:00');
+        const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const attemptsCount =
+          val.attempts > 0 ? val.attempts : !isSupabaseConfigured ? Math.max(3, (idx + 2) * 2) : 0;
+        const averageAccuracy =
+          val.count > 0
+            ? Number((val.totalAcc / val.count).toFixed(1))
+            : !isSupabaseConfigured
+              ? Number((72 + (idx % 4) * 3).toFixed(1))
+              : 0;
+        const averageScore =
+          val.count > 0
+            ? Number((val.totalScore / val.count).toFixed(1))
+            : !isSupabaseConfigured
+              ? Number((38 + idx * 4).toFixed(1))
+              : 0;
 
-      return {
-        date: dateStr,
-        label,
-        attemptsCount,
-        averageAccuracy,
-        averageScore,
-      };
-    });
+        return {
+          date: dateStr,
+          label,
+          attemptsCount,
+          averageAccuracy,
+          averageScore,
+        };
+      }
+    );
 
     // ─── Question & Topic Insights ──────────────────────────────────────
     const mostWrongQuestions: QuestionInsightRow[] = [];
-    const topicMap = new Map<string, { chapterName: string; subjectName: string; total: number; correct: number }>();
+    const topicMap = new Map<
+      string,
+      { chapterName: string; subjectName: string; total: number; correct: number }
+    >();
     const subjectMap = new Map<string, { subjectName: string; total: number; correct: number }>();
 
     if (answersData.length > 0) {
@@ -2766,7 +2827,12 @@ export const adminCommerceApi = {
         const chapKey = `${chapName}___${subName}`;
 
         if (!topicMap.has(chapKey)) {
-          topicMap.set(chapKey, { chapterName: chapName, subjectName: subName, total: 0, correct: 0 });
+          topicMap.set(chapKey, {
+            chapterName: chapName,
+            subjectName: subName,
+            total: 0,
+            correct: 0,
+          });
         }
         const tItem = topicMap.get(chapKey)!;
         tItem.total += 1;
@@ -2783,8 +2849,10 @@ export const adminCommerceApi = {
 
       // Top Wrong Questions
       Array.from(qMap.entries()).forEach(([qId, data]) => {
-        const failureRate = data.total > 0 ? Number(((data.wrong / data.total) * 100).toFixed(1)) : 0;
-        const accuracyRate = data.total > 0 ? Number(((data.correct / data.total) * 100).toFixed(1)) : 0;
+        const failureRate =
+          data.total > 0 ? Number(((data.wrong / data.total) * 100).toFixed(1)) : 0;
+        const accuracyRate =
+          data.total > 0 ? Number(((data.correct / data.total) * 100).toFixed(1)) : 0;
 
         mostWrongQuestions.push({
           questionId: qId,
@@ -2800,7 +2868,9 @@ export const adminCommerceApi = {
         });
       });
 
-      mostWrongQuestions.sort((a, b) => b.failureRate - a.failureRate || b.wrongCount - a.wrongCount);
+      mostWrongQuestions.sort(
+        (a, b) => b.failureRate - a.failureRate || b.wrongCount - a.wrongCount
+      );
     }
 
     // If answers data was empty AND Supabase is not configured, provide demo diagnostic items
@@ -2831,7 +2901,8 @@ export const adminCommerceApi = {
     const weakestTopics: TopicInsightRow[] = [];
     if (topicMap.size > 0) {
       Array.from(topicMap.entries()).forEach(([key, val]) => {
-        const accuracyRate = val.total > 0 ? Number(((val.correct / val.total) * 100).toFixed(1)) : 0;
+        const accuracyRate =
+          val.total > 0 ? Number(((val.correct / val.total) * 100).toFixed(1)) : 0;
         weakestTopics.push({
           chapterId: key,
           chapterName: val.chapterName,
@@ -2865,7 +2936,8 @@ export const adminCommerceApi = {
     const weakestSubjects: SubjectInsightRow[] = [];
     if (subjectMap.size > 0) {
       Array.from(subjectMap.entries()).forEach(([key, val]) => {
-        const accuracyRate = val.total > 0 ? Number(((val.correct / val.total) * 100).toFixed(1)) : 0;
+        const accuracyRate =
+          val.total > 0 ? Number(((val.correct / val.total) * 100).toFixed(1)) : 0;
         weakestSubjects.push({
           subjectId: key,
           subjectName: val.subjectName,

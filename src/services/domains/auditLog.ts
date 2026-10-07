@@ -1,3 +1,4 @@
+import { loadAllPages } from '@/utils/loadAllPages';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { AdminAuditLog, AdminRole, AdminStaffMember, UserProfile } from '@/types';
 import { localAuditLogs, localStaffUsers } from '@/services/domains/localStore';
@@ -222,47 +223,30 @@ export function exportAuditLogsToCsv(logs: AdminAuditLog[]): void {
  */
 export async function getStaffMembers(): Promise<AdminStaffMember[]> {
   if (isSupabaseConfigured) {
-    try {
+    return loadAllPages(async (limit, offset) => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, avatar_url, phone, role, admin_role, created_at, updated_at')
+        .select(
+          'id, email, full_name, avatar_url, phone, role, admin_role, account_status, created_at, updated_at'
+        )
         .eq('role', 'admin')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        return data
-          .filter((row: any) => {
-            const email = (row.email || '').trim().toLowerCase();
-            const isPrimary = email === 'admin@practicekoro.online';
-            const hasValidAdminRole = ['super_admin', 'content_writer', 'support_agent'].includes(
-              row.admin_role
-            );
-            // Only admin@practicekoro.online can be default admin; others must have explicit staff role
-            return isPrimary || hasValidAdminRole;
-          })
-          .map((row: any) => {
-            const email = (row.email || '').trim().toLowerCase();
-            const isPrimary = email === 'admin@practicekoro.online';
-            return {
-              id: row.id,
-              email: row.email || '',
-              fullName: row.full_name || (isPrimary ? 'Susanta Lohar' : 'Staff Member'),
-              avatarUrl: row.avatar_url || undefined,
-              phone: row.phone || undefined,
-              role: 'admin',
-              // ONLY admin@practicekoro.online is super_admin by default
-              adminRole: isPrimary
-                ? 'super_admin'
-                : ((row.admin_role as AdminRole) || 'content_writer'),
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-            };
-          });
-      }
-    } catch (err) {
-      console.warn('[Staff] Supabase fetch error:', err);
-    }
-    return [];
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(offset, offset + limit - 1);
+      if (error) throw new Error(error.message);
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        email: row.email || '',
+        fullName: row.full_name || 'Staff Member',
+        avatarUrl: row.avatar_url || undefined,
+        phone: row.phone || undefined,
+        role: 'admin' as const,
+        adminRole: row.admin_role as AdminRole,
+        accountStatus: row.account_status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    });
   }
 
   return [...localStaffUsers];
@@ -277,36 +261,14 @@ export async function removeStaffMember(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (isSupabaseConfigured) {
-      // 1. Try secure RPC
-      const { error: rpcError } = await supabase.rpc('remove_admin_staff_member', {
+      const { data, error } = await supabase.rpc('remove_admin_staff_member', {
         p_user_id: userId,
       });
-
-      if (rpcError) {
-        // Fallback to direct table update if RPC is not yet applied
-        const { error: profileErr } = await supabase
-          .from('profiles')
-          .update({
-            role: 'student',
-            admin_role: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId);
-
-        if (profileErr) {
-          return { success: false, error: profileErr.message };
-        }
-
-        await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', 'admin');
-
-        await supabase
-          .from('user_roles')
-          .upsert({ user_id: userId, role: 'student' }, { onConflict: 'user_id,role' });
-      }
+      if (error || data?.success !== true)
+        return {
+          success: false,
+          error: error?.message || data?.error || 'Staff removal was not confirmed.',
+        };
     }
 
     // Update in local fallback store
@@ -342,32 +304,15 @@ export async function updateStaffRole(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (isSupabaseConfigured) {
-      // Try calling RPC first
-      const { error } = await supabase.rpc('update_admin_staff_role', {
+      const { data, error } = await supabase.rpc('update_admin_staff_role', {
         p_user_id: userId,
         p_admin_role: newRole,
       });
-
-      if (error) {
-        // Fallback to direct table update if RPC fails
-        const { error: updateErr } = await supabase
-          .from('profiles')
-          .update({
-            role: 'admin',
-            admin_role: newRole,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId);
-
-        if (updateErr) {
-          return { success: false, error: updateErr.message };
-        }
-
-        // Also ensure user_roles row
-        await supabase
-          .from('user_roles')
-          .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id,role' });
-      }
+      if (error || data?.success !== true)
+        return {
+          success: false,
+          error: error?.message || data?.error || 'Staff role update was not confirmed.',
+        };
     }
 
     // Update in local fallback store
@@ -409,54 +354,33 @@ export async function assignStaffByEmail(
     if (!cleanEmail) return { success: false, error: 'Email is required' };
 
     if (isSupabaseConfigured) {
-      // Find profile by email
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .maybeSingle();
-
-      if (error) return { success: false, error: error.message };
-      if (!profile) {
+      const { data, error } = await supabase.rpc('assign_admin_staff_by_email', {
+        p_email: cleanEmail,
+        p_admin_role: assignedRole,
+      });
+      if (error || data?.success !== true || !data?.member?.id)
         return {
           success: false,
-          error: `No user account found with email "${cleanEmail}". They must register an account first.`,
+          error: error?.message || data?.error || 'Staff assignment was not confirmed.',
         };
-      }
-
-      // Update role & admin_role
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({
-          role: 'admin',
-          admin_role: assignedRole,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id);
-
-      if (updateErr) return { success: false, error: updateErr.message };
-
-      await supabase
-        .from('user_roles')
-        .upsert({ user_id: profile.id, role: 'admin' }, { onConflict: 'user_id,role' });
-
+      const row = data.member;
+      const member: AdminStaffMember = {
+        id: row.id,
+        email: row.email,
+        fullName: row.full_name || 'Staff Member',
+        role: 'admin',
+        adminRole: row.admin_role,
+        accountStatus: row.account_status,
+        createdAt: row.created_at,
+      };
       await logAdminActivity({
         action: 'STAFF_ROLE_ASSIGN',
         entityType: 'staff',
-        entityId: profile.id,
-        entityName: `${profile.full_name || 'Staff'} (${cleanEmail})`,
+        entityId: member.id,
+        entityName: member.fullName,
         details: { assignedRole },
         adminUser,
       });
-
-      const member: AdminStaffMember = {
-        id: profile.id,
-        email: cleanEmail,
-        fullName: profile.full_name || 'Staff Member',
-        role: 'admin',
-        adminRole: assignedRole,
-        createdAt: profile.created_at || new Date().toISOString(),
-      };
       return { success: true, member };
     }
 

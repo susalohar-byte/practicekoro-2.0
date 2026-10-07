@@ -28,11 +28,7 @@ import {
   BarChart3,
   Award,
 } from 'lucide-react';
-import type {
-  DateRangePreset,
-  AdminPaymentRow,
-  PlatformAnalyticsData,
-} from '@/types';
+import type { DateRangePreset, AdminPaymentRow, PlatformAnalyticsData } from '@/types';
 import { cn } from '@/lib/utils';
 
 export const AdminRevenueAnalytics: React.FC = () => {
@@ -59,7 +55,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
 
   // Transactions State
   const [transactionSearch, setTransactionSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>(
+    'all'
+  );
 
   const loadAllAnalytics = useCallback(
     async (selectedPreset: DateRangePreset, start?: string, end?: string) => {
@@ -71,7 +69,7 @@ export const AdminRevenueAnalytics: React.FC = () => {
             selectedPreset === 'custom' ? start : undefined,
             selectedPreset === 'custom' ? end : undefined
           ),
-          api.getAdminPayments(),
+          api.getAllAdminPayments(),
         ]);
 
         setAnalyticsData(overview);
@@ -148,14 +146,21 @@ export const AdminRevenueAnalytics: React.FC = () => {
   }, [payments, statusFilter, transactionSearch]);
 
   // CSV Export helper
-  const exportToCsv = (filename: string, headers: string[], rows: (string | number | undefined | null)[][]) => {
+  const exportToCsv = (
+    filename: string,
+    headers: string[],
+    rows: (string | number | undefined | null)[][]
+  ) => {
     const escapeCell = (cell: any): string => {
       if (cell == null) return '""';
       const str = String(cell);
       return `"${str.replace(/"/g, '""')}"`;
     };
 
-    const csvRows = [headers.map(escapeCell).join(','), ...rows.map((r) => r.map(escapeCell).join(','))];
+    const csvRows = [
+      headers.map(escapeCell).join(','),
+      ...rows.map((r) => r.map(escapeCell).join(',')),
+    ];
     const csvContent = '\uFEFF' + csvRows.join('\r\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -172,7 +177,15 @@ export const AdminRevenueAnalytics: React.FC = () => {
   // Export Student Rankings CSV
   const handleExportRankingsCsv = () => {
     if (!analyticsData?.studentRankings) return;
-    const headers = ['Rank', 'Name', 'Email', 'Total Tests', 'Questions Attempted', 'Accuracy (%)', 'Total Score'];
+    const headers = [
+      'Rank',
+      'Name',
+      'Email',
+      'Total Tests',
+      'Questions Attempted',
+      'Accuracy (%)',
+      'Total Score',
+    ];
     const rows = analyticsData.studentRankings.map((s) => [
       `#${s.rank}`,
       s.name,
@@ -182,7 +195,11 @@ export const AdminRevenueAnalytics: React.FC = () => {
       `${s.accuracy}%`,
       s.totalScore,
     ]);
-    exportToCsv(`PracticeKoro_Student_Rankings_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    exportToCsv(
+      `PracticeKoro_Student_Rankings_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows
+    );
   };
 
   // Export Revenue Report CSV
@@ -211,7 +228,11 @@ export const AdminRevenueAnalytics: React.FC = () => {
       }),
     ]);
 
-    exportToCsv(`PracticeKoro_Revenue_Transactions_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    exportToCsv(
+      `PracticeKoro_Revenue_Transactions_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows
+    );
   };
 
   const presetOptions: { id: DateRangePreset; label: string }[] = [
@@ -316,7 +337,10 @@ export const AdminRevenueAnalytics: React.FC = () => {
         </div>
 
         {preset === 'custom' && (
-          <form onSubmit={handleApplyCustomRange} className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+          <form
+            onSubmit={handleApplyCustomRange}
+            className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800"
+          >
             <input
               type="date"
               value={customStartDate}
@@ -376,7 +400,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <Users className="w-4 h-4 text-indigo-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : (analyticsData?.studentPerformance.totalStudents ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.studentPerformance.totalStudents ?? 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Registered Aspirants</p>
           </div>
@@ -390,7 +416,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <UserCheck className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {isLoading ? '...' : (analyticsData?.studentPerformance.activeStudents ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.studentPerformance.activeStudents ?? 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Attempted Tests</p>
           </div>
@@ -404,7 +432,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <CheckSquare2 className="w-4 h-4 text-sky-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : (analyticsData?.studentPerformance.testsAttempted ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.studentPerformance.testsAttempted ?? 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Full & Sectional Mocks</p>
           </div>
@@ -418,7 +448,11 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <HelpCircle className="w-4 h-4 text-purple-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : (analyticsData?.studentPerformance.questionsAnswered ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.studentPerformance.questionsAnswered ?? 0).toLocaleString(
+                    'en-IN'
+                  )}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Total Question Responses</p>
           </div>
@@ -432,7 +466,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <Target className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white flex items-baseline gap-1">
-              <span>{isLoading ? '...' : `${analyticsData?.studentPerformance.overallAccuracy ?? 0}%`}</span>
+              <span>
+                {isLoading ? '...' : `${analyticsData?.studentPerformance.overallAccuracy ?? 0}%`}
+              </span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Platform Average</p>
           </div>
@@ -454,8 +490,8 @@ export const AdminRevenueAnalytics: React.FC = () => {
               {isLoading
                 ? '...'
                 : analyticsData?.studentPerformance.topStudent
-                ? `#1 ${analyticsData.studentPerformance.topStudent.name.split(' ')[0]}`
-                : 'Top Ranks'}
+                  ? `#1 ${analyticsData.studentPerformance.topStudent.name.split(' ')[0]}`
+                  : 'Top Ranks'}
             </div>
             <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
               <span>Click to view all ranks ({analyticsData?.studentRankings.length || 0})</span>
@@ -478,9 +514,14 @@ export const AdminRevenueAnalytics: React.FC = () => {
             {analyticsData?.studentPerformance.performanceTrend.map((pt, idx) => {
               const maxTests = Math.max(
                 10,
-                ...(analyticsData?.studentPerformance.performanceTrend.map((p) => p.attemptsCount) || [10])
+                ...(analyticsData?.studentPerformance.performanceTrend.map(
+                  (p) => p.attemptsCount
+                ) || [10])
               );
-              const heightPct = Math.min(100, Math.max(15, Math.round((pt.attemptsCount / maxTests) * 100)));
+              const heightPct = Math.min(
+                100,
+                Math.max(15, Math.round((pt.attemptsCount / maxTests) * 100))
+              );
 
               return (
                 <div key={idx} className="flex flex-col items-center gap-2 text-center group">
@@ -574,7 +615,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-500" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Weakest Topics</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Weakest Topics
+                  </h3>
                 </div>
                 <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-900/50">
                   Needs Focus
@@ -617,7 +660,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-purple-500" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Weakest Subjects</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Weakest Subjects
+                  </h3>
                 </div>
                 <span className="text-[10px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-900/50">
                   Subject Benchmark
@@ -690,7 +735,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <DollarSign className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : `₹${(analyticsData?.revenue.totalRevenue ?? 0).toLocaleString('en-IN')}`}
+              {isLoading
+                ? '...'
+                : `₹${(analyticsData?.revenue.totalRevenue ?? 0).toLocaleString('en-IN')}`}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">All-time Gross Income</p>
           </div>
@@ -703,7 +750,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <Calendar className="w-4 h-4 text-sky-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : `₹${(analyticsData?.revenue.monthlyRevenue ?? 0).toLocaleString('en-IN')}`}
+              {isLoading
+                ? '...'
+                : `₹${(analyticsData?.revenue.monthlyRevenue ?? 0).toLocaleString('en-IN')}`}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Current Calendar Month</p>
           </div>
@@ -716,7 +765,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <Users className="w-4 h-4 text-indigo-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {isLoading ? '...' : (analyticsData?.revenue.paidStudents ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.revenue.paidStudents ?? 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Converted Subscribers</p>
           </div>
@@ -729,7 +780,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
               <CreditCard className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {isLoading ? '...' : (analyticsData?.revenue.activeSubscriptions ?? 0).toLocaleString('en-IN')}
+              {isLoading
+                ? '...'
+                : (analyticsData?.revenue.activeSubscriptions ?? 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">Live Student Passes</p>
           </div>
@@ -752,7 +805,10 @@ export const AdminRevenueAnalytics: React.FC = () => {
                   100,
                   ...(analyticsData.revenue.revenueTrend.map((p) => p.amount) || [100])
                 );
-                const heightPct = Math.min(100, Math.max(10, Math.round((pt.amount / maxRev) * 100)));
+                const heightPct = Math.min(
+                  100,
+                  Math.max(10, Math.round((pt.amount / maxRev) * 100))
+                );
 
                 return (
                   <div key={idx} className="flex flex-col items-center gap-2 text-center group">
@@ -855,19 +911,22 @@ export const AdminRevenueAnalytics: React.FC = () => {
                             p.status === 'completed'
                               ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
                               : p.status === 'pending'
-                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
-                              : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+                                ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
+                                : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
                           )}
                         >
                           {p.status}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {new Date(p.createdAt || p.created_at || Date.now()).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {new Date(p.createdAt || p.created_at || Date.now()).toLocaleDateString(
+                          'en-IN',
+                          {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          }
+                        )}
                       </td>
                     </tr>
                   ))
@@ -899,7 +958,8 @@ export const AdminRevenueAnalytics: React.FC = () => {
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Platform ranking calculated from test attempts, accuracy percentage, and total scores
+                    Platform ranking calculated from test attempts, accuracy percentage, and total
+                    scores
                   </p>
                 </div>
               </div>
@@ -1015,7 +1075,10 @@ export const AdminRevenueAnalytics: React.FC = () => {
                                 <div className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
                                   <span>{student.name}</span>
                                   {student.isPro && (
-                                    <span className="p-0.5 rounded bg-amber-400 text-white shadow-xs" title="Pro Subscriber">
+                                    <span
+                                      className="p-0.5 rounded bg-amber-400 text-white shadow-xs"
+                                      title="Pro Subscriber"
+                                    >
                                       <Crown className="w-2.5 h-2.5" />
                                     </span>
                                   )}
@@ -1047,8 +1110,8 @@ export const AdminRevenueAnalytics: React.FC = () => {
                                 student.accuracy >= 70
                                   ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
                                   : student.accuracy >= 45
-                                  ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
-                                  : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+                                    ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
+                                    : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
                               )}
                             >
                               {student.accuracy}%
@@ -1072,8 +1135,9 @@ export const AdminRevenueAnalytics: React.FC = () => {
             {/* Modal Pagination Footer */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Showing {filteredRankings.length === 0 ? 0 : (rankCurrentPage - 1) * pageSize + 1} to{' '}
-                {Math.min(filteredRankings.length, rankCurrentPage * pageSize)} of {filteredRankings.length} aspirants
+                Showing {filteredRankings.length === 0 ? 0 : (rankCurrentPage - 1) * pageSize + 1}{' '}
+                to {Math.min(filteredRankings.length, rankCurrentPage * pageSize)} of{' '}
+                {filteredRankings.length} aspirants
               </div>
 
               <div className="flex items-center gap-1.5">

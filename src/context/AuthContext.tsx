@@ -19,6 +19,7 @@ import { getAdminPermissions } from '@/types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'] & {
   admin_role?: string | null;
+  account_status?: 'active' | 'inactive';
   district?: string | null;
   state?: string | null;
   gender?: string | null;
@@ -35,6 +36,8 @@ type ProfileRow = Database['public']['Tables']['profiles']['Row'] & {
  * via the SECURITY DEFINER sync_admin_profile RPC; the client never
  * writes admin roles (no user_roles upserts, no profiles role updates).
  */
+class InactiveAccountError extends Error {}
+
 const resolveUserProfile = async (supabaseUser: {
   id: string;
   email?: string;
@@ -47,15 +50,14 @@ const resolveUserProfile = async (supabaseUser: {
     ]);
 
     let profile = profileRes.data as ProfileRow | null;
+    if (profile?.account_status === 'inactive')
+      throw new InactiveAccountError('This account is inactive. Contact support.');
     let userRoles = (rolesRes.data as { role: string }[] | null) || [];
     const emailIsAdmin = isAdminEmail(supabaseUser.email);
 
     // Server-side promotion only: ask the RPC to promote allow-listed
     // emails, then re-read the authoritative role from the database.
-    if (
-      emailIsAdmin &&
-      (profile?.role !== 'admin' || !userRoles.some((r) => r.role === 'admin'))
-    ) {
+    if (emailIsAdmin && (profile?.role !== 'admin' || !userRoles.some((r) => r.role === 'admin'))) {
       try {
         const rpcResult = await supabase.rpc('sync_admin_profile');
         if (!rpcResult.error) {
@@ -74,9 +76,7 @@ const resolveUserProfile = async (supabaseUser: {
     }
 
     const isAdminUser =
-      userRoles.some((r) => r.role === 'admin') ||
-      profile?.role === 'admin' ||
-      emailIsAdmin;
+      userRoles.some((r) => r.role === 'admin') || profile?.role === 'admin' || emailIsAdmin;
     const effectiveRole: UserRole = isAdminUser ? 'admin' : profile?.role || 'student';
 
     const meta = supabaseUser.user_metadata || {};
@@ -140,8 +140,7 @@ const resolveUserProfile = async (supabaseUser: {
 
     return {
       id: profile?.id || supabaseUser.id,
-      fullName:
-        profile?.full_name || metaFullName || supabaseUser.email?.split('@')[0] || 'User',
+      fullName: profile?.full_name || metaFullName || supabaseUser.email?.split('@')[0] || 'User',
       email: profile?.email || supabaseUser.email || '',
       phone: profile?.phone ?? undefined,
       avatarUrl: profile?.avatar_url || metaAvatar || undefined,
@@ -153,12 +152,15 @@ const resolveUserProfile = async (supabaseUser: {
       targetExamId: profile?.target_exam_id || meta.target_exam_id || undefined,
       targetExamTitle: meta.target_exam_title || undefined,
       preferredSubjects: prefSubs,
-      preparationStatus: (profile?.preparation_status || meta.preparation_status || 'BEGINNER') as PreparationStatusCode,
+      preparationStatus: (profile?.preparation_status ||
+        meta.preparation_status ||
+        'BEGINNER') as PreparationStatusCode,
       role: effectiveRole,
       adminRole: effectiveRole === 'admin' ? adminSubRole : undefined,
       createdAt: profile?.created_at || new Date().toISOString(),
     };
   } catch (err) {
+    if (err instanceof InactiveAccountError) throw err;
     console.error('Supabase profile resolve error:', err);
     const meta = supabaseUser.user_metadata || {};
     return {
@@ -166,13 +168,11 @@ const resolveUserProfile = async (supabaseUser: {
       fullName: meta.full_name || meta.name || supabaseUser.email?.split('@')[0] || 'User',
       email: supabaseUser.email || '',
       avatarUrl: meta.avatar_url || meta.picture || undefined,
-      role: isAdminEmail(supabaseUser.email) ? ('admin' as UserRole) : ('student' as UserRole),
-      adminRole: isAdminEmail(supabaseUser.email) ? 'super_admin' : undefined,
+      role: 'student',
       createdAt: new Date().toISOString(),
     };
   }
 };
-
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -300,10 +300,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const userObj = await resolveUserProfile(session.user);
-        setUser(userObj);
-        localStorage.setItem('practicekoro_user', JSON.stringify(userObj));
-        await refreshProStatus();
+        try {
+          const userObj = await resolveUserProfile(session.user);
+          setUser(userObj);
+          localStorage.setItem('practicekoro_user', JSON.stringify(userObj));
+          await refreshProStatus();
+        } catch (err) {
+          setUser(null);
+          setIsPro(false);
+          localStorage.removeItem('practicekoro_user');
+          localStorage.removeItem('practicekoro_is_pro');
+          if (err instanceof InactiveAccountError)
+            queueMicrotask(() => {
+              void supabase.auth.signOut();
+            });
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsPro(false);
@@ -496,16 +507,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updates.gender !== undefined ? updates.gender : user.gender || 'NOT_SPECIFIED';
     const updatedCategory =
       updates.category !== undefined ? updates.category : user.category || 'GEN';
-    const updatedDob =
-      updates.dob !== undefined ? updates.dob.trim() : user.dob;
+    const updatedDob = updates.dob !== undefined ? updates.dob.trim() : user.dob;
     const updatedTargetExamId =
       updates.targetExamId !== undefined ? updates.targetExamId : user.targetExamId;
     const updatedTargetExamTitle =
       updates.targetExamTitle !== undefined ? updates.targetExamTitle : user.targetExamTitle;
     const updatedPreferredSubjects =
-      updates.preferredSubjects !== undefined ? updates.preferredSubjects : user.preferredSubjects || [];
+      updates.preferredSubjects !== undefined
+        ? updates.preferredSubjects
+        : user.preferredSubjects || [];
     const updatedPreparationStatus =
-      updates.preparationStatus !== undefined ? updates.preparationStatus : user.preparationStatus || 'BEGINNER';
+      updates.preparationStatus !== undefined
+        ? updates.preparationStatus
+        : user.preparationStatus || 'BEGINNER';
 
     if (!updatedFullName) {
       return { error: new Error('Full Name cannot be empty') };

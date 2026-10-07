@@ -5,7 +5,7 @@ import { AdminPayments } from './AdminPayments';
 import type { AdminPaymentRow } from '@/types';
 
 vi.mock('@/services/api', () => ({
-  api: { getAdminPayments: vi.fn(), processPaymentRefund: vi.fn(), cancelSubscription: vi.fn() },
+  api: { getAllAdminPayments: vi.fn(), processPaymentRefund: vi.fn(), cancelSubscription: vi.fn() },
 }));
 afterEach(() => {
   cleanup();
@@ -14,14 +14,21 @@ afterEach(() => {
 beforeEach(() => vi.clearAllMocks());
 
 const payment: AdminPaymentRow = {
-  id: 'p1', userId: 'u1', studentName: 'Paid Student', studentEmail: 'paid@example.com',
-  amount: 199, currency: 'INR', gateway: 'razorpay', status: 'completed',
-  transactionId: 'pay_verified', createdAt: '2026-10-01T00:00:00Z',
+  id: 'p1',
+  userId: 'u1',
+  studentName: 'Paid Student',
+  studentEmail: 'paid@example.com',
+  amount: 199,
+  currency: 'INR',
+  gateway: 'razorpay',
+  status: 'completed',
+  transactionId: 'pay_verified',
+  createdAt: '2026-10-01T00:00:00Z',
 };
 
 describe('AdminPayments status and subscription display', () => {
   it('excludes pending, failed, and refunded amounts from successful revenue', async () => {
-    vi.mocked(api.getAdminPayments).mockResolvedValue([
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([
       payment,
       { ...payment, id: 'p2', studentName: 'Pending Student', amount: 699, status: 'pending' },
       { ...payment, id: 'p3', studentName: 'Failed Student', amount: 999, status: 'failed' },
@@ -35,7 +42,7 @@ describe('AdminPayments status and subscription display', () => {
   });
 
   it('offers a Pending filter that only displays pending payments', async () => {
-    vi.mocked(api.getAdminPayments).mockResolvedValue([
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([
       payment,
       { ...payment, id: 'p2', studentName: 'Pending Student', status: 'pending' },
     ]);
@@ -48,18 +55,24 @@ describe('AdminPayments status and subscription display', () => {
   });
 
   it('disables refund for a pending payment and does not invent subscription expiry', async () => {
-    vi.mocked(api.getAdminPayments).mockResolvedValue([{ ...payment, status: 'pending' }]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([{ ...payment, status: 'pending' }]);
     render(<AdminPayments />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Refund Payment' })).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Refund Payment' })).toBeDisabled()
+    );
     expect(screen.getByText('Subscription details unavailable')).toBeInTheDocument();
     expect(screen.queryByText(/12 Feb 2027/)).not.toBeInTheDocument();
     expect(screen.getAllByText('Total Revenue')[0].parentElement).toHaveTextContent('₹0');
   });
 
   it('shows real expired subscription date and zero days left for a completed payment', async () => {
-    vi.mocked(api.getAdminPayments).mockResolvedValue([{
-      ...payment, subscriptionStatus: 'expired', subscriptionExpiresAt: '2020-01-02T00:00:00Z',
-    }]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([
+      {
+        ...payment,
+        subscriptionStatus: 'expired',
+        subscriptionExpiresAt: '2020-01-02T00:00:00Z',
+      },
+    ]);
     render(<AdminPayments />);
     expect(await screen.findByText(/Valid till.*2020.*0 days left/)).toBeInTheDocument();
     expect(screen.getByText('Inactive')).toBeInTheDocument();
@@ -77,9 +90,14 @@ describe('AdminPayments subscription cancellation', () => {
 
   it('waits for backend revocation and preserves successful payment and revenue', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    vi.mocked(api.getAdminPayments).mockResolvedValue([linkedPayment]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
     let finish!: (result: { success: boolean; expiresAt?: string }) => void;
-    vi.mocked(api.cancelSubscription).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(api.cancelSubscription).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
     render(<AdminPayments />);
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
@@ -99,8 +117,11 @@ describe('AdminPayments subscription cancellation', () => {
 
   it('retains active access in the UI and shows an error when backend denies cancellation', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    vi.mocked(api.getAdminPayments).mockResolvedValue([linkedPayment]);
-    vi.mocked(api.cancelSubscription).mockResolvedValue({ success: false, error: 'Permission denied' });
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
+    vi.mocked(api.cancelSubscription).mockResolvedValue({
+      success: false,
+      error: 'Permission denied',
+    });
     render(<AdminPayments />);
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
@@ -112,7 +133,7 @@ describe('AdminPayments subscription cancellation', () => {
 
   it('handles network errors without showing a successful cancellation', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    vi.mocked(api.getAdminPayments).mockResolvedValue([linkedPayment]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
     vi.mocked(api.cancelSubscription).mockRejectedValue(new Error('Network unavailable'));
     render(<AdminPayments />);
     await screen.findByText('Active');
@@ -123,7 +144,7 @@ describe('AdminPayments subscription cancellation', () => {
 
   it('does not revoke access when the confirmation is declined', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    vi.mocked(api.getAdminPayments).mockResolvedValue([linkedPayment]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([linkedPayment]);
     render(<AdminPayments />);
     await screen.findByText('Active');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
@@ -131,10 +152,17 @@ describe('AdminPayments subscription cancellation', () => {
   });
 
   it('disables cancellation if no linked active subscription is known', async () => {
-    vi.mocked(api.getAdminPayments).mockResolvedValue([payment]);
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([payment]);
     render(<AdminPayments />);
     await screen.findByText('Subscription details unavailable');
     expect(screen.getByRole('button', { name: 'Cancel Subscription' })).toBeDisabled();
     expect(api.cancelSubscription).not.toHaveBeenCalled();
+  });
+
+  it('shows a failed complete load and prevents misleading CSV export', async () => {
+    vi.mocked(api.getAllAdminPayments).mockRejectedValue(new Error('Later page failed'));
+    render(<AdminPayments />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be fully loaded');
+    expect(screen.getByRole('button', { name: 'Export Payments' })).toBeDisabled();
   });
 });

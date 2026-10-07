@@ -64,15 +64,7 @@ export function getAdminPermissions(adminRole?: AdminRole): AdminPermissions {
 }
 
 export type StudentCategoryCode =
-  | 'GEN'
-  | 'OBC_A'
-  | 'OBC_B'
-  | 'SC'
-  | 'ST'
-  | 'EWS'
-  | 'PWD'
-  | 'OTHER'
-  | 'NOT_SPECIFIED';
+  'GEN' | 'OBC_A' | 'OBC_B' | 'SC' | 'ST' | 'EWS' | 'PWD' | 'OTHER' | 'NOT_SPECIFIED';
 
 export const CATEGORY_LABELS: Record<StudentCategoryCode, string> = {
   GEN: 'General / UR',
@@ -86,11 +78,7 @@ export const CATEGORY_LABELS: Record<StudentCategoryCode, string> = {
   NOT_SPECIFIED: 'Prefer not to say',
 };
 
-export type StudentGenderCode =
-  | 'MALE'
-  | 'FEMALE'
-  | 'OTHER'
-  | 'NOT_SPECIFIED';
+export type StudentGenderCode = 'MALE' | 'FEMALE' | 'OTHER' | 'NOT_SPECIFIED';
 
 export const GENDER_LABELS: Record<StudentGenderCode, string> = {
   MALE: 'Male',
@@ -99,11 +87,7 @@ export const GENDER_LABELS: Record<StudentGenderCode, string> = {
   NOT_SPECIFIED: 'Prefer not to say',
 };
 
-export type PreparationStatusCode =
-  | 'BEGINNER'
-  | 'INTERMEDIATE'
-  | 'ADVANCED'
-  | 'REVISION';
+export type PreparationStatusCode = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'REVISION';
 
 export const PREPARATION_STATUS_LABELS: Record<PreparationStatusCode, string> = {
   BEGINNER: 'Beginner (Starting preparation)',
@@ -878,6 +862,7 @@ export interface AdminDashboardV2Stats {
 }
 
 export interface AdminStudentRow {
+  accountStatus?: 'active' | 'inactive';
   id: string;
   fullName: string;
   email: string;
@@ -919,7 +904,17 @@ export interface NotificationItem {
   createdBy?: string;
 }
 
+export interface SupportTicketMessage {
+  id: string;
+  ticketId: string;
+  authorName: string;
+  authorKind: 'student' | 'support' | 'internal_note';
+  body: string;
+  createdAt: string;
+}
+
 export interface SupportTicketItem {
+  messages?: SupportTicketMessage[];
   id: string;
   userId?: string;
   studentName: string;
@@ -1008,6 +1003,7 @@ export interface AdminAuditLog {
 }
 
 export interface AdminStaffMember {
+  accountStatus?: 'active' | 'inactive';
   id: string;
   email: string;
   fullName: string;
@@ -1301,12 +1297,7 @@ export const ALL_RECRUITMENT_STAGES: RecruitmentStage[] = [
   'Other',
 ];
 
-export type CutoffScoreType =
-  | 'raw_marks'
-  | 'normalized'
-  | 'percentage'
-  | 'score'
-  | 'rank';
+export type CutoffScoreType = 'raw_marks' | 'normalized' | 'percentage' | 'score' | 'rank';
 
 export const SCORE_TYPE_LABELS: Record<CutoffScoreType, string> = {
   raw_marks: 'Raw Marks',
@@ -1416,5 +1407,3 @@ export interface BlogPost {
   seoKeywords?: string;
   tags?: string[];
 }
-
-

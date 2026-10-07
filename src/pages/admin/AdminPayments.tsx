@@ -111,65 +111,88 @@ const PaymentMethodBadge: React.FC<{ method: string }> = ({ method }) => {
 
 export const AdminPayments: React.FC = () => {
   const [paymentsList, setPaymentsList] = useState<PaymentItem[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+  const [recordsError, setRecordsError] = useState('');
   const [selectedRowId, setSelectedRowId] = useState<number | string>('');
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState<boolean>(true);
 
   // Load real payments from database on mount
   useEffect(() => {
     let isMounted = true;
-    api.getAdminPayments().then((remote) => {
-      if (!isMounted) return;
-      if (!remote || remote.length === 0) {
-        setPaymentsList([]);
-        setSelectedRowId('');
-        return;
-      }
-      const mapped: PaymentItem[] = remote.map((d, index) => {
-        const dDate = new Date(d.createdAt || Date.now());
-        const dateStr = dDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = dDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    api
+      .getAllAdminPayments()
+      .then((remote) => {
+        if (!isMounted) return;
+        setRecordsLoading(false);
+        if (!remote || remote.length === 0) {
+          setPaymentsList([]);
+          setSelectedRowId('');
+          return;
+        }
+        const mapped: PaymentItem[] = remote.map((d, index) => {
+          const dDate = new Date(d.createdAt || Date.now());
+          const dateStr = dDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          });
+          const timeStr = dDate.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          });
 
-        const { status: displayStatus, badgeClass: statusBadge } = getAdminPaymentDisplayStatus(d);
-        const subscription = getAdminSubscriptionDisplay(d);
+          const { status: displayStatus, badgeClass: statusBadge } =
+            getAdminPaymentDisplayStatus(d);
+          const subscription = getAdminSubscriptionDisplay(d);
 
-        let method: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—' = 'Razorpay';
-        if (d.gateway === 'phonepe') method = 'PhonePe';
-        else if (d.gateway === 'upi') method = 'UPI';
+          let method: 'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card' | '—' = 'Razorpay';
+          if (d.gateway === 'phonepe') method = 'PhonePe';
+          else if (d.gateway === 'upi') method = 'UPI';
 
-        return {
-          id: d.id,
-          studentName: d.studentName || 'Student Aspirant',
-          studentEmail: d.studentEmail || '',
-          avatarType: 'photo',
-          avatarSrc: `https://images.unsplash.com/photo-${1535713875002 + (index % 5)}?w=100&auto=format&fit=crop&q=80`,
-          plan: d.planTitle || 'Pro Pass',
-          planDuration: `${d.planTitle || 'Pro Pass'}`,
-          planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
-          amount: d.amount,
-          paymentMethod: method,
-          transactionId: d.transactionId || d.razorpayPaymentId || 'Unavailable',
-          date: dateStr,
-          time: timeStr,
-          status: displayStatus,
-          sourcePayment: d,
-          statusBadgeClass: statusBadge,
-          gatewayOrderId: d.orderId || d.razorpayOrderId,
-          paymentId: d.razorpayPaymentId || d.transactionId,
-          bankReference: d.transactionId,
-          subscriptionValidTill: subscription.validTill,
-          subscriptionDaysLeft: subscription.daysRemaining,
-          subscriptionActive: subscription.active,
-        };
+          return {
+            id: d.id,
+            studentName: d.studentName || 'Student Aspirant',
+            studentEmail: d.studentEmail || '',
+            avatarType: 'photo',
+            avatarSrc: `https://images.unsplash.com/photo-${1535713875002 + (index % 5)}?w=100&auto=format&fit=crop&q=80`,
+            plan: d.planTitle || 'Pro Pass',
+            planDuration: `${d.planTitle || 'Pro Pass'}`,
+            planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
+            amount: d.amount,
+            paymentMethod: method,
+            transactionId: d.transactionId || d.razorpayPaymentId || 'Unavailable',
+            date: dateStr,
+            time: timeStr,
+            status: displayStatus,
+            sourcePayment: d,
+            statusBadgeClass: statusBadge,
+            gatewayOrderId: d.orderId || d.razorpayOrderId,
+            paymentId: d.razorpayPaymentId || d.transactionId,
+            bankReference: d.transactionId,
+            subscriptionValidTill: subscription.validTill,
+            subscriptionDaysLeft: subscription.daysRemaining,
+            subscriptionActive: subscription.active,
+          };
+        });
+        setPaymentsList(mapped);
+        if (mapped.length > 0) {
+          setSelectedRowId(mapped[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load admin payments from database:', err);
+        if (isMounted) {
+          setRecordsLoading(false);
+          setRecordsError(
+            'Payments could not be fully loaded. Totals and exports are unavailable; please refresh.'
+          );
+        }
+        if (isMounted) setPaymentsList([]);
       });
-      setPaymentsList(mapped);
-      if (mapped.length > 0) {
-        setSelectedRowId(mapped[0].id);
-      }
-    }).catch((err) => {
-      console.warn('Failed to load admin payments from database:', err);
-      if (isMounted) setPaymentsList([]);
-    });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Checkbox selection state
@@ -213,7 +236,10 @@ export const AdminPayments: React.FC = () => {
 
   // Selected payment record
   const selectedPayment = useMemo(() => {
-    return paymentsList.find((p) => p.id === selectedRowId) || (paymentsList.length > 0 ? paymentsList[0] : null);
+    return (
+      paymentsList.find((p) => p.id === selectedRowId) ||
+      (paymentsList.length > 0 ? paymentsList[0] : null)
+    );
   }, [paymentsList, selectedRowId]);
 
   // Computed summary metrics
@@ -237,7 +263,8 @@ export const AdminPayments: React.FC = () => {
     return paymentsList.filter((p) => p.status === 'Refunded').length;
   }, [paymentsList]);
 
-  const successRate = totalPayments > 0 ? `${Math.round((successfulPayments / totalPayments) * 100)}%` : '0%';
+  const successRate =
+    totalPayments > 0 ? `${Math.round((successfulPayments / totalPayments) * 100)}%` : '0%';
 
   const methodStats = useMemo(() => {
     const total = totalRevenue || 1;
@@ -254,7 +281,11 @@ export const AdminPayments: React.FC = () => {
       card: calc('Credit Card'),
       other: {
         sum: paymentsList
-          .filter((p) => !['UPI', 'Razorpay', 'PhonePe', 'Credit Card'].includes(p.paymentMethod) && p.status === 'Success')
+          .filter(
+            (p) =>
+              !['UPI', 'Razorpay', 'PhonePe', 'Credit Card'].includes(p.paymentMethod) &&
+              p.status === 'Success'
+          )
           .reduce((acc, p) => acc + (p.amount || 0), 0),
         pct: 0,
       },
@@ -265,8 +296,10 @@ export const AdminPayments: React.FC = () => {
   const filteredRows = useMemo(() => {
     return paymentsList.filter((item) => {
       if (filterStatus !== 'All Status' && item.status !== filterStatus) return false;
-      if (filterPlan !== 'All Plans' && !item.plan.includes(filterPlan.replace(' Plans', ''))) return false;
-      if (filterMethod !== 'All Payment Methods' && item.paymentMethod !== filterMethod) return false;
+      if (filterPlan !== 'All Plans' && !item.plan.includes(filterPlan.replace(' Plans', '')))
+        return false;
+      if (filterMethod !== 'All Payment Methods' && item.paymentMethod !== filterMethod)
+        return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matches =
@@ -297,6 +330,7 @@ export const AdminPayments: React.FC = () => {
 
   // Export CSV
   const handleExportPayments = () => {
+    if (recordsLoading || recordsError) return;
     const headers = [
       'Transaction ID',
       'Student Name',
@@ -356,7 +390,8 @@ export const AdminPayments: React.FC = () => {
       showToast('No active linked subscription is available to cancel.', 'error');
       return;
     }
-    if (!window.confirm(`Cancel subscription and revoke plan access for ${target.studentName}?`)) return;
+    if (!window.confirm(`Cancel subscription and revoke plan access for ${target.studentName}?`))
+      return;
 
     setIsCancellingSubscription(true);
     try {
@@ -399,10 +434,27 @@ export const AdminPayments: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {recordsError && (
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          {recordsError}
+        </div>
+      )}
+      {recordsLoading && (
+        <div role="status" className="text-sm text-slate-500">
+          Loading all records…
+        </div>
+      )}
       {/* Toast Notification */}
       {toastMessage && (
-        <div role={toastType === 'error' ? 'alert' : 'status'} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          {toastType === 'error' ? <XCircle className="w-4 h-4 text-rose-400 shrink-0" /> : <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+        <div
+          role={toastType === 'error' ? 'alert' : 'status'}
+          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200"
+        >
+          {toastType === 'error' ? (
+            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -419,6 +471,7 @@ export const AdminPayments: React.FC = () => {
         </div>
 
         <button
+          disabled={recordsLoading || !!recordsError}
           onClick={handleExportPayments}
           className="bg-[#2563EB] hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-2 transition-colors self-start shrink-0 cursor-pointer"
         >
@@ -439,7 +492,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">₹{totalRevenue.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                ₹{totalRevenue.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 32%
               </span>
@@ -456,7 +511,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Payments</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">{totalPayments.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {totalPayments.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 ↑ 26%
               </span>
@@ -473,7 +530,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Successful</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">{successfulPayments.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {successfulPayments.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 {successRate}
               </span>
@@ -490,7 +549,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Failed</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">{failedPayments.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {failedPayments.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
                 ↓ 3%
               </span>
@@ -507,7 +568,9 @@ export const AdminPayments: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Refunded</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">{refundedPayments.toLocaleString('en-IN')}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {refundedPayments.toLocaleString('en-IN')}
+              </span>
               <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                 ↓ 2%
               </span>
@@ -569,14 +632,7 @@ export const AdminPayments: React.FC = () => {
                 { label: '₹0', y: 155 },
               ].map((tick) => (
                 <g key={tick.label}>
-                  <line
-                    x1="45"
-                    y1={tick.y}
-                    x2="690"
-                    y2={tick.y}
-                    stroke="#F1F5F9"
-                    strokeWidth="1"
-                  />
+                  <line x1="45" y1={tick.y} x2="690" y2={tick.y} stroke="#F1F5F9" strokeWidth="1" />
                   <text
                     x="35"
                     y={tick.y + 3.5}
@@ -796,7 +852,9 @@ export const AdminPayments: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900">{methodStats.upi.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">₹{methodStats.upi.sum.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    ₹{methodStats.upi.sum.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
@@ -807,7 +865,9 @@ export const AdminPayments: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900">{methodStats.razorpay.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">₹{methodStats.razorpay.sum.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    ₹{methodStats.razorpay.sum.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
@@ -818,7 +878,9 @@ export const AdminPayments: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900">{methodStats.phonepe.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">₹{methodStats.phonepe.sum.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    ₹{methodStats.phonepe.sum.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
@@ -829,7 +891,9 @@ export const AdminPayments: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900">{methodStats.card.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">₹{methodStats.card.sum.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    ₹{methodStats.card.sum.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
@@ -840,7 +904,9 @@ export const AdminPayments: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-slate-900">{methodStats.other.pct}%</span>
-                  <span className="text-[10px] text-slate-400 block">₹{methodStats.other.sum.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    ₹{methodStats.other.sum.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -991,171 +1057,169 @@ export const AdminPayments: React.FC = () => {
                     </tr>
                   ) : (
                     filteredRows.slice(0, 10).map((row, idx) => {
-                    const isSelected = selectedRowId === row.id;
-                    const isChecked = selectedCheckboxes.includes(row.id);
-                    return (
-                      <tr
-                        key={row.id}
-                        onClick={() => {
-                          setSelectedRowId(row.id);
-                          setIsDetailsPanelOpen(true);
-                        }}
-                        className={cn(
-                          'transition-colors cursor-pointer group',
-                          isSelected
-                            ? 'bg-blue-50/50 hover:bg-blue-50/70'
-                            : 'hover:bg-slate-50/60'
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <td
-                          className="py-3 px-3 text-center"
-                          onClick={(e) => handleToggleRowCheckbox(row.id, e)}
+                      const isSelected = selectedRowId === row.id;
+                      const isChecked = selectedCheckboxes.includes(row.id);
+                      return (
+                        <tr
+                          key={row.id}
+                          onClick={() => {
+                            setSelectedRowId(row.id);
+                            setIsDetailsPanelOpen(true);
+                          }}
+                          className={cn(
+                            'transition-colors cursor-pointer group',
+                            isSelected
+                              ? 'bg-blue-50/50 hover:bg-blue-50/70'
+                              : 'hover:bg-slate-50/60'
+                          )}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
-                          />
-                        </td>
+                          {/* Checkbox */}
+                          <td
+                            className="py-3 px-3 text-center"
+                            onClick={(e) => handleToggleRowCheckbox(row.id, e)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
 
-                        {/* # */}
-                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
-                          {idx + 1}
-                        </td>
+                          {/* # */}
+                          <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                            {idx + 1}
+                          </td>
 
-                        {/* Student */}
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            {row.avatarType === 'photo' && row.avatarSrc ? (
-                              <img
-                                src={row.avatarSrc}
-                                alt={row.studentName}
-                                className="w-8 h-8 rounded-full object-cover shrink-0"
-                              />
-                            ) : (
-                              <div
-                                className={cn(
-                                  'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
-                                  row.avatarBgColor || 'bg-blue-100',
-                                  row.avatarTextColor || 'text-blue-600'
-                                )}
-                              >
-                                {row.avatarInitials}
+                          {/* Student */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              {row.avatarType === 'photo' && row.avatarSrc ? (
+                                <img
+                                  src={row.avatarSrc}
+                                  alt={row.studentName}
+                                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <div
+                                  className={cn(
+                                    'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
+                                    row.avatarBgColor || 'bg-blue-100',
+                                    row.avatarTextColor || 'text-blue-600'
+                                  )}
+                                >
+                                  {row.avatarInitials}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <span className="font-semibold text-slate-800 block truncate">
+                                  {row.studentName}
+                                </span>
+                                <span className="text-[11px] text-slate-400 block truncate">
+                                  {row.studentEmail}
+                                </span>
                               </div>
-                            )}
-                            <div className="min-w-0">
-                              <span className="font-semibold text-slate-800 block truncate">
-                                {row.studentName}
-                              </span>
-                              <span className="text-[11px] text-slate-400 block truncate">
-                                {row.studentEmail}
-                              </span>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Plan */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
-                              row.planBadgeClass
-                            )}
-                          >
-                            {row.plan}
-                          </span>
-                        </td>
-
-                        {/* Amount */}
-                        <td className="py-3 px-3 font-semibold text-slate-800">
-                          ₹{row.amount}
-                        </td>
-
-                        {/* Payment Method */}
-                        <td className="py-3 px-3">
-                          <PaymentMethodBadge method={row.paymentMethod} />
-                        </td>
-
-                        {/* Transaction ID */}
-                        <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
-                          {row.transactionId}
-                        </td>
-
-                        {/* Date */}
-                        <td className="py-3 px-3">
-                          <span className="text-slate-700 block font-normal">{row.date}</span>
-                          <span className="text-[11px] text-slate-400 block">{row.time}</span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
-                              row.statusBadgeClass
-                            )}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td
-                          className="py-3 px-3 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                          {/* Plan */}
+                          <td className="py-3 px-3">
+                            <span
+                              className={cn(
+                                'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
+                                row.planBadgeClass
+                              )}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                              {row.plan}
+                            </span>
+                          </td>
 
-                            {/* Dropdown Menu */}
-                            {activeMenuId === row.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                                <button
-                                  onClick={() => {
-                                    setSelectedRowId(row.id);
-                                    setIsDetailsPanelOpen(true);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                                >
-                                  View Details
-                                </button>
-                                <button
-                                  disabled={row.status !== 'Success'}
-                                  onClick={() => {
-                                    handleOpenRefund(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Refund Payment
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleSendReceipt();
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
-                                >
-                                  Send Receipt
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                          {/* Amount */}
+                          <td className="py-3 px-3 font-semibold text-slate-800">₹{row.amount}</td>
+
+                          {/* Payment Method */}
+                          <td className="py-3 px-3">
+                            <PaymentMethodBadge method={row.paymentMethod} />
+                          </td>
+
+                          {/* Transaction ID */}
+                          <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                            {row.transactionId}
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-3 px-3">
+                            <span className="text-slate-700 block font-normal">{row.date}</span>
+                            <span className="text-[11px] text-slate-400 block">{row.time}</span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3">
+                            <span
+                              className={cn(
+                                'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
+                                row.statusBadgeClass
+                              )}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td
+                            className="py-3 px-3 text-center relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                                }}
+                                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              {activeMenuId === row.id && (
+                                <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedRowId(row.id);
+                                      setIsDetailsPanelOpen(true);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                                  >
+                                    View Details
+                                  </button>
+                                  <button
+                                    disabled={row.status !== 'Success'}
+                                    onClick={() => {
+                                      handleOpenRefund(row);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Refund Payment
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleSendReceipt();
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
+                                  >
+                                    Send Receipt
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1164,7 +1228,8 @@ export const AdminPayments: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of {filteredRows.length.toLocaleString('en-IN')} payments
+                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of{' '}
+                {filteredRows.length.toLocaleString('en-IN')} payments
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1238,184 +1303,204 @@ export const AdminPayments: React.FC = () => {
             {selectedPayment ? (
               <>
                 {/* Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900">Payment Details</h2>
-              <button
-                onClick={() => setIsDetailsPanelOpen(false)}
-                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Student Profile Card */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {selectedPayment.avatarType === 'photo' && selectedPayment.avatarSrc ? (
-                  <img
-                    src={selectedPayment.avatarSrc}
-                    alt={selectedPayment.studentName}
-                    className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
-                      selectedPayment.avatarBgColor || 'bg-blue-100',
-                      selectedPayment.avatarTextColor || 'text-blue-600'
-                    )}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-900">Payment Details</h2>
+                  <button
+                    onClick={() => setIsDetailsPanelOpen(false)}
+                    className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
                   >
-                    {selectedPayment.avatarInitials}
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Student Profile Card */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {selectedPayment.avatarType === 'photo' && selectedPayment.avatarSrc ? (
+                      <img
+                        src={selectedPayment.avatarSrc}
+                        alt={selectedPayment.studentName}
+                        className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
+                          selectedPayment.avatarBgColor || 'bg-blue-100',
+                          selectedPayment.avatarTextColor || 'text-blue-600'
+                        )}
+                      >
+                        {selectedPayment.avatarInitials}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        {selectedPayment.studentName}
+                      </h3>
+                      <span className="text-[11px] text-slate-500 block">
+                        {selectedPayment.studentEmail}
+                      </span>
+                      <span className="text-[11px] text-slate-400 block">
+                        {selectedPayment.studentPhone || '+91 98765 43210'}
+                      </span>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">{selectedPayment.studentName}</h3>
-                  <span className="text-[11px] text-slate-500 block">
-                    {selectedPayment.studentEmail}
-                  </span>
-                  <span className="text-[11px] text-slate-400 block">
-                    {selectedPayment.studentPhone || '+91 98765 43210'}
-                  </span>
+
+                  <button
+                    onClick={() =>
+                      showToast(`Opening profile for ${selectedPayment.studentName}...`)
+                    }
+                    className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer"
+                  >
+                    View Student
+                  </button>
                 </div>
-              </div>
 
-              <button
-                onClick={() => showToast(`Opening profile for ${selectedPayment.studentName}...`)}
-                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer"
-              >
-                View Student
-              </button>
-            </div>
-
-            {/* Key-Value Breakdown List */}
-            <div className="space-y-2.5 text-xs pt-1 border-t border-slate-100">
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Transaction ID</span>
-                <span className="font-mono text-slate-700">{selectedPayment.transactionId}</span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Payment Method</span>
-                <span className="font-medium text-slate-800">{selectedPayment.paymentMethod}</span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Status</span>
-                <span
-                  className={cn(
-                    'px-2 py-0.5 rounded text-[11px] font-medium',
-                    selectedPayment.statusBadgeClass
-                  )}
-                >
-                  {selectedPayment.status}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Plan Name</span>
-                <span className="font-medium text-slate-800">{selectedPayment.planDuration}</span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Amount</span>
-                <span className="font-bold text-slate-900">₹{selectedPayment.amount}</span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Paid On</span>
-                <span className="font-medium text-slate-800">
-                  {selectedPayment.date}, {selectedPayment.time}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Payment Gateway</span>
-                <span className="font-medium text-slate-800">
-                  {selectedPayment.paymentMethod === 'Razorpay' ? 'Razorpay' : 'PhonePe / UPI'}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Gateway Order ID</span>
-                <span className="font-mono text-slate-700">
-                  {selectedPayment.gatewayOrderId || 'order_N8m7k2Pq'}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Payment ID</span>
-                <span className="font-mono text-slate-700">
-                  {selectedPayment.paymentId || selectedPayment.transactionId}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-400 font-normal">Bank Reference</span>
-                <span className="font-mono text-slate-700">
-                  {selectedPayment.bankReference || 'HDF000123456'}
-                </span>
-              </div>
-              <div className="flex justify-between py-0.5 items-center">
-                <span className="text-slate-400 font-normal">Invoice</span>
-                <button
-                  onClick={handleDownloadInvoice}
-                  className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold text-xs cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Invoice</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Subscription Status Green Box */}
-            <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                  <Crown className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800">Subscription Status</span>
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                      {selectedPayment.subscriptionActive == null ? 'Unavailable' : selectedPayment.subscriptionActive ? 'Active' : 'Inactive'}
+                {/* Key-Value Breakdown List */}
+                <div className="space-y-2.5 text-xs pt-1 border-t border-slate-100">
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Transaction ID</span>
+                    <span className="font-mono text-slate-700">
+                      {selectedPayment.transactionId}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">
-                    {selectedPayment.subscriptionValidTill
-                      ? `Valid till ${selectedPayment.subscriptionValidTill} (${selectedPayment.subscriptionDaysLeft ?? 0} days left)`
-                      : 'Subscription details unavailable'}
-                  </span>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Payment Method</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedPayment.paymentMethod}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Status</span>
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded text-[11px] font-medium',
+                        selectedPayment.statusBadgeClass
+                      )}
+                    >
+                      {selectedPayment.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Plan Name</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedPayment.planDuration}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Amount</span>
+                    <span className="font-bold text-slate-900">₹{selectedPayment.amount}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Paid On</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedPayment.date}, {selectedPayment.time}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Payment Gateway</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedPayment.paymentMethod === 'Razorpay' ? 'Razorpay' : 'PhonePe / UPI'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Gateway Order ID</span>
+                    <span className="font-mono text-slate-700">
+                      {selectedPayment.gatewayOrderId || 'order_N8m7k2Pq'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Payment ID</span>
+                    <span className="font-mono text-slate-700">
+                      {selectedPayment.paymentId || selectedPayment.transactionId}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-400 font-normal">Bank Reference</span>
+                    <span className="font-mono text-slate-700">
+                      {selectedPayment.bankReference || 'HDF000123456'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5 items-center">
+                    <span className="text-slate-400 font-normal">Invoice</span>
+                    <button
+                      onClick={handleDownloadInvoice}
+                      className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold text-xs cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Invoice</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <button
-                onClick={() => showToast('Managing subscription plan settings...')}
-                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
-              >
-                Manage
-              </button>
-            </div>
+                {/* Subscription Status Green Box */}
+                <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                      <Crown className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800">
+                          Subscription Status
+                        </span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+                          {selectedPayment.subscriptionActive == null
+                            ? 'Unavailable'
+                            : selectedPayment.subscriptionActive
+                              ? 'Active'
+                              : 'Inactive'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">
+                        {selectedPayment.subscriptionValidTill
+                          ? `Valid till ${selectedPayment.subscriptionValidTill} (${selectedPayment.subscriptionDaysLeft ?? 0} days left)`
+                          : 'Subscription details unavailable'}
+                      </span>
+                    </div>
+                  </div>
 
-            {/* Bottom Action Buttons */}
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
-              <button
-                onClick={handleSendReceipt}
-                className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send Receipt</span>
-              </button>
+                  <button
+                    onClick={() => showToast('Managing subscription plan settings...')}
+                    className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
+                  >
+                    Manage
+                  </button>
+                </div>
 
-              <button
-                onClick={() => handleOpenRefund(selectedPayment)}
-                disabled={selectedPayment.status !== 'Success'}
-                className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Refund Payment</span>
-              </button>
+                {/* Bottom Action Buttons */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    onClick={handleSendReceipt}
+                    className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Receipt</span>
+                  </button>
 
-              <button
-                onClick={handleCancelPayment}
-                disabled={isCancellingSubscription || selectedPayment.subscriptionActive !== true || !selectedPayment.sourcePayment.subscriptionId}
-                className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Ban className="w-3.5 h-3.5" />
-                <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
-              </button>
-            </div>
-            </>
+                  <button
+                    onClick={() => handleOpenRefund(selectedPayment)}
+                    disabled={selectedPayment.status !== 'Success'}
+                    className="border border-amber-200 text-amber-700 hover:bg-amber-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Refund Payment</span>
+                  </button>
+
+                  <button
+                    onClick={handleCancelPayment}
+                    disabled={
+                      isCancellingSubscription ||
+                      selectedPayment.subscriptionActive !== true ||
+                      !selectedPayment.sourcePayment.subscriptionId
+                    }
+                    className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="py-16 text-center text-slate-400 text-xs">
                 No payment record selected.

@@ -34,11 +34,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 // ============================================================================
 
 export type SystemAdminRole =
-  | 'Super Admin'
-  | 'Content Manager'
-  | 'Support Manager'
-  | 'Finance Manager'
-  | 'Analyst';
+  'Super Admin' | 'Content Manager' | 'Support Manager' | 'Finance Manager' | 'Analyst';
 
 export type AdminUserStatus = 'Active' | 'Inactive';
 
@@ -77,7 +73,8 @@ const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
     name: 'Susanta Lohar',
     isCurrentUser: true,
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
     email: 'susanta@example.com',
     phone: '+91 98765 43210',
     role: 'Super Admin',
@@ -89,7 +86,8 @@ const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
     num: 2,
     name: 'Puja Namata',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
     email: 'puja@example.com',
     phone: '+91 98765 43211',
     role: 'Content Manager',
@@ -101,7 +99,8 @@ const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
     num: 3,
     name: 'Rohit Kumar',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
     email: 'rohit@example.com',
     phone: '+91 98765 43212',
     role: 'Support Manager',
@@ -141,7 +140,8 @@ const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
     num: 6,
     name: 'Moumita Das',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     email: 'moumita@example.com',
     phone: '+91 98765 43215',
     role: 'Content Manager',
@@ -167,7 +167,8 @@ const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
     num: 8,
     name: 'Admin Test',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
     email: 'admintest@example.com',
     phone: '+91 98765 43217',
     role: 'Support Manager',
@@ -308,8 +309,8 @@ export const AdminStaff: React.FC = () => {
             email: m.email,
             phone: m.phone,
             role: backendRoleToUiRole(m.adminRole),
-            status: 'Active',
-            lastActive: 'Recently active',
+            status: m.accountStatus === 'inactive' ? 'Inactive' : 'Active',
+            lastActive: 'Unavailable',
           };
         });
 
@@ -325,12 +326,16 @@ export const AdminStaff: React.FC = () => {
       })
       .catch((err) => {
         console.warn('[AdminStaff] Failed to fetch staff members:', err);
+        if (isMounted) {
+          setToastError(true);
+          setToastMessage('Staff records could not be loaded. Please refresh and try again.');
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [currentAdmin]);
+  }, [currentAdmin?.id, currentAdmin?.email]);
 
   // Top Navigation Tabs: 'Roles & Permissions' | 'Admin Users' | 'Activity Log'
   const [activeMainTab, setActiveMainTab] = useState<
@@ -354,7 +359,9 @@ export const AdminStaff: React.FC = () => {
 
   // Side Panel state: Create New Admin
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>('Basic Info');
+  const [panelTab, setPanelTab] = useState<'Basic Info' | 'Role & Permissions' | 'Access Control'>(
+    'Basic Info'
+  );
 
   // Form Fields
   const [formName, setFormName] = useState('');
@@ -364,7 +371,7 @@ export const AdminStaff: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [formRole, setFormRole] = useState<SystemAdminRole>('Content Manager');
   const [formStatus, setFormStatus] = useState<AdminUserStatus>('Active');
-  const [formWelcomeEmail, setFormWelcomeEmail] = useState(true);
+  const formWelcomeEmail = false;
 
   // Create Role Modal
   const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
@@ -373,8 +380,11 @@ export const AdminStaff: React.FC = () => {
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastError, setToastError] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, error = false) => {
+    setToastError(error);
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -416,9 +426,7 @@ export const AdminStaff: React.FC = () => {
 
   const handleToggleRow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   // Reset Filters
@@ -437,82 +445,120 @@ export const AdminStaff: React.FC = () => {
       return;
     }
 
-    const initials = formName
-      .split(' ')
-      .map((s) => s[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    const newAdmin: AdminUserRecord = {
-      id: `adm-${Date.now()}`,
-      num: adminUsers.length + 1,
-      name: formName.trim(),
-      avatarType: 'initials',
-      avatarInitials: initials || 'AD',
-      avatarBgColor: 'bg-blue-100',
-      avatarTextColor: 'text-blue-600',
-      email: formEmail.trim(),
-      phone: formPhone.trim() || undefined,
-      role: formRole,
-      status: formStatus,
-      lastActive: 'Just now',
-    };
-
+    if (isWorking) return;
+    if (!['Super Admin', 'Content Manager', 'Support Manager'].includes(formRole)) {
+      showToast('This role has no supported backend permission mapping.', true);
+      return;
+    }
+    if (formStatus === 'Inactive') {
+      showToast('Assign the staff role first, then deactivate the account.', true);
+      return;
+    }
+    setIsWorking(true);
     try {
-      // Backend mapping
       const backendRole =
         formRole === 'Super Admin'
           ? 'super_admin'
           : formRole === 'Support Manager'
-          ? 'support_agent'
-          : 'content_writer';
-
-      await api.assignStaffByEmail(newAdmin.email, backendRole, currentAdmin);
-    } catch {
-      // Local fallback
-    }
-
-    setAdminUsers([...adminUsers, newAdmin]);
-    setFormName('');
-    setFormEmail('');
-    setFormPhone('');
-    setFormPassword('');
-    showToast(`Created admin user ${newAdmin.name} successfully!`);
-  };
-
-  // Toggle admin active/inactive
-  const handleToggleStatus = (id: string) => {
-    setAdminUsers((prev) =>
-      prev.map((adm) =>
-        adm.id === id
-          ? {
-              ...adm,
-              status: adm.status === 'Active' ? 'Inactive' : 'Active',
-            }
-          : adm
-      )
-    );
-    showToast('Updated admin status.');
-  };
-
-  // Delete admin
-  const handleDeleteAdmin = async (id: string) => {
-    setAdminUsers((prev) => prev.filter((adm) => adm.id !== id));
-    try {
-      await api.removeStaffMember(id, currentAdmin);
+            ? 'support_agent'
+            : 'content_writer';
+      const result = await api.assignStaffByEmail(formEmail.trim(), backendRole, currentAdmin);
+      if (!result.success || !result.member) {
+        showToast(result.error || 'Staff assignment was not confirmed.', true);
+        return;
+      }
+      const m = result.member;
+      setAdminUsers((prev) => [
+        ...prev.filter((a) => a.id !== m.id),
+        {
+          id: m.id,
+          num: prev.length + 1,
+          name: m.fullName,
+          email: m.email,
+          phone: m.phone,
+          role: backendRoleToUiRole(m.adminRole),
+          status: m.accountStatus === 'inactive' ? 'Inactive' : 'Active',
+          avatarType: 'initials',
+          avatarInitials: m.fullName.slice(0, 2).toUpperCase(),
+          avatarBgColor: 'bg-blue-100',
+          avatarTextColor: 'text-blue-600',
+          lastActive: 'Unavailable',
+        },
+      ]);
+      setFormName('');
+      setFormEmail('');
+      setFormPhone('');
+      setFormPassword('');
+      showToast(`Assigned staff role to ${m.fullName}. No new login account was created.`);
     } catch (err) {
-      console.warn('[AdminStaff] Failed to remove staff member on backend:', err);
+      showToast(err instanceof Error ? err.message : 'Staff assignment failed.', true);
+    } finally {
+      setIsWorking(false);
     }
-    showToast('Admin user removed.');
+  };
+
+  const handleToggleStatus = async (id: string) => {
+    if (isWorking) return;
+    const target = adminUsers.find((a) => a.id === id);
+    if (!target) return;
+    const status = target.status === 'Active' ? 'inactive' : 'active';
+    setIsWorking(true);
+    try {
+      const result = await api.setStaffAccountStatus(id, status);
+      if (!result.success) {
+        showToast(result.error || 'Status update was not confirmed.', true);
+        return;
+      }
+      setAdminUsers((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status: status === 'active' ? 'Active' : 'Inactive' } : a
+        )
+      );
+      showToast('Account status updated in the backend.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Status update failed.', true);
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (
+      isWorking ||
+      !window.confirm(
+        'Remove this staff role? The registered account will remain a student account.'
+      )
+    )
+      return;
+    setIsWorking(true);
+    try {
+      const result = await api.removeStaffMember(id, currentAdmin);
+      if (!result.success) {
+        showToast(result.error || 'Staff removal was not confirmed.', true);
+        return;
+      }
+      setAdminUsers((prev) => prev.filter((a) => a.id !== id));
+      showToast('Staff role removed.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Staff removal failed.', true);
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div
+          role={toastError ? 'alert' : 'status'}
+          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200"
+        >
+          {toastError ? (
+            <X className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -593,7 +639,9 @@ export const AdminStaff: React.FC = () => {
                 Online
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              currently active
+            </span>
           </div>
         </div>
 
@@ -711,9 +759,7 @@ export const AdminStaff: React.FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-900 text-xs truncate">{role.title}</h3>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                      {role.description}
-                    </p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{role.description}</p>
                   </div>
                 </div>
 
@@ -816,8 +862,7 @@ export const AdminStaff: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={
-                          selectedIds.length > 0 &&
-                          selectedIds.length === filteredAdmins.length
+                          selectedIds.length > 0 && selectedIds.length === filteredAdmins.length
                         }
                         onChange={handleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
@@ -840,177 +885,183 @@ export const AdminStaff: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredAdmins.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
-                    const isChecked = selectedIds.includes(row.id);
+                    filteredAdmins
+                      .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                      .map((row) => {
+                        const isChecked = selectedIds.includes(row.id);
 
-                    return (
-                      <tr
-                        key={row.id}
-                        className={cn(
-                          'transition-colors cursor-pointer group',
-                          isChecked ? 'bg-blue-50/40 hover:bg-blue-50/60' : 'hover:bg-slate-50/60'
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <td
-                          className="py-3 px-3 text-center"
-                          onClick={(e) => handleToggleRow(row.id, e)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
-                          />
-                        </td>
-
-                        {/* # */}
-                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
-                          {row.num}
-                        </td>
-
-                        {/* Name + Avatar + You Badge */}
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            {row.avatarType === 'photo' && row.avatarSrc ? (
-                              <img
-                                src={row.avatarSrc}
-                                alt={row.name}
-                                className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-100"
+                        return (
+                          <tr
+                            key={row.id}
+                            className={cn(
+                              'transition-colors cursor-pointer group',
+                              isChecked
+                                ? 'bg-blue-50/40 hover:bg-blue-50/60'
+                                : 'hover:bg-slate-50/60'
+                            )}
+                          >
+                            {/* Checkbox */}
+                            <td
+                              className="py-3 px-3 text-center"
+                              onClick={(e) => handleToggleRow(row.id, e)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
                               />
-                            ) : (
-                              <div
+                            </td>
+
+                            {/* # */}
+                            <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                              {row.num}
+                            </td>
+
+                            {/* Name + Avatar + You Badge */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2.5">
+                                {row.avatarType === 'photo' && row.avatarSrc ? (
+                                  <img
+                                    src={row.avatarSrc}
+                                    alt={row.name}
+                                    className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-100"
+                                  />
+                                ) : (
+                                  <div
+                                    className={cn(
+                                      'w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0',
+                                      row.avatarBgColor || 'bg-blue-100',
+                                      row.avatarTextColor || 'text-blue-600'
+                                    )}
+                                  >
+                                    {row.avatarInitials}
+                                  </div>
+                                )}
+
+                                <span className="font-semibold text-slate-900 truncate">
+                                  {row.name}
+                                </span>
+
+                                {row.isCurrentUser && (
+                                  <span className="bg-blue-50 text-blue-600 font-semibold text-[10px] px-1.5 py-0.5 rounded">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Email */}
+                            <td className="py-3 px-3 text-slate-500 font-normal">{row.email}</td>
+
+                            {/* Role Pill */}
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span
                                 className={cn(
-                                  'w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0',
-                                  row.avatarBgColor || 'bg-blue-100',
-                                  row.avatarTextColor || 'text-blue-600'
+                                  'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
+                                  getRoleBadgeClass(row.role)
                                 )}
                               >
-                                {row.avatarInitials}
-                              </div>
-                            )}
-
-                            <span className="font-semibold text-slate-900 truncate">
-                              {row.name}
-                            </span>
-
-                            {row.isCurrentUser && (
-                              <span className="bg-blue-50 text-blue-600 font-semibold text-[10px] px-1.5 py-0.5 rounded">
-                                You
+                                {row.role}
                               </span>
-                            )}
-                          </div>
-                        </td>
+                            </td>
 
-                        {/* Email */}
-                        <td className="py-3 px-3 text-slate-500 font-normal">
-                          {row.email}
-                        </td>
+                            {/* Status Pill */}
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span
+                                className={cn(
+                                  'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
+                                  row.status === 'Active'
+                                    ? 'bg-[#DCFCE7] text-[#15803D]'
+                                    : 'bg-[#FEE2E2] text-[#DC2626]'
+                                )}
+                              >
+                                {row.status}
+                              </span>
+                            </td>
 
-                        {/* Role Pill */}
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
-                              getRoleBadgeClass(row.role)
-                            )}
-                          >
-                            {row.role}
-                          </span>
-                        </td>
+                            {/* Last Active */}
+                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
+                              {row.lastActive}
+                            </td>
 
-                        {/* Status Pill */}
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-semibold',
-                              row.status === 'Active'
-                                ? 'bg-[#DCFCE7] text-[#15803D]'
-                                : 'bg-[#FEE2E2] text-[#DC2626]'
-                            )}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-
-                        {/* Last Active */}
-                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
-                          {row.lastActive}
-                        </td>
-
-                        {/* Actions */}
-                        <td
-                          className="py-3 px-3 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                            {/* Actions */}
+                            <td
+                              className="py-3 px-3 text-center relative"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-
-                            {/* Dropdown Menu */}
-                            {activeMenuId === row.id && (
-                              <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                              <div className="relative inline-block text-left">
                                 <button
-                                  onClick={() => {
-                                    handleToggleStatus(row.id);
-                                    setActiveMenuId(null);
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === row.id ? null : row.id);
                                   }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                                 >
-                                  <Shield className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>
-                                    {row.status === 'Active' ? 'Deactivate Admin' : 'Activate Admin'}
-                                  </span>
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </button>
 
-                                <button
-                                  onClick={() => {
-                                    showToast(`Sent password reset link to ${row.email}`);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Key className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Reset Password</span>
-                                </button>
-
-                                {!row.isCurrentUser && (
-                                  <>
-                                    <div className="border-t border-slate-100 my-1" />
+                                {/* Dropdown Menu */}
+                                {activeMenuId === row.id && (
+                                  <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
                                     <button
                                       onClick={() => {
-                                        handleDeleteAdmin(row.id);
+                                        handleToggleStatus(row.id);
                                         setActiveMenuId(null);
                                       }}
-                                      className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                      <span>Remove Admin</span>
+                                      <Shield className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>
+                                        {row.status === 'Active'
+                                          ? 'Deactivate Admin'
+                                          : 'Activate Admin'}
+                                      </span>
                                     </button>
-                                  </>
+
+                                    <button
+                                      onClick={() => {
+                                        showToast(`Sent password reset link to ${row.email}`);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                    >
+                                      <Key className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Reset Password</span>
+                                    </button>
+
+                                    {!row.isCurrentUser && (
+                                      <>
+                                        <div className="border-t border-slate-100 my-1" />
+                                        <button
+                                          onClick={() => {
+                                            handleDeleteAdmin(row.id);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                          <span>Remove Admin</span>
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
-              <div>Showing 1–{filteredAdmins.length} of {filteredAdmins.length} admins</div>
+              <div>
+                Showing 1–{filteredAdmins.length} of {filteredAdmins.length} admins
+              </div>
 
               <div className="flex items-center gap-1.5">
                 <button
@@ -1056,7 +1107,9 @@ export const AdminStaff: React.FC = () => {
           <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-2xs p-5 space-y-4 animate-in fade-in duration-150">
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900">Create New Admin</h2>
+              <h2 className="text-sm font-bold text-slate-900">
+                Assign Staff to a Registered Account
+              </h2>
               <button
                 onClick={() => setIsSidePanelOpen(false)}
                 className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
@@ -1074,9 +1127,7 @@ export const AdminStaff: React.FC = () => {
                   onClick={() => setPanelTab(tab)}
                   className={cn(
                     'py-2 px-3 font-semibold transition-all relative cursor-pointer',
-                    panelTab === tab
-                      ? 'text-[#2563EB]'
-                      : 'text-slate-500 hover:text-slate-800'
+                    panelTab === tab ? 'text-[#2563EB]' : 'text-slate-500 hover:text-slate-800'
                   )}
                 >
                   {tab}
@@ -1136,14 +1187,15 @@ export const AdminStaff: React.FC = () => {
               {/* Password */}
               <div>
                 <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                  Password <span className="text-rose-500">*</span>
+                  Password (unchanged for existing accounts)
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    disabled
                     value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
-                    placeholder="Create a strong password"
+                    placeholder="Existing account credentials are not changed"
                     className="w-full border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                   <button
@@ -1151,7 +1203,11 @@ export const AdminStaff: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="text-slate-400 hover:text-slate-600 absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -1214,13 +1270,14 @@ export const AdminStaff: React.FC = () => {
                     Send Welcome Email
                   </span>
                   <span className="text-[11px] text-slate-400 block">
-                    Send login credentials to the admin
+                    Existing account credentials remain unchanged
                   </span>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setFormWelcomeEmail(!formWelcomeEmail)}
+                  disabled
+                  title="Welcome email is not available for existing-account role assignment"
                   className={cn(
                     'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer',
                     formWelcomeEmail ? 'bg-[#2563EB]' : 'bg-slate-200'
@@ -1251,6 +1308,7 @@ export const AdminStaff: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isWorking}
                   className="px-5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-2xs cursor-pointer"
                 >
                   Create Admin
@@ -1292,9 +1350,7 @@ export const AdminStaff: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Description
-                </label>
+                <label className="font-semibold text-slate-700 block mb-1">Description</label>
                 <textarea
                   rows={2}
                   value={newRoleDesc}
@@ -1307,12 +1363,18 @@ export const AdminStaff: React.FC = () => {
               <div className="space-y-1.5 pt-1">
                 <span className="font-semibold text-slate-700 block">Default Permissions</span>
                 <div className="space-y-1 text-slate-600">
-                  {['Manage Tests', 'Manage Students', 'View Analytics', 'Customer Support'].map((p) => (
-                    <label key={p} className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-0" />
-                      <span>{p}</span>
-                    </label>
-                  ))}
+                  {['Manage Tests', 'Manage Students', 'View Analytics', 'Customer Support'].map(
+                    (p) => (
+                      <label key={p} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          defaultChecked
+                          className="rounded border-slate-300 text-blue-600 focus:ring-0"
+                        />
+                        <span>{p}</span>
+                      </label>
+                    )
+                  )}
                 </div>
               </div>
 

@@ -1,184 +1,173 @@
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localSupportTickets } from '@/services/domains/localStore';
-import type { SupportTicketItem } from '@/types';
-
-/** Section of the admin API: support (split from domains/admin.ts, same behaviour). */
-// --------------------------------------------------------------------------
-// SUPPORT TICKETS API
-// --------------------------------------------------------------------------
+import { loadAllPages } from '@/utils/loadAllPages';
+import type { SupportTicketItem, SupportTicketMessage } from '@/types';
+export const mapSupportMessage = (d: any): SupportTicketMessage => ({
+  id: d.id,
+  ticketId: d.ticket_id,
+  authorName: d.author_name,
+  authorKind: d.author_kind,
+  body: d.body,
+  createdAt: d.created_at,
+});
+export const mapSupportTicket = (d: any): SupportTicketItem => ({
+  id: d.id,
+  userId: d.user_id || undefined,
+  studentName: d.student_name || 'Student',
+  studentEmail: d.student_email || '',
+  subject: d.subject,
+  issue: d.issue,
+  category: d.category,
+  priority: d.priority,
+  status: d.status,
+  assignedTo: d.assigned_to || undefined,
+  resolutionNotes: d.resolution_notes || undefined,
+  createdAt: d.created_at,
+  updatedAt: d.updated_at,
+  messages: (d.support_ticket_messages || [])
+    .map(mapSupportMessage)
+    .sort((a: SupportTicketMessage, b: SupportTicketMessage) =>
+      a.createdAt.localeCompare(b.createdAt)
+    ),
+});
 export async function getSupportTickets(): Promise<SupportTicketItem[]> {
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        return data.map((d: any) => ({
-          id: d.id,
-          userId: d.user_id || undefined,
-          studentName: d.student_name || 'Student Aspirant',
-          studentEmail: d.student_email || '',
-          subject: d.subject,
-          issue: d.issue,
-          category: d.category,
-          priority: d.priority,
-          status: d.status,
-          assignedTo: d.assigned_to || undefined,
-          resolutionNotes: d.resolution_notes || undefined,
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-        }));
-      }
-    } catch (err) {
-      console.warn('Failed to load support tickets from Supabase:', err);
-    }
-    return [];
-  }
-
-  return [...localSupportTickets];
+  if (!isSupabaseConfigured) return [...localSupportTickets];
+  return loadAllPages(async (limit, offset) => {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*, support_ticket_messages(*)')
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(offset, offset + limit - 1);
+    if (error) throw new Error(error.message);
+    return (data || []).map(mapSupportTicket);
+  });
 }
-
 export async function updateSupportTicket(
   id: string,
   updates: Partial<SupportTicketItem>
 ): Promise<{ success: boolean; error?: string }> {
-  const idx = localSupportTickets.findIndex((t) => t.id === id);
-  if (idx !== -1) {
-    localSupportTickets[idx] = {
-      ...localSupportTickets[idx],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
   if (isSupabaseConfigured) {
     const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (updates.status) payload.status = updates.status;
-    if (updates.priority) payload.priority = updates.priority;
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.priority !== undefined) payload.priority = updates.priority;
     if (updates.resolutionNotes !== undefined) payload.resolution_notes = updates.resolutionNotes;
-    if (updates.assignedTo !== undefined) payload.assigned_to = updates.assignedTo;
-
+    if (updates.assignedTo !== undefined) payload.assigned_to = updates.assignedTo || null;
     try {
-      const { error } = await supabase.from('support_tickets').update(payload).eq('id', id);
-      if (error) return { success: false, error: error.message };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Update failed' };
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .update(payload)
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+      if (error || data?.id !== id)
+        return { success: false, error: error?.message || 'Ticket update was not confirmed.' };
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Update failed.' };
     }
   }
-
+  const index = localSupportTickets.findIndex((t) => t.id === id);
+  if (index < 0) return { success: false, error: 'Ticket not found.' };
+  localSupportTickets[index] = {
+    ...localSupportTickets[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
   return { success: true };
 }
-
 export async function createSupportTicket(
   ticket: Omit<SupportTicketItem, 'id' | 'createdAt' | 'updatedAt'>
-): Promise<{ success: boolean; error?: string; ticketId?: string }> {
-  const generatedId = `tkt_${Date.now()}`;
-  const newTicket: SupportTicketItem = {
-    id: generatedId,
-    userId: ticket.userId,
-    studentName: ticket.studentName || 'Student Candidate',
-    studentEmail: ticket.studentEmail || '',
-    subject: ticket.subject,
-    issue: ticket.issue,
-    category: ticket.category || 'Other',
-    priority: ticket.priority || 'medium',
-    status: ticket.status || 'open',
-    resolutionNotes: ticket.resolutionNotes,
+): Promise<{ success: boolean; error?: string; ticketId?: string; ticket?: SupportTicketItem }> {
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.rpc('create_support_ticket', {
+        p_student_name: ticket.studentName,
+        p_student_email: ticket.studentEmail,
+        p_subject: ticket.subject,
+        p_issue: ticket.issue,
+        p_category: ticket.category || 'Other',
+        p_priority: ticket.priority || 'medium',
+        p_user_id: ticket.userId || null,
+      });
+      if (error || data?.success !== true || !data?.ticket?.id)
+        return {
+          success: false,
+          error: error?.message || data?.error || 'Ticket creation was not confirmed.',
+        };
+      const saved = mapSupportTicket(data.ticket);
+      return { success: true, ticketId: saved.id, ticket: saved };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Ticket creation failed.',
+      };
+    }
+  }
+  const saved: SupportTicketItem = {
+    ...ticket,
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  localSupportTickets.unshift(newTicket);
-
-  if (isSupabaseConfigured) {
-    let resolvedUserId = ticket.userId || null;
-    if (!resolvedUserId) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        resolvedUserId = authData?.user?.id || null;
-      } catch {
-        // ignore auth error
-      }
-    }
-
-    try {
-      const { error } = await supabase.from('support_tickets').insert({
-        user_id: resolvedUserId,
-        student_name: ticket.studentName || 'Student Candidate',
-        student_email: ticket.studentEmail || '',
-        subject: ticket.subject,
-        issue: ticket.issue,
-        category: ticket.category || 'Other',
-        priority: ticket.priority || 'medium',
-        status: ticket.status || 'open',
-        resolution_notes: ticket.resolutionNotes || null,
-      });
-      if (error) {
-        console.warn('Supabase support_tickets insert notice (stored locally):', error.message);
-      }
-    } catch (err: any) {
-      console.warn('Supabase support_tickets exception (stored locally):', err?.message || err);
-    }
-  }
-
-  return { success: true, ticketId: generatedId };
+  localSupportTickets.unshift(saved);
+  return { success: true, ticketId: saved.id, ticket: saved };
 }
-
+export async function sendSupportTicketMessage(
+  ticketId: string,
+  body: string,
+  internal = false
+): Promise<{ success: boolean; error?: string; message?: SupportTicketMessage }> {
+  if (!body.trim()) return { success: false, error: 'A message is required.' };
+  if (!isSupabaseConfigured)
+    return { success: false, error: 'Message delivery requires a configured backend.' };
+  try {
+    const { data, error } = await supabase.rpc('send_support_ticket_message', {
+      p_ticket_id: ticketId,
+      p_body: body.trim(),
+      p_internal: internal,
+    });
+    if (error || data?.success !== true || !data?.message?.id)
+      return {
+        success: false,
+        error: error?.message || data?.error || 'Message save was not confirmed.',
+      };
+    return { success: true, message: mapSupportMessage(data.message) };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Message delivery failed.',
+    };
+  }
+}
 export async function getStudentSupportTickets(userId?: string): Promise<SupportTicketItem[]> {
-  if (isSupabaseConfigured) {
-    let targetUserId = userId;
-    if (!targetUserId) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        targetUserId = authData?.user?.id;
-      } catch {
-        // ignore
-      }
-    }
-
-    if (targetUserId) {
-      try {
-        const { data, error } = await supabase
-          .from('support_tickets')
-          .select('*')
-          .eq('user_id', targetUserId)
-          .order('created_at', { ascending: false });
-
-        if (!error && data) {
-          return data.map((d: any) => ({
-            id: d.id,
-            userId: d.user_id || undefined,
-            studentName: d.student_name || 'Student Candidate',
-            studentEmail: d.student_email || '',
-            subject: d.subject,
-            issue: d.issue,
-            category: d.category,
-            priority: d.priority,
-            status: d.status,
-            assignedTo: d.assigned_to || undefined,
-            resolutionNotes: d.resolution_notes || undefined,
-            createdAt: d.created_at,
-            updatedAt: d.updated_at,
-          }));
-        }
-      } catch (err) {
-        console.warn('Failed to load student support tickets from Supabase:', err);
-      }
-    }
-    return [];
-  }
-
-  if (userId) {
-    const filtered = localSupportTickets.filter((t) => !t.userId || t.userId === userId);
-    return filtered.length > 0 ? filtered : [...localSupportTickets];
-  }
-  return [...localSupportTickets];
+  if (!isSupabaseConfigured) return localSupportTickets.filter((t) => t.userId === userId);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user?.id) throw new Error('Sign in to view your tickets.');
+  const actorId = authData.user.id;
+  if (userId && userId !== actorId) throw new Error('You can only view your own support tickets.');
+  return loadAllPages(async (limit, offset) => {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*, support_ticket_messages(*)')
+      .eq('user_id', actorId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(offset, offset + limit - 1);
+    if (error) throw new Error(error.message);
+    return (data || []).map((d) => {
+      const ticket = mapSupportTicket(d);
+      return {
+        ...ticket,
+        messages: ticket.messages?.filter((m) => m.authorKind !== 'internal_note'),
+      };
+    });
+  });
 }
-
 export const adminSupportApi = {
   getSupportTickets,
   updateSupportTicket,
   createSupportTicket,
   getStudentSupportTickets,
+  sendSupportTicketMessage,
 };

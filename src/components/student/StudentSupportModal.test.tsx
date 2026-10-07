@@ -157,4 +157,43 @@ describe('StudentSupportModal', () => {
       expect(api.createSupportTicket).not.toHaveBeenCalled();
     });
   });
+  it('shows persisted public support replies without exposing internal notes', async () => {
+    vi.mocked(api.getStudentSupportTickets).mockResolvedValue([
+      {
+        id: 't1',
+        userId: 'test-user-123',
+        studentName: 'Suman Roy',
+        studentEmail: 'suman@example.com',
+        subject: 'Help',
+        issue: 'Question',
+        category: 'Other',
+        priority: 'medium',
+        status: 'pending',
+        createdAt: '2026-10-01',
+        updatedAt: '2026-10-01',
+        messages: [
+          {
+            id: 'public',
+            ticketId: 't1',
+            authorKind: 'support',
+            authorName: 'Support',
+            body: 'Persistent public answer',
+            createdAt: '2026-10-01',
+          },
+          {
+            id: 'private',
+            ticketId: 't1',
+            authorKind: 'internal_note',
+            authorName: 'Support',
+            body: 'Private staff-only note',
+            createdAt: '2026-10-01',
+          },
+        ],
+      },
+    ]);
+    render(<StudentSupportModal isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /My Tickets/i }));
+    expect(await screen.findByText('Persistent public answer')).toBeInTheDocument();
+    expect(screen.queryByText('Private staff-only note')).not.toBeInTheDocument();
+  });
 });

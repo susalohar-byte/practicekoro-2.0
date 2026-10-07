@@ -432,6 +432,20 @@ export const StudentSupportModal: React.FC<StudentSupportModalProps> = ({
                         </p>
 
                         {/* Admin Resolution Feedback */}
+                        {t.messages
+                          ?.filter((m) => m.authorKind === 'support')
+                          .map((m) => (
+                            <div
+                              key={m.id}
+                              className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800"
+                            >
+                              <p className="text-xs font-bold">Support reply — {m.authorName}</p>
+                              <p className="text-xs whitespace-pre-wrap mt-1">{m.body}</p>
+                              <p className="text-[10px] text-slate-500 mt-1">
+                                {new Date(m.createdAt).toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                          ))}
                         {t.resolutionNotes && (
                           <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300">
                             <div className="flex items-center gap-1.5 font-bold mb-1">

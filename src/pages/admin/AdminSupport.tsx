@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import type { SupportTicketItem, SupportTicketMessage } from '@/types';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
@@ -80,6 +81,73 @@ export interface TicketRecord {
   channel: string;
   attachments?: AttachmentItem[];
   messages: ChatMessage[];
+}
+
+export function supportMessageToChat(m: SupportTicketMessage): ChatMessage {
+  return {
+    id: m.id,
+    sender: m.authorKind,
+    senderName: m.authorName,
+    avatarText: m.authorKind === 'internal_note' ? 'N' : 'S',
+    avatarBgColor: 'bg-blue-600 text-white',
+    time: new Date(m.createdAt).toLocaleString('en-GB'),
+    message: m.body,
+  };
+}
+export function mapAdminSupportTicket(t: SupportTicketItem): TicketRecord {
+  const raw = t.category.toLowerCase();
+  const category: TicketCategory = raw.includes('subscription')
+    ? 'Subscription'
+    : raw.includes('pay')
+      ? 'Payment Issue'
+      : raw.includes('account')
+        ? 'Account Related'
+        : raw.includes('test') || raw.includes('tech')
+          ? 'Technical Issue'
+          : 'Other';
+  const status: TicketStatus =
+    t.status === 'pending'
+      ? 'In Progress'
+      : t.status === 'closed'
+        ? 'Closed'
+        : t.status === 'resolved'
+          ? 'Resolved'
+          : 'Open';
+  const dateStr = new Date(t.createdAt).toLocaleString('en-GB');
+  return {
+    id: t.id,
+    ticketNumber: `#PKT-${t.id.slice(0, 8)}`,
+    studentName: t.studentName,
+    studentEmail: t.studentEmail,
+    studentPhone: 'Unavailable',
+    avatarText: t.studentName.slice(0, 2).toUpperCase(),
+    avatarBgColor: 'bg-blue-100 text-blue-600',
+    subject: t.subject,
+    excerpt: t.issue.slice(0, 60),
+    message: t.issue,
+    category,
+    priority:
+      t.priority === 'urgent' || t.priority === 'high'
+        ? 'High'
+        : t.priority === 'low'
+          ? 'Low'
+          : 'Medium',
+    status,
+    dateStr,
+    channel: 'Student Portal',
+    messages: [
+      {
+        id: `initial-${t.id}`,
+        sender: 'student',
+        senderName: t.studentName,
+        avatarText: t.studentName.slice(0, 2),
+        avatarBgColor: 'bg-blue-100',
+        time: dateStr,
+        message: t.issue,
+      },
+      ...(t.messages || []).map(supportMessageToChat),
+    ],
+  };
 }
 
 // Initial 10 tickets strictly matching screenshot media_1791202466769.jpg
@@ -172,7 +240,8 @@ const INITIAL_TICKETS: TicketRecord[] = [
         avatarText: 'S',
         avatarBgColor: 'bg-blue-600 text-white',
         time: '12 Sep 2026, 10:00 AM',
-        message: 'Hi Sneha, the mock tests are available under the "Test Series" tab on your dashboard.',
+        message:
+          'Hi Sneha, the mock tests are available under the "Test Series" tab on your dashboard.',
       },
     ],
   },
@@ -210,7 +279,8 @@ const INITIAL_TICKETS: TicketRecord[] = [
         avatarText: 'S',
         avatarBgColor: 'bg-blue-600 text-white',
         time: '11 Sep 2026, 08:45 PM',
-        message: 'Our academic review team has received your query and is reviewing question #12345.',
+        message:
+          'Our academic review team has received your query and is reviewing question #12345.',
       },
     ],
   },
@@ -416,8 +486,7 @@ const INITIAL_TICKETS: TicketRecord[] = [
     avatarBgColor: 'bg-rose-100 text-rose-600',
     subject: 'Payment method not available',
     excerpt: 'UPI option is not showing for me. Please help...',
-    message:
-      'UPI option is not showing for me during checkout on iOS Safari browser. Please help.',
+    message: 'UPI option is not showing for me during checkout on iOS Safari browser. Please help.',
     category: 'Payment Issue',
     priority: 'Medium',
     status: 'Open',
@@ -511,73 +580,30 @@ export const AdminSupport: React.FC = () => {
   // Load live support tickets from Supabase database on mount
   useEffect(() => {
     let isMounted = true;
-    api.getSupportTickets().then((remote) => {
-      if (!isMounted) return;
-      if (!remote || remote.length === 0) {
-        if (isSupabaseConfigured) {
-          setTicketsList([]);
-          setSelectedTicketId('');
+    api
+      .getSupportTickets()
+      .then((remote) => {
+        if (!isMounted) return;
+        if (!remote || remote.length === 0) {
+          if (isSupabaseConfigured) {
+            setTicketsList([]);
+            setSelectedTicketId('');
+          }
+          return;
         }
-        return;
-      }
-      const mapped: TicketRecord[] = remote.map((t, idx) => {
-        let cat: TicketCategory = 'Payment Issue';
-        const rawCat = String(t.category || '').toLowerCase();
-        if (rawCat.includes('test') || rawCat.includes('tech')) cat = 'Technical Issue';
-        else if (rawCat.includes('account')) cat = 'Account Related';
-        else if (rawCat.includes('content')) cat = 'Content Related';
-        else if (rawCat.includes('subscription')) cat = 'Subscription';
-        else if (rawCat.includes('refund')) cat = 'Refund Request';
-        else if (rawCat.includes('pay')) cat = 'Payment Issue';
-        else cat = 'Other';
-
-        let pri: TicketPriority = 'Medium';
-        if (t.priority === 'urgent' || t.priority === 'high') pri = 'High';
-        else if (t.priority === 'low') pri = 'Low';
-
-        let st: TicketStatus = 'Open';
-        const rawStatus = String(t.status || '').toLowerCase();
-        if (rawStatus === 'resolved' || rawStatus === 'closed') st = 'Resolved';
-        else if (rawStatus === 'in_progress') st = 'In Progress';
-
-        const dDate = new Date(t.createdAt || Date.now());
-        const dateStr = dDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-
-        return {
-          id: t.id,
-          ticketNumber: `#PKT-${1000 + idx}`,
-          studentName: t.studentName || 'Student Aspirant',
-          studentEmail: t.studentEmail || '',
-          studentPhone: '+91 98765 43210',
-          avatarText: (t.studentName || 'ST').slice(0, 2).toUpperCase(),
-          avatarBgColor: 'bg-blue-100 text-blue-600',
-          subject: t.subject,
-          excerpt: t.issue ? (t.issue.length > 60 ? t.issue.slice(0, 60) + '...' : t.issue) : t.subject,
-          message: t.issue || t.subject,
-          category: cat,
-          priority: pri,
-          status: st,
-          dateStr,
-          channel: 'Portal',
-          messages: [
-            {
-              id: `msg-${t.id}-1`,
-              sender: 'student',
-              senderName: t.studentName || 'Student Aspirant',
-              avatarText: (t.studentName || 'ST').slice(0, 2).toUpperCase(),
-              avatarBgColor: 'bg-blue-100 text-blue-600',
-              time: dateStr,
-              message: t.issue || t.subject,
-            },
-          ],
-        };
+        const mapped = remote.map(mapAdminSupportTicket);
+        setTicketsList(mapped);
+        if (mapped.length > 0) setSelectedTicketId(mapped[0].id);
+      })
+      .catch((err) => {
+        setToastError(true);
+        setToastMessage(
+          err instanceof Error ? err.message : 'Support tickets could not be loaded.'
+        );
       });
-      setTicketsList(mapped);
-      if (mapped.length > 0) setSelectedTicketId(mapped[0].id);
-    }).catch((err) => {
-      console.warn('Failed to load support tickets from database:', err);
-    });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Selected Ticket in Right Panel
@@ -622,8 +648,11 @@ export const AdminSupport: React.FC = () => {
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastError, setToastError] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, error = false) => {
+    setToastError(error);
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -639,7 +668,10 @@ export const AdminSupport: React.FC = () => {
 
   // Active selected ticket
   const activeTicket = useMemo(() => {
-    return ticketsList.find((t) => t.id === selectedTicketId) || (ticketsList.length > 0 ? ticketsList[0] : null);
+    return (
+      ticketsList.find((t) => t.id === selectedTicketId) ||
+      (ticketsList.length > 0 ? ticketsList[0] : null)
+    );
   }, [ticketsList, selectedTicketId]);
 
   // Filtered tickets
@@ -736,130 +768,120 @@ export const AdminSupport: React.FC = () => {
     showToast('Filters reset.');
   };
 
-  // Update Status of active ticket
-  const handleUpdateStatus = (newStatus: TicketStatus) => {
-    if (!activeTicket) return;
-    setTicketsList((prev) =>
-      prev.map((t) => (t.id === activeTicket.id ? { ...t, status: newStatus } : t))
-    );
-    const backendStatus: 'open' | 'pending' | 'resolved' | 'closed' =
-      newStatus === 'In Progress'
-        ? 'pending'
-        : (newStatus.toLowerCase() as 'open' | 'resolved' | 'closed');
-    api.updateSupportTicket(activeTicket.id, { status: backendStatus }).catch(() => {});
-    showToast(`Updated ticket ${activeTicket.ticketNumber} to ${newStatus}.`);
+  const handleUpdateStatus = async (newStatus: TicketStatus) => {
+    if (!activeTicket || isWorking) return;
+    const target = activeTicket;
+    setIsWorking(true);
+    try {
+      const status =
+        newStatus === 'In Progress'
+          ? 'pending'
+          : (newStatus.toLowerCase() as 'open' | 'resolved' | 'closed');
+      const result = await api.updateSupportTicket(target.id, { status });
+      if (!result.success) {
+        showToast(result.error || 'Status update failed.', true);
+        return;
+      }
+      setTicketsList((prev) =>
+        prev.map((t) => (t.id === target.id ? { ...t, status: newStatus } : t))
+      );
+      showToast(`Updated ticket ${target.ticketNumber} to ${newStatus}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Status update failed.', true);
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Send Reply or Internal Note
-  const handleSendReply = () => {
-    if (!replyText.trim() || !activeTicket) return;
-
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      sender: composerTab === 'Internal Note' ? 'internal_note' : 'support',
-      senderName: composerTab === 'Internal Note' ? 'Internal Note' : 'Support Team',
-      avatarText: composerTab === 'Internal Note' ? 'N' : 'S',
-      avatarBgColor:
-        composerTab === 'Internal Note' ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white',
-      time: 'Just now',
-      message: replyText.trim(),
-    };
-
-    setTicketsList((prev) =>
-      prev.map((t) => {
-        if (t.id === activeTicket.id) {
-          return {
-            ...t,
-            messages: [...t.messages, newMsg],
-          };
-        }
-        return t;
-      })
-    );
-
-    setReplyText('');
-    showToast(
-      composerTab === 'Internal Note' ? 'Internal note added.' : 'Reply sent to student.'
-    );
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !activeTicket || isWorking) return;
+    const targetId = activeTicket.id;
+    const body = replyText.trim();
+    const internal = composerTab === 'Internal Note';
+    setIsWorking(true);
+    try {
+      const result = await api.sendSupportTicketMessage(targetId, body, internal);
+      if (!result.success || !result.message) {
+        showToast(result.error || 'Message was not saved.', true);
+        return;
+      }
+      const message = supportMessageToChat(result.message);
+      setTicketsList((prev) =>
+        prev.map((t) => (t.id === targetId ? { ...t, messages: [...t.messages, message] } : t))
+      );
+      setReplyText('');
+      showToast(
+        internal
+          ? 'Internal note saved. Only support staff can see it.'
+          : 'Reply saved to the student portal.'
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Message delivery failed.', true);
+    } finally {
+      setIsWorking(false);
+    }
   };
 
-  // Create new ticket submission
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isWorking) return;
     if (!newStudentName.trim() || !newSubject.trim() || !newMessage.trim()) {
-      showToast('Please fill all required fields.');
+      showToast('Name, subject, and message are required.', true);
       return;
     }
-
-    const newTktNumber = `#PKT-${1049 + ticketsList.length}`;
-    const initials = newStudentName
-      .split(' ')
-      .map((s) => s[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    const newTkt: TicketRecord = {
-      id: `tkt-${Date.now()}`,
-      ticketNumber: newTktNumber,
-      studentName: newStudentName.trim(),
-      studentEmail: newStudentEmail.trim() || 'student@practicekoro.online',
-      studentPhone: '+91 98765 43220',
-      avatarText: initials || 'ST',
-      avatarBgColor: 'bg-blue-600 text-white',
-      subject: newSubject.trim(),
-      excerpt: newMessage.trim().slice(0, 60) + '...',
-      message: newMessage.trim(),
-      category: newCategory,
-      priority: newPriority,
-      status: 'Open',
-      dateStr: 'Just now',
-      channel: 'via Admin Panel',
-      messages: [
-        {
-          id: `msg-${Date.now()}`,
-          sender: 'student',
-          senderName: newStudentName.trim(),
-          avatarText: initials || 'ST',
-          avatarBgColor: 'bg-blue-600 text-white',
-          time: 'Just now',
-          message: newMessage.trim(),
-        },
-      ],
+    const categories: Record<TicketCategory, SupportTicketItem['category']> = {
+      'Payment Issue': 'Payment Issue',
+      Subscription: 'Subscription Issue',
+      'Technical Issue': 'Technical Issue',
+      'Content Related': 'Test Issue',
+      'Account Related': 'Account Issue',
+      'Refund Request': 'Payment Issue',
+      Other: 'Other',
     };
-
+    setIsWorking(true);
     try {
-      await api.createSupportTicket({
-        studentName: newTkt.studentName,
-        studentEmail: newTkt.studentEmail,
-        subject: newTkt.subject,
-        issue: newTkt.message,
-        category: (newTkt.category === 'Subscription'
-          ? 'Subscription Issue'
-          : newTkt.category) as any,
-        priority: newTkt.priority.toLowerCase() as 'high' | 'medium' | 'low',
+      const result = await api.createSupportTicket({
+        studentName: newStudentName.trim(),
+        studentEmail: newStudentEmail.trim(),
+        subject: newSubject.trim(),
+        issue: newMessage.trim(),
+        category: categories[newCategory],
+        priority: newPriority.toLowerCase() as 'high' | 'medium' | 'low',
         status: 'open',
       });
-    } catch {
-      // local fallback
+      if (!result.success || !result.ticket) {
+        showToast(result.error || 'Ticket creation was not confirmed.', true);
+        return;
+      }
+      const saved = mapAdminSupportTicket(result.ticket);
+      setTicketsList((prev) => [saved, ...prev]);
+      setSelectedTicketId(saved.id);
+      setIsCreateModalOpen(false);
+      setNewStudentName('');
+      setNewStudentEmail('');
+      setNewSubject('');
+      setNewMessage('');
+      showToast(`Created ticket ${saved.ticketNumber}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Ticket creation failed.', true);
+    } finally {
+      setIsWorking(false);
     }
-
-    setTicketsList([newTkt, ...ticketsList]);
-    setSelectedTicketId(newTkt.id);
-    setIsCreateModalOpen(false);
-    setNewStudentName('');
-    setNewStudentEmail('');
-    setNewSubject('');
-    setNewMessage('');
-    showToast(`Created ticket ${newTktNumber} successfully!`);
   };
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div
+          role={toastError ? 'alert' : 'status'}
+          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200"
+        >
+          {toastError ? (
+            <X className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -907,7 +929,9 @@ export const AdminSupport: React.FC = () => {
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-medium text-slate-500 block">Total Tickets</span>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xl font-bold text-slate-900 leading-tight">{ticketsList.length}</span>
+              <span className="text-xl font-bold text-slate-900 leading-tight">
+                {ticketsList.length}
+              </span>
               <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                 Live
               </span>
@@ -933,7 +957,9 @@ export const AdminSupport: React.FC = () => {
                   : '0%'}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">resolution rate</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              resolution rate
+            </span>
           </div>
         </div>
 
@@ -952,7 +978,9 @@ export const AdminSupport: React.FC = () => {
                 Action req.
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">unassigned/open</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              unassigned/open
+            </span>
           </div>
         </div>
 
@@ -1022,8 +1050,14 @@ export const AdminSupport: React.FC = () => {
               {[
                 { name: 'All', count: ticketsList.length },
                 { name: 'Open', count: ticketsList.filter((t) => t.status === 'Open').length },
-                { name: 'In Progress', count: ticketsList.filter((t) => t.status === 'In Progress').length },
-                { name: 'Resolved', count: ticketsList.filter((t) => t.status === 'Resolved').length },
+                {
+                  name: 'In Progress',
+                  count: ticketsList.filter((t) => t.status === 'In Progress').length,
+                },
+                {
+                  name: 'Resolved',
+                  count: ticketsList.filter((t) => t.status === 'Resolved').length,
+                },
                 { name: 'Closed', count: ticketsList.filter((t) => t.status === 'Closed').length },
               ].map((item) => {
                 const isChecked = filterStatus.includes(item.name);
@@ -1055,12 +1089,30 @@ export const AdminSupport: React.FC = () => {
             <span className="text-xs font-bold text-slate-800 block">Category</span>
             <div className="space-y-1.5 text-xs">
               {[
-                { name: 'Payment Issue', count: ticketsList.filter((t) => t.category === 'Payment Issue').length },
-                { name: 'Subscription', count: ticketsList.filter((t) => t.category === 'Subscription').length },
-                { name: 'Technical Issue', count: ticketsList.filter((t) => t.category === 'Technical Issue').length },
-                { name: 'Content Related', count: ticketsList.filter((t) => t.category === 'Content Related').length },
-                { name: 'Account Related', count: ticketsList.filter((t) => t.category === 'Account Related').length },
-                { name: 'Refund Request', count: ticketsList.filter((t) => t.category === 'Refund Request').length },
+                {
+                  name: 'Payment Issue',
+                  count: ticketsList.filter((t) => t.category === 'Payment Issue').length,
+                },
+                {
+                  name: 'Subscription',
+                  count: ticketsList.filter((t) => t.category === 'Subscription').length,
+                },
+                {
+                  name: 'Technical Issue',
+                  count: ticketsList.filter((t) => t.category === 'Technical Issue').length,
+                },
+                {
+                  name: 'Content Related',
+                  count: ticketsList.filter((t) => t.category === 'Content Related').length,
+                },
+                {
+                  name: 'Account Related',
+                  count: ticketsList.filter((t) => t.category === 'Account Related').length,
+                },
+                {
+                  name: 'Refund Request',
+                  count: ticketsList.filter((t) => t.category === 'Refund Request').length,
+                },
                 { name: 'Other', count: ticketsList.filter((t) => t.category === 'Other').length },
               ].map((item) => {
                 const isChecked = filterCategory.includes(item.name);
@@ -1092,7 +1144,10 @@ export const AdminSupport: React.FC = () => {
               {[
                 { name: 'All', count: null },
                 { name: 'High', count: ticketsList.filter((t) => t.priority === 'High').length },
-                { name: 'Medium', count: ticketsList.filter((t) => t.priority === 'Medium').length },
+                {
+                  name: 'Medium',
+                  count: ticketsList.filter((t) => t.priority === 'Medium').length,
+                },
                 { name: 'Low', count: ticketsList.filter((t) => t.priority === 'Low').length },
               ].map((item) => {
                 const isChecked = filterPriority.includes(item.name);
@@ -1145,9 +1200,7 @@ export const AdminSupport: React.FC = () => {
         <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden flex flex-col">
           {/* Header Bar */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">
-              Tickets ({filteredTickets.length})
-            </h2>
+            <h2 className="text-sm font-bold text-slate-900">Tickets ({filteredTickets.length})</h2>
 
             {/* Sort by dropdown */}
             <div className="relative">
@@ -1246,9 +1299,7 @@ export const AdminSupport: React.FC = () => {
                         </span>
 
                         {/* Line 3: Excerpt */}
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                          {tkt.excerpt}
-                        </p>
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">{tkt.excerpt}</p>
                       </div>
 
                       {/* Right side: Date & Ticket Number */}
@@ -1270,7 +1321,8 @@ export const AdminSupport: React.FC = () => {
           <div className="border-t border-slate-100 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 mt-auto">
             <div>
               Showing {filteredTickets.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–
-              {Math.min(filteredTickets.length, currentPage * rowsPerPage)} of {filteredTickets.length} tickets
+              {Math.min(filteredTickets.length, currentPage * rowsPerPage)} of{' '}
+              {filteredTickets.length} tickets
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1354,269 +1406,278 @@ export const AdminSupport: React.FC = () => {
           ) : (
             <>
               {/* Header Line */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <span className="font-bold text-sm text-slate-900">{activeTicket.ticketNumber}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="font-bold text-sm text-slate-900">
+                  {activeTicket.ticketNumber}
+                </span>
 
-            {/* Status Dropdown */}
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsStatusDropdownOpen(!isStatusDropdownOpen);
-                }}
-                className={cn(
-                  'px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors',
-                  getStatusBadgeClass(activeTicket.status)
-                )}
-              >
-                <span>{activeTicket.status}</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
+                {/* Status Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                    }}
+                    className={cn(
+                      'px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors',
+                      getStatusBadgeClass(activeTicket.status)
+                    )}
+                  >
+                    <span>{activeTicket.status}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
 
-              {isStatusDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                  {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => {
-                        handleUpdateStatus(st);
-                        setIsStatusDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between"
+                  {isStatusDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                      {(['Open', 'In Progress', 'Resolved', 'Closed'] as TicketStatus[]).map(
+                        (st) => (
+                          <button
+                            key={st}
+                            onClick={() => {
+                              handleUpdateStatus(st);
+                              setIsStatusDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between"
+                          >
+                            <span>{st}</span>
+                            {activeTicket.status === st && (
+                              <Check className="w-3.5 h-3.5 text-blue-600" />
+                            )}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ticket Subject Title */}
+              <h3 className="font-bold text-base text-slate-900 leading-snug">
+                {activeTicket.subject}
+              </h3>
+
+              {/* Student Info Card */}
+              <div className="flex items-start justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
+                      activeTicket.avatarBgColor
+                    )}
+                  >
+                    {activeTicket.avatarText}
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 text-xs block leading-tight">
+                      {activeTicket.studentName}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block truncate">
+                      {activeTicket.studentEmail}
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>{activeTicket.studentPhone}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">{activeTicket.dateStr}</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {activeTicket.channel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Badges line */}
+              <div className="flex items-center gap-2 pt-1">
+                <span
+                  className={cn(
+                    'px-2.5 py-0.5 rounded text-[11px] font-semibold',
+                    getCategoryBadgeClass(activeTicket.category)
+                  )}
+                >
+                  {activeTicket.category}
+                </span>
+                <span
+                  className={cn(
+                    'px-2.5 py-0.5 rounded text-[11px] font-semibold',
+                    getPriorityBadgeClass(activeTicket.priority)
+                  )}
+                >
+                  {activeTicket.priority} Priority
+                </span>
+              </div>
+
+              {/* Original Message Description */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-bold text-slate-900 block">Message</span>
+                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                  {activeTicket.message}
+                </p>
+              </div>
+
+              {/* Attachments Section */}
+              {activeTicket.attachments && activeTicket.attachments.length > 0 && (
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  {activeTicket.attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors"
                     >
-                      <span>{st}</span>
-                      {activeTicket.status === st && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                    </button>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {att.type === 'image' ? (
+                          <ImageIcon className="w-4 h-4 text-sky-500 shrink-0" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-slate-800 block truncate">
+                            {att.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">{att.size}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => showToast(`Downloaded ${att.name}`)}
+                        className="text-slate-400 hover:text-slate-700 p-1 rounded cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Ticket Subject Title */}
-          <h3 className="font-bold text-base text-slate-900 leading-snug">
-            {activeTicket.subject}
-          </h3>
+              {/* Conversation Thread */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                {activeTicket.messages.map((msg) => (
+                  <div key={msg.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0',
+                            msg.avatarBgColor
+                          )}
+                        >
+                          {msg.avatarText}
+                        </div>
+                        <span className="font-bold text-slate-900">{msg.senderName}</span>
+                        <span className="text-slate-400 text-[10px]">{msg.time}</span>
+                      </div>
 
-          {/* Student Info Card */}
-          <div className="flex items-start justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={cn(
-                  'w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
-                  activeTicket.avatarBgColor
-                )}
-              >
-                {activeTicket.avatarText}
-              </div>
-              <div>
-                <span className="font-bold text-slate-900 text-xs block leading-tight">
-                  {activeTicket.studentName}
-                </span>
-                <span className="text-[11px] text-slate-400 block truncate">
-                  {activeTicket.studentEmail}
-                </span>
-                <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
-                  <Phone className="w-3 h-3 text-slate-400" />
-                  <span>{activeTicket.studentPhone}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 block">{activeTicket.dateStr}</span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">{activeTicket.channel}</span>
-            </div>
-          </div>
-
-          {/* Badges line */}
-          <div className="flex items-center gap-2 pt-1">
-            <span
-              className={cn(
-                'px-2.5 py-0.5 rounded text-[11px] font-semibold',
-                getCategoryBadgeClass(activeTicket.category)
-              )}
-            >
-              {activeTicket.category}
-            </span>
-            <span
-              className={cn(
-                'px-2.5 py-0.5 rounded text-[11px] font-semibold',
-                getPriorityBadgeClass(activeTicket.priority)
-              )}
-            >
-              {activeTicket.priority} Priority
-            </span>
-          </div>
-
-          {/* Original Message Description */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-xs font-bold text-slate-900 block">Message</span>
-            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-              {activeTicket.message}
-            </p>
-          </div>
-
-          {/* Attachments Section */}
-          {activeTicket.attachments && activeTicket.attachments.length > 0 && (
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              {activeTicket.attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {att.type === 'image' ? (
-                      <ImageIcon className="w-4 h-4 text-sky-500 shrink-0" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-rose-500 shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-slate-800 block truncate">
-                        {att.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block">{att.size}</span>
+                      {msg.sender === 'support' && (
+                        <button className="text-slate-400 hover:text-slate-600">
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                  </div>
 
-                  <button
-                    onClick={() => showToast(`Downloaded ${att.name}`)}
-                    className="text-slate-400 hover:text-slate-700 p-1 rounded cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Conversation Thread */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
-            {activeTicket.messages.map((msg) => (
-              <div key={msg.id} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-2">
                     <div
                       className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0',
-                        msg.avatarBgColor
+                        'text-xs leading-relaxed p-3 rounded-xl border',
+                        msg.sender === 'support'
+                          ? 'bg-slate-50 border-slate-100 text-slate-700'
+                          : msg.sender === 'internal_note'
+                            ? 'bg-amber-50/70 border-amber-200/60 text-amber-900'
+                            : 'bg-white border-slate-100 text-slate-700'
                       )}
                     >
-                      {msg.avatarText}
+                      <p className="whitespace-pre-line">{msg.message}</p>
                     </div>
-                    <span className="font-bold text-slate-900">{msg.senderName}</span>
-                    <span className="text-slate-400 text-[10px]">{msg.time}</span>
                   </div>
+                ))}
+              </div>
 
-                  {msg.sender === 'support' && (
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <MoreHorizontal className="w-3.5 h-3.5" />
+              {/* Composer / Reply Section */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                {/* Tabs: Reply | Internal Note */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setComposerTab('Reply')}
+                    className={cn(
+                      'px-3.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer',
+                      composerTab === 'Reply'
+                        ? 'bg-[#2563EB] text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    )}
+                  >
+                    Reply
+                  </button>
+                  <button
+                    onClick={() => setComposerTab('Internal Note')}
+                    className={cn(
+                      'px-3.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer',
+                      composerTab === 'Internal Note'
+                        ? 'bg-[#2563EB] text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    )}
+                  >
+                    Internal Note
+                  </button>
+                </div>
+
+                {/* Input Box */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+                  <textarea
+                    rows={3}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={
+                      composerTab === 'Reply'
+                        ? 'Type your reply...'
+                        : 'Type private note for admin team...'
+                    }
+                    className="w-full p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none resize-none"
+                  />
+
+                  {/* Bottom Toolbar */}
+                  <div className="bg-slate-50/60 border-t border-slate-100 px-3 py-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <button
+                        type="button"
+                        onClick={() => showToast('Attachment picker opened')}
+                        className="hover:text-slate-700 p-1 rounded cursor-pointer"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Image uploader opened')}
+                        className="hover:text-slate-700 p-1 rounded cursor-pointer"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Insert link')}
+                        className="hover:text-slate-700 p-1 rounded cursor-pointer"
+                      >
+                        <LinkIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Emoji picker')}
+                        className="hover:text-slate-700 p-1 rounded cursor-pointer"
+                      >
+                        <Smile className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSendReply}
+                      disabled={isWorking || !replyText.trim()}
+                      className="bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Send Reply</span>
+                      <Send className="w-3 h-3" />
                     </button>
-                  )}
-                </div>
-
-                <div
-                  className={cn(
-                    'text-xs leading-relaxed p-3 rounded-xl border',
-                    msg.sender === 'support'
-                      ? 'bg-slate-50 border-slate-100 text-slate-700'
-                      : msg.sender === 'internal_note'
-                      ? 'bg-amber-50/70 border-amber-200/60 text-amber-900'
-                      : 'bg-white border-slate-100 text-slate-700'
-                  )}
-                >
-                  <p className="whitespace-pre-line">{msg.message}</p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Composer / Reply Section */}
-          <div className="pt-2 border-t border-slate-100 space-y-2">
-            {/* Tabs: Reply | Internal Note */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setComposerTab('Reply')}
-                className={cn(
-                  'px-3.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer',
-                  composerTab === 'Reply'
-                    ? 'bg-[#2563EB] text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                )}
-              >
-                Reply
-              </button>
-              <button
-                onClick={() => setComposerTab('Internal Note')}
-                className={cn(
-                  'px-3.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer',
-                  composerTab === 'Internal Note'
-                    ? 'bg-[#2563EB] text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                )}
-              >
-                Internal Note
-              </button>
-            </div>
-
-            {/* Input Box */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
-              <textarea
-                rows={3}
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder={
-                  composerTab === 'Reply'
-                    ? 'Type your reply...'
-                    : 'Type private note for admin team...'
-                }
-                className="w-full p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none resize-none"
-              />
-
-              {/* Bottom Toolbar */}
-              <div className="bg-slate-50/60 border-t border-slate-100 px-3 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <button
-                    type="button"
-                    onClick={() => showToast('Attachment picker opened')}
-                    className="hover:text-slate-700 p-1 rounded cursor-pointer"
-                  >
-                    <Paperclip className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => showToast('Image uploader opened')}
-                    className="hover:text-slate-700 p-1 rounded cursor-pointer"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => showToast('Insert link')}
-                    className="hover:text-slate-700 p-1 rounded cursor-pointer"
-                  >
-                    <LinkIcon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => showToast('Emoji picker')}
-                    className="hover:text-slate-700 p-1 rounded cursor-pointer"
-                  >
-                    <Smile className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSendReply}
-                  className="bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Send Reply</span>
-                  <Send className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
             </>
           )}
         </div>
@@ -1654,9 +1715,7 @@ export const AdminSupport: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Student Email
-                </label>
+                <label className="font-semibold text-slate-700 block mb-1">Student Email</label>
                 <input
                   type="email"
                   value={newStudentEmail}
@@ -1736,6 +1795,7 @@ export const AdminSupport: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isWorking}
                   className="px-5 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-semibold shadow-2xs cursor-pointer"
                 >
                   Create Ticket

@@ -24,7 +24,10 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
 import type { AdminSubscriptionRow, PaymentStatus } from '@/types';
-import { formatRecordedAmount, getRecordedSubscriptionRevenue } from '@/utils/adminFinancialDisplay';
+import {
+  formatRecordedAmount,
+  getRecordedSubscriptionRevenue,
+} from '@/utils/adminFinancialDisplay';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -64,13 +67,19 @@ export function mapAdminSubscriptionRow(d: AdminSubscriptionRow): SubscriptionRe
   const formatDate = (value?: string) => {
     if (!value || !Number.isFinite(new Date(value).getTime())) return 'Unavailable';
     return new Date(value).toLocaleDateString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
   };
   const method: SubscriptionRecord['paymentMethod'] =
-    d.paymentGateway === 'razorpay' ? 'Razorpay' :
-    d.paymentGateway === 'phonepe' ? 'PhonePe' :
-    d.paymentGateway === 'upi' ? 'UPI' : '—';
+    d.paymentGateway === 'razorpay'
+      ? 'Razorpay'
+      : d.paymentGateway === 'phonepe'
+        ? 'PhonePe'
+        : d.paymentGateway === 'upi'
+          ? 'UPI'
+          : '—';
   return {
     id: d.id,
     studentName: d.studentName || 'Student Aspirant',
@@ -110,7 +119,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'rohitkumar@gmail.com',
     studentPhone: '+91 98765 43210',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
     plan: '6 Months',
     planFullTitle: '6 Months Plan',
     planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
@@ -204,7 +214,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'arijitmondal@gmail.com',
     studentPhone: '+91 98765 43214',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
     plan: '6 Months',
     planFullTitle: '6 Months Plan',
     planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
@@ -226,7 +237,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'subhankar.pal@gmail.com',
     studentPhone: '+91 98765 43215',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
     plan: '3 Months',
     planFullTitle: '3 Months Plan',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
@@ -248,7 +260,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'moumita.s@gmail.com',
     studentPhone: '+91 98765 43216',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
     plan: '1 Month',
     planFullTitle: '1 Month Plan',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
@@ -294,7 +307,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'rakeshshaw@gmail.com',
     studentPhone: '+91 98765 43218',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
     plan: '6 Months',
     planFullTitle: '6 Months Plan',
     planBadgeClass: 'bg-[#DCFCE7] text-[#15803D]',
@@ -316,7 +330,8 @@ export const INITIAL_SUBSCRIPTIONS: SubscriptionRecord[] = [
     studentEmail: 'taniya.ghosh@gmail.com',
     studentPhone: '+91 98765 43219',
     avatarType: 'photo',
-    avatarSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarSrc:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     plan: '3 Months',
     planFullTitle: '3 Months Plan',
     planBadgeClass: 'bg-[#DBEAFE] text-[#1E40AF]',
@@ -384,10 +399,15 @@ const MethodIcon: React.FC<{ method: string }> = ({ method }) => {
 export const AdminSubscriptions: React.FC = () => {
   // Financial records always start from the backend, not stale demo/cache prices.
   const [subscriptionsList, setSubscriptionsList] = useState<SubscriptionRecord[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+  const [recordsError, setRecordsError] = useState('');
 
   useEffect(() => {
     try {
-      localStorage.setItem('practicekoro_admin_subscriptions_v2', JSON.stringify(subscriptionsList));
+      localStorage.setItem(
+        'practicekoro_admin_subscriptions_v2',
+        JSON.stringify(subscriptionsList)
+      );
     } catch {
       // ignore
     }
@@ -396,21 +416,33 @@ export const AdminSubscriptions: React.FC = () => {
   // Load live subscriptions from database on mount
   useEffect(() => {
     let isMounted = true;
-    api.getAdminSubscriptions().then((remote) => {
-      if (!isMounted) return;
-      if (!remote || remote.length === 0) {
-        setSubscriptionsList([]);
-        return;
-      }
-      const mapped = remote.map(mapAdminSubscriptionRow);
-      setSubscriptionsList(mapped);
-      if (mapped.length > 0) {
-        setSelectedRowId(mapped[0].id);
-      }
-    }).catch((err) => {
-      console.warn('Failed to load admin subscriptions from database:', err);
-    });
-    return () => { isMounted = false; };
+    api
+      .getAllAdminSubscriptions()
+      .then((remote) => {
+        if (!isMounted) return;
+        setRecordsLoading(false);
+        if (!remote || remote.length === 0) {
+          setSubscriptionsList([]);
+          return;
+        }
+        const mapped = remote.map(mapAdminSubscriptionRow);
+        setSubscriptionsList(mapped);
+        if (mapped.length > 0) {
+          setSelectedRowId(mapped[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load admin subscriptions from database:', err);
+        if (isMounted) {
+          setRecordsLoading(false);
+          setRecordsError(
+            'Subscriptions could not be fully loaded. Totals and exports are unavailable; please refresh.'
+          );
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Selected row
@@ -423,7 +455,9 @@ export const AdminSubscriptions: React.FC = () => {
     return subscriptionsList.filter((s) => s.status === 'Active').length;
   }, [subscriptionsList]);
   const expiringSoonCount = useMemo(() => {
-    return subscriptionsList.filter((s) => s.status === 'Active' && (s.daysLeft ?? 0) <= 7 && (s.daysLeft ?? 0) > 0).length;
+    return subscriptionsList.filter(
+      (s) => s.status === 'Active' && (s.daysLeft ?? 0) <= 7 && (s.daysLeft ?? 0) > 0
+    ).length;
   }, [subscriptionsList]);
   const expiredSubscriptionsCount = useMemo(() => {
     return subscriptionsList.filter((s) => s.status === 'Expired').length;
@@ -432,8 +466,11 @@ export const AdminSubscriptions: React.FC = () => {
     return getRecordedSubscriptionRevenue(subscriptionsList);
   }, [subscriptionsList]);
   const revenueUnavailable = subscriptionsList.some(
-    (s) => s.paymentId && (s.amount == null || !s.paymentStatus ||
-      (s.paymentCurrency != null && s.paymentCurrency !== 'INR'))
+    (s) =>
+      s.paymentId &&
+      (s.amount == null ||
+        !s.paymentStatus ||
+        (s.paymentCurrency != null && s.paymentCurrency !== 'INR'))
   );
 
   // Checkbox selections
@@ -446,7 +483,9 @@ export const AdminSubscriptions: React.FC = () => {
   const [filterMethod, setFilterMethod] = useState('All Payment Methods');
 
   // Detail panel tabs ('Overview' | 'Payments' | 'Test Access' | 'Activity')
-  const [activeDetailTab, setActiveDetailTab] = useState<'Overview' | 'Payments' | 'Test Access' | 'Activity'>('Overview');
+  const [activeDetailTab, setActiveDetailTab] = useState<
+    'Overview' | 'Payments' | 'Test Access' | 'Activity'
+  >('Overview');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -469,7 +508,9 @@ export const AdminSubscriptions: React.FC = () => {
   const [formStudentEmail, setFormStudentEmail] = useState('');
   const [formPlan, setFormPlan] = useState('6 Months');
   const [formAmount, setFormAmount] = useState('');
-  const [formMethod, setFormMethod] = useState<'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card'>('Razorpay');
+  const [formMethod, setFormMethod] = useState<'Razorpay' | 'UPI' | 'PhonePe' | 'Credit Card'>(
+    'Razorpay'
+  );
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToastMessage(msg);
@@ -488,15 +529,20 @@ export const AdminSubscriptions: React.FC = () => {
 
   // Selected subscription
   const selectedSubscription = useMemo(() => {
-    return subscriptionsList.find((s) => s.id === selectedRowId) || (subscriptionsList.length > 0 ? subscriptionsList[0] : null);
+    return (
+      subscriptionsList.find((s) => s.id === selectedRowId) ||
+      (subscriptionsList.length > 0 ? subscriptionsList[0] : null)
+    );
   }, [subscriptionsList, selectedRowId]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
     return subscriptionsList.filter((item) => {
-      if (filterPlan !== 'All Plans' && !item.plan.includes(filterPlan.replace(' Plan', ''))) return false;
+      if (filterPlan !== 'All Plans' && !item.plan.includes(filterPlan.replace(' Plan', '')))
+        return false;
       if (filterStatus !== 'All Status' && item.status !== filterStatus) return false;
-      if (filterMethod !== 'All Payment Methods' && item.paymentMethod !== filterMethod) return false;
+      if (filterMethod !== 'All Payment Methods' && item.paymentMethod !== filterMethod)
+        return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matches =
@@ -527,6 +573,7 @@ export const AdminSubscriptions: React.FC = () => {
 
   // Export CSV
   const handleExport = () => {
+    if (recordsLoading || recordsError) return;
     const headers = [
       'Student Name',
       'Email',
@@ -583,7 +630,7 @@ export const AdminSubscriptions: React.FC = () => {
         showToast(res.error || 'Subscription creation failed.');
         return;
       }
-      const records = await api.getAdminSubscriptions();
+      const records = await api.getAllAdminSubscriptions();
       setSubscriptionsList(records.map(mapAdminSubscriptionRow));
       if (res.subscriptionId) setSelectedRowId(res.subscriptionId);
       setIsCreateModalOpen(false);
@@ -616,7 +663,9 @@ export const AdminSubscriptions: React.FC = () => {
                 daysLeft: 0,
                 endDate: result.expiresAt
                   ? new Date(result.expiresAt).toLocaleDateString('en-GB', {
-                      day: '2-digit', month: 'short', year: 'numeric',
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
                     })
                   : s.endDate,
               }
@@ -661,10 +710,27 @@ export const AdminSubscriptions: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {recordsError && (
+        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          {recordsError}
+        </div>
+      )}
+      {recordsLoading && (
+        <div role="status" className="text-sm text-slate-500">
+          Loading all records…
+        </div>
+      )}
       {/* Toast Notification */}
       {toastMessage && (
-        <div role={toastType === 'error' ? 'alert' : 'status'} className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200">
-          {toastType === 'error' ? <XCircle className="w-4 h-4 text-rose-400 shrink-0" /> : <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+        <div
+          role={toastType === 'error' ? 'alert' : 'status'}
+          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-200"
+        >
+          {toastType === 'error' ? (
+            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -682,6 +748,7 @@ export const AdminSubscriptions: React.FC = () => {
 
         <div className="flex items-center gap-3 shrink-0 self-start">
           <button
+            disabled={recordsLoading || !!recordsError}
             onClick={handleExport}
             className="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
@@ -714,7 +781,9 @@ export const AdminSubscriptions: React.FC = () => {
             <Users className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Total Subscriptions</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Total Subscriptions
+            </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {totalSubscriptionsCount.toLocaleString('en-IN')}
@@ -733,7 +802,9 @@ export const AdminSubscriptions: React.FC = () => {
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Active Subscriptions</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Active Subscriptions
+            </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {activeSubscriptionsCount.toLocaleString('en-IN')}
@@ -742,7 +813,9 @@ export const AdminSubscriptions: React.FC = () => {
                 ↑ 24%
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">currently active</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 truncate">
+              currently active
+            </span>
           </div>
         </div>
 
@@ -771,7 +844,9 @@ export const AdminSubscriptions: React.FC = () => {
             <XCircle className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-medium text-slate-500 block">Expired Subscriptions</span>
+            <span className="text-[11px] font-medium text-slate-500 block">
+              Expired Subscriptions
+            </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 leading-tight">
                 {expiredSubscriptionsCount.toLocaleString('en-IN')}
@@ -796,7 +871,9 @@ export const AdminSubscriptions: React.FC = () => {
                 {revenueUnavailable ? 'Unavailable' : formatRecordedAmount(totalRevenueAmount)}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 block mt-0.5">Completed linked payments in loaded records</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5">
+              Completed linked payments in loaded records
+            </span>
           </div>
         </div>
       </div>
@@ -935,175 +1012,175 @@ export const AdminSubscriptions: React.FC = () => {
                     </tr>
                   ) : (
                     filteredRows.slice(0, 10).map((row, idx) => {
-                    const isSelected = selectedRowId === row.id;
-                    const isChecked = selectedCheckboxes.includes(row.id);
-                    return (
-                      <tr
-                        key={row.id}
-                        onClick={() => {
-                          setSelectedRowId(row.id);
-                          setIsDetailsPanelOpen(true);
-                        }}
-                        className={cn(
-                          'transition-colors cursor-pointer group',
-                          isSelected
-                            ? 'bg-blue-50/50 hover:bg-blue-50/70'
-                            : 'hover:bg-slate-50/60'
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <td
-                          className="py-3 px-3 text-center"
-                          onClick={(e) => handleToggleRow(row.id, e)}
+                      const isSelected = selectedRowId === row.id;
+                      const isChecked = selectedCheckboxes.includes(row.id);
+                      return (
+                        <tr
+                          key={row.id}
+                          onClick={() => {
+                            setSelectedRowId(row.id);
+                            setIsDetailsPanelOpen(true);
+                          }}
+                          className={cn(
+                            'transition-colors cursor-pointer group',
+                            isSelected
+                              ? 'bg-blue-50/50 hover:bg-blue-50/70'
+                              : 'hover:bg-slate-50/60'
+                          )}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
-                          />
-                        </td>
+                          {/* Checkbox */}
+                          <td
+                            className="py-3 px-3 text-center"
+                            onClick={(e) => handleToggleRow(row.id, e)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
 
-                        {/* # */}
-                        <td className="py-3 px-2 text-center text-slate-500 font-normal">
-                          {idx + 1}
-                        </td>
+                          {/* # */}
+                          <td className="py-3 px-2 text-center text-slate-500 font-normal">
+                            {idx + 1}
+                          </td>
 
-                        {/* Student */}
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            {row.avatarType === 'photo' && row.avatarSrc ? (
-                              <img
-                                src={row.avatarSrc}
-                                alt={row.studentName}
-                                className="w-8 h-8 rounded-full object-cover shrink-0"
-                              />
-                            ) : (
-                              <div
-                                className={cn(
-                                  'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
-                                  row.avatarBgColor || 'bg-blue-100',
-                                  row.avatarTextColor || 'text-blue-600'
-                                )}
-                              >
-                                {row.avatarInitials}
+                          {/* Student */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              {row.avatarType === 'photo' && row.avatarSrc ? (
+                                <img
+                                  src={row.avatarSrc}
+                                  alt={row.studentName}
+                                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <div
+                                  className={cn(
+                                    'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
+                                    row.avatarBgColor || 'bg-blue-100',
+                                    row.avatarTextColor || 'text-blue-600'
+                                  )}
+                                >
+                                  {row.avatarInitials}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <span className="font-semibold text-slate-800 block truncate">
+                                  {row.studentName}
+                                </span>
+                                <span className="text-[11px] text-slate-400 block truncate">
+                                  {row.studentEmail}
+                                </span>
                               </div>
-                            )}
-                            <div className="min-w-0">
-                              <span className="font-semibold text-slate-800 block truncate">
-                                {row.studentName}
-                              </span>
-                              <span className="text-[11px] text-slate-400 block truncate">
-                                {row.studentEmail}
-                              </span>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Plan */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap',
-                              row.planBadgeClass
-                            )}
-                          >
-                            {row.plan}
-                          </span>
-                        </td>
-
-                        {/* Amount */}
-                        <td className="py-3 px-3 font-semibold text-slate-800">
-                          {formatRecordedAmount(row.amount, row.paymentCurrency)}
-                        </td>
-
-                        {/* Payment Method */}
-                        <td className="py-3 px-3">
-                          <MethodIcon method={row.paymentMethod} />
-                        </td>
-
-                        {/* Start Date */}
-                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
-                          {row.startDate}
-                        </td>
-
-                        {/* End Date */}
-                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
-                          {row.endDate}
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
-                              row.statusBadgeClass
-                            )}
-                          >
-                            {row.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td
-                          className="py-3 px-3 text-center relative"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                          {/* Plan */}
+                          <td className="py-3 px-3">
+                            <span
+                              className={cn(
+                                'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap',
+                                row.planBadgeClass
+                              )}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                              {row.plan}
+                            </span>
+                          </td>
 
-                            {/* Dropdown Menu */}
-                            {activeMenuId === row.id && (
-                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                                <button
-                                  onClick={() => {
-                                    setSelectedRowId(row.id);
-                                    setIsDetailsPanelOpen(true);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <User className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>View Details</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedRowId(row.id);
-                                    setIsExtendModalOpen(true);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                                >
-                                  <Clock className="w-3.5 h-3.5 text-blue-500" />
-                                  <span>Extend Validity</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  disabled={isCancellingSubscription || row.status !== 'Active'}
-                                  onClick={() => {
-                                    handleCancelSubscription(row);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Cancel Plan</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                          {/* Amount */}
+                          <td className="py-3 px-3 font-semibold text-slate-800">
+                            {formatRecordedAmount(row.amount, row.paymentCurrency)}
+                          </td>
+
+                          {/* Payment Method */}
+                          <td className="py-3 px-3">
+                            <MethodIcon method={row.paymentMethod} />
+                          </td>
+
+                          {/* Start Date */}
+                          <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
+                            {row.startDate}
+                          </td>
+
+                          {/* End Date */}
+                          <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
+                            {row.endDate}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3">
+                            <span
+                              className={cn(
+                                'inline-block px-2.5 py-0.5 rounded-md text-[11px] font-medium',
+                                row.statusBadgeClass
+                              )}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td
+                            className="py-3 px-3 text-center relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                                }}
+                                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              {activeMenuId === row.id && (
+                                <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedRowId(row.id);
+                                      setIsDetailsPanelOpen(true);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    <User className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>View Details</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedRowId(row.id);
+                                      setIsExtendModalOpen(true);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-1.5 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                  >
+                                    <Clock className="w-3.5 h-3.5 text-blue-500" />
+                                    <span>Extend Validity</span>
+                                  </button>
+                                  <div className="border-t border-slate-100 my-1" />
+                                  <button
+                                    disabled={isCancellingSubscription || row.status !== 'Active'}
+                                    onClick={() => {
+                                      handleCancelSubscription(row);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>Cancel Plan</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1112,7 +1189,8 @@ export const AdminSubscriptions: React.FC = () => {
             {/* Table Footer / Pagination */}
             <div className="border-t border-slate-100 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
               <div>
-                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of {filteredRows.length.toLocaleString('en-IN')} subscriptions
+                Showing {filteredRows.length === 0 ? 0 : 1}–{Math.min(filteredRows.length, 10)} of{' '}
+                {filteredRows.length.toLocaleString('en-IN')} subscriptions
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1186,277 +1264,321 @@ export const AdminSubscriptions: React.FC = () => {
             {selectedSubscription ? (
               <>
                 {/* Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900">Subscription Details</h2>
-              <button
-                onClick={() => setIsDetailsPanelOpen(false)}
-                className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Student Profile Card */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {selectedSubscription.avatarType === 'photo' && selectedSubscription.avatarSrc ? (
-                  <img
-                    src={selectedSubscription.avatarSrc}
-                    alt={selectedSubscription.studentName}
-                    className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
-                      selectedSubscription.avatarBgColor || 'bg-blue-100',
-                      selectedSubscription.avatarTextColor || 'text-blue-600'
-                    )}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-900">Subscription Details</h2>
+                  <button
+                    onClick={() => setIsDetailsPanelOpen(false)}
+                    className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
                   >
-                    {selectedSubscription.avatarInitials}
-                  </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 text-sm">{selectedSubscription.studentName}</h3>
-                    <span
-                      className={cn(
-                        'px-2 py-0.2 rounded text-[10px] font-semibold',
-                        selectedSubscription.statusBadgeClass
-                      )}
-                    >
-                      {selectedSubscription.status}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 block">
-                    {selectedSubscription.studentEmail}
-                  </span>
-                  <span className="text-[11px] text-slate-400 block">
-                    {selectedSubscription.studentPhone || '+91 98765 43210'}
-                  </span>
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
 
-              <button
-                onClick={() => setIsExtendModalOpen(true)}
-                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 flex items-center gap-1 cursor-pointer shadow-2xs"
-              >
-                <Edit2 className="w-3 h-3 text-slate-400" />
-                <span>Edit</span>
-              </button>
-            </div>
-
-            {/* 4 Detail Tabs */}
-            <div className="flex items-center border-b border-slate-100 text-xs">
-              {(['Overview', 'Payments', 'Test Access', 'Activity'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveDetailTab(tab)}
-                  className={cn(
-                    'py-2 px-3 font-semibold transition-all relative cursor-pointer',
-                    activeDetailTab === tab
-                      ? 'text-[#2563EB]'
-                      : 'text-slate-500 hover:text-slate-800'
-                  )}
-                >
-                  {tab}
-                  {activeDetailTab === tab && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab: Overview Content */}
-            {activeDetailTab === 'Overview' && (
-              <div className="space-y-4 pt-1">
-                {/* Active Plan Green Banner */}
-                <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                {/* Student Profile Card */}
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                      <Crown className="w-4 h-4" />
-                    </div>
+                    {selectedSubscription.avatarType === 'photo' &&
+                    selectedSubscription.avatarSrc ? (
+                      <img
+                        src={selectedSubscription.avatarSrc}
+                        alt={selectedSubscription.studentName}
+                        className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
+                          selectedSubscription.avatarBgColor || 'bg-blue-100',
+                          selectedSubscription.avatarTextColor || 'text-blue-600'
+                        )}
+                      >
+                        {selectedSubscription.avatarInitials}
+                      </div>
+                    )}
                     <div>
-                      <span className="text-xs font-bold text-slate-900 block">
-                        {selectedSubscription.planFullTitle}
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-slate-900 text-sm">
+                          {selectedSubscription.studentName}
+                        </h3>
+                        <span
+                          className={cn(
+                            'px-2 py-0.2 rounded text-[10px] font-semibold',
+                            selectedSubscription.statusBadgeClass
+                          )}
+                        >
+                          {selectedSubscription.status}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">
+                        {selectedSubscription.studentEmail}
                       </span>
-                      <span className="text-[11px] text-slate-500 block mt-0.5">
-                        Valid till {selectedSubscription.endDate} ({Math.ceil((selectedSubscription.daysLeft || 124) / 30)} months left)
+                      <span className="text-[11px] text-slate-400 block">
+                        {selectedSubscription.studentPhone || '+91 98765 43210'}
                       </span>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => setIsChangePlanModalOpen(true)}
-                    className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
+                    onClick={() => setIsExtendModalOpen(true)}
+                    className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 flex items-center gap-1 cursor-pointer shadow-2xs"
                   >
-                    Change Plan
+                    <Edit2 className="w-3 h-3 text-slate-400" />
+                    <span>Edit</span>
                   </button>
                 </div>
 
-                {/* Subscription Info Breakdown */}
-                <div className="space-y-2 text-xs">
-                  <h4 className="font-bold text-slate-900 text-xs mb-2">Subscription Info</h4>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Plan Name</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.planFullTitle}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Amount</span>
-                    <span className="font-bold text-slate-900">{formatRecordedAmount(selectedSubscription.amount, selectedSubscription.paymentCurrency)}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Status</span>
-                    <span
+                {/* 4 Detail Tabs */}
+                <div className="flex items-center border-b border-slate-100 text-xs">
+                  {(['Overview', 'Payments', 'Test Access', 'Activity'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveDetailTab(tab)}
                       className={cn(
-                        'px-2 py-0.5 rounded text-[11px] font-medium',
-                        selectedSubscription.statusBadgeClass
+                        'py-2 px-3 font-semibold transition-all relative cursor-pointer',
+                        activeDetailTab === tab
+                          ? 'text-[#2563EB]'
+                          : 'text-slate-500 hover:text-slate-800'
                       )}
                     >
-                      {selectedSubscription.status}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Start Date</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.startDate}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">End Date</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.endDate}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Days Left</span>
-                    <span className="font-semibold text-slate-800">
-                      {selectedSubscription.daysLeft || 124} days
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Auto Renew</span>
-                    <span className="font-medium text-slate-700">
-                      {selectedSubscription.autoRenew ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Payment Method</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.paymentMethod}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Transaction ID</span>
-                    <span className="font-mono text-slate-700">{selectedSubscription.transactionId || 'pay_2F9kLmX8vP6QeH'}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-400 font-normal">Created At</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.createdAt || '12 Aug 2026, 11:20 AM'}</span>
-                  </div>
-
-                  <div className="flex justify-between py-1">
-                    <span className="text-slate-400 font-normal">Last Updated</span>
-                    <span className="font-medium text-slate-800">{selectedSubscription.lastUpdated || '12 Aug 2026, 11:20 AM'}</span>
-                  </div>
-                </div>
-
-                {/* Quick Actions (4 Buttons) */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <h4 className="font-bold text-slate-900 text-xs mb-2">Quick Actions</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => showToast(`Navigating to student profile of ${selectedSubscription.studentName}`)}
-                      className="border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <User className="w-3.5 h-3.5 text-slate-400" />
-                      <span>View Student</span>
+                      {tab}
+                      {activeDetailTab === tab && (
+                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB] rounded-full" />
+                      )}
                     </button>
+                  ))}
+                </div>
 
-                    <button
-                      onClick={() => setIsExtendModalOpen(true)}
-                      className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Extend Subscription</span>
-                    </button>
+                {/* Tab: Overview Content */}
+                {activeDetailTab === 'Overview' && (
+                  <div className="space-y-4 pt-1">
+                    {/* Active Plan Green Banner */}
+                    <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                          <Crown className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">
+                            {selectedSubscription.planFullTitle}
+                          </span>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
+                            Valid till {selectedSubscription.endDate} (
+                            {Math.ceil((selectedSubscription.daysLeft || 124) / 30)} months left)
+                          </span>
+                        </div>
+                      </div>
 
-                    <button
-                      onClick={() => setIsNotificationModalOpen(true)}
-                      className="border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Send Notification</span>
-                    </button>
+                      <button
+                        onClick={() => setIsChangePlanModalOpen(true)}
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 font-medium shrink-0 cursor-pointer shadow-2xs"
+                      >
+                        Change Plan
+                      </button>
+                    </div>
 
-                    <button
-                      onClick={() => handleCancelSubscription(selectedSubscription)}
-                      disabled={isCancellingSubscription || selectedSubscription.status !== 'Active'}
-                      className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}</span>
-                    </button>
+                    {/* Subscription Info Breakdown */}
+                    <div className="space-y-2 text-xs">
+                      <h4 className="font-bold text-slate-900 text-xs mb-2">Subscription Info</h4>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Plan Name</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.planFullTitle}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Amount</span>
+                        <span className="font-bold text-slate-900">
+                          {formatRecordedAmount(
+                            selectedSubscription.amount,
+                            selectedSubscription.paymentCurrency
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Status</span>
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 rounded text-[11px] font-medium',
+                            selectedSubscription.statusBadgeClass
+                          )}
+                        >
+                          {selectedSubscription.status}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Start Date</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.startDate}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">End Date</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.endDate}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Days Left</span>
+                        <span className="font-semibold text-slate-800">
+                          {selectedSubscription.daysLeft || 124} days
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Auto Renew</span>
+                        <span className="font-medium text-slate-700">
+                          {selectedSubscription.autoRenew ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Payment Method</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.paymentMethod}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Transaction ID</span>
+                        <span className="font-mono text-slate-700">
+                          {selectedSubscription.transactionId || 'pay_2F9kLmX8vP6QeH'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 border-b border-slate-50">
+                        <span className="text-slate-400 font-normal">Created At</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.createdAt || '12 Aug 2026, 11:20 AM'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-400 font-normal">Last Updated</span>
+                        <span className="font-medium text-slate-800">
+                          {selectedSubscription.lastUpdated || '12 Aug 2026, 11:20 AM'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions (4 Buttons) */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <h4 className="font-bold text-slate-900 text-xs mb-2">Quick Actions</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() =>
+                            showToast(
+                              `Navigating to student profile of ${selectedSubscription.studentName}`
+                            )
+                          }
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <span>View Student</span>
+                        </button>
+
+                        <button
+                          onClick={() => setIsExtendModalOpen(true)}
+                          className="border border-blue-200 text-[#2563EB] hover:bg-blue-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Extend Subscription</span>
+                        </button>
+
+                        <button
+                          onClick={() => setIsNotificationModalOpen(true)}
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Send Notification</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleCancelSubscription(selectedSubscription)}
+                          disabled={
+                            isCancellingSubscription || selectedSubscription.status !== 'Active'
+                          }
+                          className="border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>
+                            {isCancellingSubscription ? 'Cancelling…' : 'Cancel Subscription'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Tab: Payments Content */}
-            {activeDetailTab === 'Payments' && (
-              <div className="space-y-3 text-xs pt-1">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex justify-between font-semibold text-slate-800">
-                    <span>Initial Activation</span>
-                    <span>{formatRecordedAmount(selectedSubscription.amount, selectedSubscription.paymentCurrency)}</span>
+                {/* Tab: Payments Content */}
+                {activeDetailTab === 'Payments' && (
+                  <div className="space-y-3 text-xs pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex justify-between font-semibold text-slate-800">
+                        <span>Initial Activation</span>
+                        <span>
+                          {formatRecordedAmount(
+                            selectedSubscription.amount,
+                            selectedSubscription.paymentCurrency
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-slate-500 mt-1">
+                        <span>{selectedSubscription.startDate}</span>
+                        <span className="text-emerald-600 font-semibold">
+                          {selectedSubscription.paymentStatus || 'Unavailable'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-400 text-center py-4">
+                      Only linked payment data is shown.
+                    </div>
                   </div>
-                  <div className="flex justify-between text-[11px] text-slate-500 mt-1">
-                    <span>{selectedSubscription.startDate}</span>
-                    <span className="text-emerald-600 font-semibold">{selectedSubscription.paymentStatus || 'Unavailable'}</span>
+                )}
+
+                {/* Tab: Test Access Content */}
+                {activeDetailTab === 'Test Access' && (
+                  <div className="space-y-2.5 text-xs pt-1">
+                    <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+                      <span>WBP Constable Full Mocks</span>
+                      <span className="text-emerald-600 font-bold">Unlocked</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+                      <span>WBPSC Clerkship Mocks</span>
+                      <span className="text-emerald-600 font-bold">Unlocked</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+                      <span>Topic-wise Unlimited Drills</span>
+                      <span className="text-emerald-600 font-bold">Unlocked</span>
+                    </div>
                   </div>
-                </div>
-                <div className="text-[11px] text-slate-400 text-center py-4">
-                  Only linked payment data is shown.
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Tab: Test Access Content */}
-            {activeDetailTab === 'Test Access' && (
-              <div className="space-y-2.5 text-xs pt-1">
-                <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span>WBP Constable Full Mocks</span>
-                  <span className="text-emerald-600 font-bold">Unlocked</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span>WBPSC Clerkship Mocks</span>
-                  <span className="text-emerald-600 font-bold">Unlocked</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                  <span>Topic-wise Unlimited Drills</span>
-                  <span className="text-emerald-600 font-bold">Unlocked</span>
-                </div>
-              </div>
-            )}
-
-            {/* Tab: Activity Content */}
-            {activeDetailTab === 'Activity' && (
-              <div className="space-y-2 text-xs pt-1 text-slate-600">
-                <div className="border-l-2 border-blue-400 pl-3 py-1">
-                  <span className="font-semibold block text-slate-800">Subscription Created</span>
-                  <span className="text-[10px] text-slate-400">{selectedSubscription.createdAt}</span>
-                </div>
-                <div className="border-l-2 border-emerald-400 pl-3 py-1">
-                  <span className="font-semibold block text-slate-800">Payment Verified</span>
-                  <span className="text-[10px] text-slate-400">Via {selectedSubscription.paymentMethod}</span>
-                </div>
-              </div>
-            )}
-            </>
+                {/* Tab: Activity Content */}
+                {activeDetailTab === 'Activity' && (
+                  <div className="space-y-2 text-xs pt-1 text-slate-600">
+                    <div className="border-l-2 border-blue-400 pl-3 py-1">
+                      <span className="font-semibold block text-slate-800">
+                        Subscription Created
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {selectedSubscription.createdAt}
+                      </span>
+                    </div>
+                    <div className="border-l-2 border-emerald-400 pl-3 py-1">
+                      <span className="font-semibold block text-slate-800">Payment Verified</span>
+                      <span className="text-[10px] text-slate-400">
+                        Via {selectedSubscription.paymentMethod}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="py-16 text-center text-slate-400 text-xs">
                 No subscription record selected.
@@ -1479,7 +1601,9 @@ export const AdminSubscriptions: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Create New Subscription</h3>
-                  <p className="text-[11px] text-slate-500">Assign pass access manually to a registered learner</p>
+                  <p className="text-[11px] text-slate-500">
+                    Assign pass access manually to a registered learner
+                  </p>
                 </div>
               </div>
               <button
@@ -1547,7 +1671,8 @@ export const AdminSubscriptions: React.FC = () => {
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    A manual grant is not a collected payment. Revenue requires a linked completed payment record.
+                    A manual grant is not a collected payment. Revenue requires a linked completed
+                    payment record.
                   </p>
                 </div>
               </div>

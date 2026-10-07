@@ -9,6 +9,8 @@ import { adminApi } from '@/services/domains/admin';
 import * as auditLogDomain from '@/services/domains/auditLog';
 import { liveRevisionApi } from '@/services/domains/liveRevision';
 import { studentHomeApi } from '@/services/domains/studentHome';
+import { accountManagementApi } from '@/services/domains/accountManagement';
+import { adminRecordsApi } from '@/services/domains/admin.records';
 import { cutoffApi } from '@/services/domains/cutoff';
 
 export const api = {
@@ -20,8 +22,19 @@ export const api = {
   ...liveRevisionApi,
   ...studentHomeApi,
   ...cutoffApi,
+  ...accountManagementApi,
+  ...adminRecordsApi,
 };
 
-export type { Exam, Subject, Chapter, TestSeries, MockTest, Question, PopularExamCard, PopularTestSeriesCard, BlogPost } from '@/types';
+export type {
+  Exam,
+  Subject,
+  Chapter,
+  TestSeries,
+  MockTest,
+  Question,
+  PopularExamCard,
+  PopularTestSeriesCard,
+  BlogPost,
+} from '@/types';
 export type { LiveTest } from '@/services/domains/liveRevision';
-
