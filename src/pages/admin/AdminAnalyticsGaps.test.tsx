@@ -142,7 +142,7 @@ describe('Item Analysis & Date-Range Revenue Analytics Gaps (Gap 5)', () => {
 
       // Check for Custom Date-Range Revenue Analytics Header
       expect(
-        await screen.findByText(/Revenue & Growth Analytics \(কাস্টম ডেট-রেঞ্জ রেভিনিউ ফিল্টার\)/i)
+        await screen.findByText(/^Revenue & Growth Analytics$/i)
       ).toBeInTheDocument();
 
       // Check for Date Range Presets
@@ -164,7 +164,7 @@ describe('Item Analysis & Date-Range Revenue Analytics Gaps (Gap 5)', () => {
 
       // Check for Question Item Analysis & Quality Watch Card
       expect(
-        screen.getByText(/Question Item Analysis & Quality Watch \(প্রশ্নভিত্তিক অ্যানালিটিক্স\)/i)
+        screen.getByText(/^Question Item Analysis & Quality Watch$/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/High Failure Rate \(≥80% Wrong\)/i)).toBeInTheDocument();
       expect(screen.getByText(/Time Traps \(>90s Avg Time\)/i)).toBeInTheDocument();

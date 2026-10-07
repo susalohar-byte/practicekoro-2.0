@@ -818,7 +818,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Revenue & Growth Analytics (কাস্টম ডেট-রেঞ্জ রেভিনিউ ফিল্টার)
+                Revenue & Growth Analytics
               </h2>
               <p className="text-[11px] text-slate-500">
                 Inspect gross revenue, student enrollments, and transactions by date
@@ -1449,7 +1449,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">
-                  Question Item Analysis & Quality Watch (প্রশ্নভিত্তিক অ্যানালিটিক্স)
+                  Question Item Analysis & Quality Watch
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded">
