@@ -1,3 +1,4 @@
+import { readCompleteQuery } from './admin.reporting';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localChapters, localTests } from '@/services/domains/localStore';
@@ -35,10 +36,15 @@ export async function getAllAdminChapters(subjectId?: string): Promise<Chapter[]
     return getStoredChapters()
       .filter((c) => !subjectId || c.subjectId === subjectId)
       .map((c) => ({ ...c, testsCount: localTests.filter((t) => t.chapterId === c.id).length }));
-  let q = supabase.from('chapters').select('*, tests(count)').order('order_index');
-  if (subjectId) q = q.eq('subject_id', subjectId);
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  const data = await readCompleteQuery(() => {
+    let q = supabase
+      .from('chapters')
+      .select('*, tests(count)', { count: 'exact' })
+      .order('order_index')
+      .order('id');
+    if (subjectId) q = q.eq('subject_id', subjectId);
+    return q;
+  });
   return (data || []).map((d) => ({
     id: d.id,
     subjectId: d.subject_id,

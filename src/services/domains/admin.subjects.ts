@@ -1,4 +1,7 @@
-import { deleteAdminRecord } from './admin.mutations';
+import { readCompleteQuery } from './admin.reporting';
+import { notifyExamsUpdated } from '@/lib/dataSync';
+import { validateSubjectInput, type SubjectReportingData } from '@/utils/adminSubjectModel';
+import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { localChapters, localSubjects } from '@/services/domains/localStore';
 import type { Subject } from '@/types';
@@ -18,27 +21,23 @@ export async function getAllAdminSubjects(examId?: string): Promise<Subject[]> {
       }));
   }
 
-  let query = supabase
-    .from('subjects')
-    .select('*, chapters(count)')
-    .order('order_index', { ascending: true });
-  if (examId) query = query.or(`exam_id.eq.${examId},exam_id.is.null`);
-
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data || data.length === 0) {
-    return [];
-  }
-
+  const data = await readCompleteQuery(() => {
+    let query = supabase
+      .from('subjects')
+      .select('*, chapters(count)', { count: 'exact' })
+      .order('order_index', { ascending: true })
+      .order('id', { ascending: true });
+    if (examId) query = query.or(`exam_id.eq.${examId},exam_id.is.null`);
+    return query;
+  });
   return (data as (SubjectRow & { chapters?: { count: number }[] })[]).map((item) => {
     const chaptersCount =
       Array.isArray(item.chapters) && item.chapters[0]?.count != null
         ? Number(item.chapters[0].count)
         : 0;
     return {
+      createdAt: (item as any).created_at,
+      updatedAt: (item as any).updated_at,
       id: item.id,
       examId: item.exam_id ?? undefined,
       name: item.name,
@@ -74,6 +73,8 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
       : 0;
 
   return {
+    createdAt: (row as any).created_at,
+    updatedAt: (row as any).updated_at,
     id: row.id,
     examId: row.exam_id ?? undefined,
     name: row.name,
@@ -87,6 +88,17 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
   };
 }
 
+async function assertSubjectSlugAvailable(slug: string, examId?: string, excludeId?: string) {
+  if (!isSupabaseConfigured) return;
+  let q = supabase.from('subjects').select('id').ilike('slug', slug);
+  q = examId ? q.eq('exam_id', examId) : q.is('exam_id', null);
+  if (excludeId) q = q.neq('id', excludeId);
+  const { data, error } = await q.limit(1);
+  if (error) throw new Error(error.message);
+  if (!Array.isArray(data)) throw new Error('Subject slug availability could not be confirmed.');
+  if (data.length) throw new Error('This URL slug already exists in the same subject scope.');
+}
+
 export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<Subject> {
   const slug =
     subjectData.slug ||
@@ -94,9 +106,8 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-  const id = subjectData.examId
-    ? `${subjectData.examId}-${slug}`.slice(0, 50)
-    : `sub-${slug}-${Date.now().toString().slice(-4)}`.slice(0, 50);
+  validateSubjectInput({ ...subjectData, slug });
+  const id = crypto.randomUUID();
 
   if (!isSupabaseConfigured) {
     const newSubject: Subject = {
@@ -109,6 +120,7 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
     return newSubject;
   }
 
+  await assertSubjectSlugAvailable(slug, subjectData.examId);
   const { data, error } = await supabase
     .from('subjects')
     .insert({
@@ -125,11 +137,11 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
     .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  requireSavedRow({ data, error });
+  notifyExamsUpdated();
   return {
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
     id: data.id,
     examId: data.exam_id ?? undefined,
     name: data.name,
@@ -144,6 +156,13 @@ export async function createSubject(subjectData: Omit<Subject, 'id'>): Promise<S
 }
 
 export async function updateSubject(id: string, updates: Partial<Subject>): Promise<Subject> {
+  if (!id) throw new Error('A real subject ID is required.');
+  validateSubjectInput({
+    name: updates.name ?? 'Subject',
+    slug: updates.slug ?? 'subject',
+    orderIndex: updates.orderIndex,
+    iconName: updates.iconName,
+  });
   if (!isSupabaseConfigured) {
     const idx = localSubjects.findIndex((s) => s.id === id);
     if (idx !== -1) {
@@ -161,6 +180,11 @@ export async function updateSubject(id: string, updates: Partial<Subject>): Prom
     );
   }
 
+  if (updates.slug !== undefined) {
+    const current = await getSubjectById(id);
+    if (!current) throw new Error('Subject not found.');
+    await assertSubjectSlugAvailable(updates.slug, updates.examId ?? current.examId, id);
+  }
   const payload: Record<string, unknown> = {};
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.slug !== undefined) payload.slug = updates.slug;
@@ -178,11 +202,12 @@ export async function updateSubject(id: string, updates: Partial<Subject>): Prom
     .select()
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  requireSavedRow({ data, error }, id);
+  notifyExamsUpdated();
 
   return {
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
     id: data.id,
     examId: data.exam_id ?? undefined,
     name: data.name,
@@ -202,26 +227,34 @@ export async function deleteSubject(id: string): Promise<boolean> {
     localSubjects.splice(i, 1);
     return true;
   }
-  return deleteAdminRecord('subjects', id);
+  const confirmed = await deleteAdminRecord('subjects', id);
+  notifyExamsUpdated();
+  return confirmed;
 }
 
 export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'): Promise<string> {
+  if (
+    !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
+    file.size === 0 ||
+    file.size > 2 * 1024 * 1024
+  )
+    throw new Error('Use a non-empty PNG, JPG or WebP image up to 2 MB.');
   if (isSupabaseConfigured) {
     {
-      const extension =
-        file.name
-          .split('.')
-          .pop()
-          ?.toLowerCase()
-          .replace(/[^a-z0-9]/g, '') || 'png';
+      const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[
+        file.type
+      ];
       const safeId = subjectId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const path = `subject-icons/${safeId}/icon-${Date.now()}.${extension}`;
+      const path = `subject-icons/${safeId}/icon-${crypto.randomUUID()}.${extension}`;
       const { data, error } = await supabase.storage.from('banners').upload(path, file, {
         cacheControl: '3600',
         upsert: true,
       });
       if (!error && data) {
-        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+        const url = supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+        if (typeof url !== 'string' || !url.startsWith('https://'))
+          throw new Error('Storage did not return a durable HTTPS image URL.');
+        return url;
       }
     }
     throw new Error('Image upload failed. Please check Storage permissions.');
@@ -235,7 +268,32 @@ export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'
   });
 }
 
+export async function getSubjectReportingData(): Promise<SubjectReportingData> {
+  if (!isSupabaseConfigured) return { questions: [], attempts: [], warnings: [] };
+  const read = (table: string, columns: string) =>
+    readCompleteQuery(() =>
+      supabase.from(table).select(columns, { count: 'exact' }).order('id', { ascending: true })
+    );
+  const [q, a] = await Promise.allSettled([
+    read('questions', 'id,subject_id,chapter_id,topic_id'),
+    read('test_attempts', 'id,test_id,status,score,total_marks,correct_count,wrong_count'),
+  ]);
+  return {
+    questions: q.status === 'fulfilled' ? q.value : null,
+    attempts: a.status === 'fulfilled' ? a.value : null,
+    warnings: [
+      ...(q.status === 'rejected'
+        ? [`Question counts unavailable: ${q.reason?.message || 'Read failed'}`]
+        : []),
+      ...(a.status === 'rejected'
+        ? [`Attempt statistics unavailable: ${a.reason?.message || 'Read failed'}`]
+        : []),
+    ],
+  };
+}
+
 export const adminSubjectsApi = {
+  getSubjectReportingData,
   getAllAdminSubjects,
   getSubjectById,
   createSubject,

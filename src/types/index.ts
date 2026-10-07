@@ -193,6 +193,8 @@ export interface ExamCategory {
 }
 
 export interface Subject {
+  createdAt?: string;
+  updatedAt?: string;
   category?: string;
   id: string;
   examId?: string;

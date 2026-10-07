@@ -1,5 +1,15 @@
 import { isSupabaseConfigured } from '@/lib/supabase';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  enrichSubject,
+  subjectSummary,
+  subjectTopics,
+  isSubjectTopicTest,
+  subjectTests,
+  validateSubjectInput,
+  type SubjectReportingData,
+} from '@/utils/adminSubjectModel';
+import { parseSubjectImport, subjectCsvTemplate } from '@/utils/adminSubjectImport';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
@@ -30,7 +40,6 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
-  GripVertical,
 } from 'lucide-react';
 import type { Subject, Chapter, MockTest } from '@/types';
 import { cn } from '@/lib/utils';
@@ -50,6 +59,7 @@ export interface EnrichedSubjectRow extends Subject {
   updatedAtFormatted?: string;
   avgScoreFormatted?: string;
   completionRateFormatted?: string;
+  attemptsCount?: number | null;
 }
 
 // Subject Icon Badge matching the reference screenshot colors and icons
@@ -58,9 +68,11 @@ export const SubjectIconBadge: React.FC<{
   iconName?: string;
   className?: string;
 }> = ({ name, iconName, className = 'w-8 h-8' }) => {
+  const [failedSource, setFailedSource] = useState('');
   // 0. If custom uploaded icon or URL is set, render image
   if (
     iconName &&
+    failedSource !== iconName &&
     (iconName.startsWith('data:') ||
       iconName.startsWith('/') ||
       iconName.startsWith('http') ||
@@ -77,14 +89,39 @@ export const SubjectIconBadge: React.FC<{
           src={iconName}
           alt={name}
           className="w-full h-full object-contain rounded-lg"
-          onError={(e) => {
-            (e.target as HTMLElement).style.display = 'none';
-          }}
+          onError={() => setFailedSource(iconName)}
         />
       </div>
     );
   }
 
+  const namedIcons: Record<string, typeof BookOpen> = {
+    BookOpen,
+    FlaskConical,
+    Lightbulb,
+    Landmark,
+    Building2,
+    Globe,
+    Brain,
+    Newspaper,
+    Monitor,
+    TrendingUp,
+    Layers,
+    FileText,
+    Users,
+  };
+  const NamedIcon = iconName ? namedIcons[iconName] : undefined;
+  if (NamedIcon)
+    return (
+      <div
+        className={cn(
+          'rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100',
+          className
+        )}
+      >
+        <NamedIcon aria-label={iconName} className="w-4 h-4" />
+      </div>
+    );
   const norm = name.toLowerCase();
 
   // 1. General Science -> Purple Flask / Beaker
@@ -754,7 +791,17 @@ export const AdminSubjects: React.FC = () => {
   );
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [tests, setTests] = useState<MockTest[]>([]);
-  const [, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [report, setReport] = useState<SubjectReportingData>({
+    questions: null,
+    attempts: null,
+    warnings: [],
+  });
+  const mutationLock = useRef(false);
+  const uploadLock = useRef(false);
+  const requestId = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
 
   // Selected Subject & Side Panel (Neutral initial state - nothing selected by default)
@@ -790,9 +837,8 @@ export const AdminSubjects: React.FC = () => {
   const [editingSubject, setEditingSubject] = useState<EnrichedSubjectRow | null>(null);
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
-  const [formCategory, setFormCategory] = useState<'General' | 'Social Science' | 'Aptitude'>(
-    'General'
-  );
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [formCategory, setFormCategory] = useState<string>('General');
   const [formDescription, setFormDescription] = useState('');
   const [formIconName, setFormIconName] = useState('');
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
@@ -803,44 +849,72 @@ export const AdminSubjects: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
-  // Load Data and merge with database
+  useEffect(() => {
+    if (!isModalOpen && !isImportModalOpen && !isOrderModalOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isModalOpen, isImportModalOpen, isOrderModalOpen]);
+
   const loadData = useCallback(async () => {
+    const token = ++requestId.current;
+    setIsLoading(true);
+    setLoadError('');
     try {
-      setIsLoading(true);
-      const [rows, chs, ts] = await Promise.all([
+      const [rows, chs, ts, metrics] = await Promise.all([
         api.getAllAdminSubjects(),
         api.getAllAdminChapters(),
         api.getAllAdminTests(),
+        api.getSubjectReportingData(),
       ]);
+      if (token !== requestId.current) return false;
+      const mapped = rows.map((r) => enrichSubject(r, chs, ts, metrics));
       setChapters(chs);
       setTests(ts);
-      const mapped: EnrichedSubjectRow[] = rows.map((r) => ({
-        ...r,
-        category: r.category || 'General',
-        topicsCount: r.chaptersCount || 0,
-        topicTestsCount: 0,
-        totalQuestionsCount: 0,
-        totalQuestionsFormatted: 'Unavailable',
-        statusLabel: r.isActive ? 'Published' : 'Draft',
-        createdByName: 'Unavailable',
-        createdAtFormatted: 'Unavailable',
-        updatedAtFormatted: 'Unavailable',
-        avgScoreFormatted: 'Unavailable',
-        completionRateFormatted: 'Unavailable',
-      }));
+      setReport(metrics);
       setSubjectsList(mapped);
       setSelectedSubject((prev) => (prev ? mapped.find((r) => r.id === prev.id) || null : null));
+      setSelectedSubjectIds(
+        (prev) => new Set([...prev].filter((id) => mapped.some((r) => r.id === id)))
+      );
+      return true;
     } catch (err) {
-      setFormError(getErrorMessage(err, 'Subjects could not be loaded.'));
+      if (token === requestId.current) {
+        setLoadError(getErrorMessage(err, 'Subjects could not be loaded.'));
+        setSubjectsList([]);
+        setSelectedSubject(null);
+        setShowDetailsPanel(false);
+      }
+      return false;
     } finally {
-      setIsLoading(false);
+      if (token === requestId.current) setIsLoading(false);
     }
   }, []);
-
   useEffect(() => {
-    loadData();
+    void loadData();
+    const requests = requestId;
+    return () => {
+      requests.current++;
+    };
   }, [loadData]);
-
+  const summary = useMemo(
+    () => subjectSummary(subjectsList, chapters, tests, report),
+    [subjectsList, chapters, tests, report]
+  );
+  const nextOrder = () => subjectsList.reduce((max, s) => Math.max(max, s.orderIndex), 0) + 1;
+  const addSavedRow = (saved: Subject) => {
+    if (!saved?.id || !saved.name) throw new Error('The backend did not return a saved subject.');
+    const row = enrichSubject(saved, chapters, tests, report);
+    setSubjectsList((prev) =>
+      [...prev.filter((s) => s.id !== row.id), row].sort(
+        (a, b) => a.orderIndex - b.orderIndex || a.id.localeCompare(b.id)
+      )
+    );
+    setSelectedSubject((prev) => (prev?.id === row.id ? row : prev));
+    return row;
+  };
   // Auto-dismiss notification
   useEffect(() => {
     if (!actionSuccessMessage) return;
@@ -856,6 +930,7 @@ export const AdminSubjects: React.FC = () => {
       status: selectedStatus,
     });
     setCurrentPage(1);
+    setSelectedSubjectIds(new Set());
   };
 
   const handleResetFilter = () => {
@@ -868,6 +943,7 @@ export const AdminSubjects: React.FC = () => {
       status: 'all',
     });
     setCurrentPage(1);
+    setSelectedSubjectIds(new Set());
   };
 
   // Filtered Subjects
@@ -912,10 +988,12 @@ export const AdminSubjects: React.FC = () => {
 
   // Row selection
   const toggleSelectAll = () => {
-    if (selectedSubjectIds.size === pagedSubjects.length) {
-      setSelectedSubjectIds(new Set());
+    if (pagedSubjects.length > 0 && pagedSubjects.every((s) => selectedSubjectIds.has(s.id))) {
+      setSelectedSubjectIds(
+        (prev) => new Set([...prev].filter((id) => !pagedSubjects.some((s) => s.id === id)))
+      );
     } else {
-      setSelectedSubjectIds(new Set(pagedSubjects.map((s) => s.id)));
+      setSelectedSubjectIds((prev) => new Set([...prev, ...pagedSubjects.map((s) => s.id)]));
     }
   };
 
@@ -931,14 +1009,17 @@ export const AdminSubjects: React.FC = () => {
 
   const handleSelectSubjectRow = (sub: EnrichedSubjectRow) => {
     setSelectedSubject(sub);
+    setDetailsTab('overview');
     setShowDetailsPanel(true);
   };
 
   // Create / Edit modal handlers
   const handleOpenCreateModal = () => {
+    if (mutationLock.current || uploadLock.current || isLoading) return;
     setEditingSubject(null);
     setFormName('');
     setFormSlug('');
+    setSlugTouched(false);
     setFormCategory('General');
     setFormDescription('');
     setFormIconName('');
@@ -948,10 +1029,11 @@ export const AdminSubjects: React.FC = () => {
   };
 
   const handleOpenEditModal = (sub: EnrichedSubjectRow) => {
+    if (mutationLock.current || uploadLock.current || isLoading) return;
     setEditingSubject(sub);
     setFormName(sub.name);
     setFormSlug(sub.slug);
-    setFormCategory(sub.category as 'General' | 'Social Science' | 'Aptitude');
+    setFormCategory(sub.category);
     setFormDescription(sub.description || '');
     setFormIconName(sub.iconName || '');
     setFormIsActive(sub.isActive);
@@ -961,126 +1043,259 @@ export const AdminSubjects: React.FC = () => {
 
   const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
-    if (!formName.trim()) {
-      setFormError('Subject name is required.');
-      return;
-    }
-
+    if (mutationLock.current || uploadLock.current || isLoading) return;
     try {
-      setIsSaving(true);
-      setFormError('');
-
-      const cleanSlug =
+      const slug =
         formSlug.trim() ||
         formName
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
-
-      if (editingSubject) {
-        await api.updateSubject(editingSubject.id, {
-          name: formName.trim(),
-          slug: cleanSlug,
-          description: formDescription.trim(),
-          category: formCategory,
-          isActive: formIsActive,
-          iconName: formIconName.trim(),
-        });
-
-        const updated: EnrichedSubjectRow = {
-          ...editingSubject,
-          name: formName.trim(),
-          slug: cleanSlug,
-          category: formCategory,
-          description: formDescription.trim(),
-          iconName: formIconName.trim(),
-          isActive: formIsActive,
-          statusLabel: formIsActive ? 'Published' : 'Draft',
-          updatedAtFormatted: 'Just now',
-        };
-
-        setSubjectsList((prev) => prev.map((s) => (s.id === editingSubject.id ? updated : s)));
-        if (selectedSubject?.id === editingSubject.id) {
-          setSelectedSubject(updated);
-        }
-        setActionSuccessMessage(`Subject "${formName.trim()}" updated successfully.`);
-      } else {
-        const created = await api.createSubject({
-          name: formName.trim(),
-          slug: cleanSlug,
-          description: formDescription.trim(),
-          category: formCategory,
-          orderIndex: subjectsList.length + 1,
-          isActive: formIsActive,
-          iconName: formIconName.trim() || 'BookOpen',
-        });
-
-        const newRow: EnrichedSubjectRow = {
-          ...created,
-          category: formCategory,
-          iconName: formIconName.trim() || 'BookOpen',
-          topicsCount: 12,
-          topicTestsCount: 16,
-          totalQuestionsCount: 0,
-          totalQuestionsFormatted: '0',
-          statusLabel: formIsActive ? 'Published' : 'Draft',
-          createdByName: 'Admin',
-          createdAtFormatted: 'Today',
-          updatedAtFormatted: 'Today',
-          avgScoreFormatted: '68%',
-          completionRateFormatted: '72%',
-        };
-
-        setSubjectsList((prev) => [newRow, ...prev]);
-        setSelectedSubject(newRow);
+      const input = {
+        name: formName.trim(),
+        slug,
+        category: formCategory,
+        description: formDescription.trim(),
+        isActive: formIsActive,
+        iconName: formIconName.trim(),
+        orderIndex: editingSubject?.orderIndex ?? nextOrder(),
+      };
+      validateSubjectInput(input);
+      if (
+        subjectsList.some(
+          (s) =>
+            s.id !== editingSubject?.id &&
+            (s.examId || '') === (editingSubject?.examId || '') &&
+            s.slug.toLowerCase().trim() === slug
+        )
+      )
+        throw new Error('This URL slug is already used in the same exam/global subject scope.');
+      mutationLock.current = true;
+      setIsSaving(true);
+      setFormError('');
+      setActionError('');
+      const saved = editingSubject
+        ? await api.updateSubject(editingSubject.id, input)
+        : await api.createSubject({ ...input, iconName: input.iconName || 'BookOpen' });
+      if (editingSubject && saved?.id !== editingSubject.id)
+        throw new Error('The backend did not confirm the selected subject.');
+      const row = addSavedRow(saved);
+      if (!editingSubject) {
+        setSelectedSubject(row);
         setShowDetailsPanel(true);
-        setActionSuccessMessage(`Subject "${formName.trim()}" created successfully.`);
+        setDetailsTab('overview');
       }
-
+      setActionSuccessMessage(
+        `Subject "${row.name}" ${editingSubject ? 'updated' : 'created'} successfully.`
+      );
       setIsModalOpen(false);
     } catch (err) {
-      setFormError(getErrorMessage(err, 'Failed to save subject'));
+      setFormError(getErrorMessage(err, 'Subject save failed.'));
     } finally {
+      mutationLock.current = false;
       setIsSaving(false);
     }
   };
-
-  // Delete Subject
-  const handleDeleteSubject = async (subId: string) => {
+  const handleDeleteSubject = async (id: string) => {
+    if (mutationLock.current || uploadLock.current) return;
+    mutationLock.current = true;
+    setIsSaving(true);
+    setActionError('');
     try {
-      await api.deleteSubject(subId);
-      setSubjectsList((prev) => prev.filter((s) => s.id !== subId));
-      if (selectedSubject?.id === subId) {
+      const confirmed = await api.deleteSubject(id);
+      if (confirmed !== true) throw new Error('Deletion was not confirmed.');
+      setSubjectsList((prev) => prev.filter((s) => s.id !== id));
+      setSelectedSubjectIds((prev) => new Set([...prev].filter((i) => i !== id)));
+      setOpenActionMenuId(null);
+      if (selectedSubject?.id === id) {
         setSelectedSubject(null);
         setShowDetailsPanel(false);
       }
       setActionSuccessMessage('Subject deleted successfully.');
     } catch (err) {
-      alert('Failed to delete subject: ' + getErrorMessage(err, 'Delete failed'));
+      setActionError(
+        getErrorMessage(err, 'Subject deletion failed. Linked content must be preserved.')
+      );
+    } finally {
+      mutationLock.current = false;
+      setIsSaving(false);
     }
   };
-
   const handleDuplicateSubject = async (sub: EnrichedSubjectRow) => {
+    if (mutationLock.current || uploadLock.current) return;
+    mutationLock.current = true;
+    setIsSaving(true);
+    setActionError('');
     try {
-      await api.createSubject({
-        ...sub,
+      const saved = await api.createSubject({
         name: sub.name + ' (Copy)',
         slug: sub.slug + '-copy-' + crypto.randomUUID().slice(0, 8),
+        category: sub.category,
+        description: sub.description,
+        iconName: sub.iconName,
+        examId: sub.examId,
+        orderIndex: nextOrder(),
         isActive: false,
       });
-      await loadData();
-      setActionSuccessMessage('Draft subject created.');
+      addSavedRow(saved);
+      setActionSuccessMessage('Draft subject created. Existing topics/tests were not copied.');
     } catch (err) {
-      alert(getErrorMessage(err, 'Duplicate failed'));
+      setActionError(getErrorMessage(err, 'Subject duplication failed.'));
+    } finally {
+      mutationLock.current = false;
+      setIsSaving(false);
+    }
+  };
+  const importReadId = useRef(0);
+  const [isReadingImport, setIsReadingImport] = useState(false);
+  const [importRows, setImportRows] = useState<Omit<Subject, 'id'>[]>([]);
+  const [importError, setImportError] = useState('');
+  const [importSummary, setImportSummary] = useState('');
+  const [orderDraft, setOrderDraft] = useState<Record<string, string>>({});
+  const [orderError, setOrderError] = useState('');
+  const download = (content: string, name: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const chooseImport = async (file?: File) => {
+    if (!file || mutationLock.current) return;
+    const readId = ++importReadId.current;
+    setIsReadingImport(true);
+    setImportRows([]);
+    setImportSummary('');
+    setImportError('');
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error('Import file must be at most 5 MB.');
+      const rows = parseSubjectImport(await file.text(), file.name, nextOrder());
+      if (readId !== importReadId.current) return;
+      if (
+        rows.some((r) =>
+          subjectsList.some(
+            (s) => s.slug.toLowerCase().trim() === r.slug && (s.examId || '') === (r.examId || '')
+          )
+        )
+      )
+        throw new Error(
+          'An imported slug already exists. Import creates new records; use Edit to change existing subjects.'
+        );
+      setImportRows(rows);
+    } catch (err) {
+      if (readId === importReadId.current)
+        setImportError(getErrorMessage(err, 'Import validation failed.'));
+    } finally {
+      if (readId === importReadId.current) setIsReadingImport(false);
+    }
+  };
+  const runImport = async () => {
+    if (mutationLock.current || isReadingImport || !importRows.length) return;
+    mutationLock.current = true;
+    setIsSaving(true);
+    setImportError('');
+    const failed: Omit<Subject, 'id'>[] = [];
+    const errors: string[] = [];
+    let savedCount = 0;
+    try {
+      for (const row of importRows) {
+        try {
+          addSavedRow(await api.createSubject(row));
+          savedCount++;
+        } catch (err) {
+          failed.push(row);
+          errors.push(`${row.name}: ${getErrorMessage(err, 'Save failed')}`);
+        }
+      }
+      setImportRows(failed);
+      setImportSummary(
+        `${savedCount} subject(s) saved; ${failed.length} failed. Successful rows will not be resubmitted.`
+      );
+      setImportError(errors.join(' · '));
+    } finally {
+      mutationLock.current = false;
+      setIsSaving(false);
+    }
+  };
+  const saveOrder = async () => {
+    if (mutationLock.current) return;
+    const changed = subjectsList.filter((s) => String(s.orderIndex) !== orderDraft[s.id]);
+    if (!changed.length) {
+      setOrderError('No order changes to save.');
+      return;
+    }
+    if (
+      changed.some(
+        (s) =>
+          !/^\d+$/.test(orderDraft[s.id] || '') ||
+          !Number.isSafeInteger(Number(orderDraft[s.id])) ||
+          Number(orderDraft[s.id]) > 2147483647
+      )
+    ) {
+      setOrderError('Each order must be an integer from 0 to 2147483647.');
+      return;
+    }
+    mutationLock.current = true;
+    setIsSaving(true);
+    setOrderError('');
+    let savedCount = 0;
+    const errors: string[] = [];
+    try {
+      for (const row of changed) {
+        try {
+          const saved = await api.updateSubject(row.id, { orderIndex: Number(orderDraft[row.id]) });
+          if (saved.id !== row.id || saved.orderIndex !== Number(orderDraft[row.id]))
+            throw new Error('Order was not confirmed.');
+          addSavedRow(saved);
+          savedCount++;
+        } catch (err) {
+          errors.push(`${row.name}: ${getErrorMessage(err, 'Save failed')}`);
+        }
+      }
+      if (errors.length)
+        setOrderError(
+          `${savedCount} order(s) saved. Failed: ${errors.join(' · ')}. Only failed/changed records need retry.`
+        );
+      else {
+        setIsOrderModalOpen(false);
+        setActionSuccessMessage(`${savedCount} subject display order(s) saved.`);
+      }
+    } finally {
+      mutationLock.current = false;
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
+      {isLoading && <p role="status">Loading complete subject records…</p>}
+      {loadError && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 text-rose-700">
+          Subjects unavailable: {loadError}{' '}
+          <button onClick={() => void loadData()} className="underline">
+            Retry
+          </button>
+        </div>
+      )}
+      {actionError && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 text-rose-700">
+          {actionError}
+        </div>
+      )}
+      {report.warnings.map((w) => (
+        <p key={w} role="alert" className="text-xs text-amber-700">
+          {w}
+        </p>
+      ))}
       {/* Toast Notification */}
       {actionSuccessMessage && (
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-xs">
+        <div
+          role="status"
+          className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between shadow-xs"
+        >
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccessMessage}</span>
@@ -1110,7 +1325,13 @@ export const AdminSubjects: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
-            onClick={() => setIsImportModalOpen(true)}
+            disabled={isSaving || isLoading || !!loadError}
+            onClick={() => {
+              setImportError('');
+              setImportSummary('');
+              setImportRows([]);
+              setIsImportModalOpen(true);
+            }}
             className="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1024] text-xs font-semibold text-[#026BFC] hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-1.5 transition-colors shadow-2xs"
           >
             <Upload className="w-4 h-4 text-[#026BFC]" />
@@ -1119,7 +1340,14 @@ export const AdminSubjects: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setIsOrderModalOpen(true)}
+            disabled={isSaving || isLoading || !!loadError}
+            onClick={() => {
+              setOrderDraft(
+                Object.fromEntries(subjectsList.map((s) => [s.id, String(s.orderIndex)]))
+              );
+              setOrderError('');
+              setIsOrderModalOpen(true);
+            }}
             className="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1024] text-xs font-semibold text-[#026BFC] hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-1.5 transition-colors shadow-2xs"
           >
             <ArrowUpDown className="w-4 h-4 text-[#026BFC]" />
@@ -1128,6 +1356,7 @@ export const AdminSubjects: React.FC = () => {
 
           <button
             type="button"
+            disabled={isSaving || isLoading || !!loadError}
             onClick={handleOpenCreateModal}
             className="h-9 px-4 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
           >
@@ -1137,110 +1366,105 @@ export const AdminSubjects: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Top 5 KPI Cards in Single Row matching screenshot */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        {/* Card 1: Total Subjects */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#EBF3FF] dark:bg-blue-950/50 text-[#026BFC] flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
-              Total Subjects
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                {subjectsList.length || 24}
-              </span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ↑ 14%
-              </span>
+      {!isLoading && !loadError && (
+        <>
+          {/* 2. Top 5 KPI Cards in Single Row matching screenshot */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            {/* Card 1: Total Subjects */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#EBF3FF] dark:bg-blue-950/50 text-[#026BFC] flex items-center justify-center shrink-0">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+                  Total Subjects
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                    {isLoading || loadError ? 'Unavailable' : subjectsList.length}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">Current database records</p>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">vs last month</p>
-          </div>
-        </div>
 
-        {/* Card 2: Total Topics */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#E8F8F0] dark:bg-emerald-950/50 text-[#10B981] flex items-center justify-center shrink-0">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
-              Total Topics
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                {chapters.length || 186}
-              </span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ↑ 22%
-              </span>
+            {/* Card 2: Total Topics */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#E8F8F0] dark:bg-emerald-950/50 text-[#10B981] flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+                  Total Topics
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                    {isLoading || loadError ? 'Unavailable' : chapters.length}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Card 3: Total Topic Tests */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#FEF8E7] dark:bg-amber-950/50 text-[#F59E0B] flex items-center justify-center shrink-0">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
-              Total Topic Tests
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                {tests.filter((t) => t.testType === 'topic').length || 120}
-              </span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ↑ 28%
-              </span>
+            {/* Card 3: Total Topic Tests */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#FEF8E7] dark:bg-amber-950/50 text-[#F59E0B] flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+                  Total Topic Tests
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                    {isLoading || loadError ? 'Unavailable' : summary.topicTests}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Card 4: Tests Taken */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#F3E8FF] dark:bg-purple-950/50 text-[#8B5CF6] flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
-              Tests Taken
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                1,24,860
-              </span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ↑ 36%
-              </span>
+            {/* Card 4: Tests Taken */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#F3E8FF] dark:bg-purple-950/50 text-[#8B5CF6] flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+                  Tests Taken
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                    {isLoading || loadError ? 'Unavailable' : (summary.attempts ?? 'Unavailable')}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Card 5: Avg. Accuracy */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
-          <div className="w-11 h-11 rounded-2xl bg-[#FEECEC] dark:bg-rose-950/50 text-[#EF4444] flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
-              Avg. Accuracy
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                68%
-              </span>
-              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ↑ 5%
-              </span>
+            {/* Card 5: Avg. Accuracy */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
+              <div className="w-11 h-11 rounded-2xl bg-[#FEECEC] dark:bg-rose-950/50 text-[#EF4444] flex items-center justify-center shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 leading-tight">
+                  Avg. Accuracy
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                    {isLoading || loadError ? 'Unavailable' : summary.accuracy}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
+        </>
+      )}
+      {!isLoading && !loadError && (
+        <p className="text-xs text-slate-500">
+          All-time recorded counts. Average accuracy uses correct / (correct + wrong) answers in
+          completed subject-linked tests; average score uses recorded score percentages. Unavailable
+          values are not estimated.
+        </p>
+      )}
       {/* 3. Filter Toolbar Card */}
       <div className="p-3.5 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
@@ -1267,6 +1491,14 @@ export const AdminSubjects: React.FC = () => {
             <option value="General">General</option>
             <option value="Social Science">Social Science</option>
             <option value="Aptitude">Aptitude</option>
+            {[...new Set(subjectsList.map((s) => s.category))]
+              .filter((c) => !['General', 'Social Science', 'Aptitude'].includes(c))
+              .sort()
+              .map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
           </select>
 
           {/* All Status Dropdown */}
@@ -1313,15 +1545,16 @@ export const AdminSubjects: React.FC = () => {
           <div className="bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xs overflow-hidden">
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table aria-label="Subjects" className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-400 font-medium">
                     <th className="py-3 px-3 w-10 text-center">
                       <input
                         type="checkbox"
+                        aria-label="Select current page"
                         checked={
-                          selectedSubjectIds.size > 0 &&
-                          selectedSubjectIds.size === pagedSubjects.length
+                          pagedSubjects.length > 0 &&
+                          pagedSubjects.every((s) => selectedSubjectIds.has(s.id))
                         }
                         onChange={toggleSelectAll}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
@@ -1341,7 +1574,11 @@ export const AdminSubjects: React.FC = () => {
                   {pagedSubjects.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-12 text-center text-slate-400">
-                        No subjects found matching current filters.
+                        {isLoading
+                          ? 'Loading subjects…'
+                          : loadError
+                            ? 'Subjects could not be loaded.'
+                            : 'No subjects found matching current filters.'}
                       </td>
                     </tr>
                   ) : (
@@ -1369,6 +1606,7 @@ export const AdminSubjects: React.FC = () => {
                           >
                             <input
                               type="checkbox"
+                              aria-label={`Select ${s.name}`}
                               checked={isChecked}
                               onChange={(evt) =>
                                 toggleSelectRow(s.id, evt as unknown as React.MouseEvent)
@@ -1454,6 +1692,7 @@ export const AdminSubjects: React.FC = () => {
                           >
                             <button
                               type="button"
+                              aria-label={`Actions for ${s.name}`}
                               onClick={() =>
                                 setOpenActionMenuId(openActionMenuId === s.id ? null : s.id)
                               }
@@ -1746,7 +1985,7 @@ export const AdminSubjects: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
-                        1,24,860
+                        {selectedSubject.attemptsCount ?? 'Unavailable'}
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
                         Total Attempts
@@ -1761,7 +2000,7 @@ export const AdminSubjects: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedSubject.avgScoreFormatted || '68%'}
+                        {selectedSubject.avgScoreFormatted || 'Unavailable'}
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
                         Avg. Score
@@ -1776,7 +2015,7 @@ export const AdminSubjects: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">
-                        {selectedSubject.completionRateFormatted || '72%'}
+                        {selectedSubject.completionRateFormatted || 'Unavailable'}
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
                         Completion Rate
@@ -1801,8 +2040,7 @@ export const AdminSubjects: React.FC = () => {
                     </button>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                    {selectedSubject.description ||
-                      'General Science বিষয়টি ভৌত বিজ্ঞান, রসায়ন বিজ্ঞান, জীব বিজ্ঞান, পরিবেশ বিজ্ঞান এবং দৈনন্দিন জীবনের বিজ্ঞান সম্পর্কিত গুরুত্বপূর্ণ টপিক নিয়ে তৈরি। এটি বিভিন্ন সরকারি পরীক্ষার জন্য অত্যন্ত গুরুত্বপূর্ণ একটি বিষয়।'}
+                    {selectedSubject.description || 'No description has been saved.'}
                   </div>
                 </div>
 
@@ -1840,17 +2078,17 @@ export const AdminSubjects: React.FC = () => {
 
                     <span className="text-slate-400 font-medium">Created By</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedSubject.createdByName || 'Admin'}
+                      {selectedSubject.createdByName || 'Unavailable'}
                     </span>
 
                     <span className="text-slate-400 font-medium">Created At</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedSubject.createdAtFormatted || '12 Aug 2026, 11:20 AM'}
+                      {selectedSubject.createdAtFormatted || 'Unavailable'}
                     </span>
 
                     <span className="text-slate-400 font-medium">Last Updated</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
-                      {selectedSubject.updatedAtFormatted || '14 Sep 2026, 04:15 PM'}
+                      {selectedSubject.updatedAtFormatted || 'Unavailable'}
                     </span>
 
                     <span className="text-slate-400 font-medium">Status</span>
@@ -1883,7 +2121,7 @@ export const AdminSubjects: React.FC = () => {
                   </button>
 
                   <a
-                    href={`/practice?subject=${selectedSubject.slug}`}
+                    href={`/practice?subject_filter=${encodeURIComponent(selectedSubject.name)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-2.5 px-3 rounded-xl border border-[#BFDBFE] bg-white text-[#026BFC] hover:bg-blue-50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1903,7 +2141,7 @@ export const AdminSubjects: React.FC = () => {
                     Topics ({selectedSubject.topicsCount})
                   </span>
                   <a
-                    href="/admin/topics"
+                    href={`/admin/topics?subject=${encodeURIComponent(selectedSubject.id)}`}
                     className="text-xs text-[#026BFC] hover:underline font-semibold"
                   >
                     Manage Topics
@@ -1913,41 +2151,24 @@ export const AdminSubjects: React.FC = () => {
                   Topics under {selectedSubject.name} used in Topic Practice & Chapter Tests:
                 </p>
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                  {[
-                    'Heat & Temperature',
-                    'Optics & Light',
-                    'Mechanics & Motion',
-                    'Electricity & Magnetism',
-                    'Sound & Waves',
-                    'Atomic Structure & Bonding',
-                    'Acids, Bases & Salts',
-                    'Metals & Non-metals',
-                    'Cell Biology & Genetics',
-                    'Human Physiology & Organ Systems',
-                    'Plant Physiology & Botany',
-                    'Ecology & Biodiversity',
-                    'Nutrition & Vitamins',
-                    'Common Diseases & Immunity',
-                    'Pollution & Climate Science',
-                    'Space & Astronomy',
-                    'Nuclear Physics & Energy',
-                    'Scientific Inventions & Discoveries',
-                  ]
-                    .slice(0, selectedSubject.topicsCount)
-                    .map((topic, i) => (
-                      <div
-                        key={i}
-                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-3.5 h-3.5 text-blue-500" />
-                          <span className="font-medium text-slate-800 dark:text-slate-200">
-                            {topic}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400">120 Qs</span>
-                      </div>
-                    ))}
+                  {subjectTopics(selectedSubject.id, chapters).map((topic) => (
+                    <div
+                      key={topic.id}
+                      className="p-2 rounded-xl border flex items-center justify-between"
+                    >
+                      <span>{topic.name}</span>
+                      <span className="text-xs text-slate-500">
+                        {report.questions
+                          ? report.questions.filter(
+                              (q) => q.chapter_id === topic.id || q.topic_id === topic.id
+                            ).length + ' questions'
+                          : 'Question count unavailable'}
+                      </span>
+                    </div>
+                  ))}
+                  {!subjectTopics(selectedSubject.id, chapters).length && (
+                    <p>No topics are linked to this subject.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -1967,51 +2188,19 @@ export const AdminSubjects: React.FC = () => {
                   </a>
                 </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {[
-                    {
-                      id: 'tt-1',
-                      title: `${selectedSubject.name} — Heat & Temp Test 01`,
-                      questions: 30,
-                      duration: '25 min',
-                    },
-                    {
-                      id: 'tt-2',
-                      title: `${selectedSubject.name} — Optics Test 01`,
-                      questions: 30,
-                      duration: '25 min',
-                    },
-                    {
-                      id: 'tt-3',
-                      title: `${selectedSubject.name} — Mechanics Test 01`,
-                      questions: 30,
-                      duration: '25 min',
-                    },
-                    {
-                      id: 'tt-4',
-                      title: `${selectedSubject.name} — Human Physiology Test 01`,
-                      questions: 30,
-                      duration: '25 min',
-                    },
-                    {
-                      id: 'tt-5',
-                      title: `${selectedSubject.name} — Nutrition & Vitamins Test 01`,
-                      questions: 30,
-                      duration: '25 min',
-                    },
-                  ].map((tt) => (
-                    <div
-                      key={tt.id}
-                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-1"
-                    >
-                      <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
-                        {tt.title}
-                      </span>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span>{tt.questions} Questions</span>
-                        <span>{tt.duration}</span>
+                  {subjectTests(selectedSubject.id, chapters, tests)
+                    .filter(isSubjectTopicTest)
+                    .map((t) => (
+                      <div key={t.id} className="p-2.5 rounded-xl border space-y-1">
+                        <strong>{t.title}</strong>
+                        <p>
+                          {t.totalQuestions} questions · {t.durationMinutes} min · {t.status}
+                        </p>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  {!subjectTests(selectedSubject.id, chapters, tests).some(
+                    (t) => t.testType === 'topic'
+                  ) && <p>No topic tests are linked to this subject.</p>}
                 </div>
               </div>
             )}
@@ -2019,148 +2208,129 @@ export const AdminSubjects: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL: Import Subjects Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
-          <div className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Upload className="w-5 h-5 text-[#026BFC]" />
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Import Subjects
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Import Subjects"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto"
+          >
+            <h2 className="font-bold">Import Subjects</h2>
             <p className="text-xs text-slate-500">
-              Upload a CSV or JSON file containing subject titles, categories, and descriptions to
-              bulk import into PracticeKoro.
+              Creates new subjects only. CSV/JSON · up to 100 records and 5 MB. Rows save
+              individually; partial failures are reported and retry excludes saved rows. Omitted
+              publish status defaults to Draft.
             </p>
-
-            <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center space-y-2">
-              <Upload className="w-8 h-8 text-slate-400 mx-auto" />
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Drag and drop your file here, or browse
+            <input
+              aria-label="Subject import file"
+              type="file"
+              accept=".csv,.json"
+              disabled={isSaving || isUploadingIcon}
+              onChange={(e) => void chooseImport(e.target.files?.[0])}
+            />
+            <button
+              onClick={() => download(subjectCsvTemplate, 'subjects-template.csv', 'text/csv')}
+              className="text-blue-600 text-xs underline"
+            >
+              Download CSV Template
+            </button>
+            {importRows.length > 0 && <p>{importRows.length} validated subject(s) ready.</p>}
+            {importError && (
+              <p role="alert" className="text-red-700 text-xs">
+                {importError}
               </p>
-              <p className="text-[11px] text-slate-400">Supports .csv, .json (max 5MB)</p>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={() => alert('Sample template downloaded.')}
-                className="text-xs text-[#026BFC] hover:underline font-semibold"
-              >
-                Download CSV Template
-              </button>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setIsImportModalOpen(false);
-                    setActionSuccessMessage('Subjects imported successfully.');
-                  }}
-                  className="bg-[#026BFC] text-white text-xs"
-                >
-                  Import File
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Subject Order Modal */}
-      {isOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
-          <div className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-5 h-5 text-[#026BFC]" />
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Subject Order
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsOrderModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Adjust the display order of subjects shown in the Practice Hub and Student App.
-            </p>
-
-            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {subjectsList.slice(0, 10).map((sub, idx) => (
-                <div
-                  key={sub.id}
-                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <GripVertical className="w-4 h-4 text-slate-400 cursor-grab" />
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      #{idx + 1} {sub.name}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400">{sub.category}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 flex justify-end gap-2">
+            )}
+            {importSummary && (
+              <p role="status" className="text-xs">
+                {importSummary}
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsOrderModalOpen(false)}
-                className="text-xs"
+                disabled={isSaving || isReadingImport}
+                onClick={() => setIsImportModalOpen(false)}
               >
                 Close
               </Button>
               <Button
-                size="sm"
-                onClick={() => {
-                  setIsOrderModalOpen(false);
-                  setActionSuccessMessage('Subject display order saved.');
-                }}
-                className="bg-[#026BFC] text-white text-xs"
+                disabled={isSaving || isReadingImport || !importRows.length}
+                onClick={() => void runImport()}
               >
-                Save Order
+                {isSaving ? 'Importing…' : 'Import File'}
               </Button>
             </div>
-          </div>
+          </section>
         </div>
       )}
-
+      {isOrderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Subject Order"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto"
+          >
+            <h2 className="font-bold">Subject Order</h2>
+            <p className="text-xs text-slate-500">
+              Lower numeric values display first. All subjects are shown. Changes save per record;
+              failures are reported without claiming the whole batch succeeded.
+            </p>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {subjectsList.map((sub) => (
+                <label key={sub.id} className="flex items-center justify-between text-xs gap-3">
+                  <span>{sub.name}</span>
+                  <input
+                    aria-label={`Order for ${sub.name}`}
+                    className="border rounded p-2 w-24"
+                    type="number"
+                    min="0"
+                    max="2147483647"
+                    disabled={isSaving || isUploadingIcon}
+                    value={orderDraft[sub.id] || ''}
+                    onChange={(e) =>
+                      setOrderDraft((prev) => ({ ...prev, [sub.id]: e.target.value }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+            {orderError && (
+              <p role="alert" className="text-xs text-red-700">
+                {orderError}
+              </p>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button
+                disabled={isSaving || isUploadingIcon}
+                onClick={() => setIsOrderModalOpen(false)}
+              >
+                Close
+              </Button>
+              <Button disabled={isSaving || !subjectsList.length} onClick={() => void saveOrder()}>
+                {isSaving ? 'Saving…' : 'Save Order'}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
       {/* MODAL: Create / Edit Subject Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50">
-          <div className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Subject editor"
+            className="bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-6 space-y-4"
+          >
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-base text-slate-900 dark:text-white">
                 {editingSubject ? `Edit Subject — ${editingSubject.name}` : 'Create Subject'}
               </h3>
               <button
                 type="button"
+                aria-label="Close Subject editor"
+                disabled={isSaving || isUploadingIcon}
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -2169,213 +2339,234 @@ export const AdminSubjects: React.FC = () => {
             </div>
 
             {formError && (
-              <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold">
+              <div
+                role="alert"
+                className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold"
+              >
                 {formError}
               </div>
             )}
 
             <form onSubmit={handleSaveSubject} className="space-y-3.5 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Subject Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. General Science"
-                  value={formName}
-                  onChange={(e) => {
-                    setFormName(e.target.value);
-                    if (!editingSubject) {
-                      setFormSlug(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, '-')
-                          .replace(/(^-|-$)/g, '')
-                      );
-                    }
-                  }}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <fieldset disabled={isSaving || isUploadingIcon} className="space-y-3.5">
                 <div>
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) =>
-                      setFormCategory(e.target.value as 'General' | 'Social Science' | 'Aptitude')
-                    }
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
-                  >
-                    <option value="General">General</option>
-                    <option value="Social Science">Social Science</option>
-                    <option value="Aptitude">Aptitude</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    URL Slug
+                    Subject Name *
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. general-science"
-                    value={formSlug}
-                    onChange={(e) => setFormSlug(e.target.value)}
+                    required
+                    placeholder="e.g. General Science"
+                    aria-label="Subject name"
+                    value={formName}
+                    onChange={(e) => {
+                      setFormName(e.target.value);
+                      if (!editingSubject && !slugTouched) {
+                        setFormSlug(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/(^-|-$)/g, '')
+                        );
+                      }
+                    }}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Detailed description of the subject and topics covered..."
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
-                />
-              </div>
-
-              {/* Subject Icon Field */}
-              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
-                      Subject Icon
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      Category *
                     </label>
-                    <span className="text-[11px] text-slate-400">
-                      Upload a custom PNG, JPG, WebP, or SVG icon
-                    </span>
-                  </div>
-                  {formIconName && (
-                    <button
-                      type="button"
-                      onClick={() => setFormIconName('')}
-                      className="text-[11px] font-medium text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
-                      title="Remove icon"
+                    <select
+                      aria-label="Subject category"
+                      value={formCategory}
+                      onChange={(e) => setFormCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                     >
-                      <Trash2 className="w-3 h-3" />
-                      Remove Icon
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {/* Live Icon Preview */}
-                  <SubjectIconBadge
-                    name={formName || 'Subject Icon'}
-                    iconName={formIconName}
-                    className="w-10 h-10 shadow-xs"
-                  />
-
-                  {/* Upload & Change Controls */}
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label
-                        className={cn(
-                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
-                          isUploadingIcon
-                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                      {formCategory &&
+                        !['General', 'Social Science', 'Aptitude'].includes(formCategory) && (
+                          <option value={formCategory}>{formCategory}</option>
                         )}
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        {isUploadingIcon
-                          ? 'Uploading...'
-                          : formIconName
-                            ? 'Change Icon'
-                            : 'Upload Icon'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={isUploadingIcon}
-                          className="hidden"
-                          onChange={async (ev) => {
-                            const file = ev.target.files?.[0];
-                            if (!file) return;
-                            try {
-                              setIsUploadingIcon(true);
-                              const uploadedUrl = await api.uploadSubjectIcon(
-                                file,
-                                editingSubject?.id || 'new'
-                              );
-                              setFormIconName(uploadedUrl);
-                            } catch (err) {
-                              alert('Failed to upload icon: ' + getErrorMessage(err, 'Error'));
-                            } finally {
-                              setIsUploadingIcon(false);
-                            }
-                          }}
-                        />
-                      </label>
+                      <option value="General">General</option>
+                      <option value="Social Science">Social Science</option>
+                      <option value="Aptitude">Aptitude</option>
+                    </select>
+                  </div>
 
-                      {formIconName && (
-                        <button
-                          type="button"
-                          onClick={() => setFormIconName('')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold text-xs border border-slate-200 dark:border-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Remove
-                        </button>
-                      )}
-
-                      <span className="text-[11px] text-slate-400">or icon URL:</span>
-                    </div>
-
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      URL Slug
+                    </label>
                     <input
                       type="text"
-                      placeholder="https://... or data:image/..."
-                      value={formIconName}
-                      onChange={(e) => setFormIconName(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[11px] font-mono text-slate-700 dark:text-slate-300 placeholder:font-sans"
+                      placeholder="e.g. general-science"
+                      aria-label="URL slug"
+                      value={formSlug}
+                      onChange={(e) => {
+                        setSlugTouched(true);
+                        setFormSlug(e.target.value);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="formIsActiveSub"
-                  checked={formIsActive}
-                  onChange={(e) => setFormIsActive(e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                />
-                <label
-                  htmlFor="formIsActiveSub"
-                  className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  Publish on platform (Visible to students)
-                </label>
-              </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Detailed description of the subject and topics covered..."
+                    aria-label="Subject description"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E]"
+                  />
+                </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-xs"
-                >
-                  Cancel
-                </Button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50"
-                >
-                  {isSaving ? 'Saving...' : editingSubject ? 'Update Subject' : 'Create Subject'}
-                </button>
-              </div>
+                {/* Subject Icon Field */}
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
+                        Subject Icon
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        PNG, JPG or WebP · up to 2 MB. Changes persist after Save.
+                      </span>
+                    </div>
+                    {formIconName && (
+                      <button
+                        type="button"
+                        onClick={() => setFormIconName('')}
+                        className="text-[11px] font-medium text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                        title="Remove icon"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remove Icon
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Live Icon Preview */}
+                    <SubjectIconBadge
+                      name={formName || 'Subject Icon'}
+                      iconName={formIconName}
+                      className="w-10 h-10 shadow-xs"
+                    />
+
+                    {/* Upload & Change Controls */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs cursor-pointer shadow-2xs transition-colors',
+                            isUploadingIcon
+                              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                              : 'bg-[#026BFC] hover:bg-blue-700 text-white'
+                          )}
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          {isUploadingIcon
+                            ? 'Uploading...'
+                            : formIconName
+                              ? 'Change Icon'
+                              : 'Upload Icon'}
+                          <input
+                            type="file"
+                            aria-label="Subject icon file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={isUploadingIcon || isSaving}
+                            className="hidden"
+                            onChange={async (ev) => {
+                              const file = ev.target.files?.[0];
+                              if (!file || uploadLock.current || mutationLock.current) return;
+                              uploadLock.current = true;
+                              try {
+                                setIsUploadingIcon(true);
+                                const uploadedUrl = await api.uploadSubjectIcon(
+                                  file,
+                                  editingSubject?.id || 'new'
+                                );
+                                setFormIconName(uploadedUrl);
+                              } catch (err) {
+                                setFormError(
+                                  'Failed to upload icon: ' + getErrorMessage(err, 'Upload failed')
+                                );
+                              } finally {
+                                uploadLock.current = false;
+                                setIsUploadingIcon(false);
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {formIconName && (
+                          <button
+                            type="button"
+                            onClick={() => setFormIconName('')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold text-xs border border-slate-200 dark:border-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remove
+                          </button>
+                        )}
+
+                        <span className="text-[11px] text-slate-400">or icon URL:</span>
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="HTTPS icon URL or named icon"
+                        aria-label="Subject icon reference"
+                        value={formIconName}
+                        onChange={(e) => setFormIconName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#070D1E] text-[11px] font-mono text-slate-700 dark:text-slate-300 placeholder:font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="formIsActiveSub"
+                    checked={formIsActive}
+                    onChange={(e) => setFormIsActive(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  <label
+                    htmlFor="formIsActiveSub"
+                    className="font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
+                  >
+                    Publish on platform (Visible to students)
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isSaving || isUploadingIcon}
+                    onClick={() => setIsModalOpen(false)}
+                    className="text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <button
+                    type="submit"
+                    disabled={isSaving || isUploadingIcon}
+                    className="px-4 py-2 rounded-xl bg-[#026BFC] hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? 'Saving...' : editingSubject ? 'Update Subject' : 'Create Subject'}
+                  </button>
+                </div>
+              </fieldset>
             </form>
           </div>
         </div>
