@@ -77,7 +77,7 @@ export function useRemoveBookmark(userId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ questionId }: { bookmarkId: string; questionId: string }) =>
-      api.toggleBookmark(userId!, questionId),
+      api.removeBookmarks(userId!, [questionId]),
     onMutate: async ({ bookmarkId }) => {
       await queryClient.cancelQueries({ queryKey: practiceRevisionKey(userId) });
       const previous = queryClient.getQueryData<PracticeRevisionData>(

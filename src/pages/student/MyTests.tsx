@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
@@ -22,6 +22,9 @@ import {
   Shield,
 } from 'lucide-react';
 import type { TestAttempt } from '@/types';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
+import { filterStudentAttempts } from '@/utils/studentResults';
 import { cn } from '@/lib/utils';
 
 // ==========================================
@@ -70,7 +73,7 @@ interface SeriesResultItem {
   status: string;
   isCompleted: boolean;
   avgScore: number;
-  emblemType: 'wbssc_red' | 'kp_crest' | 'ssc_red';
+  emblemType: 'wbssc_red' | 'kp_crest' | 'ssc_red' | 'generic';
   scoreBg: string;
   scoreColor: string;
 }
@@ -82,35 +85,49 @@ export const MyTests: React.FC = () => {
   // State
   const [selectedFilter, setSelectedFilter] = useState<FilterTab>('Overview');
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('Last 3 Months');
-  const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<MetricView>('Marks');
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
   const [seriesResults, setSeriesResults] = useState<SeriesResultItem[]>([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [seriesError, setSeriesError] = useState('');
+  const [seriesLoading, setSeriesLoading] = useState(true);
+  const [seriesRetry, setSeriesRetry] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+  const requestVersion = useRef(0);
 
   // Load user attempts
   const loadAttempts = useCallback(async () => {
+    const version = ++requestVersion.current;
+    setLoadError('');
     if (!user) {
+      setAttempts([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const data = await api.getUserAttempts(user.id);
-      setAttempts(data || []);
+      if (version === requestVersion.current) setAttempts(data || []);
     } catch (err) {
-      console.error('Failed to load user attempts:', err);
+      if (version === requestVersion.current) setLoadError(getErrorMessage(err, 'Test history could not be loaded.'));
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    loadAttempts();
+    setAttempts([]);
+    void loadAttempts();
+    const counter = requestVersion;
+    return () => { counter.current++; };
   }, [loadAttempts]);
 
   useEffect(() => {
     let active = true;
+    setSeriesLoading(true);
+    setSeriesError('');
+    setSeriesResults([]);
     api.getStudentTestSeries().then(async (series) => {
       const reports = await Promise.all(series.map(async (item) => {
         try {
@@ -122,13 +139,14 @@ export const MyTests: React.FC = () => {
         }
       }));
       if (!active) return;
-      setSeriesResults(reports.map(({ item, analytics }, index) => {
+      if (reports.some(report => !report.analytics)) setSeriesError('Some series results could not be loaded. No zero scores have been substituted.');
+      setSeriesResults(reports.filter(report => report.analytics).map(({ item, analytics }, index) => {
         const title = item.title.toLowerCase();
         const emblemType: SeriesResultItem['emblemType'] = title.includes('kp')
           ? 'kp_crest'
           : title.includes('ssc')
             ? 'ssc_red'
-            : 'wbssc_red';
+            : 'generic';
         const completedTests = analytics?.testsAttempted ?? 0;
         const totalTests = analytics?.totalTests ?? item.testCount ?? item.testsCount ?? 0;
         const avgScore = Math.round(analytics?.averageScorePercent ?? 0);
@@ -148,14 +166,16 @@ export const MyTests: React.FC = () => {
       }));
     }).catch((error) => {
       console.error('Failed to load student test series:', error);
-      if (active) setSeriesResults([]);
-    });
+      if (active) setSeriesError(getErrorMessage(error, 'Series results could not be loaded.'));
+    }).finally(() => { if (active) setSeriesLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [user?.id, seriesRetry]);
+
+  const filteredAttempts = useMemo(() => filterStudentAttempts(attempts, selectedTimeRange, selectedFilter), [attempts, selectedTimeRange, selectedFilter]);
 
   const subjectPerformance = useMemo<SubjectItem[]>(() => {
     const grouped = new Map<string, { scored: number; total: number; count: number }>();
-    attempts.filter((attempt) => attempt.status === 'completed' && attempt.subjectName)
+    filteredAttempts.filter((attempt) => attempt.subjectName)
       .forEach((attempt) => {
         const current = grouped.get(attempt.subjectName!) || { scored: 0, total: 0, count: 0 };
         current.scored += attempt.score || 0;
@@ -179,28 +199,26 @@ export const MyTests: React.FC = () => {
         ...themes[index % themes.length],
       };
     });
-  }, [attempts]);
+  }, [filteredAttempts]);
 
   // Derived Performance Metrics
   const computedMetrics = useMemo(() => {
-    const completedAttempts = attempts.filter((attempt) => attempt.status === 'completed');
+    const completedAttempts = filteredAttempts;
     const totalAttempts = completedAttempts.length;
     let sumCorrect = 0;
     let sumWrong = 0;
     let sumSkipped = 0;
     let sumTimeSec = 0;
-    let sumAcc = 0;
 
     completedAttempts.forEach((a) => {
       sumCorrect += a.correctCount || 0;
       sumWrong += a.wrongCount || 0;
       sumSkipped += a.skippedCount || 0;
       sumTimeSec += a.timeSpentSeconds || 0;
-      sumAcc += a.accuracy || 0;
     });
 
     const totalQuestions = sumCorrect + sumWrong + sumSkipped;
-    const avgAcc = totalAttempts > 0 ? Math.round(sumAcc / totalAttempts) : 0;
+    const avgAcc = sumCorrect + sumWrong > 0 ? Math.round(100 * sumCorrect / (sumCorrect + sumWrong)) : 0;
     const hours = Math.round(sumTimeSec / 3600);
     const timeSpentStr = hours > 0 ? `${hours}h` : `${Math.round(sumTimeSec / 60)}m`;
     const chronological = [...completedAttempts].sort(
@@ -209,7 +227,7 @@ export const MyTests: React.FC = () => {
     const improvement = chronological.length > 1
       ? Math.round((chronological[chronological.length - 1].accuracy || 0) - (chronological[0].accuracy || 0))
       : 0;
-    const latestRank = [...completedAttempts].reverse().find((attempt) => attempt.rank)?.rank;
+    const latestRank = completedAttempts.find((attempt) => attempt.rank)?.rank;
 
     return {
       accuracy: avgAcc,
@@ -222,13 +240,13 @@ export const MyTests: React.FC = () => {
       rank: latestRank ? `#${latestRank}` : '—',
       improvement: `${improvement > 0 ? '+' : ''}${improvement}%`,
     };
-  }, [attempts]);
+  }, [filteredAttempts]);
 
   // Recent tests are drawn only from this student's saved attempts.
   const recentTestsList = useMemo<RecentTestItem[]>(() => {
-    return attempts.filter((attempt) => attempt.status === 'completed').slice(0, 10).map((a) => {
-      const pct = Math.round(a.accuracy || (a.score / (a.totalMarks || 100)) * 100);
-      let emblem: RecentTestItem['emblemType'] = 'wbssc_red';
+    return (showAll ? filteredAttempts : filteredAttempts.slice(0, 10)).map((a) => {
+      const pct = Math.round((a.totalMarks > 0 ? (a.score / a.totalMarks) * 100 : 0));
+      let emblem: RecentTestItem['emblemType'] = 'generic';
       const titleLower = (a.testTitle || '').toLowerCase();
       if (titleLower.includes('kp') || titleLower.includes('kolkata')) {
         emblem = 'kp_crest';
@@ -257,7 +275,7 @@ export const MyTests: React.FC = () => {
         id: a.id,
         testId: a.testId,
         title: a.testTitle || 'Mock Test',
-        type: a.testType === 'pyq' ? 'Previous Year Paper' : 'Full Length Test',
+        type: a.testType === 'pyq' ? 'Previous Year Paper' : a.testType === 'full_mock' ? 'Full Length Test' : a.testType === 'subject_mock' ? 'Subject Test' : ['topic', 'chapter_mock'].includes(a.testType || '') ? 'Topic Practice Test' : 'Recorded Test',
         questionsCount: `${a.totalQuestions || (a.correctCount || 0) + (a.wrongCount || 0) + (a.skippedCount || 0)} Questions`,
         date: dateStr,
         percentage: pct,
@@ -269,7 +287,7 @@ export const MyTests: React.FC = () => {
         isRealAttempt: true,
       };
     });
-  }, [attempts]);
+  }, [filteredAttempts, showAll]);
 
   // Filter Pills list matching App
   const filters: FilterTab[] = [
@@ -283,6 +301,8 @@ export const MyTests: React.FC = () => {
   // Helper to render exam emblem matching App
   const renderEmblem = (type: string) => {
     switch (type) {
+      case 'generic':
+        return <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 flex items-center justify-center"><BookOpen className="w-5 h-5" aria-hidden="true" /></div>;
       case 'kp_crest':
         return (
           <div className="w-[46px] h-[46px] rounded-full bg-gradient-to-br from-[#3B1D9E] to-[#1E0B6E] border-[1.8px] border-[#C4B5FD] flex items-center justify-center shadow-xs">
@@ -329,6 +349,9 @@ export const MyTests: React.FC = () => {
     }
   };
 
+  if (loading) return <StudentLoading label="Loading your results" />;
+  if (loadError) return <StudentLoadError message={loadError} onRetry={() => void loadAttempts()} />;
+
   return (
     <div className="space-y-4 pb-12 font-sans select-none">
       {/* ── 1. SCREEN TITLE & SUBTITLE (APP 1:1) ── */}
@@ -341,6 +364,13 @@ export const MyTests: React.FC = () => {
         </p>
       </div>
 
+      <label className="flex flex-wrap items-center gap-3 text-sm font-medium">
+        Reporting period
+        <select aria-label="Reporting period" value={selectedTimeRange} onChange={e => { setSelectedTimeRange(e.target.value as TimeRange); setShowAll(false); }} className="min-h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3">
+          {(['Last 3 Months', 'This Month', 'This Year', 'All Time'] as TimeRange[]).map(range => <option key={range}>{range}</option>)}
+        </select>
+      </label>
+      {selectedFilter === 'Live Tests' && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">Live-event results are not available in this report. Ordinary mock attempts are not shown as live tests.</p>}
       {/* ── 2. FILTER PILLS (APP 1:1) ── */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
         {filters.map((filter) => {
@@ -349,7 +379,8 @@ export const MyTests: React.FC = () => {
             <button
               key={filter}
               type="button"
-              onClick={() => setSelectedFilter(filter)}
+              aria-pressed={isSelected}
+              onClick={() => { setSelectedFilter(filter); setShowAll(false); }}
               className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 isSelected
                   ? 'bg-[#026BFC] text-white shadow-md shadow-[#026BFC]/25 border border-[#026BFC]'
@@ -386,42 +417,7 @@ export const MyTests: React.FC = () => {
               </p>
             </div>
 
-            {/* Time Filter Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsTimeDropdownOpen(!isTimeDropdownOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 text-[#051A43] dark:text-slate-200 text-[11px] font-bold shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <Calendar className="w-3 h-3 text-[#051A43] dark:text-slate-300" />
-                <span>{selectedTimeRange}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#051A43] dark:text-slate-300" />
-              </button>
 
-              {isTimeDropdownOpen && (
-                <div className="absolute right-0 top-8 z-30 w-36 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-[#E2ECF8] dark:border-slate-700 py-1.5 animate-in fade-in zoom-in-95 duration-100">
-                  {(['Last 3 Months', 'This Month', 'This Year', 'All Time'] as TimeRange[]).map(
-                    (range) => (
-                      <button
-                        key={range}
-                        type="button"
-                        onClick={() => {
-                          setSelectedTimeRange(range);
-                          setIsTimeDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-slate-700 ${
-                          selectedTimeRange === range
-                            ? 'text-[#026BFC] font-bold bg-blue-50/50 dark:bg-slate-700/50'
-                            : 'text-[#475569] dark:text-slate-300'
-                        }`}
-                      >
-                        {range}
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Accuracy Donut Ring + 4 Colored Stat Badges */}
@@ -601,7 +597,7 @@ export const MyTests: React.FC = () => {
           {/* Subject Rows */}
           <div className="space-y-3">
             {subjectPerformance.map((sub) => {
-              const progressPct = Math.round((sub.scored / sub.total) * 100);
+              const progressPct = sub.total > 0 ? Math.max(0, Math.min(100, Math.round((sub.scored / sub.total) * 100))) : 0;
               return (
                 <div
                   key={sub.title}
@@ -682,19 +678,23 @@ export const MyTests: React.FC = () => {
             </h2>
             <button
               type="button"
-              onClick={() => setSelectedFilter('Mock Tests')}
+              onClick={() => setShowAll(prev => !prev)}
               className="flex items-center gap-1 text-[12.5px] font-bold text-[#026BFC] hover:underline cursor-pointer"
             >
-              <span>See All</span>
+              <span>{showAll ? 'Show Recent' : 'See All'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
+          {recentTestsList.length === 0 && <p className="text-sm text-slate-500">No completed tests in this period and category.</p>}
           {/* Cards List */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {recentTestsList.map((test) => (
               <div
                 key={test.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleTestClick(test); } }}
                 onClick={() => handleTestClick(test)}
                 className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 flex items-center gap-3 cursor-pointer group"
               >
@@ -738,6 +738,8 @@ export const MyTests: React.FC = () => {
         </div>
       )}
 
+      {seriesError && <StudentLoadError message={seriesError} onRetry={() => setSeriesRetry(v => v + 1)} />}
+      {seriesLoading && (selectedFilter === 'Test Series' || selectedFilter === 'Overview') && <StudentLoading label="Loading series results" />}
       {/* ── 6. TEST SERIES RESULTS SECTION (APP 1:1) ── */}
       {(selectedFilter === 'Overview' || selectedFilter === 'Test Series') && (
         <div className="space-y-3 pt-2">
@@ -746,7 +748,7 @@ export const MyTests: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <BarChart3 className="w-5 h-5 text-[#051A43] dark:text-white" />
               <h2 className="text-[18px] font-black text-[#051A43] dark:text-white tracking-[-0.4px]">
-                Test Series Results
+                Test Series Results (All Time)
               </h2>
             </div>
             <button
@@ -762,10 +764,13 @@ export const MyTests: React.FC = () => {
           {/* Series Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {seriesResults.map((series) => {
-              const progressPct = Math.round((series.completedTests / series.totalTests) * 100);
+              const progressPct = series.totalTests > 0 ? Math.max(0, Math.min(100, Math.round((series.completedTests / series.totalTests) * 100))) : 0;
               return (
                 <div
                   key={series.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/test-series/${series.id}`); } }}
                   onClick={() => navigate(`/test-series/${series.id}`)}
                   className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-[#E8EEF7] dark:border-slate-800 shadow-[0_2px_8px_rgba(11,31,91,0.03)] hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 flex items-center gap-3 cursor-pointer group"
                 >
@@ -831,7 +836,7 @@ export const MyTests: React.FC = () => {
                 </div>
               );
             })}
-            {seriesResults.length === 0 && (
+            {!seriesLoading && !seriesError && seriesResults.length === 0 && (
               <p className="col-span-full py-4 text-center text-xs text-slate-500">No published test series are available yet.</p>
             )}
           </div>

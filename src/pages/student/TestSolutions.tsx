@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 import { api } from '@/services/api';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -31,46 +33,63 @@ export const TestSolutions: React.FC = () => {
   const [testMeta, setTestMeta] = useState<MockTest | null>(null);
   const [filter, setFilter] = useState<'all' | 'wrong' | 'correct' | 'skipped'>('all');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryLoad, setRetryLoad] = useState(0);
 
   // Support / Report Modal State
+  const bookmarkLocks = useRef(new Set<string>());
+  const [bookmarkPending, setBookmarkPending] = useState<string[]>([]);
+  const [bookmarkError, setBookmarkError] = useState('');
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportSubject, setReportSubject] = useState('');
   const [reportIssue, setReportIssue] = useState('');
 
   const handleReportQuestion = (sol: QuestionSolution, index: number) => {
-    setReportSubject(`Question #${index + 1} Issue: ${sol.questionText.slice(0, 45)}...`);
+    setReportSubject(`Question #${sol.questionOrder || index + 1} Issue: ${sol.questionText.slice(0, 45)}...`);
     setReportIssue(
-      `Test: ${testMeta?.title || 'Mock Test'}\nQuestion #${index + 1} (ID: ${sol.id})\nQuestion: ${sol.questionText}\n\nProblem details (e.g. wrong answer key, typo, translation error):\n`
+      `Test: ${testMeta?.title || 'Mock Test'}\nQuestion #${sol.questionOrder || index + 1} (ID: ${sol.id})\nQuestion: ${sol.questionText}\n\nProblem details (e.g. wrong answer key, typo, translation error):\n`
     );
     setReportModalOpen(true);
   };
 
   useEffect(() => {
+    let active = true;
     async function loadSolutions() {
-      if (!testId || !attemptId) return;
+      if (!testId || !attemptId) { setLoadError('Open a valid attempt to view solutions.'); setLoading(false); return; }
       setLoading(true);
+      setLoadError('');
       try {
         const [data, test] = await Promise.all([
           api.getAttemptSolutions(attemptId, testId),
           api.getTestById(testId).catch(() => null),
         ]);
+        if (!active) return;
         setSolutions(data);
         setTestMeta(test);
       } catch (err) {
-        console.error('Failed to load solutions:', err);
+        if (active) setLoadError(getErrorMessage(err, 'Unable to load solutions. Please retry.'));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
-    loadSolutions();
-  }, [testId, attemptId]);
+    void loadSolutions();
+    return () => { active = false; };
+  }, [testId, attemptId, retryLoad]);
 
   const handleToggleBookmark = async (qId: string) => {
-    if (!user) return;
-    const isNowBookmarked = await api.toggleBookmark(user.id, qId);
-    setSolutions((prev) =>
-      prev.map((s) => (s.id === qId ? { ...s, isBookmarked: isNowBookmarked } : s))
-    );
+    if (!user || bookmarkLocks.current.has(qId)) return;
+    bookmarkLocks.current.add(qId);
+    setBookmarkPending(prev => [...prev, qId]);
+    setBookmarkError('');
+    try {
+      const isNowBookmarked = await api.toggleBookmark(user.id, qId);
+      setSolutions(prev => prev.map(s => s.id === qId ? { ...s, isBookmarked: isNowBookmarked } : s));
+    } catch (err) {
+      setBookmarkError(getErrorMessage(err, 'Bookmark could not be saved. Please retry.'));
+    } finally {
+      bookmarkLocks.current.delete(qId);
+      setBookmarkPending(prev => prev.filter(id => id !== qId));
+    }
   };
 
   const filteredSolutions = solutions.filter((s) => {
@@ -91,16 +110,13 @@ export const TestSolutions: React.FC = () => {
     topicName: testMeta?.topicName,
   });
 
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center pk-student-page">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
-      </div>
-    );
-  }
+  if (loading) return <StudentLoading label="Loading solutions" />;
+  if (loadError) return <StudentLoadError message={loadError} onRetry={() => setRetryLoad(v => v + 1)} />;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {bookmarkError && <p role="alert" className="p-4 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 rounded-xl">{bookmarkError}</p>}
+      {solutions.length === 0 && <p role="status" className="text-sm text-slate-500">No recorded solutions are available for this attempt.</p>}
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <button
@@ -135,10 +151,10 @@ export const TestSolutions: React.FC = () => {
       </div>
 
       {/* Filter Tabs (Stitch rounded-full pills — Reference Screen 9) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200">
+      <div className="grid grid-cols-2 sm:flex items-center gap-2 pb-2 border-b border-slate-200">
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'all'
               ? 'bg-[#026BFC] text-white shadow-xs'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -149,7 +165,7 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('wrong')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'wrong'
               ? 'bg-rose-600 text-white shadow-xs'
               : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
@@ -160,7 +176,7 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('correct')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'correct'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -171,7 +187,7 @@ export const TestSolutions: React.FC = () => {
 
         <button
           onClick={() => setFilter('skipped')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+          className={`min-h-11 px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
             filter === 'skipped'
               ? 'bg-slate-600 text-white shadow-xs'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -241,6 +257,8 @@ export const TestSolutions: React.FC = () => {
                         ? 'bg-amber-100 text-amber-700'
                         : 'bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                     }`}
+                    disabled={bookmarkPending.includes(sol.id)}
+                    aria-label={sol.isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
                     title={sol.isBookmarked ? 'Bookmarked' : 'Add to Bookmarks'}
                   >
                     <Bookmark className={`w-4 h-4 ${sol.isBookmarked ? 'fill-current' : ''}`} />

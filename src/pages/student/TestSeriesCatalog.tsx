@@ -1,5 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -16,107 +18,9 @@ import {
   Lock,
   Crown,
 } from 'lucide-react';
-import type { TestSeries, Exam } from '@/types';
+import type { TestSeries } from '@/types';
 
-// Canonical fallback data when database is initializing or offline
-const CANONICAL_SERIES_FALLBACK: TestSeries[] = [
-  {
-    id: 'wbp-constable',
-    examId: 'wbp-constable',
-    title: 'WBP Constable',
-    slug: 'wbp-constable',
-    description: 'Complete Test Series',
-    examTitle: 'WBP Constable',
-    isPremium: false,
-    isPopular: true,
-    fullMockCount: 12,
-    topicTestCount: 48,
-    pyqTestCount: 15,
-    testCount: 75,
-    orderIndex: 1,
-    isActive: true,
-  },
-  {
-    id: 'railway-ntpc',
-    examId: 'railway-ntpc',
-    title: 'Railway (NTPC)',
-    slug: 'railway-ntpc',
-    description: 'Complete Test Series',
-    examTitle: 'Railway NTPC',
-    isPremium: true,
-    isPopular: true,
-    fullMockCount: 15,
-    topicTestCount: 60,
-    pyqTestCount: 25,
-    testCount: 100,
-    orderIndex: 2,
-    isActive: true,
-  },
-  {
-    id: 'ssc-mts',
-    examId: 'ssc-mts',
-    title: 'SSC MTS',
-    slug: 'ssc-mts',
-    description: 'Complete Test Series',
-    examTitle: 'SSC MTS',
-    isPremium: true,
-    isPopular: false,
-    fullMockCount: 8,
-    topicTestCount: 28,
-    pyqTestCount: 10,
-    testCount: 46,
-    orderIndex: 3,
-    isActive: true,
-  },
-  {
-    id: 'wbssc-group-c',
-    examId: 'wbssc-group-c',
-    title: 'WBSSC Group C',
-    slug: 'wbssc-group-c',
-    description: 'Complete Test Series',
-    examTitle: 'WBSSC Group C',
-    isPremium: true,
-    isPopular: false,
-    fullMockCount: 10,
-    topicTestCount: 32,
-    pyqTestCount: 12,
-    testCount: 54,
-    orderIndex: 4,
-    isActive: true,
-  },
-  {
-    id: 'icds',
-    examId: 'icds',
-    title: 'ICDS',
-    slug: 'icds',
-    description: 'Complete Test Series',
-    examTitle: 'ICDS Supervisor',
-    isPremium: false,
-    isPopular: false,
-    fullMockCount: 8,
-    topicTestCount: 20,
-    pyqTestCount: 10,
-    testCount: 38,
-    orderIndex: 5,
-    isActive: true,
-  },
-  {
-    id: 'food-si',
-    examId: 'food-si',
-    title: 'Food SI',
-    slug: 'food-si',
-    description: 'Complete Test Series',
-    examTitle: 'Food SI',
-    isPremium: true,
-    isPopular: false,
-    fullMockCount: 10,
-    topicTestCount: 32,
-    pyqTestCount: 14,
-    testCount: 56,
-    orderIndex: 6,
-    isActive: true,
-  },
-];
+
 
 interface CardTheme {
   gradient: string;
@@ -217,6 +121,8 @@ export const TestSeriesCatalog: React.FC = () => {
   const [seriesList, setSeriesList] = useState<TestSeries[]>([]);
   const [examsList, setExamsList] = useState<{ id: string; title: string; slug: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const loadVersion = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSort, setSelectedSort] = useState<'Most Popular' | 'Newest' | 'Most Tests' | 'A–Z'>('Most Popular');
@@ -232,9 +138,7 @@ export const TestSeriesCatalog: React.FC = () => {
   const [selectedExamSlug, setSelectedExamSlug] = useState<string>(examParam);
 
   useEffect(() => {
-    if (examParam !== selectedExamSlug) {
-      setSelectedExamSlug(examParam);
-    }
+    setSelectedExamSlug(examParam);
   }, [examParam]);
 
   // Click outside listener for dropdowns
@@ -251,52 +155,27 @@ export const TestSeriesCatalog: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setLoadError('');
     try {
-      setLoading(true);
-      const [seriesData, examsData] = await Promise.all([
-        api.getStudentTestSeries().catch(() => []),
-        api.getExams().catch(() => []),
-      ]);
-
-      if (seriesData && seriesData.length > 0) {
-        setSeriesList(seriesData);
-      } else {
-        setSeriesList(CANONICAL_SERIES_FALLBACK);
-      }
-
-      if (examsData && examsData.length > 0) {
-        setExamsList(
-          examsData.map((e: Exam) => ({
-            id: e.id,
-            title: e.title,
-            slug: e.slug || e.id,
-          }))
-        );
-      } else {
-        setExamsList([
-          { id: 'wbp-constable', title: 'WBP Constable', slug: 'wbp-constable' },
-          { id: 'railway-ntpc', title: 'Railway (NTPC)', slug: 'railway-ntpc' },
-          { id: 'ssc-mts', title: 'SSC MTS', slug: 'ssc-mts' },
-          { id: 'wbssc-group-c', title: 'WBSSC Group C', slug: 'wbssc-group-c' },
-          { id: 'wbssc-group-d', title: 'WBSSC Group D', slug: 'wbssc-group-d' },
-          { id: 'icds', title: 'ICDS', slug: 'icds' },
-          { id: 'food-si', title: 'Food SI', slug: 'food-si' },
-        ]);
-      }
-    } catch (err: any) {
-      console.error('Failed to load test series catalog:', err);
-      setSeriesList(CANONICAL_SERIES_FALLBACK);
+      const [seriesData, examsData] = await Promise.all([api.getStudentTestSeries(), api.getExams()]);
+      if (version !== loadVersion.current) return;
+      setSeriesList(seriesData);
+      setExamsList(examsData.map(e => ({ id: e.id, title: e.title, slug: e.slug || e.id })));
+    } catch (err) {
+      if (version === loadVersion.current) setLoadError(getErrorMessage(err, 'Test series could not be loaded.'));
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
-    const unsubscribe = api.subscribeToStudentCatalogUpdates(loadData);
-    return () => unsubscribe();
   }, []);
+  useEffect(() => {
+    void loadData();
+    const unsubscribe = api.subscribeToStudentCatalogUpdates(loadData);
+    const counter = loadVersion;
+    return () => { counter.current++; unsubscribe(); };
+  }, [loadData]);
 
   // Filter series based on selected exam and search query
   const filteredList = useMemo(() => {
@@ -304,20 +183,10 @@ export const TestSeriesCatalog: React.FC = () => {
       // 1. Exam filter
       if (selectedExamSlug) {
         const slug = selectedExamSlug.toLowerCase().replace(/_/g, '-').trim();
-        const sId = (series.id || '').toLowerCase();
-        const sSlug = (series.slug || '').toLowerCase();
         const sExamId = (series.examId || '').toLowerCase();
-        const title = (series.title || '').toLowerCase();
-        const examTitle = (series.examTitle || '').toLowerCase();
 
-        let matchesExam = sId === slug || sSlug === slug || sExamId === slug;
-        if (!matchesExam) {
-          if (slug.includes('wbp') && (sId.includes('wbp') || title.includes('wbp') || examTitle.includes('wbp') || title.includes('police'))) matchesExam = true;
-          if (slug.includes('ssc') && (sId.includes('ssc') || title.includes('ssc') || examTitle.includes('ssc'))) matchesExam = true;
-          if ((slug.includes('railway') || slug.includes('ntpc')) && (sId.includes('railway') || sId.includes('ntpc') || title.includes('railway') || title.includes('ntpc'))) matchesExam = true;
-          if (slug.includes('icds') && (sId.includes('icds') || title.includes('icds') || examTitle.includes('icds'))) matchesExam = true;
-          if (slug.includes('food') && (sId.includes('food') || title.includes('food') || examTitle.includes('food'))) matchesExam = true;
-        }
+        const selectedExam = examsList.find(exam => exam.id === selectedExamSlug || exam.slug === selectedExamSlug);
+        const matchesExam = selectedExam ? series.examId === selectedExam.id : sExamId === slug;
         if (!matchesExam) return false;
       }
 
@@ -332,7 +201,7 @@ export const TestSeriesCatalog: React.FC = () => {
 
       return true;
     });
-  }, [seriesList, selectedExamSlug, searchQuery]);
+  }, [seriesList, selectedExamSlug, searchQuery, examsList]);
 
   // Sort series
   const sortedList = useMemo(() => {
@@ -342,16 +211,16 @@ export const TestSeriesCatalog: React.FC = () => {
         const aPop = a.isPopular ? 1 : 0;
         const bPop = b.isPopular ? 1 : 0;
         if (aPop !== bPop) return bPop - aPop;
-        const aCount = (a.fullMockCount ?? 12) + (a.topicTestCount ?? 48) + (a.pyqTestCount ?? 15);
-        const bCount = (b.fullMockCount ?? 12) + (b.topicTestCount ?? 48) + (b.pyqTestCount ?? 15);
+        const aCount = (a.fullMockCount ?? 0) + (a.topicTestCount ?? 0) + (a.pyqTestCount ?? 0);
+        const bCount = (b.fullMockCount ?? 0) + (b.topicTestCount ?? 0) + (b.pyqTestCount ?? 0);
         return bCount - aCount;
       });
     } else if (selectedSort === 'Newest') {
-      list.sort((a, b) => (b.orderIndex ?? 0) - (a.orderIndex ?? 0));
+      list.sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0));
     } else if (selectedSort === 'Most Tests') {
       list.sort((a, b) => {
-        const aCount = (a.fullMockCount ?? 12) + (a.topicTestCount ?? 48) + (a.pyqTestCount ?? 15);
-        const bCount = (b.fullMockCount ?? 12) + (b.topicTestCount ?? 48) + (b.pyqTestCount ?? 15);
+        const aCount = (a.fullMockCount ?? 0) + (a.topicTestCount ?? 0) + (a.pyqTestCount ?? 0);
+        const bCount = (b.fullMockCount ?? 0) + (b.topicTestCount ?? 0) + (b.pyqTestCount ?? 0);
         return bCount - aCount;
       });
     } else if (selectedSort === 'A–Z') {
@@ -583,26 +452,8 @@ export const TestSeriesCatalog: React.FC = () => {
       </div>
 
       {/* ── 5. RESPONSIVE 2-COLUMN GRID (MOBILE) / 3-4 COLUMNS (DESKTOP) ── */}
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs animate-pulse space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded" />
-                <div className="w-9 h-9 bg-slate-200 dark:bg-slate-800 rounded-xl" />
-              </div>
-              <div className="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded" />
-              <div className="w-full h-8 bg-slate-100 dark:bg-slate-800/60 rounded-lg" />
-              <div className="flex items-center justify-between pt-1">
-                <div className="w-12 h-5 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                <div className="w-7 h-7 bg-slate-200 dark:bg-slate-800 rounded-full" />
-              </div>
-            </div>
-          ))}
-        </div>
+      {loadError ? (<StudentLoadError message={loadError} onRetry={() => void loadData()} />) : loading ? (
+        <StudentLoading label="Loading published test series" />
       ) : sortedList.length === 0 ? (
         <div className="py-12 sm:py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-3">
           <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
@@ -629,9 +480,9 @@ export const TestSeriesCatalog: React.FC = () => {
           {sortedList.map((series) => {
             const theme = resolveCardTheme(series.title, series.examTitle);
             const isPaid = series.isPremium;
-            const fullMocks = series.fullMockCount ?? 12;
-            const topicTests = series.topicTestCount ?? 48;
-            const pyqs = series.pyqTestCount ?? 15;
+            const fullMocks = series.fullMockCount ?? 0;
+            const topicTests = series.topicTestCount ?? 0;
+            const pyqs = series.pyqTestCount ?? 0;
 
             return (
               <div

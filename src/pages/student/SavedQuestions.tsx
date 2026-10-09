@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Bookmark,
@@ -28,6 +28,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
 import { MathText } from '@/components/common/MathText';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 import type { BookmarkItem } from '@/types';
 
 
@@ -98,6 +100,12 @@ export const SavedQuestions: React.FC = () => {
   const { isBilingualEnabled } = useContentLanguage();
 
   const [items, setItems] = useState<BookmarkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [removing, setRemoving] = useState(false);
+  const removalLock = useRef(false);
+  const loadVersion = useRef(0);
 
   // Filters & State
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
@@ -122,32 +130,35 @@ export const SavedQuestions: React.FC = () => {
 
   // Load user bookmarks from DB
   const loadBookmarks = useCallback(async () => {
-    if (!user) {
-      return;
-    }
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setLoadError('');
+    if (!user?.id) { setItems([]); setLoading(false); return; }
     try {
       const data = await api.getBookmarks(user.id);
+      if (version !== loadVersion.current) return;
       setItems(data);
+      setSelectedIds(prev => prev.filter(id => data.some(item => item.id === id)));
     } catch (err) {
-      console.error('Failed to load bookmarks:', err);
+      if (version === loadVersion.current) setLoadError(getErrorMessage(err, 'Saved questions could not be loaded.'));
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
-    loadBookmarks();
+    setItems([]);
+    setSelectedIds([]);
+    void loadBookmarks();
+    const counter = loadVersion;
+    return () => { counter.current++; };
   }, [loadBookmarks]);
 
   // Subject statistics
   const subjectCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      'General Knowledge': 0,
-      Mathematics: 0,
-      Reasoning: 0,
-      Bengali: 0,
-      English: 0,
-    };
+    const counts: Record<string, number> = {};
     items.forEach((item) => {
-      const sub = item.subjectName || 'General Knowledge';
+      const sub = item.subjectName || 'Uncategorized';
       counts[sub] = (counts[sub] || 0) + 1;
     });
     return counts;
@@ -160,7 +171,7 @@ export const SavedQuestions: React.FC = () => {
     // Subject Filter
     if (selectedSubject !== 'all') {
       result = result.filter(
-        (item) => (item.subjectName || '').toLowerCase() === selectedSubject.toLowerCase()
+        (item) => (item.subjectName || 'Uncategorized').toLowerCase() === selectedSubject.toLowerCase()
       );
     }
 
@@ -221,36 +232,34 @@ export const SavedQuestions: React.FC = () => {
     );
   };
 
-  // Remove single item
-  const handleRemoveItem = async (item: BookmarkItem) => {
-    if (user) {
-      try {
-        await api.toggleBookmark(user.id, item.questionId);
-      } catch (err) {
-        console.error('Failed to remove bookmark from db:', err);
-      }
+  const removeSaved = async (targets: BookmarkItem[], clearAll = false) => {
+    if (!user?.id || removalLock.current || !targets.length) return;
+    removalLock.current = true;
+    setRemoving(true);
+    setActionError('');
+    try {
+      const confirmed = clearAll
+        ? await api.clearAllBookmarks(user.id)
+        : await api.removeBookmarks(user.id, targets.map(item => item.questionId));
+      if (!confirmed) throw new Error('Removal was not confirmed. Please retry.');
+      const removedIds = new Set(targets.map(item => item.id));
+      setItems(prev => clearAll ? [] : prev.filter(item => !removedIds.has(item.id)));
+      setSelectedIds(prev => prev.filter(id => !removedIds.has(id)));
+      setPracticeItem(prev => prev && removedIds.has(prev.id) ? null : prev);
+      setActiveMenuId(null);
+      setShowClearConfirm(false);
+      setShowBulkDeleteConfirm(false);
+      showToast(clearAll ? 'All saved questions cleared' : `Removed ${targets.length} saved question${targets.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Saved questions could not be removed.'));
+    } finally {
+      removalLock.current = false;
+      setRemoving(false);
     }
-    setItems((prev) => prev.filter((x) => x.id !== item.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== item.id));
-    showToast('Question removed from saved list');
   };
-
-  // Bulk remove
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    setItems((prev) => prev.filter((i) => !selectedIds.includes(i.id)));
-    showToast(`Removed ${selectedIds.length} questions`);
-    setSelectedIds([]);
-    setShowBulkDeleteConfirm(false);
-  };
-
-  // Clear all
-  const handleClearAll = () => {
-    setItems([]);
-    setSelectedIds([]);
-    setShowClearConfirm(false);
-    showToast('All saved questions cleared');
-  };
+  const handleRemoveItem = (item: BookmarkItem) => removeSaved([item]);
+  const handleBulkDelete = () => removeSaved(items.filter(item => selectedIds.includes(item.id)));
+  const handleClearAll = () => removeSaved(items, true);
 
   // Start in-page practice
   const handleStartPractice = (item: BookmarkItem) => {
@@ -273,10 +282,14 @@ export const SavedQuestions: React.FC = () => {
   };
 
   // Copy Question Text
-  const handleCopyQuestion = (item: BookmarkItem) => {
+  const handleCopyQuestion = async (item: BookmarkItem) => {
     const text = `${item.question.questionText}\n\nA. ${item.question.optionA}\nB. ${item.question.optionB}\nC. ${item.question.optionC}\nD. ${item.question.optionD}\n\nCorrect Answer: ${item.question.correctOption}\n${item.question.explanation ? `Explanation: ${item.question.explanation}` : ''}`;
-    navigator.clipboard.writeText(text);
-    showToast('Question copied to clipboard');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Question copied to clipboard');
+    } catch {
+      setActionError('Clipboard access is unavailable. Please copy the question text manually.');
+    }
     setActiveMenuId(null);
   };
 
@@ -285,8 +298,12 @@ export const SavedQuestions: React.FC = () => {
     window.print();
   };
 
+  if (loading) return <StudentLoading label="Loading saved questions" />;
+  if (loadError) return <StudentLoadError message={loadError} onRetry={() => void loadBookmarks()} />;
+
   return (
     <div className="space-y-5 sm:space-y-6 text-slate-900 dark:text-slate-100">
+      {actionError && <p role="alert" className="rounded-xl p-4 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 text-sm">{actionError}</p>}
       {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-xl border border-slate-700 text-xs sm:text-sm font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200">
@@ -343,13 +360,7 @@ export const SavedQuestions: React.FC = () => {
           </button>
 
           {/* Individual Subjects */}
-          {[
-            { name: 'General Knowledge', count: subjectCounts['General Knowledge'] || 8 },
-            { name: 'Mathematics', count: subjectCounts['Mathematics'] || 5 },
-            { name: 'Reasoning', count: subjectCounts['Reasoning'] || 4 },
-            { name: 'Bengali', count: subjectCounts['Bengali'] || 4 },
-            { name: 'English', count: subjectCounts['English'] || 3 },
-          ].map((sub) => {
+          {Object.entries(subjectCounts).map(([name, count]) => ({ name, count })).map((sub) => {
             const isActive = selectedSubject.toLowerCase() === sub.name.toLowerCase();
             return (
               <button
@@ -423,8 +434,9 @@ export const SavedQuestions: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search saved questions"
                     placeholder="Search saved questions..."
-                    className="w-full text-xs font-semibold pl-8.5 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#026BFC]"
+                    className="w-full text-xs font-semibold pl-9 pr-3 py-2.5 min-h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#026BFC]"
                   />
                 </div>
 
@@ -433,7 +445,7 @@ export const SavedQuestions: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowSortDropdown((prev) => !prev)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-2xs cursor-pointer whitespace-nowrap"
+                    className="min-h-11 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-2xs cursor-pointer whitespace-nowrap"
                   >
                     <span>
                       {sortBy === 'newest' ? 'Newest First' : 'Oldest First'}
@@ -490,7 +502,7 @@ export const SavedQuestions: React.FC = () => {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-800 shadow-xs hover:border-blue-200 dark:hover:border-blue-900/60 transition-all flex items-start gap-3.5 sm:gap-4 relative"
+                      className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-slate-800 shadow-xs hover:border-blue-200 dark:hover:border-blue-900/60 transition-all grid grid-cols-[20px_44px_minmax(0,1fr)] sm:flex items-start gap-3 sm:gap-4 relative"
                     >
                       {/* 1. Checkbox */}
                       <input
@@ -508,14 +520,14 @@ export const SavedQuestions: React.FC = () => {
                       </div>
 
                       {/* 3. Question Info (Center) */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="col-span-3 sm:flex-1 min-w-0 space-y-2">
                         {/* Badges Row */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold px-2.5 py-0.5 rounded-md">
-                            {theme.badgeText}
+                            {item.subjectName || 'Uncategorized'}
                           </span>
                           <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                            {item.question.sourceExam || theme.examDefault}
+                            {item.question.sourceExam || item.examTitle || 'Exam not specified'}
                           </span>
                         </div>
 
@@ -544,13 +556,15 @@ export const SavedQuestions: React.FC = () => {
                       </div>
 
                       {/* 4. Right Action Buttons */}
-                      <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-3">
+                      <div className="col-start-3 row-start-1 flex flex-wrap sm:flex-col items-end justify-end sm:justify-between self-stretch shrink-0 gap-3">
                         {/* Top: Bookmark icon, 3-dots */}
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(item)}
-                            className="p-1 rounded-md text-[#026BFC] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            disabled={removing}
+                            className="min-h-11 min-w-11 flex items-center justify-center rounded-md text-[#026BFC] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            aria-label="Remove from saved"
                             title="Remove from saved"
                           >
                             <Bookmark className="w-4 h-4 fill-current" />
@@ -580,6 +594,7 @@ export const SavedQuestions: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveItem(item)}
+                            disabled={removing}
                                   className="w-full text-left px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -594,7 +609,7 @@ export const SavedQuestions: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStartPractice(item)}
-                          className="px-3.5 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#026BFC] dark:text-blue-400 border border-blue-200/80 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          className="min-h-11 px-3.5 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-[#026BFC] dark:text-blue-400 border border-blue-200/80 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                         >
                           <Play className="w-3 h-3 fill-current" />
                           <span>Practice Now</span>
@@ -655,20 +670,15 @@ export const SavedQuestions: React.FC = () => {
 
               {/* Subjects List */}
               <div className="space-y-3 pt-1">
-                {[
-                  { name: 'General Knowledge', icon: BookOpen, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-                  { name: 'Mathematics', icon: Sigma, color: 'text-rose-600 bg-rose-50 border-rose-200' },
-                  { name: 'Reasoning', icon: Brain, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-                  { name: 'Bengali', icon: Languages, color: 'text-orange-600 bg-orange-50 border-orange-200' },
-                  { name: 'English', icon: GraduationCap, color: 'text-purple-600 bg-purple-50 border-purple-200' },
-                ].map((s) => {
+                {Object.keys(subjectCounts).map(name => ({ name, icon: getSubjectTheme(name).icon, color: getSubjectTheme(name).iconBox })).map((s) => {
                   const Icon = s.icon;
                   const count = subjectCounts[s.name] || 0;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={s.name}
                       onClick={() => setSelectedSubject(s.name)}
-                      className="flex items-center justify-between text-xs cursor-pointer group hover:opacity-80"
+                      className="flex items-center justify-between w-full min-h-11 text-xs cursor-pointer group hover:opacity-80"
                     >
                       <div className="flex items-center gap-2.5">
                         <div
@@ -683,7 +693,7 @@ export const SavedQuestions: React.FC = () => {
                       <span className="font-black text-slate-900 dark:text-white text-xs">
                         {count}
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -958,9 +968,11 @@ export const SavedQuestions: React.FC = () => {
                 This will remove all {items.length} questions from your saved list.
               </p>
             </div>
+            {actionError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
+                disabled={removing}
                 onClick={() => setShowClearConfirm(false)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300"
               >
@@ -969,6 +981,7 @@ export const SavedQuestions: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClearAll}
+                disabled={removing}
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
               >
                 Clear All
@@ -993,9 +1006,11 @@ export const SavedQuestions: React.FC = () => {
                 These questions will be removed from your saved list.
               </p>
             </div>
+            {actionError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
+                disabled={removing}
                 onClick={() => setShowBulkDeleteConfirm(false)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300"
               >
@@ -1004,6 +1019,7 @@ export const SavedQuestions: React.FC = () => {
               <button
                 type="button"
                 onClick={handleBulkDelete}
+                disabled={removing}
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
               >
                 Delete Selected

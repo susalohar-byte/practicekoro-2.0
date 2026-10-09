@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 import { api } from '@/services/api';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -18,32 +20,34 @@ export const TestDetails: React.FC = () => {
 
   const [test, setTest] = useState<MockTest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryLoad, setRetryLoad] = useState(0);
+  const startLock = useRef(false);
+  const [startError, setStartError] = useState('');
   const [starting, setStarting] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
 
   useEffect(() => {
+    let active = true;
     async function loadTest() {
-      if (!testId) return;
+      if (!testId) { setLoading(false); setTest(null); return; }
       setLoading(true);
+      setLoadError('');
       try {
         const data = await api.getTestById(testId);
-        setTest(data);
+        if (active) setTest(data);
       } catch (err) {
-        console.error('Failed to load test details:', err);
+        if (active) setLoadError(getErrorMessage(err, 'Unable to load test details. Please retry.'));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
-    loadTest();
-  }, [testId]);
+    void loadTest();
+    return () => { active = false; };
+  }, [testId, retryLoad]);
 
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center pk-student-page">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
-      </div>
-    );
-  }
+  if (loading) return <StudentLoading label="Loading test details" />;
+  if (loadError) return <StudentLoadError message={loadError} onRetry={() => setRetryLoad(v => v + 1)} />;
 
   if (!test) {
     return (
@@ -73,20 +77,25 @@ export const TestDetails: React.FC = () => {
       return;
     }
 
+    if (startLock.current) return;
+    startLock.current = true;
+    setStartError('');
     setStarting(true);
     try {
       const attemptInfo = await api.startTestAttempt(test.id);
       navigate(`/exams/${test.id}/runner?attemptId=${attemptInfo.attemptId}`);
     } catch (err) {
       console.error('Failed to start attempt:', err);
-      alert('Failed to initialize test attempt. Please try again.');
+      setStartError(getErrorMessage(err, 'Failed to initialize test attempt. Please try again.'));
     } finally {
       setStarting(false);
+      startLock.current = false;
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {startError && <p role="alert" className="p-4 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950 rounded-xl">{startError}</p>}
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}

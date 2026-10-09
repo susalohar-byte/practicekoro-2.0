@@ -3,6 +3,9 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useContentLanguage } from '@/context/MaintenanceContext';
+import { useAttemptAutosave } from '@/hooks/useAttemptAutosave';
+import { StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 import { api } from '@/services/api';
 import { Button } from '@/components/common/Button';
 import {
@@ -53,19 +56,28 @@ export const TestRunner: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [retryLoad, setRetryLoad] = useState(0);
+  const submissionLock = useRef(false);
+  const expiredSubmission = useRef('');
+  const autosave = useAttemptAutosave(attemptId, answers, timeSpent, !loading && !submitting && !loadError);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const clockRef = useRef({ start: 0, deadline: 0 });
   const submitTestRef = useRef<() => void>(() => undefined);
 
   // 1. Initialize Test Data, Questions, and Attempt
   useEffect(() => {
+    let active = true;
     async function init() {
-      if (!testId || !user) return;
+      if (!testId || !user) { setLoadError('Sign in and open a valid test to continue.'); setLoading(false); return; }
       setLoading(true);
+      setLoadError('');
       try {
         // Check platform maintenance mode
         try {
           const settings = await api.getAppSettings();
+          if (!active) return;
           const maintSetting = settings.find((s) => s.key === 'maintenance_mode');
           const isMaint = maintSetting?.value === true || maintSetting?.value === 'true';
           if (isMaint && !isAdmin) {
@@ -77,10 +89,12 @@ export const TestRunner: React.FC = () => {
           // ignore setting fetch failure
         }
 
+        if (!active) return;
         const liveTestIdParam = searchParams.get('liveTestId');
         let activeAttemptId = attemptId;
         if (!activeAttemptId) {
           const newAttempt = await api.startTestAttempt(testId);
+          if (!active) return;
           activeAttemptId = newAttempt.attemptId;
           setAttemptId(activeAttemptId);
           const runnerParams = new URLSearchParams();
@@ -95,6 +109,7 @@ export const TestRunner: React.FC = () => {
           api.getTestAttempt(activeAttemptId),
         ]);
 
+        if (!active) return;
         // If attempt is already completed, redirect to results immediately (idempotency)
         if (attemptData?.status === 'completed') {
           const resultsUrl = `/exams/${testId}/results/${activeAttemptId}${liveTestIdParam ? `?liveTestId=${encodeURIComponent(liveTestIdParam)}` : ''}`;
@@ -102,18 +117,21 @@ export const TestRunner: React.FC = () => {
           return;
         }
 
+        if (!testData || !attemptData || attemptData.testId !== testId || attemptData.userId !== user.id) throw new Error('This exam session is unavailable or does not belong to you.');
+        if (!qData.length) throw new Error('No questions are available for this test. Please contact support.');
         setTest(testData);
         setQuestions(qData);
 
         // Load or initialize attempt answers from localStorage
-        const savedCache = localStorage.getItem(`practicekoro_attempt_${activeAttemptId}`);
+        let savedCache: string | null = null;
+        try { savedCache = localStorage.getItem(`practicekoro_attempt_${activeAttemptId}`); } catch { /* Restricted browser storage must not crash an exam. */ }
         if (savedCache) {
           try {
             const parsed = JSON.parse(savedCache);
             if (Array.isArray(parsed.answers)) {
               const map: Record<string, AttemptAnswerState> = {};
               parsed.answers.forEach((a: AttemptAnswerState) => {
-                map[a.questionId] = a;
+                if (qData.some(q => q.id === a.questionId) && [null, 'A', 'B', 'C', 'D'].includes(a.selectedOption)) map[a.questionId] = a;
               });
               setAnswers(map);
             }
@@ -131,6 +149,7 @@ export const TestRunner: React.FC = () => {
         const elapsedSecs = Math.max(0, Math.floor((Date.now() - startTimestamp) / 1000));
         const remainingSecs = Math.max(0, totalDurationSecs - elapsedSecs);
 
+        clockRef.current = { start: startTimestamp, deadline: startTimestamp + totalDurationSecs * 1000 };
         setTimeRemaining(remainingSecs);
         setTimeSpent(elapsedSecs);
 
@@ -138,25 +157,24 @@ export const TestRunner: React.FC = () => {
           setVisited(new Set([qData[0].id]));
         }
 
-        // If test time has already elapsed on load, submit immediately
-        if (remainingSecs <= 0 && attemptData?.status === 'in_progress') {
-          submitTestRef.current();
-        }
+        // Expiry submission runs after restored answers have been committed to React state.
       } catch (err) {
-        console.error('Failed to load test runner data:', err);
+        if (active) setLoadError(getErrorMessage(err, 'The exam session could not be loaded.'));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
-    init();
-  }, [testId, attemptId, user, isAdmin, navigate, searchParams]);
+    void init();
+    return () => { active = false; };
+  }, [testId, attemptId, user, isAdmin, navigate, searchParams, retryLoad]);
 
   // Submit test handler (Server-authoritative identity via auth.uid())
   const handleSubmitTest = useCallback(async () => {
-    if (submitting || !user || !testId) return;
+    if (submissionLock.current || !user || !testId || !attemptId || loading || loadError) return;
+    submissionLock.current = true;
     setSubmitting(true);
+    setSubmitError('');
 
-    if (timerRef.current) clearInterval(timerRef.current);
 
     try {
       const answersArray = Object.values(answers);
@@ -180,44 +198,31 @@ export const TestRunner: React.FC = () => {
       navigate(resultsUrl, { replace: true });
     } catch (err) {
       console.error('Submission failed:', err);
-      alert('Error submitting test. Please try again.');
+      setSubmitError(getErrorMessage(err, 'Test submission failed. Your answers are preserved; please retry.'));
       setSubmitting(false);
+      submissionLock.current = false;
     }
-  }, [submitting, user, testId, answers, attemptId, timeSpent, navigate, searchParams]);
+  }, [user, testId, answers, attemptId, timeSpent, navigate, searchParams, loading, loadError]);
 
   submitTestRef.current = handleSubmitTest;
 
-  // 2. Countdown Timer
+  // Timer does not restart the autosave debounce or submit from a state updater.
   useEffect(() => {
-    if (loading || timeRemaining <= 0) return;
-
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          handleSubmitTest(); // Auto-submit when time reaches zero
-          return 0;
-        }
-        return prev - 1;
-      });
-      setTimeSpent((prev) => prev + 1);
+    if (loading || submitting || loadError || !test || !attemptId) return;
+    if (timeRemaining === 0) {
+      if (expiredSubmission.current !== attemptId) {
+        expiredSubmission.current = attemptId;
+        void submitTestRef.current();
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      setTimeRemaining(Math.max(0, Math.ceil((clockRef.current.deadline - now) / 1000)));
+      setTimeSpent(Math.max(0, Math.floor((now - clockRef.current.start) / 1000)));
     }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [loading, timeRemaining, handleSubmitTest]);
-
-  // 3. Debounced Autosave to Server
-  useEffect(() => {
-    if (loading || Object.keys(answers).length === 0) return;
-
-    const handler = setTimeout(() => {
-      api.saveAnswers(attemptId, Object.values(answers), timeSpent);
-    }, 2000);
-
-    return () => clearTimeout(handler);
-  }, [answers, attemptId, timeSpent, loading]);
+    return () => clearTimeout(timer);
+  }, [loading, submitting, loadError, test, attemptId, timeRemaining]);
 
   const currentQ = questions[currentIndex];
 
@@ -356,8 +361,8 @@ export const TestRunner: React.FC = () => {
     return <MaintenanceScreen />;
   }
 
-  if (!currentQ) {
-    return null;
+  if (loadError || !currentQ) {
+    return <div className="max-w-xl mx-auto p-6"><StudentLoadError message={loadError || 'No questions are available.'} onRetry={() => setRetryLoad(v => v + 1)} /></div>;
   }
 
   const currentAnswer = answers[currentQ.id]?.selectedOption || null;
@@ -371,7 +376,11 @@ export const TestRunner: React.FC = () => {
       : currentQ.questionText;
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-slate-950">
+    <div className="flex flex-col h-[100dvh] bg-white dark:bg-slate-950">
+      {(submitError || autosave.error) && <div role="alert" className="p-3 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 text-sm shrink-0">
+        {submitError || autosave.error}
+        <button type="button" disabled={submitting} className="ml-2 underline font-bold min-h-11 px-3" onClick={submitError ? () => void handleSubmitTest() : autosave.retry}>Retry</button>
+      </div>}
       {/* 1. TOP EXAM HEADER (Screen 11) */}
       <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 h-14 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -384,7 +393,7 @@ export const TestRunner: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <h1 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-md">
-            {test?.title || 'WBSSC Group D'}
+            {test?.title || 'Mock Test'}
           </h1>
           {searchParams.get('liveTestId') && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 uppercase tracking-wider shrink-0">

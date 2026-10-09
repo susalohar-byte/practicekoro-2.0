@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { api } from '@/services/api';
@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Zap,
 } from 'lucide-react';
+import { StudentLoadError } from '@/components/student/StudentLoadState';
 import { getErrorMessage } from '@/lib/errors';
 import type { SupportTicketItem } from '@/types';
 import type { SupportCategory } from '@/components/student/StudentSupportModal';
@@ -41,7 +42,10 @@ export const Support: React.FC = () => {
 
   // History State
   const [myTickets, setMyTickets] = useState<SupportTicketItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState('');
+  const historyVersion = useRef(0);
+  const submitLock = useRef(false);
 
   // FAQs Accordion State
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -66,24 +70,31 @@ export const Support: React.FC = () => {
   ];
 
   const loadHistory = useCallback(async () => {
-    if (!user?.id) return;
+    const version = ++historyVersion.current;
+    setHistoryError('');
+    if (!user?.id) { setMyTickets([]); setIsLoadingHistory(false); return; }
     try {
       setIsLoadingHistory(true);
       const tickets = await api.getStudentSupportTickets(user.id);
-      setMyTickets(tickets);
+      if (version === historyVersion.current) setMyTickets(tickets);
     } catch (err) {
-      console.error('Failed to load tickets:', err);
+      if (version === historyVersion.current) setHistoryError(getErrorMessage(err, 'Support history could not be loaded.'));
     } finally {
-      setIsLoadingHistory(false);
+      if (version === historyVersion.current) setIsLoadingHistory(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
-    loadHistory();
+    setMyTickets([]);
+    void loadHistory();
+    const counter = historyVersion;
+    return () => { counter.current++; };
   }, [loadHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
+    if (!user?.id) { setErrorMsg('Please sign in before submitting a ticket.'); return; }
     if (!subject.trim()) {
       setErrorMsg('Please enter a clear subject.');
       return;
@@ -93,6 +104,7 @@ export const Support: React.FC = () => {
       return;
     }
 
+    submitLock.current = true;
     try {
       setIsSubmitting(true);
       setErrorMsg('');
@@ -108,7 +120,7 @@ export const Support: React.FC = () => {
         status: 'open',
       });
 
-      if (!res.success) {
+      if (!res.success || !res.ticketId) {
         throw new Error(res.error || 'Failed to submit support ticket');
       }
 
@@ -125,6 +137,7 @@ export const Support: React.FC = () => {
       setErrorMsg(getErrorMessage(err, 'Failed to submit support ticket. Please try again.'));
     } finally {
       setIsSubmitting(false);
+      submitLock.current = false;
     }
   };
 
@@ -157,12 +170,12 @@ export const Support: React.FC = () => {
           <div className="min-w-0">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Email Helpline</p>
             <a
-              href={`mailto:${supportEmail || 'support@practicekoro.online'}`}
+              href={supportEmail ? `mailto:${supportEmail}` : undefined}
               className="text-xs sm:text-sm font-black text-slate-900 dark:text-white hover:text-blue-600 truncate block"
             >
-              {supportEmail || 'support@practicekoro.online'}
+              {supportEmail || 'Use the ticket form below'}
             </a>
-            <p className="text-[10px] text-slate-400">Response within 24 hours</p>
+            <p className="text-[10px] text-slate-400">Contact the support team</p>
           </div>
         </Card>
 
@@ -175,9 +188,9 @@ export const Support: React.FC = () => {
               Direct Helpline / WhatsApp
             </p>
             <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-              {supportWhatsapp || supportPhone || '+91 9547771118'}
+              {supportWhatsapp || supportPhone || 'Direct helpline not configured'}
             </p>
-            <p className="text-[10px] text-slate-400">Mon - Sat: 10 AM - 7 PM</p>
+            <p className="text-[10px] text-slate-400">Availability depends on the support team</p>
           </div>
         </Card>
 
@@ -187,14 +200,14 @@ export const Support: React.FC = () => {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              Priority Resolution
+              Account Status
             </p>
             <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1">
               <span>{isPro ? 'Pro Pass Active' : 'Free Aspirant'}</span>
               {isPro && <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
             </p>
             <p className="text-[10px] text-slate-400">
-              {isPro ? 'Priority queue resolution' : 'Upgrade for instant queue support'}
+              {isPro ? 'Pro subscription enabled' : 'Submit a ticket for assistance'}
             </p>
           </div>
         </Card>
@@ -392,6 +405,8 @@ export const Support: React.FC = () => {
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                       Loading your support tickets...
                     </div>
+                  ) : historyError ? (
+                    <StudentLoadError message={historyError} onRetry={() => void loadHistory()} />
                   ) : myTickets.length === 0 ? (
                     <div className="py-12 text-center space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8">
                       <HelpCircle className="w-10 h-10 text-slate-400 mx-auto" />

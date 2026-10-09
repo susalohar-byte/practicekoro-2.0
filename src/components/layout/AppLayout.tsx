@@ -6,6 +6,7 @@ import { BottomNav } from './BottomNav';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { useAuth } from '@/context/AuthContext';
 import { MaintenanceScreen } from '@/components/common/MaintenanceScreen';
+import { StudentLoading } from '@/components/student/StudentLoadState';
 import { MandatoryDistrictModal } from '@/components/student/MandatoryDistrictModal';
 
 export const AppLayout: React.FC = () => {
@@ -58,6 +59,7 @@ export const AppLayout: React.FC = () => {
         />
 
         <main className="flex-1 w-full max-w-6xl xl:max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12 transition-all duration-200">
+          <React.Suspense fallback={<StudentLoading label="Loading student page" />}>
           <Outlet
             context={{
               onToggleMobileSidebar: () => setIsMobileSidebarOpen(true),
@@ -65,6 +67,7 @@ export const AppLayout: React.FC = () => {
               isSidebarCollapsed,
             }}
           />
+          </React.Suspense>
         </main>
 
         {/* 3. Mobile Floating Navigation Pill (App 1:1, hidden on lg screens) */}

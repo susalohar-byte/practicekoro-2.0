@@ -22,7 +22,8 @@ import {
   Target,
 } from 'lucide-react';
 import type { MockTest, TestSeries, TestAttempt, TestSeriesAnalytics } from '@/types';
-import { localTestSeries, localTests } from '@/services/domains/localStore';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
+import { getErrorMessage } from '@/lib/errors';
 
 type CategoryTab = 'all' | 'full_mock' | 'topic' | 'pyq';
 type StatusFilter = 'all' | 'unattempted' | 'completed';
@@ -38,6 +39,8 @@ export const TestSeriesDetail: React.FC = () => {
   const [analytics, setAnalytics] = useState<TestSeriesAnalytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryLoad, setRetryLoad] = useState(0);
 
   // Filters & State
   const [activeTab, setActiveTab] = useState<CategoryTab>('all');
@@ -52,94 +55,29 @@ export const TestSeriesDetail: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     async function loadData() {
-      if (!seriesId) return;
+      if (!seriesId) { setLoading(false); return; }
       try {
         setLoading(true);
+        setLoadError('');
+        setSeries(null);
+        setTests([]);
+        setAttempts([]);
         setAnalytics(null);
         setAnalyticsError(false);
         // Load all test series to find the matching series by ID or slug
-        const allSeries = await api.getStudentTestSeries().catch(() => []);
-        let found = allSeries.find((s) => s.id === seriesId || s.slug === seriesId);
-
-        if (!found) {
-          found = localTestSeries.find(
-            (s) => s.id === seriesId || s.slug === seriesId || s.examId === seriesId
-          );
-        }
-
-        if (!found) {
-          try {
-            const popCards = await api.getPopularTestSeriesCards();
-            const matchedCard = popCards.find(
-              (c) =>
-                c.testSeriesId === seriesId ||
-                c.id === seriesId ||
-                c.route?.endsWith(`/${seriesId}`) ||
-                c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').includes(seriesId.toLowerCase())
-            );
-            if (matchedCard) {
-              found = {
-                id: matchedCard.testSeriesId || matchedCard.id,
-                examId: matchedCard.testSeriesId || matchedCard.id,
-                title: matchedCard.title,
-                slug: matchedCard.testSeriesId || matchedCard.id,
-                description:
-                  matchedCard.subtitle ||
-                  'Complete Test Series covering Full Mock tests, Topic tests, and PYQs.',
-                iconUrl: matchedCard.cardLogoUrl,
-                isPremium: false,
-                orderIndex: matchedCard.orderIndex || 1,
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                examTitle: matchedCard.title,
-                testCount:
-                  (matchedCard.fullMockCount || 40) +
-                  (matchedCard.topicTestCount || 100) +
-                  (matchedCard.pyqTestCount || 20),
-                fullMockCount: matchedCard.fullMockCount || 40,
-                topicTestCount: matchedCard.topicTestCount || 100,
-                pyqTestCount: matchedCard.pyqTestCount || 20,
-              };
-            }
-          } catch (e) {
-            console.warn('Could not match popular test series card:', e);
-          }
-        }
-
+        const allSeries = await api.getStudentTestSeries();
+        const found = allSeries.find(s => s.id === seriesId || s.slug === seriesId);
         if (found) {
           if (mounted) setSeries(found);
           const [fetchedTests, report] = await Promise.all([
-            api.getSeriesTestsForStudent(found.id).catch(() => []),
+            api.getSeriesTestsForStudent(found.id),
             api.getTestSeriesAnalytics(found.id).catch((err) => {
               console.error('Failed to load test series analytics:', err);
               if (mounted) setAnalyticsError(true);
               return null;
             }),
           ]);
-          let seriesTests = fetchedTests;
-
-          if ((!seriesTests || seriesTests.length === 0) && localTests.length > 0) {
-            const matching = localTests.filter(
-              (t) => t.testSeriesId === found!.id || (found!.examId && t.examId === found!.examId)
-            );
-            seriesTests =
-              matching.length > 0
-                ? matching
-                : localTests.slice(0, 10).map((t, idx) => ({
-                    ...t,
-                    id: `${found!.id}-test-${idx + 1}`,
-                    testSeriesId: found!.id,
-                    testSeriesTitle: found!.title,
-                    examTitle: found!.examTitle || found!.title,
-                    title: `${found!.title} - ${
-                      t.testType === 'full_mock'
-                        ? 'Full Mock Test'
-                        : t.testType === 'pyq'
-                        ? 'Previous Year Paper'
-                        : 'Topic Practice Test'
-                    } #${idx + 1}`,
-                  }));
-          }
+          const seriesTests = fetchedTests;
 
           const myAttempts = user?.id
             ? await api
@@ -147,7 +85,6 @@ export const TestSeriesDetail: React.FC = () => {
                   user.id,
                   seriesTests.map((test) => test.id)
                 )
-                .catch(() => [])
             : [];
           if (mounted) {
             setTests(seriesTests);
@@ -156,7 +93,7 @@ export const TestSeriesDetail: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error('Failed to load test series detail:', err);
+        if (mounted) setLoadError(getErrorMessage(err, 'Test series details could not be loaded.'));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -165,7 +102,7 @@ export const TestSeriesDetail: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [seriesId, user]);
+  }, [seriesId, user, retryLoad]);
 
   // Map latest attempt by test ID
   const latestAttemptMap = useMemo(() => {
@@ -278,24 +215,8 @@ export const TestSeriesDetail: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 pb-24 font-sans transition-colors">
-        <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 py-6 space-y-6">
-          <div className="h-48 bg-slate-200 dark:bg-slate-800/80 rounded-3xl animate-pulse" />
-          <div className="h-14 bg-slate-200 dark:bg-slate-800/80 rounded-2xl animate-pulse" />
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-28 bg-slate-200 dark:bg-slate-800/80 rounded-2xl animate-pulse"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <StudentLoading label="Loading test series details" />;
+  if (loadError) return <StudentLoadError message={loadError} onRetry={() => setRetryLoad(v => v + 1)} />;
 
   if (!series) {
     return (

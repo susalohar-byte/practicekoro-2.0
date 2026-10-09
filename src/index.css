@@ -23,10 +23,20 @@
   font-display: swap;
 }
 
+/* Bengali-only fallback: do not replace Latin UI text with the display font. */
+@font-face {
+  font-family: 'PracticeKoro Bengali Fallback';
+  src: url('/fonts/Li-Subha-Letterpress-Unicode.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0980-09FF, U+200C-200D;
+}
+
 @layer base {
   :root {
     --font-sans:
-      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Bengali',
+      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Bengali', 'PracticeKoro Bengali Fallback',
       sans-serif;
   }
 

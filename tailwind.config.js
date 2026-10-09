@@ -63,6 +63,7 @@ export default {
           'Segoe UI',
           'Roboto',
           'Noto Sans Bengali',
+          '"PracticeKoro Bengali Fallback"',
           'sans-serif',
         ],
         headline: [

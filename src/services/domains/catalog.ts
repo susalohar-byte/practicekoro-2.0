@@ -1,3 +1,4 @@
+import { readCompleteQuery } from '@/services/domains/admin.reporting';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
   MOCK_SUBJECTS,
@@ -105,7 +106,6 @@ export const catalogApi = {
 
   async getExams(): Promise<Exam[]> {
     if (!isSupabaseConfigured) return [];
-    try {
       const [examsRes, testsRes, testExamsRes] = await Promise.all([
         supabase
           .from('exams')
@@ -121,7 +121,10 @@ export const catalogApi = {
       ]);
 
       const data = examsRes.data;
-      if (examsRes.error || !data || data.length === 0) return [];
+      const error = examsRes.error || testsRes.error || testExamsRes.error;
+      if (error) throw new Error(error.message || 'Exams could not be loaded');
+      if (!data) throw new Error('Exam records were not confirmed');
+      if (data.length === 0) return [];
 
       const statsMap: Record<string, { testsCount: number; questionsCount: number }> = {};
       data.forEach((e: ExamRow) => {
@@ -161,9 +164,7 @@ export const catalogApi = {
         testsCount: statsMap[item.id]?.testsCount ?? 0,
         questionsCount: statsMap[item.id]?.questionsCount ?? 0,
       }));
-    } catch {
-      return [];
-    }
+
   },
 
   async getExamBySlug(slug: string): Promise<Exam | null> {
@@ -526,7 +527,6 @@ export const catalogApi = {
   async getTestById(testId: string): Promise<MockTest | null> {
     if (!isSupabaseConfigured) return null;
 
-    try {
       const { data, error } = await supabase
         .from('tests')
         .select(
@@ -542,7 +542,8 @@ export const catalogApi = {
         .eq('is_active', true)
         .eq('status', 'published')
         .maybeSingle();
-      if (error || !data) return null;
+      if (error) throw new Error(error.message || 'Test details could not be loaded');
+      if (!data) return null;
       const row = data as any;
       return {
         id: row.id,
@@ -574,9 +575,6 @@ export const catalogApi = {
         topicName: row.chapters?.name || undefined,
         testSeriesTitle: row.test_series?.title || undefined,
       };
-    } catch {
-      return null;
-    }
   },
 
   async getStudentTestQuestions(testId: string): Promise<StudentTestQuestion[]> {
@@ -691,6 +689,7 @@ export const catalogApi = {
 
       if (data && typeof data === 'object') {
         const res = data as { attempt_id: string; start_time: string; duration_minutes?: number };
+        if (!res.attempt_id || !Number.isFinite(Date.parse(res.start_time))) throw new Error('Exam session creation was not confirmed');
         return {
           attemptId: res.attempt_id,
           startTime: res.start_time,
@@ -698,6 +697,8 @@ export const catalogApi = {
         };
       }
     }
+
+    if (isSupabaseConfigured) throw new Error('Exam session creation was not confirmed');
 
     // Local / Demo Fallback (Only active in development when Supabase is unconfigured)
     const existing = Object.values(localAttemptsStore).find(
@@ -782,13 +783,15 @@ export const catalogApi = {
     answers: AttemptAnswerState[],
     timeSpentSeconds: number
   ): Promise<boolean> {
+    let persisted = !isSupabaseConfigured;
     if (isSupabaseConfigured) {
       try {
-        await supabase.rpc('save_test_answers', {
+        const { error } = await supabase.rpc('save_test_answers', {
           p_attempt_id: attemptId,
           p_answers: answers,
           p_time_spent_seconds: timeSpentSeconds,
         });
+        persisted = !error;
       } catch (err) {
         console.warn('Autosave RPC failed:', err);
       }
@@ -816,7 +819,7 @@ export const catalogApi = {
       // localStorage fallback
     }
 
-    return true;
+    return persisted;
   },
 
   async submitTestAttempt(
@@ -860,6 +863,8 @@ export const catalogApi = {
         };
       }
     }
+
+    if (isSupabaseConfigured) throw new Error('Test submission was not confirmed');
 
     // Local / Demo Authoritative fallback (only active when Supabase is unconfigured)
     const questions = MOCK_QUESTIONS[testId] || MOCK_QUESTIONS['test-indus-01'] || [];
@@ -1149,28 +1154,20 @@ export const catalogApi = {
 
   async toggleBookmark(userId: string, questionId: string, note?: string): Promise<boolean> {
     if (isSupabaseConfigured) {
-      try {
-        const { data: existing } = await supabase
-          .from('bookmarks')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('question_id', questionId)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase.from('bookmarks').delete().eq('id', existing.id);
-          return false; // Removed
-        } else {
-          await supabase.from('bookmarks').insert({
-            user_id: userId,
-            question_id: questionId,
-            note: note || 'Bookmarked during practice review',
-          });
-          return true; // Added
-        }
-      } catch (err) {
-        console.error('Supabase toggleBookmark error:', err);
+      const { data: existing, error: lookupError } = await supabase.from('bookmarks')
+        .select('id').eq('user_id', userId).eq('question_id', questionId).maybeSingle();
+      if (lookupError) throw new Error(lookupError.message || 'Bookmark lookup failed');
+      if (existing) {
+        await this.removeBookmarks(userId, [questionId]);
+        return false;
       }
+      const { data, error } = await supabase.from('bookmarks').insert({
+        user_id: userId, question_id: questionId,
+        note: note || 'Bookmarked during practice review',
+      }).select('id').single();
+      if (error) throw new Error(error.message || 'Bookmark save failed');
+      if (!data?.id) throw new Error('Bookmark save was not confirmed');
+      return true;
     }
 
     const existingIndex = MOCK_BOOKMARKS.findIndex(
@@ -1211,7 +1208,7 @@ export const catalogApi = {
       return testIds ? unique.filter((attempt) => testIds.includes(attempt.testId)) : unique;
     }
 
-    try {
+      const data = await readCompleteQuery(() => {
       let query = supabase
         .from('test_attempts')
         .select(
@@ -1225,23 +1222,27 @@ export const catalogApi = {
             is_premium,
             test_type,
             year,
+            test_series_id,
             exams:exam_id (title),
             subjects:subject_id (name),
             chapters:chapter_id (name)
           )
         `
-        )
+        , { count: 'exact' })
         .eq('user_id', userId);
       if (testIds) query = query.in('test_id', testIds);
-      const { data, error } = await query.order('created_at', { ascending: false });
+      return query.order('created_at', { ascending: false }).order('id', { ascending: false });
+      });
 
-      if (error || !data || data.length === 0) return [];
+      if (!data) throw new Error('Test history could not be loaded');
+      if (data.length === 0) return [];
       return data.map((d) => {
         const test = d.tests;
         return {
           id: d.id,
           userId: d.user_id,
           testId: d.test_id,
+          testSeriesId: test?.test_series_id ?? undefined,
           testTitle: test?.title || d.test_id,
           examTitle: test?.exams?.title,
           subjectName: test?.subjects?.name,
@@ -1266,9 +1267,6 @@ export const catalogApi = {
           createdAt: d.created_at,
         };
       });
-    } catch {
-      return [];
-    }
   },
 
   async getMistakes(userId: string): Promise<MistakeItem[]> {
@@ -1375,8 +1373,7 @@ export const catalogApi = {
 
   async getBookmarks(userId: string): Promise<BookmarkItem[]> {
     if (!isSupabaseConfigured) return [];
-    try {
-      const { data, error } = await supabase
+      const data = await readCompleteQuery(() => supabase
         .from('bookmarks')
         .select(
           `
@@ -1396,11 +1393,12 @@ export const catalogApi = {
             )
           )
         `
-        )
+        , { count: 'exact' })
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }).order('id', { ascending: false }));
 
-      if (error || !data || data.length === 0) return [];
+      if (!data) throw new Error('Saved questions could not be loaded');
+      if (data.length === 0) return [];
       return (data as unknown as Array<BookmarkRow & { questions: QuestionWithContext }>).map(
         (d) => {
           const q = d.questions || {};
@@ -1442,39 +1440,44 @@ export const catalogApi = {
           };
         }
       );
-    } catch {
-      return [];
-    }
   },
 
   async removeBookmarks(userId: string, questionIds: string[]): Promise<boolean> {
+    const ids = [...new Set(questionIds)];
+    if (!userId) throw new Error('Sign in to update saved questions');
+    if (!ids.length) return true;
     if (isSupabaseConfigured) {
-      try {
-        await supabase
-          .from('bookmarks')
-          .delete()
-          .eq('user_id', userId)
-          .in('question_id', questionIds);
-      } catch (err) {
-        console.error('Supabase removeBookmarks error:', err);
-      }
+      const { error } = await supabase.from('bookmarks').delete()
+        .eq('user_id', userId).in('question_id', ids);
+      if (error) throw new Error(error.message || 'Saved questions could not be removed');
+      // Verify the desired state. Removal is idempotent, never a toggle that can re-add a row.
+      const { data: remaining, error: verifyError } = await supabase.from('bookmarks')
+        .select('id').eq('user_id', userId).in('question_id', ids).limit(1);
+      if (verifyError) throw new Error(verifyError.message || 'Removal could not be verified');
+      if (!remaining || remaining.length) throw new Error('Removal was not confirmed. Refresh and retry.');
+      return true;
     }
-    for (const qId of questionIds) {
-      const idx = MOCK_BOOKMARKS.findIndex((b) => b.questionId === qId);
-      if (idx >= 0) MOCK_BOOKMARKS.splice(idx, 1);
+    for (let i = MOCK_BOOKMARKS.length - 1; i >= 0; i--) {
+      if (MOCK_BOOKMARKS[i].userId === userId && ids.includes(MOCK_BOOKMARKS[i].questionId))
+        MOCK_BOOKMARKS.splice(i, 1);
     }
     return true;
   },
 
   async clearAllBookmarks(userId: string): Promise<boolean> {
+    if (!userId) throw new Error('Sign in to update saved questions');
     if (isSupabaseConfigured) {
-      try {
-        await supabase.from('bookmarks').delete().eq('user_id', userId);
-      } catch (err) {
-        console.error('Supabase clearAllBookmarks error:', err);
-      }
+      const { error } = await supabase.from('bookmarks').delete().eq('user_id', userId);
+      if (error) throw new Error(error.message || 'Saved questions could not be cleared');
+      const { data: remaining, error: verifyError } = await supabase.from('bookmarks')
+        .select('id').eq('user_id', userId).limit(1);
+      if (verifyError) throw new Error(verifyError.message || 'Clear could not be verified');
+      if (!remaining || remaining.length) throw new Error('Clear was not confirmed. Refresh and retry.');
+      return true;
     }
-    MOCK_BOOKMARKS.length = 0;
+    for (let i = MOCK_BOOKMARKS.length - 1; i >= 0; i--) {
+      if (MOCK_BOOKMARKS[i].userId === userId) MOCK_BOOKMARKS.splice(i, 1);
+    }
     return true;
   },
 
@@ -1484,17 +1487,9 @@ export const catalogApi = {
    * fullMockCount, topicTestCount, pyqTestCount, and total testCount.
    */
   async getStudentTestSeries(examId?: string): Promise<TestSeries[]> {
-    let cachedIcons: Record<string, string> = {};
-    try {
-      const raw = localStorage.getItem('practicekoro_series_icons');
-      if (raw) cachedIcons = JSON.parse(raw);
-    } catch {
-      // Ignore storage errors
-    }
-
     if (!isSupabaseConfigured) return [];
 
-    try {
+      const data = await readCompleteQuery(() => {
       let query = supabase
         .from('test_series')
         .select(
@@ -1503,16 +1498,14 @@ export const catalogApi = {
           exams:exam_id (id, title, category, slug),
           tests (id, test_type, is_active, status)
         `
-        )
+        , { count: 'exact' })
         .eq('is_active', true)
-        .order('order_index', { ascending: true });
+.order('order_index', { ascending: true }).order('id', { ascending: true });
 
       if (examId) query = query.eq('exam_id', examId);
 
-      const { data, error } = await query;
-      if (error || !data || data.length === 0) {
-        return [];
-      }
+      return query;
+      });
 
       return data.map((item: any) => {
         const rawTests = Array.isArray(item.tests) ? item.tests : [];
@@ -1535,7 +1528,7 @@ export const catalogApi = {
           title: item.title,
           slug: item.slug,
           description: item.description ?? undefined,
-          iconUrl: item.icon_url || cachedIcons[item.id] || item.iconUrl || undefined,
+          iconUrl: item.icon_url || undefined,
           isPremium: Boolean(item.is_premium),
           orderIndex: Number(item.order_index || 0),
           isActive: Boolean(item.is_active),
@@ -1550,9 +1543,7 @@ export const catalogApi = {
           pyqTestCount,
         };
       });
-    } catch {
-      return [];
-    }
+
   },
 
   /**
@@ -1561,7 +1552,6 @@ export const catalogApi = {
   async getSeriesTestsForStudent(seriesId: string): Promise<MockTest[]> {
     if (!isSupabaseConfigured) return [];
 
-    try {
       const { data, error } = await supabase
         .from('tests')
         .select(
@@ -1578,7 +1568,9 @@ export const catalogApi = {
         .eq('status', 'published')
         .order('order_index', { ascending: true });
 
-      if (error || !data || data.length === 0) {
+      if (error) throw new Error(error.message || 'Series tests could not be loaded');
+      if (!data) throw new Error('Series tests were not confirmed');
+      if (data.length === 0) {
         return [];
       }
 
@@ -1613,9 +1605,7 @@ export const catalogApi = {
         topicName: item.chapters?.name,
         testSeriesTitle: item.test_series?.title,
       }));
-    } catch {
-      return [];
-    }
+
   },
 
   /**
@@ -1650,7 +1640,7 @@ export const catalogApi = {
       p_series_id: seriesId,
     });
     if (error) throw new Error(error.message || 'Failed to load series analytics');
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return emptyReport(0);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Series results were not confirmed by the server');
     return data as unknown as TestSeriesAnalytics;
   },
 };
