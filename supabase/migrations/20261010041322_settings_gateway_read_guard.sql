@@ -1,4 +1,4 @@
--- Pending production approval. Public gateway metadata only; never return secret fragments.
+-- Applied to production as 20261010041322. Public gateway metadata only; never return secret fragments.
 CREATE OR REPLACE FUNCTION public.admin_get_payment_gateway(p_gateway text DEFAULT 'razorpay')
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_target text := lower(trim(coalesce(p_gateway,'razorpay')));

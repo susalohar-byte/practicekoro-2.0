@@ -12,7 +12,7 @@ try {
     INSERT INTO profiles VALUES ('00000000-0000-0000-0000-000000000001','admin','active'),('00000000-0000-0000-0000-000000000002','admin','inactive'),('00000000-0000-0000-0000-000000000003','student','active');
     INSERT INTO payment_gateways VALUES('razorpay','rzp_test_fixture',false,now(),'secret-fixture','webhook-fixture');`);
   await db.exec(
-    fs.readFileSync('supabase/migrations/20261010040000_settings_gateway_read_guard.sql', 'utf8')
+    fs.readFileSync('supabase/migrations/20261010041322_settings_gateway_read_guard.sql', 'utf8')
   );
   for (const id of [
     '',
