@@ -20,7 +20,9 @@
     "prerender": "node scripts/prerender.mjs",
     "build:seo": "npm run build && node scripts/prerender.mjs",
     "deploy:shared": "bash scripts/deploy-shared-hosting.sh",
-    "check": "npm run typecheck && npm run lint && npm test && npm run format:check && npm run build"
+    "check": "npm run typecheck && npm run lint && npm test && npm run format:check && npm run build",
+    "test:notification-security": "node scripts/tests/notification-provider.mjs && node scripts/tests/notification-gateway-sql.mjs",
+    "audit:runtime": "npm audit --omit=dev --audit-level=moderate"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -39,6 +41,7 @@
     "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "1.55",
     "@testing-library/jest-dom": "^6.9.1",

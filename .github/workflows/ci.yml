@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -48,9 +51,25 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  notification-security:
+    name: Notification Security + Runtime Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      # All provider calls are mocked; SQL runs in isolated PGlite.
+      # No production credentials, database or recipients are used.
+      - run: npm run test:notification-security
+      - run: npm run audit:runtime
+
   notify:
     name: Notify on Failure
-    needs: [typecheck-and-lint, test, build]
+    needs: [typecheck-and-lint, test, build, notification-security]
     if: failure()
     runs-on: ubuntu-latest
     steps:

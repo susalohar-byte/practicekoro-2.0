@@ -53,3 +53,7 @@ Deploy the complete latest built `dist` contents, including `.htaccess` and `the
 - Live unauthenticated gateway smoke checks: missing credentials 401, anonymous credentials 401, untrusted-origin preflight 403. No provider request was made by these checks.
 - Hosting release packaged and checked for `index.html`, `.htaccess`, and `theme-init.js`; no `src/` or `.env` files were included. Packaging is not deployment.
 - Concurrent upstream changes through `d9daa47` (subscription/student profile pictures, Android changes and the chart-only revenue redesign) were preserved. The refund-report regression now checks labeled cash-flow summary amounts rather than globally unique chart text. No older production migration was blindly reapplied; source-level results do not certify new financial/avatar fields as live.
+
+## Additional maintenance review
+
+See [App readiness rating report](app-readiness-rating-report.md) for the full gap assessment and acceptance criteria. The follow-up repaired source-map-js, added a pinned isolated database harness and continuous notification-security/runtime-audit checks. Clean installation, 805 tests and build passed; full source lint reported zero errors and ten warnings. Seven build/development audit findings remain; the runtime-only audit reported zero. These improvements do not certify frontend deployment or raise the overall provisional rating without live evidence.
