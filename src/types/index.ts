@@ -771,6 +771,7 @@ export interface AdminSubscriptionRow {
   studentName: string;
   studentEmail: string;
   studentPhone?: string;
+  avatarUrl?: string;
   planId: string;
   planTitle: string;
   status: SubscriptionStatus;
@@ -791,6 +792,7 @@ export interface AdminPaymentRow {
   userId: string;
   studentName: string;
   studentEmail: string;
+  avatarUrl?: string;
   planId?: string;
   planTitle?: string;
   amount: number;

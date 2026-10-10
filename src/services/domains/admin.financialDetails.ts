@@ -64,3 +64,131 @@ export async function enrichAdminPaymentSubscriptions(
     return rows;
   }
 }
+
+export async function enrichAdminSubscriptionAvatars(
+  rows: AdminSubscriptionRow[]
+): Promise<AdminSubscriptionRow[]> {
+  if (!rows.length) return rows;
+
+  const missingUserIds = [
+    ...new Set(rows.filter((r) => !r.avatarUrl && r.userId).map((r) => r.userId)),
+  ];
+  const missingEmails = [
+    ...new Set(
+      rows
+        .filter((r) => !r.avatarUrl && r.studentEmail)
+        .map((r) => r.studentEmail.toLowerCase().trim())
+    ),
+  ];
+
+  if (!missingUserIds.length && !missingEmails.length) return rows;
+
+  try {
+    const avatarMap = new Map<string, string>();
+
+    if (missingUserIds.length > 0) {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('id, avatar_url')
+        .in('id', missingUserIds);
+      if (byId) {
+        byId.forEach((p) => {
+          if (p.avatar_url) avatarMap.set(p.id, p.avatar_url);
+        });
+      }
+    }
+
+    if (missingEmails.length > 0) {
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('email, avatar_url')
+        .in('email', missingEmails);
+      if (byEmail) {
+        byEmail.forEach((p) => {
+          if (p.avatar_url && p.email) {
+            avatarMap.set(p.email.toLowerCase().trim(), p.avatar_url);
+          }
+        });
+      }
+    }
+
+    return rows.map((row) => {
+      if (row.avatarUrl) return row;
+      const avatar =
+        (row.userId ? avatarMap.get(row.userId) : undefined) ||
+        (row.studentEmail
+          ? avatarMap.get(row.studentEmail.toLowerCase().trim())
+          : undefined);
+      return {
+        ...row,
+        avatarUrl: avatar || undefined,
+      };
+    });
+  } catch {
+    return rows;
+  }
+}
+
+export async function enrichAdminPaymentAvatars(
+  rows: AdminPaymentRow[]
+): Promise<AdminPaymentRow[]> {
+  if (!rows.length) return rows;
+
+  const missingUserIds = [
+    ...new Set(rows.filter((r) => !r.avatarUrl && r.userId).map((r) => r.userId)),
+  ];
+  const missingEmails = [
+    ...new Set(
+      rows
+        .filter((r) => !r.avatarUrl && r.studentEmail)
+        .map((r) => r.studentEmail.toLowerCase().trim())
+    ),
+  ];
+
+  if (!missingUserIds.length && !missingEmails.length) return rows;
+
+  try {
+    const avatarMap = new Map<string, string>();
+
+    if (missingUserIds.length > 0) {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('id, avatar_url')
+        .in('id', missingUserIds);
+      if (byId) {
+        byId.forEach((p) => {
+          if (p.avatar_url) avatarMap.set(p.id, p.avatar_url);
+        });
+      }
+    }
+
+    if (missingEmails.length > 0) {
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('email, avatar_url')
+        .in('email', missingEmails);
+      if (byEmail) {
+        byEmail.forEach((p) => {
+          if (p.avatar_url && p.email) {
+            avatarMap.set(p.email.toLowerCase().trim(), p.avatar_url);
+          }
+        });
+      }
+    }
+
+    return rows.map((row) => {
+      if (row.avatarUrl) return row;
+      const avatar =
+        (row.userId ? avatarMap.get(row.userId) : undefined) ||
+        (row.studentEmail
+          ? avatarMap.get(row.studentEmail.toLowerCase().trim())
+          : undefined);
+      return {
+        ...row,
+        avatarUrl: avatar || undefined,
+      };
+    });
+  } catch {
+    return rows;
+  }
+}

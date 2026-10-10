@@ -107,6 +107,23 @@ describe('AdminSubscriptions authoritative financial display', () => {
     expect(mapped.endDate).toContain('2099');
   });
 
+  it('correctly maps student avatar when avatarUrl is present vs missing', () => {
+    const mappedWithPhoto = mapAdminSubscriptionRow({
+      ...row,
+      avatarUrl: 'https://example.com/student.jpg',
+    });
+    expect(mappedWithPhoto.avatarType).toBe('photo');
+    expect(mappedWithPhoto.avatarSrc).toBe('https://example.com/student.jpg');
+
+    const mappedWithInitials = mapAdminSubscriptionRow({
+      ...row,
+      avatarUrl: undefined,
+    });
+    expect(mappedWithInitials.avatarType).toBe('initials');
+    expect(mappedWithInitials.avatarSrc).toBeUndefined();
+    expect(mappedWithInitials.avatarInitials).toBe('AS');
+  });
+
   it('does not fabricate amount, gateway, transaction, or expiry for missing data', () => {
     const mapped = mapAdminSubscriptionRow({
       ...row,

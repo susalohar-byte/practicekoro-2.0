@@ -9,7 +9,9 @@ import { accountManagementApi } from './accountManagement';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { isAdminEmail } from '@/lib/authPolicy';
 import {
+  enrichAdminPaymentAvatars,
   enrichAdminPaymentSubscriptions,
+  enrichAdminSubscriptionAvatars,
   enrichAdminSubscriptionPayments,
 } from './admin.financialDetails';
 import { MOCK_SUBSCRIPTION_PLANS } from '@/services/mockData';
@@ -74,23 +76,24 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return enrichAdminSubscriptionPayments(
-            data.map((d) => ({
-              id: d.id,
-              userId: d.user_id,
-              studentName: d.student_name || 'Student Aspirant',
-              studentEmail: d.student_email || '',
-              studentPhone: d.student_phone || undefined,
-              planId: d.plan_id,
-              planTitle: d.plan_title || 'Pro Pass',
-              status: d.status,
-              startsAt: d.starts_at,
-              expiresAt: d.expires_at,
-              paymentId: d.payment_id || undefined,
-              daysRemaining: Number(d.days_remaining || 0),
-              createdAt: d.created_at,
-            }))
-          );
+          const rawRows: AdminSubscriptionRow[] = data.map((d) => ({
+            id: d.id,
+            userId: d.user_id,
+            studentName: d.student_name || 'Student Aspirant',
+            studentEmail: d.student_email || '',
+            studentPhone: d.student_phone || undefined,
+            avatarUrl: d.avatar_url || d.student_avatar || undefined,
+            planId: d.plan_id,
+            planTitle: d.plan_title || 'Pro Pass',
+            status: d.status,
+            startsAt: d.starts_at,
+            expiresAt: d.expires_at,
+            paymentId: d.payment_id || undefined,
+            daysRemaining: Number(d.days_remaining || 0),
+            createdAt: d.created_at,
+          }));
+          const enrichedWithAvatars = await enrichAdminSubscriptionAvatars(rawRows);
+          return enrichAdminSubscriptionPayments(enrichedWithAvatars);
         }
       } catch (err) {
         console.warn('Could not fetch admin subscriptions from RPC, trying direct query:', err);
@@ -110,7 +113,7 @@ export const adminCommerceApi = {
             expires_at,
             payment_id,
             created_at,
-            profiles:user_id(full_name, email, phone),
+            profiles:user_id(full_name, email, phone, avatar_url),
             subscription_plans:plan_id(title)
           `
           )
@@ -124,36 +127,37 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return enrichAdminSubscriptionPayments(
-            data
-              .filter((d: any) => {
-                if (!search) return true;
-                const s = search.toLowerCase();
-                const name = d.profiles?.full_name?.toLowerCase() || '';
-                const email = d.profiles?.email?.toLowerCase() || '';
-                return name.includes(s) || email.includes(s);
-              })
-              .map((d: any) => {
-                const now = Date.now();
-                const exp = new Date(d.expires_at).getTime();
-                const daysRemaining = Math.max(0, Math.ceil((exp - now) / (1000 * 60 * 60 * 24)));
-                return {
-                  id: d.id,
-                  userId: d.user_id,
-                  studentName: d.profiles?.full_name || 'Registered Student',
-                  studentEmail: d.profiles?.email || '',
-                  studentPhone: d.profiles?.phone || undefined,
-                  planId: d.plan_id,
-                  planTitle: d.subscription_plans?.title || 'Pro Pass',
-                  status: d.status,
-                  startsAt: d.starts_at,
-                  expiresAt: d.expires_at,
-                  paymentId: d.payment_id || undefined,
-                  daysRemaining,
-                  createdAt: d.created_at,
-                };
-              })
-          );
+          const rawRows: AdminSubscriptionRow[] = data
+            .filter((d: any) => {
+              if (!search) return true;
+              const s = search.toLowerCase();
+              const name = d.profiles?.full_name?.toLowerCase() || '';
+              const email = d.profiles?.email?.toLowerCase() || '';
+              return name.includes(s) || email.includes(s);
+            })
+            .map((d: any) => {
+              const now = Date.now();
+              const exp = new Date(d.expires_at).getTime();
+              const daysRemaining = Math.max(0, Math.ceil((exp - now) / (1000 * 60 * 60 * 24)));
+              return {
+                id: d.id,
+                userId: d.user_id,
+                studentName: d.profiles?.full_name || 'Registered Student',
+                studentEmail: d.profiles?.email || '',
+                studentPhone: d.profiles?.phone || undefined,
+                avatarUrl: d.profiles?.avatar_url || undefined,
+                planId: d.plan_id,
+                planTitle: d.subscription_plans?.title || 'Pro Pass',
+                status: d.status,
+                startsAt: d.starts_at,
+                expiresAt: d.expires_at,
+                paymentId: d.payment_id || undefined,
+                daysRemaining,
+                createdAt: d.created_at,
+              };
+            });
+          const enrichedWithAvatars = await enrichAdminSubscriptionAvatars(rawRows);
+          return enrichAdminSubscriptionPayments(enrichedWithAvatars);
         }
       } catch (err) {
         console.warn('Direct query on subscriptions failed:', err);
@@ -181,29 +185,30 @@ export const adminCommerceApi = {
         });
 
         if (!error && Array.isArray(data)) {
-          return enrichAdminPaymentSubscriptions(
-            data.map((d) => ({
-              id: d.id,
-              userId: d.user_id,
-              studentName: d.student_name || 'Student Aspirant',
-              studentEmail: d.student_email || '',
-              planId: d.plan_id || undefined,
-              planTitle: d.plan_title || 'Pro Pass',
-              amount: Number(d.amount),
-              currency: d.currency || 'INR',
-              gateway: d.gateway || 'razorpay',
-              orderId: d.order_id || undefined,
-              razorpayOrderId: d.razorpay_order_id || undefined,
-              transactionId: d.transaction_id || undefined,
-              razorpayPaymentId: d.razorpay_payment_id || undefined,
-              status: d.status,
-              refundId: d.refund_id || undefined,
-              refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
-              refundReason: d.refund_reason || undefined,
-              refundedAt: d.refunded_at || undefined,
-              createdAt: d.created_at,
-            }))
-          );
+          const rawRows: AdminPaymentRow[] = data.map((d) => ({
+            id: d.id,
+            userId: d.user_id,
+            studentName: d.student_name || 'Student Aspirant',
+            studentEmail: d.student_email || '',
+            avatarUrl: d.avatar_url || d.student_avatar || undefined,
+            planId: d.plan_id || undefined,
+            planTitle: d.plan_title || 'Pro Pass',
+            amount: Number(d.amount),
+            currency: d.currency || 'INR',
+            gateway: d.gateway || 'razorpay',
+            orderId: d.order_id || undefined,
+            razorpayOrderId: d.razorpay_order_id || undefined,
+            transactionId: d.transaction_id || undefined,
+            razorpayPaymentId: d.razorpay_payment_id || undefined,
+            status: d.status,
+            refundId: d.refund_id || undefined,
+            refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
+            refundReason: d.refund_reason || undefined,
+            refundedAt: d.refunded_at || undefined,
+            createdAt: d.created_at,
+          }));
+          const enrichedWithAvatars = await enrichAdminPaymentAvatars(rawRows);
+          return enrichAdminPaymentSubscriptions(enrichedWithAvatars);
         }
       } catch (err) {
         console.warn('Could not fetch admin payments from RPC, trying direct query:', err);
@@ -231,7 +236,7 @@ export const adminCommerceApi = {
             refund_reason,
             refunded_at,
             created_at,
-            profiles:user_id(full_name, email),
+            profiles:user_id(full_name, email, avatar_url),
             subscription_plans:plan_id(title)
           `
           )
@@ -245,38 +250,39 @@ export const adminCommerceApi = {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          return enrichAdminPaymentSubscriptions(
-            data
-              .filter((d: any) => {
-                if (!search) return true;
-                const s = search.toLowerCase();
-                const name = d.profiles?.full_name?.toLowerCase() || '';
-                const email = d.profiles?.email?.toLowerCase() || '';
-                const orderId = (d.order_id || d.razorpay_order_id || '').toLowerCase();
-                return name.includes(s) || email.includes(s) || orderId.includes(s);
-              })
-              .map((d: any) => ({
-                id: d.id,
-                userId: d.user_id,
-                studentName: d.profiles?.full_name || 'Registered Student',
-                studentEmail: d.profiles?.email || '',
-                planId: d.plan_id || undefined,
-                planTitle: d.subscription_plans?.title || 'Pro Pass',
-                amount: Number(d.amount || 0),
-                currency: d.currency || 'INR',
-                gateway: d.gateway || 'razorpay',
-                orderId: d.order_id || undefined,
-                razorpayOrderId: d.razorpay_order_id || undefined,
-                transactionId: d.transaction_id || undefined,
-                razorpayPaymentId: d.razorpay_payment_id || undefined,
-                status: d.status,
-                refundId: d.refund_id || undefined,
-                refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
-                refundReason: d.refund_reason || undefined,
-                refundedAt: d.refunded_at || undefined,
-                createdAt: d.created_at,
-              }))
-          );
+          const rawRows: AdminPaymentRow[] = data
+            .filter((d: any) => {
+              if (!search) return true;
+              const s = search.toLowerCase();
+              const name = d.profiles?.full_name?.toLowerCase() || '';
+              const email = d.profiles?.email?.toLowerCase() || '';
+              const orderId = (d.order_id || d.razorpay_order_id || '').toLowerCase();
+              return name.includes(s) || email.includes(s) || orderId.includes(s);
+            })
+            .map((d: any) => ({
+              id: d.id,
+              userId: d.user_id,
+              studentName: d.profiles?.full_name || 'Registered Student',
+              studentEmail: d.profiles?.email || '',
+              avatarUrl: d.profiles?.avatar_url || undefined,
+              planId: d.plan_id || undefined,
+              planTitle: d.subscription_plans?.title || 'Pro Pass',
+              amount: Number(d.amount || 0),
+              currency: d.currency || 'INR',
+              gateway: d.gateway || 'razorpay',
+              orderId: d.order_id || undefined,
+              razorpayOrderId: d.razorpay_order_id || undefined,
+              transactionId: d.transaction_id || undefined,
+              razorpayPaymentId: d.razorpay_payment_id || undefined,
+              status: d.status,
+              refundId: d.refund_id || undefined,
+              refundAmount: d.refund_amount == null ? undefined : Number(d.refund_amount),
+              refundReason: d.refund_reason || undefined,
+              refundedAt: d.refunded_at || undefined,
+              createdAt: d.created_at,
+            }));
+          const enrichedWithAvatars = await enrichAdminPaymentAvatars(rawRows);
+          return enrichAdminPaymentSubscriptions(enrichedWithAvatars);
         }
       } catch (err) {
         console.warn('Direct query on payments failed:', err);

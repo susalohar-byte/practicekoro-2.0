@@ -95,8 +95,15 @@ export function mapAdminSubscriptionRow(d: AdminSubscriptionRow): SubscriptionRe
     studentName: d.studentName || 'Student Aspirant',
     studentEmail: d.studentEmail || '',
     studentPhone: d.studentPhone,
-    avatarType: 'initials',
-    avatarInitials: (d.studentName || 'ST').slice(0, 2).toUpperCase(),
+    avatarType: d.avatarUrl && d.avatarUrl.trim() ? 'photo' : 'initials',
+    avatarSrc: d.avatarUrl && d.avatarUrl.trim() ? d.avatarUrl.trim() : undefined,
+    avatarInitials:
+      (d.studentName || 'ST')
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase() || 'ST',
     avatarBgColor: 'bg-blue-100',
     avatarTextColor: 'text-blue-600',
     plan: d.planTitle || 'Pro Pass',
@@ -1189,19 +1196,27 @@ export const AdminSubscriptions: React.FC = () => {
                                 <img
                                   src={row.avatarSrc}
                                   alt={row.studentName}
-                                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                                  className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200"
+                                  onError={(e) => {
+                                    const target = e.currentTarget;
+                                    target.style.display = 'none';
+                                    const fallback = target.nextElementSibling as HTMLElement;
+                                    if (fallback) fallback.style.display = 'flex';
+                                  }}
                                 />
-                              ) : (
-                                <div
-                                  className={cn(
-                                    'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
-                                    row.avatarBgColor || 'bg-blue-100',
-                                    row.avatarTextColor || 'text-blue-600'
-                                  )}
-                                >
-                                  {row.avatarInitials}
-                                </div>
-                              )}
+                              ) : null}
+                              <div
+                                className={cn(
+                                  'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0',
+                                  row.avatarBgColor || 'bg-blue-100',
+                                  row.avatarTextColor || 'text-blue-600'
+                                )}
+                                style={{
+                                  display: row.avatarType === 'photo' && row.avatarSrc ? 'none' : 'flex',
+                                }}
+                              >
+                                {row.avatarInitials}
+                              </div>
                               <div className="min-w-0">
                                 <span className="font-semibold text-slate-800 block truncate">
                                   {row.studentName}
@@ -1418,19 +1433,30 @@ export const AdminSubscriptions: React.FC = () => {
                   <img
                     src={selectedSubscription.avatarSrc}
                     alt={selectedSubscription.studentName}
-                    className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100"
+                    className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-100 border border-slate-200"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
-                      selectedSubscription.avatarBgColor || 'bg-blue-100',
-                      selectedSubscription.avatarTextColor || 'text-blue-600'
-                    )}
-                  >
-                    {selectedSubscription.avatarInitials}
-                  </div>
-                )}
+                ) : null}
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ring-2 ring-blue-100',
+                    selectedSubscription.avatarBgColor || 'bg-blue-100',
+                    selectedSubscription.avatarTextColor || 'text-blue-600'
+                  )}
+                  style={{
+                    display:
+                      selectedSubscription.avatarType === 'photo' && selectedSubscription.avatarSrc
+                        ? 'none'
+                        : 'flex',
+                  }}
+                >
+                  {selectedSubscription.avatarInitials}
+                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-900 text-sm">

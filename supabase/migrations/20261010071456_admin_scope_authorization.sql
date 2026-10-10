@@ -108,6 +108,7 @@ BEGIN
             p.full_name as student_name,
             p.email as student_email,
             p.phone as student_phone,
+            p.avatar_url as avatar_url,
             s.plan_id,
             pl.title as plan_title,
             s.status,
