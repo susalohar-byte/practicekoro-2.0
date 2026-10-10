@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, Table as TableIcon, Sparkles } from 'lucide-react';
+import { BarChart3, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function AdminMoneyChart({
@@ -7,7 +7,6 @@ export function AdminMoneyChart({
 }: {
   points: { label: string; revenue: number; refunds?: number }[];
 }) {
-  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const hasRefunds = points.some((p) => (p.refunds ?? 0) > 0);
@@ -29,8 +28,8 @@ export function AdminMoneyChart({
 
   return (
     <div className="space-y-4" aria-label="Recorded revenue by period">
-      {/* 1. Quick Financial Metric Pills & Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+      {/* 1. Quick Financial Metric Pills */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
           {/* Net Retained */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40">
@@ -66,36 +65,6 @@ export function AdminMoneyChart({
             </div>
           )}
         </div>
-
-        {/* View Switcher: Interactive Bar Chart vs Tabular Breakdown */}
-        <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 p-0.5 bg-slate-50 dark:bg-slate-800/60 text-xs self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setViewMode('chart')}
-            className={cn(
-              'px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer',
-              viewMode === 'chart'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs font-semibold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            )}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Chart View</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('table')}
-            className={cn(
-              'px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer',
-              viewMode === 'table'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs font-semibold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            )}
-          >
-            <TableIcon className="w-3.5 h-3.5" />
-            <span>Data Table</span>
-          </button>
-        </div>
       </div>
 
       {/* Accessible standard caption */}
@@ -104,12 +73,7 @@ export function AdminMoneyChart({
       </p>
 
       {/* 2. MAIN VISUAL: Interactive Dual-Bar Chart */}
-      <div
-        className={cn(
-          'relative rounded-2xl bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/60 dark:to-slate-900 p-4 border border-slate-100 dark:border-slate-800/80 transition-all',
-          viewMode === 'table' && 'hidden'
-        )}
-      >
+      <div className="relative rounded-2xl bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/60 dark:to-slate-900 p-4 border border-slate-100 dark:border-slate-800/80 transition-all">
         {hasAnyData ? (
           <div className="relative h-64 sm:h-72 flex flex-col justify-between pt-6 pb-2">
             {/* Background Grid Lines & Y-Axis Labels */}
@@ -240,107 +204,36 @@ export function AdminMoneyChart({
         )}
       </div>
 
-      {/* 3. Detailed Data Table (Always accessible in DOM for full accessibility & precision) */}
-      <div
-        className={cn(
-          'overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900',
-          viewMode === 'chart' && 'hidden'
-        )}
-      >
+      {/* Screen Reader Accessible Data Table for Accessibility & Automated Tests */}
+      <div className="sr-only">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-              <th className="py-2.5 px-4 font-semibold">Period starting</th>
-              <th className="py-2.5 px-4 font-semibold">Retained revenue</th>
-              {hasRefunds && <th className="py-2.5 px-4 font-semibold">Recorded refunds</th>}
-              <th className="py-2.5 px-4 font-semibold text-right">Net Flow</th>
+            <tr className="text-left text-slate-500">
+              <th className="py-2">Period starting</th>
+              <th>Retained revenue</th>
+              {hasRefunds && <th>Recorded refunds</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {points.map((p, index) => {
-              const net = p.revenue - (p.refunds || 0);
-              return (
-                <tr
-                  key={`${p.label}-${index}`}
-                  className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
-                >
-                  <th className="py-3 px-4 text-left font-medium text-slate-800 dark:text-slate-200">
-                    {p.label}
-                  </th>
-                  {(hasRefunds ? [p.revenue, p.refunds || 0] : [p.revenue]).map((value, i) => (
-                    <td key={i} className="py-3 px-4">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        <span>₹{value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                      </div>
+          <tbody>
+            {points.map((p, index) => (
+              <tr key={`${p.label}-${index}`} className="border-t border-slate-100">
+                <th className="py-2 text-left font-medium">{p.label}</th>
+                {(hasRefunds ? [p.revenue, p.refunds || 0] : [p.revenue]).map((value, i) => (
+                  <td key={i} className="w-1/3 px-2">
+                    <span>₹{value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    <div aria-hidden="true" className="mt-1 h-2 rounded bg-slate-100">
                       <div
-                        aria-hidden="true"
-                        className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 max-w-[140px]"
-                      >
-                        <div
-                          className={cn(
-                            'h-1.5 rounded-full transition-all',
-                            i
-                              ? 'bg-gradient-to-r from-rose-500 to-pink-400'
-                              : 'bg-gradient-to-r from-blue-600 to-sky-400'
-                          )}
-                          style={{ width: `${Math.min(100, Math.round((100 * value) / max))}%` }}
-                        />
-                      </div>
-                    </td>
-                  ))}
-                  <td className="py-3 px-4 text-right">
-                    <span
-                      className={cn(
-                        'font-bold px-2 py-0.5 rounded-md text-[11px]',
-                        net > 0
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                          : net < 0
-                            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      )}
-                    >
-                      ₹{net.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </span>
+                        className={`h-2 rounded ${i ? 'bg-pink-400' : 'bg-blue-500'}`}
+                        style={{ width: `${(100 * value) / max}%` }}
+                      />
+                    </div>
                   </td>
-                </tr>
-              );
-            })}
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* Screen Reader Accessible Data Table when in Chart View */}
-      {viewMode === 'chart' && (
-        <div className="sr-only">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="py-2">Period starting</th>
-                <th>Retained revenue</th>
-                {hasRefunds && <th>Recorded refunds</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {points.map((p, index) => (
-                <tr key={`${p.label}-${index}`} className="border-t border-slate-100">
-                  <th className="py-2 text-left font-medium">{p.label}</th>
-                  {(hasRefunds ? [p.revenue, p.refunds || 0] : [p.revenue]).map((value, i) => (
-                    <td key={i} className="w-1/3 px-2">
-                      <span>₹{value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                      <div aria-hidden="true" className="mt-1 h-2 rounded bg-slate-100">
-                        <div
-                          className={`h-2 rounded ${i ? 'bg-pink-400' : 'bg-blue-500'}`}
-                          style={{ width: `${(100 * value) / max}%` }}
-                        />
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* Empty State Message for tests and users */}
       {!hasAnyData && (
