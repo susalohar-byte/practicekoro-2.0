@@ -72,4 +72,31 @@ describe('Payment period reporting UI', () => {
     );
     expect(await screen.findByText('25%')).toBeInTheDocument();
   });
+  it('toggles between Accrual (Payment Date) and Cash Flow (Refund Date) attribution mode', async () => {
+    const now = new Date();
+    const old = new Date(now.getTime() - 60 * 86400000).toISOString();
+    const paymentRefundedNow = payment('old-payment-refunded-now', old, {
+      refundAmount: 50,
+      refundedAt: now.toISOString(),
+      amount: 100,
+    });
+    vi.mocked(api.getAllAdminPayments).mockResolvedValue([
+      payment('recent-payment', now.toISOString(), { amount: 200 }),
+      paymentRefundedNow,
+    ]);
+    render(<AdminPayments />);
+    await screen.findAllByText('recent-payment');
+
+    // Default mode is accrual
+    expect(screen.getByText(/Refunds are attributed to the original payment date/)).toBeInTheDocument();
+
+    // Switch to Cash Flow mode
+    fireEvent.click(screen.getByRole('button', { name: 'Cash flow attribution mode' }));
+    expect(
+      await screen.findByText(/Cash flow mode: Refunds are attributed to actual refund settlement date/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Disbursed Refunds:/)).toBeInTheDocument();
+    expect(screen.getByText('-₹50')).toBeInTheDocument();
+    expect(screen.getAllByText('₹150').length).toBeGreaterThan(0);
+  });
 });

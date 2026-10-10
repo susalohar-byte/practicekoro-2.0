@@ -80,6 +80,8 @@ vi.mock('@/services/api', () => ({
       } as const)),
     ] satisfies QuestionSolution[]),
     getAttemptNegativeMarks: vi.fn().mockResolvedValue(0.75),
+    getAttemptRankings: vi.fn().mockResolvedValue(null),
+    getStudentApplicableCutoff: vi.fn().mockResolvedValue(null),
   },
 }));
 

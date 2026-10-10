@@ -135,11 +135,11 @@ describe('Authoritative dashboard snapshots', () => {
     ).toBe(true);
   });
   it('initial partial failure shows no fresh zero KPIs and can retry', async () => {
-    mocks.api.getItemAnalysis.mockRejectedValueOnce(new Error('questions permission denied'));
+    mocks.api.getAdminDashboardV2Stats.mockRejectedValueOnce(new Error('stats permission denied'));
     mount();
     await screen.findByRole('alert');
     expect(screen.queryByText('Total Revenue')).not.toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('questions permission denied');
+    expect(screen.getByRole('alert')).toHaveTextContent('stats permission denied');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await settle();
     expect(screen.getByText('Total Revenue')).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('Authoritative dashboard snapshots', () => {
     mount();
     await settle();
     mocks.api.getDashboardPeriodData.mockResolvedValue(period(999));
-    mocks.api.getDashboardAuditLogs.mockRejectedValue(new Error('audit denied'));
+    mocks.api.getDashboardLeaderboard.mockRejectedValue(new Error('leaderboard query failed'));
     select('Last 7 Days');
     await screen.findByText('Stale Data');
     expect(

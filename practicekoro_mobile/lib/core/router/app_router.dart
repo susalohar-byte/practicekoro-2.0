@@ -32,8 +32,21 @@ import '../../features/auth/login_screen.dart';
 import '../../features/auth/auth_callback_screen.dart';
 import '../../data/models/attempt_model.dart';
 
+class _AuthRefreshNotifier extends ChangeNotifier {
+  _AuthRefreshNotifier() {
+    try {
+      Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+        notifyListeners();
+      });
+    } catch (_) {}
+  }
+}
+
+final _authRefreshNotifier = _AuthRefreshNotifier();
+
 final appRouter = GoRouter(
   initialLocation: kIsWeb ? '/home' : '/splash',
+  refreshListenable: _authRefreshNotifier,
   redirect: (context, state) {
     User? currentUser;
     try {
@@ -59,6 +72,12 @@ final appRouter = GoRouter(
         location.startsWith('/result/') ||
         location.startsWith('/analysis/') ||
         location.startsWith('/solutions/') ||
+        location == '/test-runner' ||
+        location.startsWith('/test-runner') ||
+        location.contains('/runner') ||
+        location == '/payment' ||
+        location.startsWith('/practice/test-runner') ||
+        location.startsWith('/practice/test-start') ||
         location == '/results' ||
         location == '/profile' ||
         location == '/saved-questions' ||
@@ -470,6 +489,51 @@ final appRouter = GoRouter(
       builder: (context, state) => const NotificationScreen(),
     ),
   ],
-  errorBuilder: (context, state) =>
-      Scaffold(body: Center(child: Text('Page not found: ${state.uri}'))),
+  errorBuilder: (context, state) => Scaffold(
+    backgroundColor: const Color(0xFFF8FAFC),
+    body: SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.search_off_rounded, color: Color(0xFFEF4444), size: 38),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Page Not Found',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The page you requested (${state.uri.path}) does not exist or has been moved.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/home'),
+                icon: const Icon(Icons.home_rounded, size: 18),
+                label: const Text('Return Home'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF026BFC),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ),
 );

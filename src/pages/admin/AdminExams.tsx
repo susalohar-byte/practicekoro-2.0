@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Upload,
   Camera,
+  GripVertical,
 } from 'lucide-react';
 import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
 import type { Exam, MockTest, Subject, TestSeries } from '@/types';
@@ -755,9 +756,9 @@ export const AdminExams: React.FC = () => {
           .map((c) => c.name)
           .filter((name) => !LEGACY_EXAM_CATEGORY_NAMES.has(name.toLowerCase()));
         if (catNames.length > 0) {
-          const merged = Array.from(
-            new Set([...['State Govt', 'Central Govt', 'Other'], ...catNames])
-          );
+          const merged = isSupabaseConfigured
+            ? catNames
+            : Array.from(new Set([...['State Govt', 'Central Govt', 'Other'], ...catNames]));
           setCategories(merged);
         }
       }
@@ -1071,6 +1072,18 @@ export const AdminExams: React.FC = () => {
     }
   };
 
+  const handleDeleteCategory = async (catName: string) => {
+    if (!window.confirm(`Delete category "${catName}"?`)) return;
+    try {
+      await api.deleteExamCategory(catName);
+      setCategories((prev) => prev.filter((c) => c !== catName));
+      await api.getExamCategories();
+      setActionSuccessMessage(`Category "${catName}" deleted.`);
+    } catch (err) {
+      alert(getErrorMessage(err, 'Category delete failed'));
+    }
+  };
+
   return withAdminSkeleton(
     isLoading,
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 sm:p-6 animate-in fade-in-50 duration-200">
@@ -1123,7 +1136,7 @@ export const AdminExams: React.FC = () => {
             className="h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1024] text-xs font-semibold text-[#026BFC] hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center gap-1.5 transition-colors shadow-2xs"
           >
             <FolderKanban className="w-4 h-4 text-[#026BFC]" />
-            Categories
+            Exam Categories
           </button>
 
           <button
@@ -1240,6 +1253,64 @@ export const AdminExams: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Category Pills Bar */}
+      {categories.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat, idx) => (
+            <div
+              key={cat}
+              draggable
+              title={`Drag to reorder "${cat}"`}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', String(idx));
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                const fromIdx = Number(e.dataTransfer.getData('text/plain'));
+                if (isNaN(fromIdx) || fromIdx === idx) return;
+                const updated = [...categories];
+                const [moved] = updated.splice(fromIdx, 1);
+                updated.splice(idx, 0, moved);
+                setCategories(updated);
+                try {
+                  await api.reorderExamCategories(
+                    updated.map((c, i) => ({ name: c, orderIndex: i + 1 }))
+                  );
+                  setActionSuccessMessage('Categories reordered.');
+                } catch (err) {
+                  console.warn('Reorder failed:', err);
+                }
+              }}
+              onClick={() => setSelectedCategory(selectedCategory === cat ? 'all' : cat)}
+              className={cn(
+                'px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all border flex items-center gap-1.5 select-none',
+                selectedCategory === cat
+                  ? 'bg-[#026BFC] text-white border-[#026BFC] shadow-2xs'
+                  : 'bg-white dark:bg-[#0A1024] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:border-blue-400'
+              )}
+            >
+              <GripVertical className="w-3 h-3 opacity-60 shrink-0" />
+              <span>{cat}</span>
+              <span
+                className={cn(
+                  'px-1.5 py-0.2 rounded-full text-[10px]',
+                  selectedCategory === cat
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                )}
+              >
+                {exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase())).length}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 3. Filter Toolbar Card */}
       <div className="p-3.5 rounded-2xl bg-white dark:bg-[#0A1024] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
@@ -2272,7 +2343,7 @@ export const AdminExams: React.FC = () => {
               <div className="flex items-center gap-2">
                 <FolderKanban className="w-5 h-5 text-[#026BFC]" />
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Exam Categories
+                  Manage Exam Categories
                 </h3>
               </div>
               <button
@@ -2315,13 +2386,23 @@ export const AdminExams: React.FC = () => {
                   className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
                 >
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{cat}</span>
-                  <span className="text-[10px] text-slate-400">
-                    {
-                      exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase()))
-                        .length
-                    }{' '}
-                    exams
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400">
+                      {
+                        exams.filter((e) => e.category.toLowerCase().includes(cat.toLowerCase()))
+                          .length
+                      }{' '}
+                      exams
+                    </span>
+                    <button
+                      type="button"
+                      title="Delete category"
+                      onClick={() => handleDeleteCategory(cat)}
+                      className="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

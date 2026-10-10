@@ -55,3 +55,48 @@ export function paymentChart(rows: AdminPaymentRow[], range: ReturnType<typeof p
     };
   });
 }
+
+export function refundInCashFlowRange(
+  p: AdminPaymentRow,
+  range: ReturnType<typeof paymentRange>
+) {
+  const refundAmt = recordedRefundAmount(p);
+  if (refundAmt <= 0) return false;
+  const stamp = Date.parse(p.refundedAt || p.createdAt || p.created_at || '');
+  return stamp >= Date.parse(range.startIso) && stamp <= Date.parse(range.endIso);
+}
+
+export function cashFlowChart(
+  rows: AdminPaymentRow[],
+  range: ReturnType<typeof paymentRange>
+) {
+  const valid = rows
+    .map((p) => Date.parse(p.createdAt || p.created_at || ''))
+    .filter((t) => Number.isFinite(t) && t <= Date.parse(range.endIso));
+  if (range.isAllTime && !valid.length) return [];
+  const chartStart = range.isAllTime ? new Date(Math.min(...valid)).toISOString() : range.startIso;
+  return generateChartBuckets(chartStart, range.endIso, 8).map((b) => {
+    const grossReceipts = rows
+      .filter((p) => {
+        if (p.status !== 'completed' && p.status !== 'refunded') return false;
+        const stamp = Date.parse(p.createdAt || p.created_at || '');
+        return stamp >= b.startMs && stamp <= b.endMs;
+      })
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const refundsDisbursed = rows
+      .filter((p) => {
+        const refundAmt = recordedRefundAmount(p);
+        if (refundAmt <= 0) return false;
+        const rStamp = Date.parse(p.refundedAt || p.createdAt || p.created_at || '');
+        return rStamp >= b.startMs && rStamp <= b.endMs;
+      })
+      .reduce((sum, p) => sum + recordedRefundAmount(p), 0);
+
+    return {
+      label: b.label,
+      revenue: Math.max(0, grossReceipts - refundsDisbursed),
+      refunds: refundsDisbursed,
+    };
+  });
+}

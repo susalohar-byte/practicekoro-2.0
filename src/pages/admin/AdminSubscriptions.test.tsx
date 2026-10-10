@@ -29,8 +29,9 @@ describe('AdminSubscriptions cancellation', () => {
       expiresAt: '2026-10-01T00:00:00Z',
     });
     render(<AdminSubscriptions />);
-    await screen.findAllByText('Actual Student');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
+    const tableRow = (await screen.findByText('Actual Student')).closest('tr')!;
+    fireEvent.click(within(tableRow).getByRole('button'));
+    fireEvent.click(within(tableRow).getByRole('button', { name: 'Cancel Plan' }));
     await waitFor(() =>
       expect(within(screen.getByRole('table')).getByText('Expired')).toBeInTheDocument()
     );
@@ -43,8 +44,9 @@ describe('AdminSubscriptions cancellation', () => {
     vi.mocked(api.getAllAdminSubscriptions).mockResolvedValue([row]);
     vi.mocked(api.cancelSubscription).mockResolvedValue({ success: false, error: 'Denied' });
     render(<AdminSubscriptions />);
-    await screen.findAllByText('Actual Student');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Subscription' }));
+    const tableRow = (await screen.findByText('Actual Student')).closest('tr')!;
+    fireEvent.click(within(tableRow).getByRole('button'));
+    fireEvent.click(within(tableRow).getByRole('button', { name: 'Cancel Plan' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Denied');
     expect(within(screen.getByRole('table')).getByText('Active')).toBeInTheDocument();
     expect(screen.queryByText(/Subscription cancelled for/)).not.toBeInTheDocument();

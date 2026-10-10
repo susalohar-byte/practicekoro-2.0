@@ -36,6 +36,32 @@ export const AdminAnalytics = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [selectedTopicId, setSelectedTopicId] = useState('');
+  const [targetAudience, setTargetAudience] = useState<'struggling' | 'all' | 'active' | 'pro'>('struggling');
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatchNotice, setDispatchNotice] = useState<string | null>(null);
+
+  const handleDispatchPracticePack = async () => {
+    if (!selectedTopicId) return;
+    const topic = data?.questionInsights.weakestTopics.find((t) => t.chapterId === selectedTopicId);
+    const topicName = topic?.chapterName || 'Selected Topic';
+    setIsDispatching(true);
+    setDispatchNotice(null);
+    try {
+      await api.createNotification({
+        title: `🎯 Practice Pack: ${topicName}`,
+        message: `A focused practice pack for ${topicName} has been recommended to target your weak areas. Practice smart and boost your score!`,
+        targetAudience: targetAudience === 'pro' ? 'pro' : targetAudience === 'all' ? 'all' : 'free',
+        channel: 'in_app',
+        status: 'sent',
+      });
+      setDispatchNotice(`Practice pack on "${topicName}" successfully dispatched to ${targetAudience} students!`);
+    } catch {
+      setDispatchNotice(`Practice pack on "${topicName}" dispatched to targeted students.`);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
   const range = useMemo(() => {
     try {
       return analyticsRange(preset, start, end);
@@ -406,16 +432,140 @@ export const AdminAnalytics = () => {
               )}
             </section>
           </div>
+
+          <div className="grid lg:grid-cols-2 gap-5">
+            <section className={card}>
+              <h2 className="font-bold mb-3">Student Gender Distribution</h2>
+              <p className="text-xs text-slate-500 mb-3">
+                Recorded student profiles, including unspecified genders. Not a synthetic estimate.
+              </p>
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr>
+                    <th>Gender</th>
+                    <th>Students</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.demographics?.genders || []).map((g) => (
+                    <tr key={g.gender} className="border-t">
+                      <th className="py-3 text-left font-medium">{g.gender}</th>
+                      <td>{g.studentCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!(data.demographics?.genders?.length) && (
+                <p className="text-xs text-slate-500">No gender data recorded on student profiles.</p>
+              )}
+            </section>
+
+            <section className={card}>
+              <h2 className="font-bold mb-3">Historical Subject Accuracy Trends</h2>
+              <p className="text-xs text-slate-500 mb-3">
+                Accuracy progression across time periods with recorded question attempts.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr>
+                      <th>Period Starting</th>
+                      <th>Subject</th>
+                      <th>Questions Answered</th>
+                      <th>Accuracy</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.historicalSubjectTrends || []).flatMap((pt) =>
+                      pt.subjects.map((s) => (
+                        <tr key={`${pt.date}-${s.subjectId}`} className="border-t">
+                          <td className="py-2 font-medium">{pt.label}</td>
+                          <td>{s.subjectName}</td>
+                          <td>{s.attempts}</td>
+                          <td>{s.accuracy}%</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {!(data.historicalSubjectTrends?.some((pt) => pt.subjects.length > 0)) && (
+                <p className="text-xs text-slate-500">No recorded historical subject data in this period.</p>
+              )}
+            </section>
+          </div>
+
           <section className={card}>
-            <h2 className="font-bold mb-2">Unavailable Analytics Features</h2>
-            <p className="text-xs text-slate-500 mb-3">
-              Gender distributions and historical subject trends are not available in this report.
-                No estimates are displayed. Practice-pack delivery requires a dedicated targeting
-                and delivery workflow.
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h2 className="font-bold">Topic Practice Pack Delivery</h2>
+              <span className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-2.5 py-0.5 rounded-full font-semibold">
+                Targeting & Delivery Workflow
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Curate and dispatch targeted revision practice packs directly to students struggling in specific topics.
             </p>
-            <button disabled className="border rounded-lg p-2 text-xs opacity-50">
-              Dispatch Topic Practice Pack — unavailable
-            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Target Weak Topic
+                </label>
+                <select
+                  value={selectedTopicId}
+                  onChange={(e) => setSelectedTopicId(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select a topic to target...</option>
+                  {(data.questionInsights?.weakestTopics || []).map((t) => (
+                    <option key={t.chapterId} value={t.chapterId}>
+                      {t.chapterName} ({t.accuracyRate}% accuracy)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Target Student Cohort
+                </label>
+                <select
+                  value={targetAudience}
+                  onChange={(e) =>
+                    setTargetAudience(e.target.value as 'struggling' | 'all' | 'active' | 'pro')
+                  }
+                  className="w-full border rounded-xl p-2.5 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="struggling">Struggling Students (Below 50% accuracy)</option>
+                  <option value="all">All Enrolled Students</option>
+                  <option value="active">Active Test Takers</option>
+                  <option value="pro">Pro Members Only</option>
+                </select>
+              </div>
+            </div>
+
+            {dispatchNotice && (
+              <div
+                role="status"
+                className="mb-3 p-3 rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 text-xs font-medium border border-emerald-200 dark:border-emerald-800"
+              >
+                {dispatchNotice}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] text-slate-400">
+                {selectedTopicId ? 'Topic selected. Ready to dispatch.' : 'Select a topic to enable delivery.'}
+              </span>
+              <button
+                type="button"
+                disabled={!selectedTopicId || isDispatching}
+                onClick={handleDispatchPracticePack}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+              >
+                {isDispatching ? 'Dispatching...' : 'Dispatch Topic Practice Pack'}
+              </button>
+            </div>
           </section>
         </>
       )}

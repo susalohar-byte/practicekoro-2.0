@@ -5,6 +5,8 @@ import {
   retainedPaymentAmount,
   recordedRefundAmount,
   paymentChart,
+  cashFlowChart,
+  refundInCashFlowRange,
 } from './adminPaymentReporting';
 import type { AdminPaymentRow } from '@/types';
 const row = (patch: Partial<AdminPaymentRow> = {}): AdminPaymentRow => ({
@@ -60,4 +62,25 @@ describe('Payment reporting integrity', () => {
     expect(paymentInRange(row({ createdAt: '2023-01-01T10:00:00Z' }), range)).toBe(true);
     expect(paymentChart([], range)).toEqual([]);
   });
+  it('correctly attributes cash flow refunds based on refundedAt', () => {
+    const range = paymentRange('Last 30 Days', new Date('2026-10-07T10:00:00Z'));
+    const oldCreatedRefundedNow = row({
+      createdAt: '2026-01-01T10:00:00Z',
+      refundedAt: '2026-10-05T10:00:00Z',
+      refundAmount: 50,
+      status: 'completed',
+    });
+    const oldCreatedRefundedOld = row({
+      createdAt: '2026-01-01T10:00:00Z',
+      refundedAt: '2026-01-02T10:00:00Z',
+      refundAmount: 50,
+      status: 'completed',
+    });
+    expect(refundInCashFlowRange(oldCreatedRefundedNow, range)).toBe(true);
+    expect(refundInCashFlowRange(oldCreatedRefundedOld, range)).toBe(false);
+
+    const points = cashFlowChart([oldCreatedRefundedNow], range);
+    expect(points.reduce((s, p) => s + p.refunds, 0)).toBe(50);
+  });
 });
+

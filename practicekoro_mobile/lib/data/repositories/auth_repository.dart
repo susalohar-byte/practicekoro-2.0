@@ -95,10 +95,6 @@ class AuthRepository {
       authScreenLaunchMode: kIsWeb
           ? LaunchMode.platformDefault
           : LaunchMode.externalApplication,
-      queryParams: const {
-        'access_type': 'offline',
-        'prompt': 'consent',
-      },
     );
   }
 

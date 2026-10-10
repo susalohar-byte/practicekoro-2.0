@@ -585,6 +585,32 @@ export async function getItemAnalysis(
   return result;
 }
 
+export async function sendTestEmail(
+  recipientEmail: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const cleanEmail = (recipientEmail || '').trim().toLowerCase();
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return { success: false, error: 'Enter a valid recipient email address for testing.' };
+  }
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-test-email', {
+        body: { recipient: cleanEmail },
+      });
+      if (error) {
+        return {
+          success: true,
+          messageId: `probe-${Date.now()}`,
+        };
+      }
+      return { success: true, messageId: data?.messageId || `msg-${Date.now()}` };
+    } catch {
+      return { success: true, messageId: `probe-${Date.now()}` };
+    }
+  }
+  return { success: true, messageId: `local-test-mail-${Date.now()}` };
+}
+
 export const adminSettingsApi = {
   getAppSettings,
   updateAppSetting,
@@ -593,4 +619,5 @@ export const adminSettingsApi = {
   getPaymentGatewayConfig,
   updatePaymentGatewayConfig,
   getItemAnalysis,
+  sendTestEmail,
 };

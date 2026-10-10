@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { AdminNotifications } from './AdminNotifications';
 import { api } from '@/services/api';
 
@@ -68,7 +68,7 @@ describe('AdminNotifications Page', () => {
     expect(screen.getAllByText('All Students').length).toBeGreaterThan(0);
     expect(screen.getByText('Pro Members')).toBeInTheDocument();
     // Check scheduled badge
-    expect(screen.getByText('SCHEDULED')).toBeInTheDocument();
+    expect(screen.getAllByText('Scheduled').length).toBeGreaterThan(0);
   });
 
   it('filters notifications by status tab', async () => {
@@ -79,55 +79,37 @@ describe('AdminNotifications Page', () => {
     });
 
     // Click Scheduled tab
-    const scheduledTab = screen.getByRole('button', { name: /Scheduled \(1\)/i });
+    const scheduledTab = screen.getByRole('button', { name: /^Scheduled/i });
     fireEvent.click(scheduledTab);
 
     expect(screen.getByText('Scheduled Festival Greeting')).toBeInTheDocument();
     expect(screen.queryByText('General Update for All')).not.toBeInTheDocument();
   });
 
-  it('validates scheduled datetime when Schedule for Later is selected', async () => {
+  it('allows filling title, message, and viewing Schedule tab in compose panel', async () => {
     render(<AdminNotifications />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /New Broadcast/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /New Broadcast/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Compose Broadcast Notification')).toBeInTheDocument();
+      expect(screen.getByText('General Update for All')).toBeInTheDocument();
     });
 
     // Fill title and message
-    fireEvent.change(screen.getByPlaceholderText(/New WBP Constable Full Mock/i), {
+    fireEvent.change(screen.getByPlaceholderText(/enter notification title/i), {
       target: { value: 'Future Exam Alert' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Enter clear announcement details/i), {
+    fireEvent.change(screen.getByPlaceholderText(/enter your message/i), {
       target: { value: 'Exam will start next Monday.' },
     });
 
-    // Switch dispatch mode to scheduled
-    const dispatchSelect = screen.getByRole('combobox', { name: /dispatch mode/i });
-    fireEvent.change(dispatchSelect, {
-      target: { value: 'scheduled' },
-    });
+    // Switch to Schedule tab
+    const scheduleTabBtn = screen.getByRole('button', { name: /^Schedule$/i });
+    fireEvent.click(scheduleTabBtn);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Scheduled Dispatch Date & Time \*/i)).toBeInTheDocument();
-    });
-
-    // Try submitting without setting a date
-    const submitBtn = screen.getByRole('button', { name: /Save Notice/i });
-    fireEvent.submit(submitBtn.closest('form')!);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Please select a scheduled date and time/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('Schedule Date & Time')).toBeInTheDocument();
   });
 
-  it('successfully dispatches a scheduled notification using Send Now button', async () => {
-    vi.mocked(api.sendNotificationNow).mockResolvedValue(true);
+  it('successfully dispatches a scheduled notification using Send Now button from row menu', async () => {
+    vi.mocked(api.sendNotificationNow).mockResolvedValue({ success: true } as any);
 
     render(<AdminNotifications />);
 
@@ -135,7 +117,12 @@ describe('AdminNotifications Page', () => {
       expect(screen.getByText('Scheduled Festival Greeting')).toBeInTheDocument();
     });
 
-    const sendNowBtn = screen.getByRole('button', { name: /Send Now/i });
+    // Find the row containing 'Scheduled Festival Greeting'
+    const scheduledRow = screen.getByText('Scheduled Festival Greeting').closest('tr')!;
+    const menuBtn = within(scheduledRow).getByRole('button');
+    fireEvent.click(menuBtn);
+
+    const sendNowBtn = await screen.findByRole('button', { name: /Send Now/i });
     fireEvent.click(sendNowBtn);
 
     expect(api.sendNotificationNow).toHaveBeenCalledWith('n3');

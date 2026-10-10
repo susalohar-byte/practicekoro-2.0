@@ -70,6 +70,9 @@ class LocalStorageService {
   static Future<void> saveAttempt(TestAttemptModel attempt) async {
     final existingAttempts = getAttempts();
     existingAttempts.insert(0, attempt);
+    if (existingAttempts.length > 50) {
+      existingAttempts.removeRange(50, existingAttempts.length);
+    }
     final encoded = jsonEncode(existingAttempts.map((e) => e.toJson()).toList());
     await _prefs?.setString(AppConstants.prefsOfflineAttemptsKey, encoded);
   }
@@ -195,5 +198,15 @@ class LocalStorageService {
     await _prefs?.remove('pk_user_gender');
     await _prefs?.remove(AppConstants.prefsIsProUserKey);
     await _prefs?.remove(AppConstants.prefsProExpiresAtKey);
+    await _prefs?.remove(AppConstants.prefsBookmarksKey);
+    await _prefs?.remove(AppConstants.prefsOfflineAttemptsKey);
+    await _prefs?.remove(AppConstants.prefsTargetExamKey);
+    await _prefs?.remove(_leaderboardDistrictKey);
+    final keys = _prefs?.getKeys() ?? <String>{};
+    for (final key in keys) {
+      if (key.startsWith('pk_cached_test_') || key.startsWith('pk_practice_')) {
+        await _prefs?.remove(key);
+      }
+    }
   }
 }

@@ -126,14 +126,14 @@ describe('AdminExamTopics Integration & Navigation', () => {
     vi.mocked(api.getExamCategories).mockResolvedValue([]);
   });
 
-  it('renders "Manage Exams" in Admin Sidebar navigation', () => {
+  it('renders "Exams" in Admin Sidebar navigation', () => {
     render(
       <MemoryRouter initialEntries={['/admin']}>
         <AdminLayout />
       </MemoryRouter>
     );
 
-    const navLink = screen.getAllByRole('link', { name: /Manage Exams/i })[0];
+    const navLink = screen.getAllByRole('link', { name: /^Exams$/i })[0];
     expect(navLink).toBeInTheDocument();
     expect(navLink).toHaveAttribute('href', '/admin/exams');
   });

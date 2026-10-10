@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import { getPageNumbers, calculatePaginationRange } from '@/utils/pagination';
 
 // ============================================================================
 // DATA MODELS & TYPES
@@ -886,18 +887,41 @@ export const AdminTestAttempts: React.FC = () => {
       } else if (filterDateRange === 'August 2026') {
         matchesDate = att.attemptedAtDate.includes('Aug 2026');
       } else if (filterDateRange === 'Today') {
-        matchesDate = att.attemptedAtDate === '30 Sep 2026';
+        const todayStr = new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+        matchesDate = att.attemptedAtDate === todayStr || att.attemptedAtDate === '30 Sep 2026';
       }
 
       return matchesSearch && matchesExam && matchesType && matchesResult && matchesDate;
     });
   }, [attempts, searchTerm, filterExam, filterType, filterResult, filterDateRange]);
 
+  // Pagination calculation
+  const paginationRange = useMemo(
+    () => calculatePaginationRange(currentPage, pageSize, filteredAttempts.length),
+    [currentPage, pageSize, filteredAttempts.length]
+  );
+  const totalPages = paginationRange.totalPages;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRowIds(new Set());
+  }, [searchTerm, filterExam, filterType, filterResult, filterDateRange, pageSize]);
+
   // Paginated records
   const paginatedAttempts = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const start = (paginationRange.currentPage - 1) * pageSize;
     return filteredAttempts.slice(start, start + pageSize);
-  }, [filteredAttempts, currentPage, pageSize]);
+  }, [filteredAttempts, paginationRange.currentPage, pageSize]);
 
   // Select all checkbox logic
   const isAllCurrentPageSelected = useMemo(() => {
@@ -1107,9 +1131,6 @@ export const AdminTestAttempts: React.FC = () => {
               <span className="text-xl font-black text-[#0F172A] tracking-tight">
                 {totalAttemptsCount.toLocaleString('en-IN')}
               </span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 28%
-              </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Total tests logged</p>
           </div>
@@ -1125,9 +1146,6 @@ export const AdminTestAttempts: React.FC = () => {
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-black text-[#0F172A] tracking-tight">
                 {completedCount.toLocaleString('en-IN')}
-              </span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 16%
               </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
@@ -1147,9 +1165,6 @@ export const AdminTestAttempts: React.FC = () => {
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xl font-black text-[#0F172A] tracking-tight">
                 {notCompletedCount.toLocaleString('en-IN')}
-              </span>
-              <span className="bg-[#FEE2E2] text-[#B91C1C] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↓ 8%
               </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
@@ -1172,9 +1187,6 @@ export const AdminTestAttempts: React.FC = () => {
               <span className="text-xl font-black text-[#0F172A] tracking-tight">
                 {averageScore}%
               </span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↑ 5%
-              </span>
             </div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Overall test accuracy</p>
           </div>
@@ -1191,11 +1203,8 @@ export const AdminTestAttempts: React.FC = () => {
               <span className="text-xl font-black text-[#0F172A] tracking-tight">
                 {averageTimeMin} min
               </span>
-              <span className="bg-[#DCFCE7] text-[#15803D] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                ↓ 12%
-              </span>
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">-6 min this month</p>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">Average test duration</p>
           </div>
         </div>
       </div>
@@ -1384,7 +1393,7 @@ export const AdminTestAttempts: React.FC = () => {
                   </tr>
                 ) : (
                   paginatedAttempts.map((attempt, index) => {
-                    const globalIdx = (currentPage - 1) * pageSize + index + 1;
+                    const globalIdx = (paginationRange.currentPage - 1) * pageSize + index + 1;
                     const isSelectedRow = selectedAttemptId === attempt.id && isPanelOpen;
                     const isChecked = selectedRowIds.has(attempt.id);
 
@@ -1597,89 +1606,53 @@ export const AdminTestAttempts: React.FC = () => {
               Showing{' '}
               {filteredAttempts.length === 0
                 ? '0'
-                : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredAttempts.length)}`}{' '}
+                : `${paginationRange.startIndex}–${paginationRange.endIndex}`}{' '}
               of {filteredAttempts.length.toLocaleString('en-IN')} attempts
             </span>
 
             {/* Pagination Controls */}
             <div className="flex items-center gap-1">
               <button
-                disabled={currentPage === 1}
+                type="button"
+                aria-label="Previous page"
+                disabled={!paginationRange.hasPreviousPage}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <button
-                onClick={() => setCurrentPage(1)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 1
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                1
-              </button>
-              <button
-                onClick={() => setCurrentPage(2)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 2
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                2
-              </button>
-              <button
-                onClick={() => setCurrentPage(3)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 3
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                3
-              </button>
-              <button
-                onClick={() => setCurrentPage(4)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 4
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                4
-              </button>
-              <button
-                onClick={() => setCurrentPage(5)}
-                className={cn(
-                  'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                  currentPage === 5
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:bg-slate-100'
-                )}
-              >
-                5
-              </button>
-
-              <span className="px-1 text-slate-400">...</span>
+              {getPageNumbers(paginationRange.currentPage, totalPages).map((item, idx) =>
+                item === 'ellipsis' ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-slate-400 select-none">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-label={`Page ${item}`}
+                    aria-current={paginationRange.currentPage === item ? 'page' : undefined}
+                    disabled={filteredAttempts.length === 0}
+                    onClick={() => setCurrentPage(item)}
+                    className={cn(
+                      'min-w-8 h-8 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+                      paginationRange.currentPage === item
+                        ? 'bg-[#2563EB] text-white shadow-xs'
+                        : 'text-[#64748B] hover:bg-slate-100'
+                    )}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
 
               <button
-                onClick={() => setCurrentPage(12486)}
-                className="w-12 h-8 rounded-lg text-xs font-semibold text-[#64748B] hover:bg-slate-100"
-              >
-                12,486
-              </button>
-
-              <button
-                disabled={currentPage >= 12486}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                type="button"
+                aria-label="Next page"
+                disabled={!paginationRange.hasNextPage}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1688,6 +1661,7 @@ export const AdminTestAttempts: React.FC = () => {
             {/* Page Size Select */}
             <div className="relative">
               <select
+                aria-label="Items per page"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
@@ -1698,6 +1672,7 @@ export const AdminTestAttempts: React.FC = () => {
                 <option value={10}>10 / page</option>
                 <option value={20}>20 / page</option>
                 <option value={50}>50 / page</option>
+                <option value={100}>100 / page</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>

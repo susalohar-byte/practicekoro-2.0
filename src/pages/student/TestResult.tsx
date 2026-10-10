@@ -69,9 +69,15 @@ export const TestResult: React.FC = () => {
           api.getAttemptResult(attemptId),
           testId ? api.getAttemptSolutions(attemptId, testId).catch(() => []) : Promise.resolve([]),
           liveTestId ? api.getLiveTestById(liveTestId).catch(() => null) : Promise.resolve(null),
-          liveTestId ? api.getLiveTestLeaderboard(liveTestId).catch(() => []) : Promise.resolve([]),
-          testId ? api.getAttemptNegativeMarks(attemptId, testId).catch(() => null) : Promise.resolve(null),
-          api.getAttemptRankings(attemptId).catch(() => null),
+          liveTestId && typeof api.getLiveTestLeaderboard === 'function'
+            ? api.getLiveTestLeaderboard(liveTestId).catch(() => [])
+            : Promise.resolve([]),
+          testId && typeof api.getAttemptNegativeMarks === 'function'
+            ? api.getAttemptNegativeMarks(attemptId, testId).catch(() => null)
+            : Promise.resolve(null),
+          typeof api.getAttemptRankings === 'function'
+            ? api.getAttemptRankings(attemptId).catch(() => null)
+            : Promise.resolve(null),
         ]);
         setResult(data);
         setSolutions(sols || []);

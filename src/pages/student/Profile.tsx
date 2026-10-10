@@ -38,6 +38,7 @@ import {
   AlertCircle,
   Info,
   GraduationCap,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -1086,6 +1087,27 @@ export const Profile: React.FC = () => {
           </div>
           <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#026BFC] group-hover:translate-x-0.5 transition-all" />
         </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/support')}
+          className="w-full text-left flex items-center justify-between p-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 flex items-center justify-center shrink-0">
+              <HelpCircle className="w-4 h-4 text-[#026BFC]" />
+            </div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-bold text-[#051A43] dark:text-white group-hover:text-[#026BFC] transition-colors">
+                Help & Support
+              </h4>
+              <p className="text-[10.5px] font-medium text-[#64748B] dark:text-slate-400">
+                Get help and contact us
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#026BFC] group-hover:translate-x-0.5 transition-all" />
+        </button>
 
         <div
           onClick={() => setIsLogoutConfirmOpen(true)}

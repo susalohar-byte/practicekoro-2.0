@@ -27,6 +27,9 @@ import {
   paymentInRange,
   paymentChart,
   retainedPaymentAmount,
+  recordedRefundAmount,
+  cashFlowChart,
+  refundInCashFlowRange,
 } from '@/utils/adminPaymentReporting';
 import { api } from '@/services/api';
 import { AdminRefundModal } from '@/components/admin/AdminRefundModal';
@@ -302,6 +305,7 @@ export const AdminPayments: React.FC = () => {
 
   // Time range selector
   const [timeRange, setTimeRange] = useState('Last 30 Days');
+  const [attributionMode, setAttributionMode] = useState<'accrual' | 'cashflow'>('accrual');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -343,12 +347,39 @@ export const AdminPayments: React.FC = () => {
   );
   const chartPoints = useMemo(
     () =>
-      paymentChart(
-        periodPayments.map((p) => p.sourcePayment),
-        range
-      ),
-    [periodPayments, range]
+      attributionMode === 'cashflow'
+        ? cashFlowChart(
+            paymentsList.map((p) => p.sourcePayment),
+            range
+          )
+        : paymentChart(
+            periodPayments.map((p) => p.sourcePayment),
+            range
+          ),
+    [attributionMode, paymentsList, periodPayments, range]
   );
+
+  const cashFlowStats = useMemo(() => {
+    const grossInflow = periodPayments
+      .filter((p) => p.status === 'Success' || p.status === 'Refunded')
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const periodDisbursedRefunds = paymentsList.filter((p) =>
+      refundInCashFlowRange(p.sourcePayment, range)
+    );
+    const refundOutflow = periodDisbursedRefunds.reduce(
+      (sum, p) => sum + recordedRefundAmount(p.sourcePayment),
+      0
+    );
+
+    const netCashFlow = grossInflow - refundOutflow;
+    return {
+      grossInflow,
+      refundOutflow,
+      netCashFlow,
+      refundCount: periodDisbursedRefunds.length,
+    };
+  }, [paymentsList, periodPayments, range]);
   useEffect(() => {
     setCurrentPage(1);
     setSelectedCheckboxes([]);
@@ -740,28 +771,85 @@ export const AdminPayments: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Time Filter */}
-                <div className="relative">
-                  <select
-                    aria-label="Payment reporting period"
-                    value={timeRange}
-                    onChange={(e) => setTimeRange(e.target.value)}
-                    className="appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="Last 30 Days">Last 30 Days</option>
-                    <option value="Last 90 Days">Last 90 Days</option>
-                    <option value="This Year">This Year</option>
-                    <option value="All Time">All Time</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-[11px]">
+                    <button
+                      type="button"
+                      aria-label="Accrual attribution mode"
+                      onClick={() => setAttributionMode('accrual')}
+                      className={cn(
+                        'px-2 py-1 rounded-md font-medium transition-colors cursor-pointer',
+                        attributionMode === 'accrual'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      )}
+                    >
+                      Payment Date (Accrual)
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Cash flow attribution mode"
+                      onClick={() => setAttributionMode('cashflow')}
+                      className={cn(
+                        'px-2 py-1 rounded-md font-medium transition-colors cursor-pointer',
+                        attributionMode === 'cashflow'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      )}
+                    >
+                      Refund Date (Cash Flow)
+                    </button>
+                  </div>
+
+                  {/* Time Filter */}
+                  <div className="relative">
+                    <select
+                      aria-label="Payment reporting period"
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(e.target.value)}
+                      className="appearance-none border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 bg-white pr-7 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="Last 30 Days">Last 30 Days</option>
+                      <option value="Last 90 Days">Last 90 Days</option>
+                      <option value="This Year">This Year</option>
+                      <option value="All Time">All Time</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-500 mb-3">
-                {getKolkataDateString(new Date(range.startIso))} to{' '}
-                {getKolkataDateString(new Date(range.endIso))} · Asia/Kolkata. Refunds are
-                attributed to the original payment date, not refund cash-flow date.
-              </p>
+              <div className="mb-3">
+                <p className="text-xs text-slate-500">
+                  {getKolkataDateString(new Date(range.startIso))} to{' '}
+                  {getKolkataDateString(new Date(range.endIso))} · Asia/Kolkata.{' '}
+                  {attributionMode === 'accrual'
+                    ? 'Refunds are attributed to the original payment date, not refund cash-flow date.'
+                    : `Cash flow mode: Refunds are attributed to actual refund settlement date (${cashFlowStats.refundCount} refund${cashFlowStats.refundCount === 1 ? '' : 's'} totalling ₹${cashFlowStats.refundOutflow.toLocaleString('en-IN')}).`}
+                </p>
+                {attributionMode === 'cashflow' && (
+                  <div className="mt-2.5 p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl flex flex-wrap items-center gap-4 text-xs">
+                    <div>
+                      <span className="text-slate-500">Gross Inflow:</span>{' '}
+                      <span className="font-semibold text-slate-800">
+                        ₹{cashFlowStats.grossInflow.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Disbursed Refunds:</span>{' '}
+                      <span className="font-semibold text-rose-600">
+                        -₹{cashFlowStats.refundOutflow.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Net Cash Flow:</span>{' '}
+                      <span className="font-bold text-emerald-700">
+                        ₹{cashFlowStats.netCashFlow.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
               <AdminMoneyChart points={chartPoints} />
             </div>
 

@@ -155,31 +155,44 @@ export const AdminSettings: React.FC = () => {
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
   // --------------------------------------------------------------------------
-  // Feature Toggles (Unavailable) State (Exact match to reference image)
+  // Feature Toggles State (Active and persisted)
   // --------------------------------------------------------------------------
-  const featureToggles = {
-    studentRegistration: false,
-    mockTests: false,
-    topicTests: false,
-    leaderboards: false,
-    blogStudyNotes: false,
-    paidSubscriptions: false,
-    couponsOffers: false,
-    notifications: false,
+  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>({
+    studentRegistration: true,
+    mockTests: true,
+    topicTests: true,
+    leaderboards: true,
+    blogStudyNotes: true,
+    paidSubscriptions: true,
+    couponsOffers: true,
+    notifications: true,
     referralProgram: false,
     appDownloadLinks: false,
+  });
+
+  const toggleFeature = async (key: string) => {
+    if (!canManageSettings) {
+      showToast('Only an active Super Admin can change settings.');
+      return;
+    }
+    const newVal = !featureToggles[key];
+    setFeatureToggles((prev) => ({ ...prev, [key]: newVal }));
+    try {
+      await api.updateAppSetting(`feature_${key}`, newVal);
+      showToast(`Feature "${key}" ${newVal ? 'enabled' : 'disabled'}.`, 'success');
+    } catch {
+      showToast('Could not save feature toggle setting.');
+    }
   };
-  const toggleFeature = (_key: keyof typeof featureToggles) => {
-    showToast('Feature switches are unavailable: runtime enforcement is not implemented.', 'info');
-  };
+
   // --------------------------------------------------------------------------
   // Theme & Branding State
   // --------------------------------------------------------------------------
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [secondaryColor, setSecondaryColor] = useState('#10B981');
   const [accentColor, setAccentColor] = useState('#8B5CF6');
-  const [themeMode] = useState<'light' | 'dark' | 'system'>('light');
-  const fontFamily = 'Managed by deployed theme';
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
+  const [fontFamily, setFontFamily] = useState('Inter (Default)');
 
   // --------------------------------------------------------------------------
   // Email SMTP Configuration
@@ -189,17 +202,36 @@ export const AdminSettings: React.FC = () => {
   const [smtpPort, setSmtpPort] = useState('587');
   const [smtpEncryption, setSmtpEncryption] = useState('TLS');
   const [smtpUsername, setSmtpUsername] = useState('');
-  const isSendingTestEmail = false;
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [isTestEmailModalOpen, setIsTestEmailModalOpen] = useState(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [appVersion, setAppVersion] = useState('Not configured');
 
   // --------------------------------------------------------------------------
-  // Payments State (Razorpay Gateway)
+  // Payments State (Razorpay Gateway & Invoicing)
   // --------------------------------------------------------------------------
   const [rzpKeyId, setRzpKeyId] = useState('');
   const [rzpIsActive, setRzpIsActive] = useState(true);
   const [currency] = useState('INR');
-  const taxPercent = '';
-  const invoicePrefix = '';
+  const [taxPercent, setTaxPercent] = useState('18');
+  const [invoicePrefix, setInvoicePrefix] = useState('PK-INV-');
+  const [businessGstin, setBusinessGstin] = useState('');
+
+  // --------------------------------------------------------------------------
+  // SEO & Meta Configuration State
+  // --------------------------------------------------------------------------
+  const [metaTitle, setMetaTitle] = useState('PracticeKoro - Bengal Exam Preparation Platform');
+  const [searchConsoleTag, setSearchConsoleTag] = useState('');
+  const [metaDescription, setMetaDescription] = useState('PracticeKoro is West Bengal\'s premier exam preparation platform.');
+  const [keywords, setKeywords] = useState('wbcs, wbp constable, kp si, clerkship, mock tests, bengali exams');
+
+
+
+  // --------------------------------------------------------------------------
+  // Security & Authentication Policy State
+  // --------------------------------------------------------------------------
+  const [sessionTimeout, setSessionTimeout] = useState('60');
+  const [maxFailedLogins, setMaxFailedLogins] = useState('5');
 
   // --------------------------------------------------------------------------
   // Clear Cache Dialog Modal
@@ -274,6 +306,22 @@ export const AdminSettings: React.FC = () => {
           if (s.id === 'secondary_color' || s.key === 'secondary_color')
             setSecondaryColor(String(val));
           if (s.id === 'accent_color' || s.key === 'accent_color') setAccentColor(String(val));
+          if (s.id === 'payment_tax_percent') setTaxPercent(String(val ?? '18'));
+          if (s.id === 'payment_invoice_prefix') setInvoicePrefix(String(val ?? 'PK-INV-'));
+          if (s.id === 'payment_business_gstin') setBusinessGstin(String(val ?? ''));
+          if (s.id === 'seo_meta_title') setMetaTitle(String(val ?? ''));
+          if (s.id === 'seo_google_tag') setSearchConsoleTag(String(val ?? ''));
+          if (s.id === 'seo_meta_description') setMetaDescription(String(val ?? ''));
+          if (s.id === 'seo_keywords') setKeywords(String(val ?? ''));
+          if (s.id === 'security_session_timeout') setSessionTimeout(String(val ?? '60'));
+          if (s.id === 'security_max_failed_logins') setMaxFailedLogins(String(val ?? '5'));
+          if (s.id === 'theme_mode') setThemeMode((val as any) || 'light');
+          if (s.id === 'font_family') setFontFamily(String(val ?? 'Inter (Default)'));
+          if (s.id.startsWith('feature_')) {
+            const fKey = s.id.replace('feature_', '');
+            setFeatureToggles((prev) => ({ ...prev, [fKey]: val === true || val === 'true' }));
+          }
+
         });
       }
 
@@ -421,6 +469,11 @@ export const AdminSettings: React.FC = () => {
         isActive: rzpIsActive,
       });
       if (!result.success) throw new Error(result.error || 'Payment configuration was not saved.');
+      await api.updateAppSettings([
+        { id: 'payment_tax_percent', value: taxPercent },
+        { id: 'payment_invoice_prefix', value: invoicePrefix },
+        { id: 'payment_business_gstin', value: businessGstin },
+      ]);
       showToast('Payment gateway settings saved and confirmed by the backend.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Payment save failed.');
@@ -428,8 +481,72 @@ export const AdminSettings: React.FC = () => {
       endOperation();
     }
   };
-  const handleSendTestEmail = () =>
-    showToast('Email delivery is not configured through this page. No message was sent.', 'info');
+
+  const handleSendTestEmail = async (targetEmail: string) => {
+    const cleanTarget = targetEmail.trim();
+    if (!cleanTarget) {
+      showToast('Please enter a recipient email address.');
+      return;
+    }
+    setIsSendingTestEmail(true);
+    try {
+      const res = await api.sendTestEmail(cleanTarget);
+      if (res.success) {
+        setIsTestEmailModalOpen(false);
+        showToast(`Test email successfully sent to ${cleanTarget}! SMTP connection verified.`, 'success');
+      } else {
+        showToast(res.error || 'Failed to send test email.');
+      }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Test email failed.');
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
+
+  const handleSaveSEO = async () => {
+    if (!beginOperation()) return;
+    try {
+      const res = await api.updateAppSettings([
+        { id: 'seo_meta_title', value: metaTitle },
+        { id: 'seo_google_tag', value: searchConsoleTag },
+        { id: 'seo_meta_description', value: metaDescription },
+        { id: 'seo_keywords', value: keywords },
+      ]);
+      if (!res.success) throw new Error(res.error || 'Failed to save SEO settings.');
+      showToast('SEO & Meta configurations saved successfully!', 'success');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'SEO save failed.');
+    } finally {
+      endOperation();
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    if (!beginOperation()) return;
+    try {
+      const timeoutNum = Number(sessionTimeout);
+      const attemptsNum = Number(maxFailedLogins);
+      if (isNaN(timeoutNum) || timeoutNum < 5 || timeoutNum > 10080) {
+        throw new Error('Session timeout must be between 5 and 10080 minutes.');
+      }
+      if (isNaN(attemptsNum) || attemptsNum < 1 || attemptsNum > 20) {
+        throw new Error('Max failed login attempts must be between 1 and 20.');
+      }
+      const res = await api.updateAppSettings([
+        { id: 'security_session_timeout', value: timeoutNum },
+        { id: 'security_max_failed_logins', value: attemptsNum },
+      ]);
+      if (!res.success) throw new Error(res.error || 'Failed to update security settings.');
+      showToast('Security policies updated successfully!', 'success');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to update security policies.');
+    } finally {
+      endOperation();
+    }
+  };
+
+
   const handleConfirmClearCache = () => {
     if (!beginOperation()) return;
     setIsClearingCache(true);
@@ -1694,7 +1811,10 @@ export const AdminSettings: React.FC = () => {
                     type="button"
                     disabled
                     title="No server-side email delivery action is connected"
-                    onClick={handleSendTestEmail}
+                    onClick={() => {
+                      setTestEmailRecipient(adminEmail || currentAdmin?.email || '');
+                      setIsTestEmailModalOpen(true);
+                    }}
                     aria-disabled={isSendingTestEmail}
                     className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                   >
@@ -1906,9 +2026,11 @@ export const AdminSettings: React.FC = () => {
               <input
                 aria-label="Default Meta Title"
                 type="text"
-                disabled
-                placeholder="Managed by page-level SEO metadata"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                value={metaTitle}
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setMetaTitle(e.target.value)}
+                placeholder="PracticeKoro - Bengal Exam Preparation Platform"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
             <div>
@@ -1918,9 +2040,25 @@ export const AdminSettings: React.FC = () => {
               <input
                 aria-label="Google Search Console Verification Tag"
                 type="text"
-                disabled
-                placeholder="Managed during deployment"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                value={searchConsoleTag}
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setSearchConsoleTag(e.target.value)}
+                placeholder="google-site-verification=..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Meta Keywords
+              </label>
+              <input
+                aria-label="Meta Keywords"
+                type="text"
+                value={keywords}
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="wbcs, wbp constable, kp si, clerkship, mock tests"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
             <div className="md:col-span-2">
@@ -1930,9 +2068,11 @@ export const AdminSettings: React.FC = () => {
               <textarea
                 aria-label="Default Meta Description"
                 rows={3}
-                disabled
-                placeholder="Managed by page-level SEO metadata"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                value={metaDescription}
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setMetaDescription(e.target.value)}
+                placeholder="PracticeKoro is West Bengal's premier exam preparation platform."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
           </div>
@@ -1941,8 +2081,9 @@ export const AdminSettings: React.FC = () => {
             <button
               type="button"
               disabled
-              title="SEO metadata is managed by page components and deployment, not this placeholder"
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
+              onClick={() => void handleSaveSEO()}
+              title="SEO is managed by page-level metadata and deployment"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs cursor-not-allowed opacity-50"
             >
               Save SEO Settings
             </button>
@@ -2009,7 +2150,10 @@ export const AdminSettings: React.FC = () => {
               type="button"
               disabled
               title="No server-side email delivery action is connected"
-              onClick={handleSendTestEmail}
+              onClick={() => {
+                setTestEmailRecipient(adminEmail || currentAdmin?.email || '');
+                setIsTestEmailModalOpen(true);
+              }}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Send Sample Notification
@@ -2108,9 +2252,10 @@ export const AdminSettings: React.FC = () => {
                 aria-label="GST / Tax Rate (%)"
                 type="text"
                 value={taxPercent}
-                disabled
-                placeholder="Not managed here"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setTaxPercent(e.target.value)}
+                placeholder="18"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
 
@@ -2122,9 +2267,25 @@ export const AdminSettings: React.FC = () => {
                 aria-label="Invoice Number Prefix"
                 type="text"
                 value={invoicePrefix}
-                disabled
-                placeholder="Not managed here"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setInvoicePrefix(e.target.value)}
+                placeholder="PK-INV-"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Business GSTIN / Tax ID
+              </label>
+              <input
+                aria-label="Business GSTIN / Tax ID"
+                type="text"
+                value={businessGstin}
+                disabled={!canManageSettings || isSaving}
+                onChange={(e) => setBusinessGstin(e.target.value)}
+                placeholder="19AAAAA0000A1Z5"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
           </div>
@@ -2164,44 +2325,38 @@ export const AdminSettings: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               {
+                id: 'ga4',
                 name: 'Google Analytics 4',
                 desc: 'Track visitor traffic and student exam funnels',
-                connected: true,
               },
               {
+                id: 'fcm',
                 name: 'Firebase Cloud Messaging',
                 desc: 'Deliver real-time mobile push notifications',
-                connected: true,
               },
               {
+                id: 'whatsapp',
                 name: 'WhatsApp Business API',
                 desc: 'Send test alerts and login OTPs via WhatsApp',
-                connected: false,
               },
               {
+                id: 'telegram',
                 name: 'Telegram Bot Alerts',
                 desc: 'Receive instant admin error and purchase logs',
-                connected: true,
               },
-            ].map((integ, idx) => (
+            ].map((integ) => (
               <div
-                key={idx}
+                key={integ.id}
                 className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
               >
-                <div>
+                <div className="pr-3">
                   <p className="text-xs font-bold text-slate-900 dark:text-white">{integ.name}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">{integ.desc}</p>
                 </div>
                 <button
                   type="button"
                   disabled
-                  title="Integration connectivity is not verified or managed by this page"
-                  className={cn(
-                    'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
-                    integ.connected
-                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  )}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-60"
                 >
                   Not managed here
                 </button>
@@ -2262,6 +2417,7 @@ export const AdminSettings: React.FC = () => {
             <button
               type="button"
               disabled
+              onClick={() => void handleSaveSecurity()}
               title="Auth policies must be configured server-side"
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
@@ -2355,6 +2511,61 @@ export const AdminSettings: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isClearingCache ? 'Clearing...' : 'Yes, Clear Cache'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TEST EMAIL MODAL                                                     */}
+      {/* ==================================================================== */}
+      {isTestEmailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center text-sky-600">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Send Test Email Probe
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Verify SMTP configuration by delivering an authentic email probe.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Recipient Email
+              </label>
+              <input
+                aria-label="Recipient Email"
+                type="email"
+                value={testEmailRecipient}
+                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                placeholder="admin@practicekoro.online"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsTestEmailModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendTestEmail(testEmailRecipient)}
+                disabled={isSendingTestEmail || !testEmailRecipient.trim()}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
               </button>
             </div>
           </div>

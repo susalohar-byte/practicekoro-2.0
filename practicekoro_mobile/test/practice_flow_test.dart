@@ -17,7 +17,6 @@ void main() {
 
   group('Practice Flow Repository Tests', () {
     test('PracticeRepository contains all 10 required Bengali subjects', () {
-      final repo = PracticeRepository();
       final subjects = PracticeRepository.defaultSubjects;
 
       expect(subjects.length, 10);

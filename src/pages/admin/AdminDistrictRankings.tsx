@@ -472,6 +472,227 @@ const INITIAL_DISTRICTS: DistrictRankData[] = [
       },
     ],
   },
+  {
+    rank: 11,
+    name: 'Kolkata',
+    landmarkImg: 'https://images.unsplash.com/photo-1558431382-27e303142255?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 1450,
+    testsAttempted: 31200,
+    avgScore: 82,
+    topScore: 99,
+    activeStudents: 980,
+    top100Count: 8,
+    colorClass: 'bg-emerald-100 text-emerald-800',
+    topStudents: [
+      { rank: 1, name: 'Anirban Bhattacharya', avatar: '/images/avatar_sayon.jpg', testsAttempted: 52, avgScore: 94, bestScore: 99, lastActive: '1 hour ago' },
+      { rank: 2, name: 'Pooja Ganguly', avatar: '/images/avatar_tania.jpg', testsAttempted: 46, avgScore: 91, bestScore: 97, lastActive: '3 hours ago' },
+      { rank: 3, name: 'Subham Sen', avatar: '/images/performer_suman.png', testsAttempted: 40, avgScore: 88, bestScore: 95, lastActive: '1 day ago' },
+    ],
+  },
+  {
+    rank: 12,
+    name: 'Murshidabad',
+    landmarkImg: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 590,
+    testsAttempted: 13800,
+    avgScore: 59,
+    topScore: 79,
+    activeStudents: 390,
+    top100Count: 1,
+    colorClass: 'bg-orange-100 text-orange-800',
+    topStudents: [
+      { rank: 1, name: 'Nasiruddin Mondal', avatar: '/images/avatar_arindam.jpg', testsAttempted: 32, avgScore: 78, bestScore: 79, lastActive: '1 day ago' },
+      { rank: 2, name: 'Sanjida Khatun', avatar: '/images/avatar_sneha.jpg', testsAttempted: 28, avgScore: 73, bestScore: 78, lastActive: '2 days ago' },
+      { rank: 3, name: 'Farooq Hossain', avatar: '/images/avatar_abhishek.jpg', testsAttempted: 24, avgScore: 68, bestScore: 75, lastActive: '4 days ago' },
+    ],
+  },
+  {
+    rank: 13,
+    name: 'Malda',
+    landmarkImg: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 560,
+    testsAttempted: 13200,
+    avgScore: 58,
+    topScore: 78,
+    activeStudents: 370,
+    top100Count: 1,
+    colorClass: 'bg-orange-100 text-orange-800',
+    topStudents: [
+      { rank: 1, name: 'Bikram Sarkar', avatar: '/images/leaderboard_rohit.jpg', testsAttempted: 30, avgScore: 76, bestScore: 78, lastActive: '2 days ago' },
+      { rank: 2, name: 'Ananya Pramanik', avatar: '/images/avatar_mousumi.jpg', testsAttempted: 26, avgScore: 71, bestScore: 77, lastActive: '3 days ago' },
+      { rank: 3, name: 'Rabiul Sk', avatar: '/images/avatar_koushik.jpg', testsAttempted: 22, avgScore: 66, bestScore: 74, lastActive: '5 days ago' },
+    ],
+  },
+  {
+    rank: 14,
+    name: 'Uttar Dinajpur',
+    landmarkImg: 'https://images.unsplash.com/photo-1518684079-3c830dcef090?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 510,
+    testsAttempted: 11900,
+    avgScore: 56,
+    topScore: 76,
+    activeStudents: 330,
+    top100Count: 1,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Debabrata Barman', avatar: '/images/avatar_abhishek.jpg', testsAttempted: 28, avgScore: 75, bestScore: 76, lastActive: '3 days ago' },
+      { rank: 2, name: 'Manasi Roy', avatar: '/images/avatar_tania.jpg', testsAttempted: 25, avgScore: 70, bestScore: 75, lastActive: '4 days ago' },
+      { rank: 3, name: 'Prasenjit Das', avatar: '/images/avatar_sayon.jpg', testsAttempted: 21, avgScore: 64, bestScore: 72, lastActive: '6 days ago' },
+    ],
+  },
+  {
+    rank: 15,
+    name: 'Dakshin Dinajpur',
+    landmarkImg: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 480,
+    testsAttempted: 11200,
+    avgScore: 55,
+    topScore: 75,
+    activeStudents: 310,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Siddhartha Mahanta', avatar: '/images/avatar_koushik.jpg', testsAttempted: 27, avgScore: 74, bestScore: 75, lastActive: '3 days ago' },
+      { rank: 2, name: 'Madhuri Sarkar', avatar: '/images/avatar_sneha.jpg', testsAttempted: 24, avgScore: 69, bestScore: 73, lastActive: '5 days ago' },
+      { rank: 3, name: 'Gourab Ghosh', avatar: '/images/performer_suman.png', testsAttempted: 20, avgScore: 63, bestScore: 70, lastActive: '1 week ago' },
+    ],
+  },
+  {
+    rank: 16,
+    name: 'Jalpaiguri',
+    landmarkImg: 'https://images.unsplash.com/photo-1548013146-72479768bada?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 540,
+    testsAttempted: 12600,
+    avgScore: 57,
+    topScore: 77,
+    activeStudents: 350,
+    top100Count: 1,
+    colorClass: 'bg-orange-100 text-orange-800',
+    topStudents: [
+      { rank: 1, name: 'Alok Roy', avatar: '/images/avatar_arindam.jpg', testsAttempted: 29, avgScore: 76, bestScore: 77, lastActive: '2 days ago' },
+      { rank: 2, name: 'Swarnali Das', avatar: '/images/avatar_mousumi.jpg', testsAttempted: 25, avgScore: 71, bestScore: 76, lastActive: '4 days ago' },
+      { rank: 3, name: 'Rajen Oraon', avatar: '/images/avatar_abhishek.jpg', testsAttempted: 21, avgScore: 65, bestScore: 72, lastActive: '5 days ago' },
+    ],
+  },
+  {
+    rank: 17,
+    name: 'Alipurduar',
+    landmarkImg: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 430,
+    testsAttempted: 9800,
+    avgScore: 54,
+    topScore: 74,
+    activeStudents: 280,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Dipesh Lama', avatar: '/images/leaderboard_rohit.jpg', testsAttempted: 26, avgScore: 73, bestScore: 74, lastActive: '3 days ago' },
+      { rank: 2, name: 'Sangita Minz', avatar: '/images/avatar_tania.jpg', testsAttempted: 22, avgScore: 68, bestScore: 72, lastActive: '5 days ago' },
+      { rank: 3, name: 'Amitava Rava', avatar: '/images/avatar_sayon.jpg', testsAttempted: 19, avgScore: 62, bestScore: 69, lastActive: '1 week ago' },
+    ],
+  },
+  {
+    rank: 18,
+    name: 'Cooch Behar',
+    landmarkImg: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 490,
+    testsAttempted: 11400,
+    avgScore: 55,
+    topScore: 75,
+    activeStudents: 320,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Manoranjan Barman', avatar: '/images/avatar_koushik.jpg', testsAttempted: 28, avgScore: 74, bestScore: 75, lastActive: '2 days ago' },
+      { rank: 2, name: 'Payel Adhikary', avatar: '/images/avatar_sneha.jpg', testsAttempted: 23, avgScore: 69, bestScore: 73, lastActive: '4 days ago' },
+      { rank: 3, name: 'Subal Roy', avatar: '/images/performer_suman.png', testsAttempted: 20, avgScore: 63, bestScore: 70, lastActive: '6 days ago' },
+    ],
+  },
+  {
+    rank: 19,
+    name: 'Darjeeling',
+    landmarkImg: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 460,
+    testsAttempted: 10600,
+    avgScore: 54,
+    topScore: 74,
+    activeStudents: 300,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Pema Bhutia', avatar: '/images/avatar_sayon.jpg', testsAttempted: 26, avgScore: 73, bestScore: 74, lastActive: '3 days ago' },
+      { rank: 2, name: 'Tenzing Sherpa', avatar: '/images/avatar_arindam.jpg', testsAttempted: 22, avgScore: 67, bestScore: 72, lastActive: '4 days ago' },
+      { rank: 3, name: 'Rinchen Tamang', avatar: '/images/avatar_tania.jpg', testsAttempted: 19, avgScore: 62, bestScore: 69, lastActive: '1 week ago' },
+    ],
+  },
+  {
+    rank: 20,
+    name: 'Kalimpong',
+    landmarkImg: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 380,
+    testsAttempted: 8900,
+    avgScore: 53,
+    topScore: 73,
+    activeStudents: 240,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Karma Lepcha', avatar: '/images/leaderboard_rohit.jpg', testsAttempted: 24, avgScore: 72, bestScore: 73, lastActive: '4 days ago' },
+      { rank: 2, name: 'Dawa Pradhan', avatar: '/images/avatar_mousumi.jpg', testsAttempted: 20, avgScore: 66, bestScore: 70, lastActive: '5 days ago' },
+      { rank: 3, name: 'Sonam Gurung', avatar: '/images/avatar_koushik.jpg', testsAttempted: 17, avgScore: 61, bestScore: 68, lastActive: '1 week ago' },
+    ],
+  },
+  {
+    rank: 21,
+    name: 'Jhargram',
+    landmarkImg: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 410,
+    testsAttempted: 9400,
+    avgScore: 53,
+    topScore: 73,
+    activeStudents: 260,
+    top100Count: 0,
+    colorClass: 'bg-rose-100 text-rose-800',
+    topStudents: [
+      { rank: 1, name: 'Somnath Soren', avatar: '/images/avatar_abhishek.jpg', testsAttempted: 25, avgScore: 72, bestScore: 73, lastActive: '3 days ago' },
+      { rank: 2, name: 'Baha Tudu', avatar: '/images/avatar_sneha.jpg', testsAttempted: 21, avgScore: 66, bestScore: 71, lastActive: '6 days ago' },
+      { rank: 3, name: 'Sanatan Mandi', avatar: '/images/avatar_arindam.jpg', testsAttempted: 18, avgScore: 60, bestScore: 67, lastActive: '1 week ago' },
+    ],
+  },
+  {
+    rank: 22,
+    name: 'Purba Medinipur',
+    landmarkImg: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 750,
+    testsAttempted: 17100,
+    avgScore: 67,
+    topScore: 87,
+    activeStudents: 520,
+    top100Count: 2,
+    colorClass: 'bg-amber-100 text-amber-800',
+    topStudents: [
+      { rank: 1, name: 'Sourav Jana', avatar: '/images/avatar_koushik.jpg', testsAttempted: 35, avgScore: 81, bestScore: 87, lastActive: '1 day ago' },
+      { rank: 2, name: 'Mousumi Maity', avatar: '/images/avatar_mousumi.jpg', testsAttempted: 31, avgScore: 77, bestScore: 85, lastActive: '3 days ago' },
+      { rank: 3, name: 'Subhajit Bera', avatar: '/images/performer_suman.png', testsAttempted: 28, avgScore: 72, bestScore: 82, lastActive: '4 days ago' },
+    ],
+  },
+  {
+    rank: 23,
+    name: 'Purba Bardhaman',
+    landmarkImg: 'https://images.unsplash.com/photo-1548013146-72479768bada?w=120&auto=format&fit=crop&q=80',
+    totalStudents: 710,
+    testsAttempted: 16100,
+    avgScore: 65,
+    topScore: 85,
+    activeStudents: 490,
+    top100Count: 2,
+    colorClass: 'bg-amber-100 text-amber-800',
+    topStudents: [
+      { rank: 1, name: 'Arindam Konar', avatar: '/images/avatar_arindam.jpg', testsAttempted: 34, avgScore: 80, bestScore: 85, lastActive: '2 days ago' },
+      { rank: 2, name: 'Supriya Hazra', avatar: '/images/avatar_tania.jpg', testsAttempted: 30, avgScore: 75, bestScore: 83, lastActive: '3 days ago' },
+      { rank: 3, name: 'Kalyan Samanta', avatar: '/images/avatar_sayon.jpg', testsAttempted: 27, avgScore: 71, bestScore: 80, lastActive: '5 days ago' },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -547,9 +768,9 @@ export const AdminDistrictRankings: React.FC = () => {
     };
   }, []);
 
-  // Pagination
+  // Pagination & View Mode (Default: 10 per page -> 3 pages for 23 districts: Page 1: 1-10, Page 2: 11-20, Page 3: 21-23)
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number | 'all'>(10);
 
   // Popover menus & Modals
   const [openActionRank, setOpenActionRank] = useState<number | null>(null);
@@ -604,6 +825,27 @@ export const AdminDistrictRankings: React.FC = () => {
       return true;
     });
   }, [districtsList, selectedDistrictFilter]);
+
+  // Pagination & Display calculation
+  const isAll = pageSize === 'all';
+  const effectivePageSize = isAll ? Math.max(1, filteredDistricts.length) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(filteredDistricts.length / effectivePageSize));
+
+  // Reset or clamp currentPage if it exceeds totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  const startIndex = filteredDistricts.length === 0 ? 0 : isAll ? 0 : (currentPage - 1) * effectivePageSize;
+  const endIndex = isAll ? filteredDistricts.length : Math.min(currentPage * effectivePageSize, filteredDistricts.length);
+
+  const displayedDistricts = useMemo(() => {
+    if (filteredDistricts.length === 0) return [];
+    if (isAll) return filteredDistricts;
+    return filteredDistricts.slice(startIndex, endIndex);
+  }, [filteredDistricts, isAll, startIndex, endIndex]);
 
   // CSV Export feature
   const handleExportCSV = () => {
@@ -836,13 +1078,15 @@ export const AdminDistrictRankings: React.FC = () => {
 
         {/* Select District */}
         <div className="w-[130px]">
-          <label className="block text-[11px] font-semibold text-[#64748B] mb-1">
-            Select District
-          </label>
+          <label htmlFor="select-district-filter" className="block text-[11px] font-semibold text-[#64748B] mb-1">Select District</label>
           <div className="relative">
             <select
+              id="select-district-filter"
               value={selectedDistrictFilter}
-              onChange={(e) => setSelectedDistrictFilter(e.target.value)}
+              onChange={(e) => {
+                setSelectedDistrictFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full appearance-none bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-[#1E293B] focus:outline-none focus:border-[#2563EB] cursor-pointer pr-7"
             >
               <option value="All Districts">All Districts</option>
@@ -899,45 +1143,45 @@ export const AdminDistrictRankings: React.FC = () => {
         <div className="flex-1 w-full min-w-0 space-y-4">
           {/* Main District Table */}
           <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden flex flex-col">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[620px] overflow-y-auto">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    <th className="py-3 px-3.5 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-12 text-center">
+                <thead className="sticky top-0 z-10 bg-[#F8FAFC] shadow-2xs">
+                  <tr className="border-b border-[#E2E8F0]">
+                    <th className="py-3 px-3.5 text-[11px] font-bold text-[#475569] uppercase tracking-wider w-12 text-center bg-[#F8FAFC]">
                       #
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider min-w-[170px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider min-w-[170px] bg-[#F8FAFC]">
                       District
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[90px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[90px] bg-[#F8FAFC]">
                       Total Students
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[90px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[90px] bg-[#F8FAFC]">
                       Tests Attempted
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[80px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[80px] bg-[#F8FAFC]">
                       Avg. Score
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[80px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[80px] bg-[#F8FAFC]">
                       Top Score
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[95px]">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center min-w-[95px] bg-[#F8FAFC]">
                       Active Students
                     </th>
-                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center w-12">
+                    <th className="py-3 px-3 text-[11px] font-bold text-[#475569] uppercase tracking-wider text-center w-12 bg-[#F8FAFC]">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {filteredDistricts.length === 0 ? (
+                  {displayedDistricts.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
                         No district rankings found.
                       </td>
                     </tr>
                   ) : (
-                    filteredDistricts.map((district) => {
+                    displayedDistricts.map((district) => {
                       const isSelected = Boolean(
                         isDetailsOpen && selectedDistrictName === district.name
                       );
@@ -1083,105 +1327,79 @@ export const AdminDistrictRankings: React.FC = () => {
               </table>
             </div>
 
-            {/* Pagination Footer */}
+            {/* Pagination & List Summary Footer */}
             <div className="py-3 px-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <span className="text-[#64748B] font-medium">
-                Showing{' '}
                 {filteredDistricts.length === 0
-                  ? '0'
-                  : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredDistricts.length)}`}{' '}
-                of {filteredDistricts.length} districts
+                  ? 'Showing 0 of 0 districts'
+                  : isAll
+                  ? `Showing all ${filteredDistricts.length} districts of West Bengal`
+                  : `Showing ${startIndex + 1}–${endIndex} of ${filteredDistricts.length} districts`}
               </span>
 
-              {/* Pagination Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
+              {/* View / Pagination Controls */}
+              {isAll ? (
+                <div className="flex items-center gap-1.5 text-xs text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-1 rounded-xl font-semibold">
+                  <MapPin className="w-3.5 h-3.5 text-[#2563EB]" />
+                  <span>Scroll to view all {filteredDistricts.length} districts</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Previous page"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className={cn(
-                    'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                    currentPage === 1
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'text-[#64748B] hover:bg-slate-100'
-                  )}
-                >
-                  1
-                </button>
-                <button
-                  onClick={() => setCurrentPage(2)}
-                  className={cn(
-                    'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                    currentPage === 2
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'text-[#64748B] hover:bg-slate-100'
-                  )}
-                >
-                  2
-                </button>
-                <button
-                  onClick={() => setCurrentPage(3)}
-                  className={cn(
-                    'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                    currentPage === 3
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'text-[#64748B] hover:bg-slate-100'
-                  )}
-                >
-                  3
-                </button>
-                <button
-                  onClick={() => setCurrentPage(4)}
-                  className={cn(
-                    'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                    currentPage === 4
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'text-[#64748B] hover:bg-slate-100'
-                  )}
-                >
-                  4
-                </button>
-                <button
-                  onClick={() => setCurrentPage(5)}
-                  className={cn(
-                    'w-8 h-8 rounded-lg text-xs font-bold transition-colors',
-                    currentPage === 5
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'text-[#64748B] hover:bg-slate-100'
-                  )}
-                >
-                  5
-                </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      aria-label={`Page ${pageNum}`}
+                      aria-current={currentPage === pageNum ? 'page' : undefined}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={cn(
+                        'min-w-8 h-8 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer',
+                        currentPage === pageNum
+                          ? 'bg-[#2563EB] text-white shadow-xs'
+                          : 'text-[#64748B] hover:bg-slate-100'
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
 
-                <span className="px-1 text-slate-400">...</span>
+                  <button
+                    type="button"
+                    aria-label="Next page"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
-                <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="w-8 h-8 rounded-lg border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:bg-slate-50 transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Page Size Select */}
+              {/* Page Size / View Mode Select */}
               <div className="relative">
                 <select
+                  aria-label="Districts per page"
                   value={pageSize}
                   onChange={(e) => {
-                    setPageSize(Number(e.target.value));
+                    const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                    setPageSize(val);
                     setCurrentPage(1);
                   }}
                   className="appearance-none bg-white border border-[#E2E8F0] rounded-xl pl-3 pr-7 py-1.5 text-xs font-semibold text-[#334155] focus:outline-none focus:border-[#2563EB] cursor-pointer"
                 >
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
+                  <option value={10}>10 / page (3 pages)</option>
+                  <option value={20}>20 / page (2 pages)</option>
+                  <option value="all">All (23 Districts)</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>

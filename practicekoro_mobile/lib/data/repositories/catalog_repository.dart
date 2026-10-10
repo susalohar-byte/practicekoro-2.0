@@ -1525,4 +1525,91 @@ class CatalogRepository {
     }
     return const [];
   }
+
+  /// Create Razorpay payment order via Edge Function or database RPC
+  Future<Map<String, dynamic>> createPaymentOrder(String planId) async {
+    final client = _supabase;
+    if (client == null) {
+      throw Exception('Supabase client not initialized');
+    }
+
+    // 1. Edge Function
+    try {
+      final res = await client.functions.invoke(
+        'create-razorpay-order',
+        body: {'planId': planId},
+      );
+      if (res.data != null && res.data is Map && res.data['order_id'] != null) {
+        return Map<String, dynamic>.from(res.data as Map);
+      }
+      if (res.data != null && res.data is Map && res.data['error'] != null) {
+        debugPrint('create-razorpay-order edge function message: ${res.data['error']}');
+      }
+    } catch (e) {
+      debugPrint('create-razorpay-order edge function invoke error: $e');
+    }
+
+    // 2. Database RPC fallback
+    try {
+      final res = await client.rpc('create_razorpay_order', params: {
+        'p_plan_id': planId,
+      });
+      if (res != null && res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      debugPrint('create_razorpay_order RPC fallback error: $e');
+      throw Exception('Payment order creation failed: $e');
+    }
+
+    throw Exception('Failed to create payment order. Please try again.');
+  }
+
+  /// Verify Razorpay payment via Edge Function or database RPC
+  Future<bool> verifyPayment({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+    required String planId,
+  }) async {
+    final client = _supabase;
+    if (client == null) return false;
+
+    // 1. Edge Function
+    try {
+      final res = await client.functions.invoke(
+        'verify-payment',
+        body: {
+          'orderId': orderId,
+          'paymentId': paymentId,
+          'signature': signature,
+          'planId': planId,
+        },
+      );
+      if (res.data != null && res.data is Map && res.data['success'] == true) {
+        await LocalStorageService.setProUser(true);
+        return true;
+      }
+    } catch (e) {
+      debugPrint('verify-payment edge function invoke error: $e');
+    }
+
+    // 2. RPC fallback
+    try {
+      final res = await client.rpc('verify_razorpay_payment', params: {
+        'p_order_id': orderId,
+        'p_payment_id': paymentId,
+        'p_signature': signature,
+        'p_plan_id': planId,
+      });
+      if (res != null) {
+        await LocalStorageService.setProUser(true);
+        return true;
+      }
+    } catch (e) {
+      debugPrint('verify_razorpay_payment RPC error: $e');
+    }
+
+    return false;
+  }
 }

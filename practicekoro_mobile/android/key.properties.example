@@ -1,0 +1,6 @@
+# Template for Android release signing
+# Store your actual credentials in key.properties (gitignored)
+storePassword=your_keystore_password
+keyPassword=your_key_password
+keyAlias=your_key_alias
+storeFile=practicekoro-release.jks

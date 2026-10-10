@@ -40,6 +40,8 @@ vi.mock('@/context/ThemeContext', () => ({
   }),
 }));
 
+vi.mock('@/lib/supabase', () => ({ isSupabaseConfigured: true, supabaseRuntime: {} }));
+
 vi.mock('@/services/api', () => ({
   DEFAULT_POPULAR_EXAMS: [],
   api: {
@@ -61,6 +63,8 @@ vi.mock('@/services/api', () => ({
     getAllAdminSubjects: vi.fn(),
     getAllAdminChapters: vi.fn(),
     getAllAdminTests: vi.fn(),
+    getSubjects: vi.fn().mockResolvedValue([]),
+    getTestSeries: vi.fn().mockResolvedValue([]),
     bulkDeleteQuestions: vi.fn(),
     logAdminActivity: vi.fn(),
   },
