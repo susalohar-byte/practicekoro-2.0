@@ -13,9 +13,17 @@
 
 - Full suite before the last incoming logo-only update: **754 passed, 0 failed**.
 - SEO/theme/settings focused run: **41 passed, 0 failed**; nine new regression tests cover runtime metadata, verification clearing, page precedence, unsafe input, platform default versus user preference, device theme listeners, and confirmed saves.
-- Production build and changed-file ESLint passed.
+- Production build and changed-file ESLint passed. After preserving the incoming logo update, merged navigation/settings/runtime retest: **64 passed, 0 failed**.
 - Isolated Playwright: 8 tabs × 4 widths (320/390/1280/1920), **32 checks**, no overflow or browser errors.
 - Concurrent upstream Analytics and logo changes were preserved; the logo update receives a merged build/navigation/settings retest.
+
+## Production verification
+
+- Published feature commit: `16a9254`.
+- Fresh frontend asset `App-fAnWnTZZ.js` matches the live production bundle.
+- Authenticated SEO save succeeded with the displayed defaults; after reload the three displayed SEO values matched the pre-save snapshot. The production DOM contains one description meta tag (no initial-HTML duplicate).
+- Authenticated Branding save succeeded with the displayed values; colors, default theme, and font matched after reload. Runtime font variable was present in the production document. No live default was flipped for a visual test.
+- Application settings rows for current SEO/default-theme/font metadata were saved, and normal timestamps/audit entries may change. No student/payment/message records were changed; no email or checkout was initiated.
 
 ## Not completed — required inputs / infrastructure
 
