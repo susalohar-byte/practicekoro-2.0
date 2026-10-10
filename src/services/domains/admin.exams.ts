@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { readCompleteQuery } from './admin.reporting';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -457,26 +458,12 @@ export async function getPublishedExamTestCount(examId: string): Promise<number>
 
 export async function uploadPopularExamImage(
   file: File,
-  cardId: string,
-  kind: 'logo' | 'background'
-) {
-  if (!isSupabaseConfigured)
-    throw new Error('Connect to the Admin Panel database before uploading images.');
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
-  const extension =
-    file.name
-      .split('.')
-      .pop()
-      ?.toLowerCase()
-      .replace(/[^a-z0-9]/g, '') || 'png';
-  const safeId = cardId.replace(/[^a-zA-Z0-9_-]/g, '-');
-  const path = `popular-exams/${safeId}/${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-  const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-  });
-  if (error) throw new Error(`Image upload failed: ${error.message}`);
-  return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+  _cardId: string,
+  _kind: 'logo' | 'background'
+){
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export function subscribeToPopularExamUpdates(callback: () => void): () => void {

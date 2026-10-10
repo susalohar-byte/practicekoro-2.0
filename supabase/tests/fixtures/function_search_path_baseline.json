@@ -1,0 +1,46 @@
+{
+  "mutable_functions": [
+    {
+      "name": "has_test_access",
+      "definer": true,
+      "language": "plpgsql",
+      "signature": "has_test_access(uuid,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.has_test_access(p_user_id uuid, p_test_id text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nDECLARE\n    v_is_premium BOOLEAN;\nBEGIN\n    -- Check if test is free\n    SELECT is_premium INTO v_is_premium FROM public.tests WHERE id = p_test_id;\n    IF v_is_premium IS FALSE THEN\n        RETURN TRUE;\n    END IF;\n\n    -- If user is admin, allow access\n    IF public.has_role(p_user_id, 'admin') THEN\n        RETURN TRUE;\n    END IF;\n\n    -- If test is premium, user MUST have an active subscription\n    RETURN public.has_active_subscription(p_user_id);\nEND;\n$function$\n"
+    },
+    {
+      "name": "handle_updated_at",
+      "definer": false,
+      "language": "plpgsql",
+      "signature": "handle_updated_at()",
+      "definition": "CREATE OR REPLACE FUNCTION public.handle_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "handle_new_user",
+      "definer": true,
+      "language": "plpgsql",
+      "signature": "handle_new_user()",
+      "definition": "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nBEGIN\n    INSERT INTO public.profiles (id, full_name, email, district, role)\n    VALUES (\n        NEW.id,\n        COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),\n        NEW.email,\n        NULLIF(TRIM(NEW.raw_user_meta_data->>'district'), ''),\n        'student'\n    )\n    ON CONFLICT (id) DO UPDATE SET\n        full_name = EXCLUDED.full_name,\n        district = COALESCE(NULLIF(TRIM(EXCLUDED.district), ''), public.profiles.district);\n\n    INSERT INTO public.user_roles (user_id, role)\n    VALUES (NEW.id, 'student')\n    ON CONFLICT (user_id, role) DO NOTHING;\n\n    RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "sync_question_topic_chapter",
+      "definer": false,
+      "language": "plpgsql",
+      "signature": "sync_question_topic_chapter()",
+      "definition": "CREATE OR REPLACE FUNCTION public.sync_question_topic_chapter()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n    IF NEW.topic_id IS NOT NULL AND NEW.chapter_id IS NULL THEN\n        NEW.chapter_id := NEW.topic_id;\n    ELSIF NEW.chapter_id IS NOT NULL AND NEW.topic_id IS NULL THEN\n        NEW.topic_id := NEW.chapter_id;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "enforce_student_role_security",
+      "definer": false,
+      "language": "plpgsql",
+      "signature": "enforce_student_role_security()",
+      "definition": "CREATE OR REPLACE FUNCTION public.enforce_student_role_security()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n    -- If email is NOT admin@practicekoro.online, block super_admin permanently\n    IF LOWER(COALESCE(NEW.email, '')) <> 'admin@practicekoro.online' THEN\n        IF NEW.admin_role = 'super_admin' THEN\n            RAISE EXCEPTION 'Security Policy Violation: Only admin@practicekoro.online can be Super Admin'\n                USING ERRCODE = '42501';\n        END IF;\n    END IF;\n\n    -- If role is not admin (e.g. student), admin_role is forcefully kept NULL\n    IF NEW.role <> 'admin' THEN\n        NEW.admin_role := NULL;\n    END IF;\n\n    RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "create_razorpay_order",
+      "definer": true,
+      "language": "plpgsql",
+      "signature": "create_razorpay_order(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.create_razorpay_order(p_plan_id text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nDECLARE\n    v_user_id UUID;\n    v_plan RECORD;\n    v_order_id TEXT;\n    v_payment_id UUID;\n    v_key_id TEXT;\nBEGIN\n    v_user_id := auth.uid();\n    IF v_user_id IS NULL THEN\n        RAISE EXCEPTION 'Unauthorized: User authentication required' USING ERRCODE = '40100';\n    END IF;\n\n    -- Retrieve active plan from database\n    SELECT * INTO v_plan\n    FROM public.subscription_plans\n    WHERE id = p_plan_id AND is_active = TRUE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'Subscription plan not found or inactive' USING ERRCODE = '40400';\n    END IF;\n\n    -- Retrieve public key_id from payment_gateways, or fallback to app_settings\n    SELECT key_id INTO v_key_id\n    FROM public.payment_gateways\n    WHERE gateway = 'razorpay' AND is_active = TRUE;\n\n    IF v_key_id IS NULL OR TRIM(v_key_id) = '' THEN\n        SELECT trim(both '\"' from value::text) INTO v_key_id\n        FROM public.app_settings\n        WHERE id = 'payment_gateway_razorpay_key_id';\n    END IF;\n\n    -- Generate unique internal payment reference\n    v_order_id := 'pk_local_' || substr(md5(gen_random_uuid()::text || clock_timestamp()::text), 1, 16);\n\n    -- Insert pending payment record\n    INSERT INTO public.payments (\n        user_id,\n        plan_id,\n        amount,\n        currency,\n        gateway,\n        order_id,\n        razorpay_order_id,\n        status\n    )\n    VALUES (\n        v_user_id,\n        v_plan.id,\n        v_plan.price,\n        v_plan.currency,\n        'razorpay',\n        v_order_id,\n        v_order_id,\n        'pending'\n    )\n    RETURNING id INTO v_payment_id;\n\n    RETURN jsonb_build_object(\n        'order_id', v_order_id,\n        'payment_id', v_payment_id,\n        'plan_id', v_plan.id,\n        'plan_title', v_plan.title,\n        'amount', v_plan.price,\n        'currency', v_plan.currency,\n        'duration_days', v_plan.duration_days,\n        'key_id', v_key_id,\n        'is_real_razorpay_order', false\n    );\nEND;\n$function$\n"
+    }
+  ]
+}

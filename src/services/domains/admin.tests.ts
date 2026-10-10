@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { csvCell } from '@/utils/csvExport';
 import { readCompleteQuery } from './admin.reporting';
 import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
@@ -27,47 +28,10 @@ import type { QuestionRow } from '@/services/domains/localStore';
 // TESTS API
 // --------------------------------------------------------------------------
 /** Upload custom test icon to Supabase storage with robust bucket fallback */
-export async function uploadTestIcon(file: File, testId: string = 'custom'): Promise<string> {
-  if (isSupabaseConfigured) {
-    const extension =
-      file.name
-        .split('.')
-        .pop()
-        ?.toLowerCase()
-        .replace(/[^a-z0-9]/g, '') || 'png';
-    const safeId = testId.replace(/[^a-zA-Z0-9_-]/g, '-');
-    const path = `test-icons/${safeId}/icon-${Date.now()}.${extension}`;
-
-    // 1. Try 'banners' bucket
-    const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-      cacheControl: '3600',
-      upsert: true,
-    });
-    if (!error && data) {
-      return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-    }
-
-    // 2. Fallback to 'question-images' or 'avatars'
-    const fallbackBucket = 'question-images';
-    const { data: fbData, error: fbError } = await supabase.storage
-      .from(fallbackBucket)
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-    if (!fbError && fbData) {
-      return supabase.storage.from(fallbackBucket).getPublicUrl(fbData.path).data.publicUrl;
-    }
-
-    throw new Error(`Icon upload failed: ${error?.message || fbError?.message || 'Storage error'}`);
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+export async function uploadTestIcon(file: File, _testId: string = 'custom'): Promise<string>{
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export async function getAllAdminTests(filter?: {

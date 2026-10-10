@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { readCompleteQuery } from './admin.reporting';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -178,34 +179,10 @@ export async function deleteChapter(id: string): Promise<boolean> {
   return true;
 }
 
-export async function uploadTopicIcon(file: File, topicId: string = 'custom'): Promise<string> {
-  if (isSupabaseConfigured) {
-    {
-      const extension =
-        file.name
-          .split('.')
-          .pop()
-          ?.toLowerCase()
-          .replace(/[^a-z0-9]/g, '') || 'png';
-      const safeId = topicId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const path = `topic-icons/${safeId}/icon-${Date.now()}.${extension}`;
-      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-      if (!error && data) {
-        return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-      }
-    }
-    throw new Error('Image upload failed. Please check Storage permissions.');
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+export async function uploadTopicIcon(file: File, _topicId: string = 'custom'): Promise<string>{
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export const adminChaptersApi = {

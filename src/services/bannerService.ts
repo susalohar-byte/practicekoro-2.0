@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { mutateContentCollection } from '@/services/domains/admin.mutations';
 import type { HeroBanner, BannerThemeColor, BannerAudience, BannerPlacement } from '@/types';
 import { supabaseRuntime, isSupabaseConfigured } from '@/lib/supabase';
@@ -25,13 +26,13 @@ export async function optimizeBannerImage(
   maxHeight = 720,
   quality = 0.85
 ): Promise<OptimizedImageResult> {
+  validateRasterFile(file, 'banners');
   const originalSize = file.size;
 
   // In non-browser / test environments or SVGs, return directly
   if (
     typeof window === 'undefined' ||
-    typeof document === 'undefined' ||
-    file.type === 'image/svg+xml'
+    typeof document === 'undefined'
   ) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -353,9 +354,8 @@ async function syncBannersToRemote(banners: HeroBanner[]): Promise<void> {
 
 export const bannerService = {
   /**
-   * Optimizes and uploads a banner image file (PNG/JPG/WebP/SVG).
-   * Tries Supabase Storage buckets ('banners', 'question-images', 'avatars'),
-   * and if neither is available, safely falls back to a clean compressed Data URL.
+   * Optimizes raster images and publishes only through server validation.
+   * Production failures never fall back to another bucket or a data URL.
    */
   async uploadBannerImage(
     file: File
@@ -363,46 +363,7 @@ export const bannerService = {
     const opt = await optimizeBannerImage(file);
     const fileToUpload = opt.file;
 
-    if (isSupabaseConfigured) {
-      {
-        const ext = fileToUpload.name.split('.').pop() || 'webp';
-        const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const fileName = `banner-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${cleanExt}`;
-        const filePath = `banners/${fileName}`;
-
-        // Attempt 1: 'banners' bucket
-        const { data: bData, error: bError } = await supabaseRuntime.storage
-          .from('banners')
-          .upload(filePath, fileToUpload, { cacheControl: '3600', upsert: true });
-
-        if (!bError && bData?.path) {
-          const { data: pUrl } = supabaseRuntime.storage.from('banners').getPublicUrl(bData.path);
-          if (pUrl?.publicUrl) return { url: pUrl.publicUrl, optimization: opt };
-        }
-
-        // Attempt 2: 'question-images' bucket (active in production)
-        const { data: qData, error: qError } = await supabaseRuntime.storage
-          .from('question-images')
-          .upload(filePath, fileToUpload, { cacheControl: '3600', upsert: true });
-
-        if (!qError && qData?.path) {
-          const { data: qUrl } = supabaseRuntime.storage
-            .from('question-images')
-            .getPublicUrl(qData.path);
-          if (qUrl?.publicUrl) return { url: qUrl.publicUrl, optimization: opt };
-        }
-
-        // Attempt 3: 'avatars' bucket (active in production)
-        const { data: aData, error: aError } = await supabaseRuntime.storage
-          .from('avatars')
-          .upload(filePath, fileToUpload, { cacheControl: '3600', upsert: true });
-
-        if (!aError && aData?.path) {
-          const { data: aUrl } = supabaseRuntime.storage.from('avatars').getPublicUrl(aData.path);
-          if (aUrl?.publicUrl) return { url: aUrl.publicUrl, optimization: opt };
-        }
-      }
-    }
+    if (isSupabaseConfigured) return { url: await uploadValidatedImage(fileToUpload, 'banners'), optimization: opt };
 
     // Attempt 4: Safe compressed Data URL
     if (isSupabaseConfigured) throw new Error('Durable image upload failed.');

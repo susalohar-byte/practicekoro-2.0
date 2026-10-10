@@ -80,11 +80,15 @@
   </FilesMatch>
 
   # Prevent caching of index.html so updates are immediate
-  <FilesMatch "index\.html$">
+  <FilesMatch "(index\.html|theme-init\.js)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires 0
   </FilesMatch>
+
+  # Tested HTTPS apex/www coverage. Start with one day; no includeSubDomains/preload.
+  Header always set Strict-Transport-Security "max-age=86400"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://cdn.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://prycanbnxuihxhskallw.supabase.co wss://prycanbnxuihxhskallw.supabase.co https://*.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self' https://api.razorpay.com https://checkout.razorpay.com; upgrade-insecure-requests; frame-ancestors 'self'"
 
   # Security Headers
   Header set X-Content-Type-Options "nosniff"

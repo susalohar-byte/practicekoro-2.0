@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { readCompleteQuery } from './admin.reporting';
 import { notifyExamsUpdated } from '@/lib/dataSync';
 import { validateSubjectInput, type SubjectReportingData } from '@/utils/adminSubjectModel';
@@ -232,40 +233,10 @@ export async function deleteSubject(id: string): Promise<boolean> {
   return confirmed;
 }
 
-export async function uploadSubjectIcon(file: File, subjectId: string = 'custom'): Promise<string> {
-  if (
-    !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
-    file.size === 0 ||
-    file.size > 2 * 1024 * 1024
-  )
-    throw new Error('Use a non-empty PNG, JPG or WebP image up to 2 MB.');
-  if (isSupabaseConfigured) {
-    {
-      const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[
-        file.type
-      ];
-      const safeId = subjectId.replace(/[^a-zA-Z0-9_-]/g, '-');
-      const path = `subject-icons/${safeId}/icon-${crypto.randomUUID()}.${extension}`;
-      const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-      if (!error && data) {
-        const url = supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-        if (typeof url !== 'string' || !url.startsWith('https://'))
-          throw new Error('Storage did not return a durable HTTPS image URL.');
-        return url;
-      }
-    }
-    throw new Error('Image upload failed. Please check Storage permissions.');
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+export async function uploadSubjectIcon(file: File, _subjectId: string = 'custom'): Promise<string>{
+  validateRasterFile(file, 'banners', 2 * 1024 * 1024);
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export async function getSubjectReportingData(): Promise<SubjectReportingData> {

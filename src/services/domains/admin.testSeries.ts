@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { requireSavedRow } from './admin.mutations';
 import { deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -529,51 +530,18 @@ export async function savePopularTestSeries(
 
 export async function uploadPopularTestSeriesImage(
   file: File,
-  cardId: string,
-  kind: 'logo' | 'background'
-): Promise<string> {
-  if (!isSupabaseConfigured)
-    throw new Error('Connect to the Admin Panel database before uploading images.');
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
-  const extension =
-    file.name
-      .split('.')
-      .pop()
-      ?.toLowerCase()
-      .replace(/[^a-z0-9]/g, '') || 'png';
-  const safeId = cardId.replace(/[^a-zA-Z0-9_-]/g, '-');
-  const path = `popular-test-series/${safeId}/${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-  const { data, error } = await supabase.storage.from('banners').upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-  });
-  if (error) throw new Error(`Image upload failed: ${error.message}`);
-  return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
+  _cardId: string,
+  _kind: 'logo' | 'background'
+): Promise<string>{
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
-export async function uploadTestSeriesIcon(file: File, id: string = 'custom'): Promise<string> {
-  if (isSupabaseConfigured) {
-    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024)
-      throw new Error('Choose an image smaller than 5 MB.');
-    const ext =
-      file.name
-        .split('.')
-        .pop()
-        ?.replace(/[^a-z0-9]/gi, '') || 'png';
-    const path =
-      'test-series/' + id.replace(/[^a-z0-9_-]/gi, '-') + '/' + crypto.randomUUID() + '.' + ext;
-    const { data, error } = await supabase.storage
-      .from('banners')
-      .upload(path, file, { upsert: false });
-    if (error || !data?.path) throw new Error(error?.message || 'Upload not confirmed');
-    return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-  }
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+export async function uploadTestSeriesIcon(file: File, _id: string = 'custom'): Promise<string>{
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export function subscribeToPopularTestSeriesUpdates(callback: () => void): () => void {

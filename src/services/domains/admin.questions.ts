@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 function databaseQuestionStatus(status?: string): 'active' | 'draft' | 'archived' {
   if (!status || status === 'published' || status === 'active') return 'active';
   if (status === 'draft' || status === 'archived') return status;
@@ -661,85 +662,16 @@ export async function archiveQuestion(id: string): Promise<boolean> {
   return true;
 }
 
-export async function uploadQuestionImage(file: File): Promise<string> {
-  if (!isSupabaseConfigured) {
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-  const ext = file.name.split('.').pop() || 'png';
-  const fileName = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-  const filePath = `questions/${fileName}`;
-
-  const { data, error } = await supabase.storage.from('question-images').upload(filePath, file, {
-    cacheControl: '3600',
-    upsert: false,
-  });
-
-  if (error) {
-    throw new Error(`Failed to upload image: ${error.message}`);
-  }
-
-  const { data: publicUrlData } = supabase.storage.from('question-images').getPublicUrl(data.path);
-
-  return publicUrlData.publicUrl;
+export async function uploadQuestionImage(file: File): Promise<string>{
+  validateRasterFile(file, 'question-images');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'question-images');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
-export async function uploadUserAvatar(file: File, userId: string): Promise<string> {
-  if (!isSupabaseConfigured) {
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  try {
-    const ext = file.name.split('.').pop() || 'png';
-    const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const fileName = `${userId}-${Date.now()}.${cleanExt}`;
-    const filePath = `avatars/${fileName}`;
-
-    // First try 'avatars' storage bucket
-    const { data, error } = await supabase.storage.from('avatars').upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: true,
-    });
-
-    if (!error && data?.path) {
-      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(data.path);
-      return publicUrlData.publicUrl;
-    }
-
-    // If 'avatars' bucket failed, fallback to 'question-images' bucket
-    const { data: qData, error: qError } = await supabase.storage
-      .from('question-images')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-
-    if (!qError && qData?.path) {
-      const { data: qUrlData } = supabase.storage.from('question-images').getPublicUrl(qData.path);
-      return qUrlData.publicUrl;
-    }
-
-    // Safe fallback to data URL
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  } catch (err) {
-    console.warn('Avatar upload exception, falling back to data URL:', err);
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
+export async function uploadUserAvatar(file: File, _userId: string): Promise<string>{
+  validateRasterFile(file, 'avatars');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'avatars');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 export const adminQuestionsApi = {

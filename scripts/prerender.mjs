@@ -226,7 +226,7 @@ function renderSeoHtml(templateHtml, { title, description, canonicalUrl, jsonLdL
   const safeUrl = escapeHtml(canonicalUrl);
 
   const jsonLdScripts = jsonLdList
-    .map((data) => `    <script type="application/ld+json">${JSON.stringify(data)}</script>`)
+    .map((data) => `    <script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`)
     .join('\n');
 
   let html = templateHtml;

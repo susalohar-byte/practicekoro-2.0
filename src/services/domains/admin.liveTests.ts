@@ -1,3 +1,4 @@
+import { uploadValidatedImage, validateRasterFile } from '@/lib/rasterUploads';
 import { requireSavedRow, deleteAdminRecord } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
@@ -689,29 +690,10 @@ export async function updateLiveTest(id: string, updates: Partial<LiveTest>): Pr
 }
 
 /** Upload Exam/Test Logo for Live Test to Supabase Storage */
-export async function uploadLiveTestLogo(file: File, id: string = 'custom'): Promise<string> {
-  if (isSupabaseConfigured) {
-    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024)
-      throw new Error('Choose an image smaller than 5 MB.');
-    const ext =
-      file.name
-        .split('.')
-        .pop()
-        ?.replace(/[^a-z0-9]/gi, '') || 'png';
-    const path =
-      'live-tests/' + id.replace(/[^a-z0-9_-]/gi, '-') + '/' + crypto.randomUUID() + '.' + ext;
-    const { data, error } = await supabase.storage
-      .from('banners')
-      .upload(path, file, { upsert: false });
-    if (error || !data?.path) throw new Error(error?.message || 'Upload not confirmed');
-    return supabase.storage.from('banners').getPublicUrl(data.path).data.publicUrl;
-  }
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+export async function uploadLiveTestLogo(file: File, _id: string = 'custom'): Promise<string>{
+  validateRasterFile(file, 'banners');
+  if (isSupabaseConfigured) return uploadValidatedImage(file, 'banners');
+  return new Promise<string>((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(reader.result as string);reader.onerror=()=>reject(new Error('Image read failed'));reader.readAsDataURL(file);});
 }
 
 /** Cancel a live test */

@@ -23,8 +23,6 @@ const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/webp',
-  'image/svg+xml',
-  'image/gif',
 ];
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -35,7 +33,7 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * Universal admin input component for attaching figures, diagrams, or charts to ANY question.
  *
  * Features:
- * - Direct image file upload (PNG, JPG, WEBP, SVG, GIF <= 5MB)
+ * - Direct image file upload (PNG, JPG, WEBP <= 5MB)
  * - Direct image URL input (e.g. CDN or public asset links)
  * - Immediate live thumbnail preview with fallback on broken links
  * - Replace and remove actions
@@ -59,7 +57,7 @@ export const QuestionImageField: React.FC<QuestionImageFieldProps> = ({
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_MIME_TYPES.includes(file.type.toLowerCase())) {
-      return 'Invalid file type. Supported formats: PNG, JPG, WEBP, SVG, GIF.';
+      return 'Invalid file type. Supported formats: PNG, JPG, WEBP.';
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
