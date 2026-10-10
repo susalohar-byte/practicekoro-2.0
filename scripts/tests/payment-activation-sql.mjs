@@ -22,7 +22,7 @@ INSERT INTO payments(id,user_id,plan_id,order_id,razorpay_order_id,status,amount
  ('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','pro','order_2','order_2','pending',100,'INR');
 `);
 const sql = await readFile(
-  'supabase/migrations/20261009090000_service_only_payment_activation.sql',
+  'supabase/migrations/20261010031832_service_only_payment_activation.sql',
   'utf8'
 );
 await db.exec(sql);
