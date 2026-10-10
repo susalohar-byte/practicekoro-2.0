@@ -33,13 +33,20 @@ Scope: `/admin/settings`, shared runtime settings, saved brand assets, student s
 
 ## Verification
 
-- Clean starting baseline: 670 passed, 35 failed, 705 total. Those pre-existing failures are not declared resolved by this task.
-- Focused settings/context/cache/availability/gateway regression run: 65 passed, 0 failed.
-- 25 new Vitest tests cover contact removal, refresh failure, stale responses, rejected language saves, saved logo/favicon, safe URL rejection, cache preservation/failure, independent drafts, quoted text, accent persistence, malformed gateway responses, initial availability and admin recovery.
+- Clean starting baseline: 670 passed, 35 failed, 705 total. Pre-merge remediation verification: 695 passed, the same 35 failed, 730 total (no added failures). The later merge includes upstream test fixes; those baseline fixes are not attributed to this task.
+- Final merged full-suite verification: **745 passed, 0 failed, 745 total**. Upstream test corrections are included and preserved.
+- Initial focused settings/context/cache/availability/gateway regression run: 65 passed, 0 failed. Merged focused verification, including current settings/navigation integration tests and strict email acknowledgements: 102 passed, 0 failed.
+- 32 new Vitest tests cover contact removal, refresh failure, stale responses, rejected language saves, saved logo/favicon, safe URL rejection, cache preservation/failure, independent drafts, quoted text, accent persistence, malformed gateway responses, initial availability and admin recovery, plus seven email-acknowledgement/error cases.
 - Actual Edge handlers exercised in an isolated transpiled harness: existing proof/ownership/amount/refund tests plus five new gateway-denial scenarios; no provider requests on denial.
 - Pending read migration exercised in isolated PGlite fixtures: active admin allowed, anonymous/student/inactive denied, no secret fragments, missing gateway disabled, anonymous execute revoked.
-- TypeScript/build and changed-file lint checks are required before release.
-- Local Playwright uses mocked settings and blocks all external requests. All eight tabs checked at 320, 390, 1280, and 1920 pixels; not an authenticated production CRUD test.
+- Production TypeScript/Vite build passed; changed-file ESLint passed with no warnings or errors.
+- Local Playwright uses mocked settings and blocks all external requests. All eight tabs checked at 320, 390, 1280, and 1920 pixels: 32 tab/viewport checks, no document overflow or browser errors after stabilizing isolated preview mocks. Not an authenticated production CRUD test.
+
+## Concurrent changes reconciled
+
+Two upstream commits arrived during the audit (`9578988`, `3d9214b`). Their analytics, district, payment reporting, mobile, and updated test work was preserved. Overlapping Settings additions had no runtime consumers outside the settings form for SEO, security policies, tax metadata, or feature-switch enforcement. The audited page keeps these unsupported controls disabled rather than enabling form-only capabilities or adding unchecked secondary payment writes.
+
+The upstream `sendTestEmail` service fabricated success/probe IDs on invocation errors, exceptions, and local mode. Its API entry was preserved but corrected to fail explicitly on network/backend errors and require `success: true` plus a real server message ID. Test-email UI remains disabled because no authenticated production delivery was verified. No actual email was sent.
 
 ## Production boundary
 

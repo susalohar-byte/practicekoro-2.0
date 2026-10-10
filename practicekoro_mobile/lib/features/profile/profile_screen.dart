@@ -908,12 +908,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       validationMsg =
                                           'Valid! ${coupon['discount_percent'] ?? 50}% Discount available.';
                                     });
-                                  } else if (code == 'PK50' || code == 'START2025') {
-                                    setSheetState(() {
-                                      isChecking = false;
-                                      isSuccess = true;
-                                      validationMsg = 'Valid! 50% Special Discount unlocked.';
-                                    });
                                   } else {
                                     setSheetState(() {
                                       isChecking = false;

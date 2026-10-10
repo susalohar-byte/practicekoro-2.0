@@ -1,7 +1,7 @@
 class AppConstants {
   static const String appName = 'PracticeKoro';
   static const String appTagline = 'Practice Today, Progress Tomorrow';
-  static const String appVersion = '2.0.0';
+  static const String appVersion = '2.0.8';
 
   // Supabase Production Configuration
   static const String supabaseUrl = String.fromEnvironment(

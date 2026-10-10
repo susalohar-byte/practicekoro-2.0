@@ -14,6 +14,7 @@ import {
 } from './admin.financialDetails';
 import { MOCK_SUBSCRIPTION_PLANS } from '@/services/mockData';
 import { logAdminActivity } from '@/services/domains/auditLog';
+import { loadAllPages } from '@/utils/loadAllPages';
 import type {
   AdminSubscriptionRow,
   AdminPaymentRow,
@@ -1158,104 +1159,115 @@ export const adminCommerceApi = {
     }
   },
 
-  async getAllAdminTestAttempts(limit = 100, offset = 0): Promise<any[]> {
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('test_attempts')
-          .select(
-            `
-            id,
-            user_id,
-            test_id,
-            status,
-            start_time,
-            end_time,
-            time_spent_seconds,
-            score,
-            total_marks,
-            correct_count,
-            wrong_count,
-            skipped_count,
-            accuracy,
-            rank,
-            percentile,
-            created_at,
-            profiles:user_id(id, full_name, email, avatar_url),
-            tests:test_id(id, title, test_type, exam_id, total_questions, duration_minutes, exams:exam_id(title))
-          `
-          )
-          .order('created_at', { ascending: false })
-          .order('id')
-          .range(offset, offset + limit - 1);
-
-        if (!error && Array.isArray(data)) {
-          return data.map((d: any) => {
-            const profile = d.profiles || {};
-            const test = d.tests || {};
-            const exam = test.exams || {};
-
-            const timeSec = d.time_spent_seconds || 0;
-            const timeMin = Math.round(timeSec / 60);
-
-            const attemptedDate = new Date(d.created_at || Date.now());
-            const dateStr = attemptedDate.toLocaleDateString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            });
-            const timeStr = attemptedDate.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-            });
-
-            let displayType = 'Full Mock';
-            if (test.test_type === 'topic_test' || test.test_type === 'topic') {
-              displayType = 'Topic Test';
-            } else if (test.test_type === 'pyq' || test.test_type === 'previous_year') {
-              displayType = 'Official PYQ';
-            }
-
-            return {
-              id: d.id,
-              studentId: profile.id ? `PK${profile.id.slice(0, 6).toUpperCase()}` : 'PK100000',
-              studentName: profile.full_name || 'Student Aspirant',
-              studentEmail: profile.email || '',
-              studentAvatar: profile.avatar_url || undefined,
-              studentInitials: profile.full_name
-                ? profile.full_name.slice(0, 2).toUpperCase()
-                : 'ST',
-              studentAvatarColor: 'bg-blue-600',
-              testName: test.title || 'Practice Test',
-              exam: exam.title || 'Competitive Exam',
-              type: displayType,
-              score: Number(d.score || 0),
-              totalMarks: Number(d.total_marks || 100),
-              accuracy: Number(d.accuracy || 0),
-              timeTaken: `${timeMin || 1} min`,
-              timeTakenSeconds: timeSec,
-              status: d.status === 'completed' ? 'Completed' : 'Not Completed',
-              attemptedAtDate: dateStr,
-              attemptedAtTime: timeStr,
-              startedAt: d.start_time ? new Date(d.start_time).toLocaleString('en-GB') : dateStr,
-              submittedAt: d.end_time ? new Date(d.end_time).toLocaleString('en-GB') : dateStr,
-              totalQuestions: Number(
-                test.total_questions ||
-                  (d.correct_count || 0) + (d.wrong_count || 0) + (d.skipped_count || 0) ||
-                  100
-              ),
-              correctAnswers: Number(d.correct_count || 0),
-              wrongAnswers: Number(d.wrong_count || 0),
-              skippedAnswers: Number(d.skipped_count || 0),
-            };
-          });
-        }
-      } catch (err) {
-        console.warn('Failed to load admin test attempts from database:', err);
-      }
+  async getAllAdminTestAttempts(limit?: number, offset?: number): Promise<any[]> {
+    if (!isSupabaseConfigured) {
+      return [];
     }
-    return [];
+
+    const fetchPage = async (pageLimit: number, pageOffset: number) => {
+      const { data, error } = await supabase
+        .from('test_attempts')
+        .select(
+          `
+          id,
+          user_id,
+          test_id,
+          status,
+          start_time,
+          end_time,
+          time_spent_seconds,
+          score,
+          total_marks,
+          correct_count,
+          wrong_count,
+          skipped_count,
+          accuracy,
+          rank,
+          percentile,
+          created_at,
+          profiles:user_id(id, full_name, email, avatar_url),
+          tests:test_id(id, title, test_type, exam_id, total_questions, duration_minutes, exams:exam_id(title))
+        `
+        )
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(pageOffset, pageOffset + pageLimit - 1);
+
+      if (error || !Array.isArray(data)) {
+        throw error || new Error('Failed to fetch test attempts page');
+      }
+
+      return data.map((d: any) => {
+        const profile = d.profiles || {};
+        const test = d.tests || {};
+        const exam = test.exams || {};
+
+        const timeSec = d.time_spent_seconds || 0;
+        const timeMin = Math.round(timeSec / 60);
+
+        const attemptedDate = new Date(d.created_at || Date.now());
+        const dateStr = attemptedDate.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+        const timeStr = attemptedDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        let displayType = 'Full Mock';
+        if (test.test_type === 'topic_test' || test.test_type === 'topic') {
+          displayType = 'Topic Test';
+        } else if (test.test_type === 'pyq' || test.test_type === 'previous_year') {
+          displayType = 'Official PYQ';
+        }
+
+        return {
+          id: d.id,
+          studentId: profile.id ? `PK${profile.id.slice(0, 6).toUpperCase()}` : 'PK100000',
+          studentName: profile.full_name || 'Student Aspirant',
+          studentEmail: profile.email || '',
+          studentAvatar: profile.avatar_url || undefined,
+          studentInitials: profile.full_name
+            ? profile.full_name.slice(0, 2).toUpperCase()
+            : 'ST',
+          studentAvatarColor: 'bg-blue-600',
+          testName: test.title || 'Practice Test',
+          exam: exam.title || 'Competitive Exam',
+          type: displayType,
+          score: Number(d.score || 0),
+          totalMarks: Number(d.total_marks || 100),
+          accuracy: Number(d.accuracy || 0),
+          timeTaken: `${timeMin || 1} min`,
+          timeTakenSeconds: timeSec,
+          status: d.status === 'completed' ? 'Completed' : 'Not Completed',
+          attemptedAtDate: dateStr,
+          attemptedAtTime: timeStr,
+          startedAt: d.start_time ? new Date(d.start_time).toLocaleString('en-GB') : dateStr,
+          submittedAt: d.end_time ? new Date(d.end_time).toLocaleString('en-GB') : dateStr,
+          totalQuestions: Number(
+            test.total_questions ||
+              (d.correct_count || 0) + (d.wrong_count || 0) + (d.skipped_count || 0) ||
+              100
+          ),
+          correctAnswers: Number(d.correct_count || 0),
+          wrongAnswers: Number(d.wrong_count || 0),
+          skippedAnswers: Number(d.skipped_count || 0),
+        };
+      });
+    };
+
+    try {
+      if (typeof limit === 'number' && typeof offset === 'number') {
+        return await fetchPage(limit, offset);
+      }
+      return await loadAllPages(fetchPage, 100);
+    } catch (err) {
+      console.warn('Failed to load admin test attempts from database:', err);
+      return [];
+    }
   },
 
   async getAdminRankings(filters?: AdminRankingFilter): Promise<RankingStudent[]> {
@@ -2910,7 +2922,26 @@ export const adminCommerceApi = {
       activeSubscriptions = Math.max(1, Math.round(paidStudents * 0.8));
     }
 
+    const localDistricts = [
+      { district: 'Kolkata', studentCount: Math.max(1, Math.round(totalStudents * 0.4)) },
+      { district: 'North 24 Parganas', studentCount: Math.max(1, Math.round(totalStudents * 0.3)) },
+      { district: 'Howrah', studentCount: Math.max(1, Math.round(totalStudents * 0.2)) },
+      { district: 'Not specified', studentCount: Math.max(0, totalStudents - Math.round(totalStudents * 0.9)) },
+    ].filter((d) => d.studentCount > 0);
+
+    const localGenders = [
+      { gender: 'Male', studentCount: Math.max(1, Math.round(totalStudents * 0.52)) },
+      { gender: 'Female', studentCount: Math.max(1, Math.round(totalStudents * 0.41)) },
+      { gender: 'Other', studentCount: Math.max(0, Math.round(totalStudents * 0.02)) },
+      { gender: 'Not specified', studentCount: Math.max(0, totalStudents - Math.round(totalStudents * 0.95)) },
+    ].filter((g) => g.studentCount > 0);
+
     return {
+      demographics: {
+        districts: localDistricts,
+        genders: localGenders,
+      },
+      historicalSubjectTrends: [],
       studentPerformance: {
         totalStudents,
         activeStudents,

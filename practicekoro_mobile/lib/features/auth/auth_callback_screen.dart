@@ -26,11 +26,19 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     _processAuthCallback();
   }
 
+  User? _getCurrentUser() {
+    try {
+      return Supabase.instance.client.auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _processAuthCallback() {
     final authRepo = ref.read(authRepositoryProvider);
 
     // 1. If user is already authenticated, complete immediately
-    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentUser = _getCurrentUser();
     if (currentUser != null) {
       _navigateHome(currentUser);
       return;
@@ -47,7 +55,7 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     // 3. Fallback timeout: if OAuth exchange doesn't complete within 12 seconds
     _timeoutTimer = Timer(const Duration(seconds: 12), () {
       if (!mounted) return;
-      final fallbackUser = Supabase.instance.client.auth.currentUser;
+      final fallbackUser = _getCurrentUser();
       if (fallbackUser != null) {
         _navigateHome(fallbackUser);
       } else {

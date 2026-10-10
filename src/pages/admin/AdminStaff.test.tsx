@@ -45,6 +45,7 @@ describe('AdminStaff mutation confirmation', () => {
       error: 'Assignment denied',
     });
     render(<AdminStaff />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add Admin/i }));
     fireEvent.change(screen.getByPlaceholderText('Enter full name'), {
       target: { value: 'New Staff' },
     });

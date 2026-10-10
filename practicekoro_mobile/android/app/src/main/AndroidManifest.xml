@@ -36,12 +36,6 @@
                     android:scheme="io.supabase.practicekoro"
                     android:host="login-callback" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="io.supabase.practicekoro" />
-            </intent-filter>
 
             <!-- Scheme 2: practicekoro -->
             <intent-filter>
@@ -51,12 +45,6 @@
                 <data
                     android:scheme="practicekoro"
                     android:host="login-callback" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="practicekoro" />
             </intent-filter>
 
             <!-- Scheme 3: com.practicekoro.app -->
@@ -68,15 +56,9 @@
                     android:scheme="com.practicekoro.app"
                     android:host="login-callback" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.practicekoro.app" />
-            </intent-filter>
 
-            <!-- App Links: https://practicekoro.online/auth/callback -->
-            <intent-filter>
+            <!-- App Links: https://practicekoro.online (with autoVerify) -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -84,11 +66,6 @@
                     android:scheme="https"
                     android:host="practicekoro.online"
                     android:pathPrefix="/auth/mobile-callback" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
                     android:host="practicekoro.online"

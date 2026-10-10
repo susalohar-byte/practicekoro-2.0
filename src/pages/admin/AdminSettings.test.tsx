@@ -117,27 +117,25 @@ describe('AdminSettings & Maintenance Mode System', () => {
 
       // Wait for settings to load
       await waitFor(() => {
-        expect(screen.getByText('Global Platform Settings')).toBeInTheDocument();
+        expect(screen.getByText('General Settings')).toBeInTheDocument();
       });
 
       // Find Platform Name input and change it
-      const appNameInput = screen.getByDisplayValue('PracticeKoro');
+      const appNameInput = screen.getByLabelText('Platform Name');
       fireEvent.change(appNameInput, { target: { value: 'PracticeKoro Super' } });
 
       // Toggle maintenance switch
-      const toggle = screen.getByRole('checkbox', {
+      const toggle = screen.getByRole('switch', {
         name: /toggle maintenance mode/i,
-        hidden: true,
       });
       fireEvent.click(toggle);
 
       // Submit form
-      const saveBtn = screen.getByRole('button', { name: /save all settings/i });
+      const saveBtn = screen.getByRole('button', { name: /save changes/i });
       fireEvent.click(saveBtn);
-      fireEvent.submit(saveBtn.closest('form')!);
 
       await waitFor(() => {
-        expect(screen.getByText(/settings updated and saved successfully/i)).toBeInTheDocument();
+        expect(screen.getByText(/Settings saved successfully/i)).toBeInTheDocument();
       });
 
       // Verify updated in memory
@@ -156,11 +154,19 @@ describe('AdminSettings & Maintenance Mode System', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Razorpay Payment Gateway')).toBeInTheDocument();
+        expect(screen.getByText('General Settings')).toBeInTheDocument();
+      });
+
+      // Switch to Payments tab
+      const paymentsTabBtn = screen.getByRole('button', { name: /^payments/i });
+      fireEvent.click(paymentsTabBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Payment Gateway & Invoicing')).toBeInTheDocument();
       });
 
       // Change Razorpay Key ID to a test key
-      const keyIdInput = screen.getByPlaceholderText(/rzp_test_/i);
+      const keyIdInput = screen.getByLabelText('Razorpay Key ID');
       fireEvent.change(keyIdInput, { target: { value: 'rzp_test_1234567890' } });
 
       // Secrets must never be enterable here: no secret inputs exist.
@@ -168,12 +174,11 @@ describe('AdminSettings & Maintenance Mode System', () => {
       expect(screen.queryByPlaceholderText(/whsec_/i)).toBeNull();
 
       // Submit form
-      const saveBtn = screen.getByRole('button', { name: /save all settings/i });
+      const saveBtn = screen.getByRole('button', { name: /save payment settings/i });
       fireEvent.click(saveBtn);
-      fireEvent.submit(saveBtn.closest('form')!);
 
       await waitFor(() => {
-        expect(screen.getByText(/settings updated and saved successfully/i)).toBeInTheDocument();
+        expect(screen.getByText(/Payment gateway settings saved/i)).toBeInTheDocument();
       });
 
       // Verify Key ID persisted and NO secret was stored
@@ -183,7 +188,7 @@ describe('AdminSettings & Maintenance Mode System', () => {
       expect(config.secretPreview).toBeNull();
     });
 
-    it('updates and persists official contact channels including WhatsApp, email, and hours', async () => {
+    it('updates and persists official contact channels including support email, phone, and address', async () => {
       render(
         <MemoryRouter>
           <MaintenanceProvider>
@@ -193,26 +198,25 @@ describe('AdminSettings & Maintenance Mode System', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Global Platform Settings')).toBeInTheDocument();
+        expect(screen.getByText('General Settings')).toBeInTheDocument();
       });
 
       // Update Contact details
-      const emailInput = screen.getByPlaceholderText('support@practicekoro.online');
+      const emailInput = screen.getByLabelText('Support Email');
       fireEvent.change(emailInput, { target: { value: 'help@practicekoro.online' } });
 
-      const whatsappInput = screen.getByPlaceholderText('+91 98765 43210 (WhatsApp)');
-      fireEvent.change(whatsappInput, { target: { value: '+91 91234 56789' } });
+      const phoneInput = screen.getByLabelText('Contact Phone');
+      fireEvent.change(phoneInput, { target: { value: '+91 91234 56789' } });
 
-      const hoursInput = screen.getByPlaceholderText('Mon - Sat: 10:00 AM - 7:00 PM (IST)');
-      fireEvent.change(hoursInput, { target: { value: '24/7 Priority Support' } });
+      const addressInput = screen.getByLabelText('Address (Optional)');
+      fireEvent.change(addressInput, { target: { value: 'Kolkata, West Bengal' } });
 
       // Submit form
-      const saveBtn = screen.getByRole('button', { name: /save all settings/i });
+      const saveBtn = screen.getByRole('button', { name: /save changes/i });
       fireEvent.click(saveBtn);
-      fireEvent.submit(saveBtn.closest('form')!);
 
       await waitFor(() => {
-        expect(screen.getByText(/settings updated and saved successfully/i)).toBeInTheDocument();
+        expect(screen.getByText(/Settings saved successfully/i)).toBeInTheDocument();
       });
 
       // Verify contact details updated in service
@@ -220,27 +224,26 @@ describe('AdminSettings & Maintenance Mode System', () => {
       const emailSetting = allSettings.find((s) => s.id === 'general_support_email');
       expect(emailSetting?.value).toBe('help@practicekoro.online');
 
-      const whatsappSetting = allSettings.find((s) => s.id === 'general_support_whatsapp');
-      expect(whatsappSetting?.value).toBe('+91 91234 56789');
+      const phoneSetting = allSettings.find((s) => s.id === 'general_support_phone');
+      expect(phoneSetting?.value).toBe('+91 91234 56789');
 
-      const hoursSetting = allSettings.find((s) => s.id === 'general_support_hours');
-      expect(hoursSetting?.value).toBe('24/7 Priority Support');
+      const addressSetting = allSettings.find((s) => s.id === 'general_support_address');
+      expect(addressSetting?.value).toBe('Kolkata, West Bengal');
     });
 
-    it('renders admin profile section and allows selecting preset avatar', async () => {
-      const mockUpdateProfile = vi.fn().mockResolvedValue({ error: null });
+    it('disables controls and shows read-only banner when user is not super_admin', async () => {
       mockUseAuth.mockReturnValue({
         user: {
-          id: 'usr-admin-1',
-          fullName: 'Super Admin',
-          email: 'admin@practicekoro.online',
+          id: 'usr-admin-2',
+          fullName: 'Staff Admin',
+          email: 'staff@practicekoro.online',
           role: 'admin',
-          avatarUrl: '',
         },
         isAdmin: true,
         isStudent: false,
         loading: false,
-        updateProfile: mockUpdateProfile,
+        adminRole: 'editor',
+        hasPermission: () => false,
       });
 
       render(
@@ -252,20 +255,13 @@ describe('AdminSettings & Maintenance Mode System', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Admin Profile & Avatar/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Read-only: an active Super Admin is required to change platform settings/i)
+        ).toBeInTheDocument();
       });
 
-      // Click on a preset avatar button
-      const presetBtn = screen.getByTitle('Select preset 1');
-      fireEvent.click(presetBtn);
-
-      await waitFor(() => {
-        expect(mockUpdateProfile).toHaveBeenCalledWith(
-          expect.objectContaining({
-            avatarUrl: expect.stringContaining('dicebear.com'),
-          })
-        );
-      });
+      expect(screen.getByLabelText('Platform Name')).toBeDisabled();
+      expect(screen.getByRole('switch', { name: /toggle maintenance mode/i })).toBeDisabled();
     });
   });
 

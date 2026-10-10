@@ -146,7 +146,7 @@ describe('AdminDashboard Component Tests', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Top Students')).toBeInTheDocument();
+    expect(await screen.findByText('Top Performing Students')).toBeInTheDocument();
   });
 
   it('displays error state and provides a working retry button when API fails', async () => {

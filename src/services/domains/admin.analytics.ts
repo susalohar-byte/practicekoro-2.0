@@ -56,7 +56,7 @@ export async function getAuthoritativeAnalytics(
     );
   const dated = (q: any) => q.gte('created_at', b.startIso).lte('created_at', b.endIso);
   const [profiles, attempts, answers, payments, subscriptions] = await Promise.all([
-    read('profiles', 'id,full_name,email,role,created_at,district', (q) => q.eq('role', 'student')),
+    read('profiles', 'id,full_name,email,role,created_at,district,gender', (q) => q.eq('role', 'student')),
     read('test_attempts', 'id,user_id,status,score,created_at', dated),
     read(
       'attempt_answers',
@@ -211,17 +211,61 @@ export function aggregateAnalytics(
     );
   const correct = answers.filter((a) => a.is_correct === true).length;
   const districts = new Map<string, number>();
+  const genders = new Map<string, number>();
   for (const p of profiles) {
     const district =
       typeof p.district === 'string' && p.district.trim() ? p.district.trim() : 'Not specified';
     districts.set(district, (districts.get(district) || 0) + 1);
+
+    const rawGender = typeof p.gender === 'string' ? p.gender.trim().toLowerCase() : '';
+    const normGender =
+      rawGender === 'male' || rawGender === 'm'
+        ? 'Male'
+        : rawGender === 'female' || rawGender === 'f'
+        ? 'Female'
+        : rawGender === 'transgender' || rawGender === 'other'
+        ? 'Other'
+        : 'Not specified';
+    genders.set(normGender, (genders.get(normGender) || 0) + 1);
   }
+
+  const historicalSubjectTrends = buckets.map((k) => {
+    const r = bucketRows(answers, k);
+    const subMap = new Map<string, { id: string; name: string; correct: number; total: number }>();
+    for (const ans of r) {
+      const q = Array.isArray(ans.questions) ? ans.questions[0] : ans.questions;
+      if (!q || !q.subject_id) continue;
+      const sub = Array.isArray(q.subjects) ? q.subjects[0] : q.subjects;
+      const sName = sub?.name || 'Subject unavailable';
+      if (!subMap.has(q.subject_id)) {
+        subMap.set(q.subject_id, { id: q.subject_id, name: sName, correct: 0, total: 0 });
+      }
+      const item = subMap.get(q.subject_id)!;
+      item.total++;
+      if (ans.is_correct === true) item.correct++;
+    }
+    return {
+      date: k.dateStr,
+      label: k.label,
+      subjects: [...subMap.values()].map((s) => ({
+        subjectId: s.id,
+        subjectName: s.name,
+        attempts: s.total,
+        accuracy: rate(s.correct, s.total),
+      })),
+    };
+  });
+
   return {
     demographics: {
       districts: [...districts]
         .map(([district, studentCount]) => ({ district, studentCount }))
         .sort((a, b) => b.studentCount - a.studentCount || a.district.localeCompare(b.district)),
+      genders: [...genders]
+        .map(([gender, studentCount]) => ({ gender, studentCount }))
+        .sort((a, b) => b.studentCount - a.studentCount || a.gender.localeCompare(b.gender)),
     },
+    historicalSubjectTrends,
     studentPerformance: {
       totalStudents: profiles.length,
       newStudents: profiles.filter((p) => inRange(p, b)).length,

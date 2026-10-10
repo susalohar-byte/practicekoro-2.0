@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import '../../data/datasources/local_storage.dart';
 import '../../data/repositories/catalog_repository.dart';
 
 /// Screen 13: Payment Screen
-/// Exact 1:1 match to Screen 13 in the design mockup.
+/// Exact 1:1 match to Screen 13 with authentic Razorpay SDK integration.
 class PaymentScreen extends ConsumerStatefulWidget {
   final String planId;
   final String planTitle;
@@ -23,22 +25,33 @@ class PaymentScreen extends ConsumerStatefulWidget {
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final TextEditingController _couponController = TextEditingController();
+  late Razorpay _razorpay;
   int _selectedMethod = 0; // 0: Razorpay, 1: UPI, 2: Card, 3: Net Banking, 4: Wallets
   String? _appliedCoupon;
   int _discount = 0;
   bool _isProcessing = false;
+  String? _currentOrderId;
+
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
 
   @override
   void dispose() {
+    _razorpay.clear();
     _couponController.dispose();
     super.dispose();
   }
 
-  void _applyCoupon() async {
+  void _applyCoupon(int basePrice) async {
     final code = _couponController.text.trim().toUpperCase();
     if (code.isEmpty) return;
 
-    // 1. Check with Supabase/Admin coupons table
     try {
       final coupon = await ref.read(catalogRepositoryProvider).validateCoupon(code);
       if (!mounted) return;
@@ -47,13 +60,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         final amt = (coupon['discount_amount'] as num?)?.toDouble() ?? 0;
         int disc = 0;
         if (pct > 0) {
-          disc = (widget.originalPrice * (pct / 100)).round();
+          disc = (basePrice * (pct / 100)).round();
         } else if (amt > 0) {
           disc = amt.round();
         }
         setState(() {
           _appliedCoupon = code;
-          _discount = disc.clamp(0, widget.originalPrice);
+          _discount = disc.clamp(0, basePrice);
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Coupon $code applied! ₹$_discount Discount added.')),
@@ -62,16 +75,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
     } catch (_) {}
 
-    // 2. Demo fallback
-    if (code == 'PK50') {
-      setState(() {
-        _appliedCoupon = code;
-        _discount = (widget.originalPrice * 0.5).toInt();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coupon PK50 applied! 50% Discount added.')),
-      );
-    } else {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Coupon "$code" is not valid or expired.')),
       );
@@ -79,11 +83,107 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _processPayment(int finalPrice) async {
+    if (_isProcessing) return;
     setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
+
+    try {
+      final orderData = await ref.read(catalogRepositoryProvider).createPaymentOrder(widget.planId);
+      final orderId = orderData['order_id']?.toString();
+      final keyId = (orderData['key_id'] != null && orderData['key_id'].toString().trim().isNotEmpty)
+          ? orderData['key_id'].toString().trim()
+          : 'rzp_live_TdoDuJhIn8jWT5';
+
+      _currentOrderId = orderId;
+
+      final userEmail = LocalStorageService.getUserEmail() ?? '';
+      final userPhone = LocalStorageService.getUserPhone() ?? '';
+
+      final options = <String, dynamic>{
+        'key': keyId,
+        'amount': (finalPrice * 100).toInt(),
+        'name': 'PracticeKoro',
+        'description': widget.planTitle,
+        if (orderId != null && !orderId.startsWith('pk_local_')) 'order_id': orderId,
+        'prefill': {
+          if (userPhone.isNotEmpty) 'contact': userPhone,
+          if (userEmail.isNotEmpty) 'email': userEmail,
+        },
+        'external': {
+          'wallets': ['paytm']
+        }
+      };
+
+      _razorpay.open(options);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to initiate payment: ${e.toString().replaceAll("Exception:", "").trim()}'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    if (!mounted) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      final verified = await ref.read(catalogRepositoryProvider).verifyPayment(
+        orderId: _currentOrderId ?? response.orderId ?? '',
+        paymentId: response.paymentId ?? '',
+        signature: response.signature ?? '',
+        planId: widget.planId,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      if (verified) {
+        await LocalStorageService.setProUser(true);
+        _showSuccessDialog();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment recorded (${response.paymentId}). Verification in progress...'),
+            backgroundColor: Colors.orange.shade800,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment successful (${response.paymentId}). Pro access is being updated.'),
+          backgroundColor: Colors.orange.shade800,
+        ),
+      );
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
     if (!mounted) return;
     setState(() => _isProcessing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment cancelled or failed (${response.code}): ${response.message ?? ""}'),
+        backgroundColor: Colors.red.shade700,
+      ),
+    );
+  }
 
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet chosen: ${response.walletName}')),
+    );
+  }
+
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -136,7 +236,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final finalPrice = (widget.originalPrice - _discount).clamp(0, 9999);
+    // Determine authoritative base price from subscriptionPlansProvider if available
+    final plansAsync = ref.watch(subscriptionPlansProvider);
+    final plans = plansAsync.asData?.value;
+    final matchedPlan = plans?.firstWhere(
+      (p) => p['id']?.toString() == widget.planId,
+      orElse: () => <String, dynamic>{},
+    );
+    final basePrice = (matchedPlan != null && matchedPlan['price'] != null)
+        ? (matchedPlan['price'] as num).toInt()
+        : widget.originalPrice;
+
+    final finalPrice = (basePrice - _discount).clamp(0, 9999);
 
     final paymentMethods = [
       {'title': 'Razorpay', 'desc': '(UPI, Cards, Wallets)', 'icon': Icons.flash_on_rounded},
@@ -272,7 +383,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           ),
                         ),
                         ElevatedButton(
-                          onPressed: _applyCoupon,
+                          onPressed: () => _applyCoupon(basePrice),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF026BFC),
                             foregroundColor: Colors.white,

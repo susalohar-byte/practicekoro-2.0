@@ -41,7 +41,8 @@ describe('AdminSupport persistent conversations', () => {
       error: 'Save denied',
     });
     render(<AdminSupport />);
-    await screen.findAllByText('Support question');
+    const ticketItems = await screen.findAllByText('Support question');
+    fireEvent.click(ticketItems[0]);
     fireEvent.change(screen.getByPlaceholderText('Type your reply...'), {
       target: { value: 'A useful answer' },
     });
@@ -63,7 +64,8 @@ describe('AdminSupport persistent conversations', () => {
       },
     });
     render(<AdminSupport />);
-    await screen.findAllByText('Support question');
+    const ticketItems = await screen.findAllByText('Support question');
+    fireEvent.click(ticketItems[0]);
     fireEvent.change(screen.getByPlaceholderText('Type your reply...'), {
       target: { value: 'Saved answer' },
     });
@@ -89,6 +91,8 @@ describe('AdminSupport persistent conversations', () => {
       },
     ]);
     render(<AdminSupport />);
+    const ticketItems = await screen.findAllByText('Support question');
+    fireEvent.click(ticketItems[0]);
     expect(await screen.findByText('Previously saved answer')).toBeInTheDocument();
   });
 });

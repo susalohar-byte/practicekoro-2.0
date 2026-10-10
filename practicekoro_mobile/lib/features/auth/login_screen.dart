@@ -39,6 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _isNavigating = false;
   String? _errorMessage;
   String? _successMessage;
   StreamSubscription<AuthState>? _authSubscription;
@@ -58,11 +59,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final authRepo = ref.read(authRepositoryProvider);
     _authSubscription = authRepo.authStateChanges?.listen((data) async {
       final session = data.session;
-      if (session != null && mounted) {
+      if (session != null && mounted && !_isNavigating) {
+        _isNavigating = true;
         setState(() => _isGoogleLoading = false);
         await authRepo.syncUserProfile(session.user);
         if (mounted) {
-          context.go('/home');
+          final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
+          final target = (redirect != null && redirect.isNotEmpty)
+              ? Uri.decodeComponent(redirect)
+              : '/home';
+          context.go(target);
         }
       }
     });
@@ -163,7 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       setState(() => _errorMessage = 'Please enter your email address.');
       return;
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
       setState(() => _errorMessage = 'Please enter a valid email address.');
       return;
     }
@@ -186,6 +192,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       );
 
       if (res?.user != null && mounted) {
+        _isNavigating = true;
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -197,7 +204,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             duration: const Duration(seconds: 2),
           ),
         );
-        context.go('/home');
+        final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
+        final target = (redirect != null && redirect.isNotEmpty)
+            ? Uri.decodeComponent(redirect)
+            : '/home';
+        context.go(target);
         return;
       }
     } catch (e) {
@@ -230,7 +241,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       setState(() => _errorMessage = 'Please enter your email address.');
       return;
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
       setState(() => _errorMessage = 'Please enter a valid email address.');
       return;
     }
@@ -472,7 +483,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       : () async {
                           final em = emailCtrl.text.trim();
                           if (em.isEmpty ||
-                              !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                              !RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
                                   .hasMatch(em)) {
                             setModalState(() {
                               resetError =

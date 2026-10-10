@@ -1,7 +1,10 @@
 import { beforeEach, it, expect, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
-vi.mock('@/lib/supabase', () => ({ isSupabaseConfigured: true, supabaseRuntime: mocks }));
-import { getAppSettings, getPaymentGatewayConfig } from './admin.settings';
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), invoke: vi.fn() }));
+vi.mock('@/lib/supabase', () => ({
+  isSupabaseConfigured: true,
+  supabaseRuntime: { ...mocks, functions: { invoke: mocks.invoke } },
+}));
+import { getAppSettings, getPaymentGatewayConfig, sendTestEmail } from './admin.settings';
 beforeEach(() => vi.clearAllMocks());
 it('rejects production settings permission failures instead of returning local defaults', async () => {
   mocks.from.mockReturnValue({
@@ -59,4 +62,33 @@ it.each([
 ])('rejects malformed gateway configuration %j', async (data) => {
   mocks.rpc.mockResolvedValue({ data, error: null });
   await expect(getPaymentGatewayConfig()).rejects.toThrow('malformed');
+});
+
+it('does not fabricate email success after an Edge invocation error', async () => {
+  mocks.invoke.mockResolvedValue({ data: null, error: { message: 'Delivery unavailable' } });
+  expect((await sendTestEmail('help@test.invalid')).success).toBe(false);
+});
+it('does not fabricate email success after a thrown network failure', async () => {
+  mocks.invoke.mockRejectedValueOnce(new Error('Offline'));
+  expect((await sendTestEmail('help@test.invalid')).success).toBe(false);
+});
+it.each([null, {}, { success: false, error: 'Denied' }, { success: true }])(
+  'requires an explicit email dispatch acknowledgement %j',
+  async (data) => {
+    mocks.invoke.mockResolvedValue({ data, error: null });
+    expect((await sendTestEmail('help@test.invalid')).success).toBe(false);
+  }
+);
+it('returns only a confirmed server message ID, not an invented probe ID', async () => {
+  mocks.invoke.mockResolvedValue({
+    data: { success: true, messageId: 'confirmed-fixture' },
+    error: null,
+  });
+  expect(await sendTestEmail(' HELP@test.invalid ')).toEqual({
+    success: true,
+    messageId: 'confirmed-fixture',
+  });
+  expect(mocks.invoke).toHaveBeenCalledWith('send-test-email', {
+    body: { recipient: 'help@test.invalid' },
+  });
 });

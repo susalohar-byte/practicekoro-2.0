@@ -593,6 +593,33 @@ export async function getItemAnalysis(
   return result;
 }
 
+export async function sendTestEmail(
+  recipientEmail: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const cleanEmail = (recipientEmail || '').trim().toLowerCase();
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
+    return { success: false, error: 'Enter a valid recipient email address for testing.' };
+  if (!isSupabaseConfigured)
+    return {
+      success: false,
+      error: 'Email delivery is unavailable in local mode. No email was sent.',
+    };
+  try {
+    const { data, error } = await supabase.functions.invoke('send-test-email', {
+      body: { recipient: cleanEmail },
+    });
+    if (error) return { success: false, error: getErrorMessage(error, 'Email request failed.') };
+    if (data?.success !== true || typeof data.messageId !== 'string' || !data.messageId.trim())
+      return {
+        success: false,
+        error: data?.error || 'Email dispatch was not confirmed by the server.',
+      };
+    return { success: true, messageId: data.messageId };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error, 'Email request failed.') };
+  }
+}
+
 export const adminSettingsApi = {
   getAppSettings,
   updateAppSetting,
@@ -601,4 +628,5 @@ export const adminSettingsApi = {
   getPaymentGatewayConfig,
   updatePaymentGatewayConfig,
   getItemAnalysis,
+  sendTestEmail,
 };

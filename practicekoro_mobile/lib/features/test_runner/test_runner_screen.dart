@@ -45,11 +45,14 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
   final Map<String, AttemptAnswerState> _answers = {};
 
   Timer? _timer;
+  Timer? _autosaveTimer;
   int _secondsRemaining = 3600;
   int _elapsedSeconds = 0;
   final ScrollController _numbersScrollController = ScrollController();
 
   late AnimationController _progressAnimController;
+  bool _isSubmitting = false;
+  String? _submitError;
 
   @override
   void initState() {
@@ -115,6 +118,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
           }
         });
         _startTimer();
+        _startAutosaveTimer();
       }
     } catch (error) {
       if (mounted) {
@@ -140,13 +144,34 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
     });
   }
 
+  void _startAutosaveTimer() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _saveProgressQuietly();
+    });
+  }
+
+  void _saveProgressQuietly() {
+    if (_attemptId == null || _isSubmitting) return;
+    ref.read(catalogRepositoryProvider).saveTestAnswers(
+      attemptId: _attemptId!,
+      answers: _answers.values.map((a) => a.toJson()).toList(),
+      timeSpentSeconds: _elapsedSeconds,
+    ).catchError((_) {});
+  }
+
   void _onAutoSubmitTimerExpired() {
-    _showConfirmSubmissionModal(autoSubmit: true);
+    if (_isSubmitting) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    _startSubmittingProcess();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _autosaveTimer?.cancel();
     _numbersScrollController.dispose();
     _progressAnimController.dispose();
     super.dispose();
@@ -169,6 +194,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
         state.selectedOption = option;
       }
     });
+    _saveProgressQuietly();
   }
 
   void _toggleMarkForReview() {
@@ -178,6 +204,54 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
       final state = _answers[currentQ.id]!;
       state.isMarkedForReview = !state.isMarkedForReview;
     });
+    _saveProgressQuietly();
+  }
+
+  void _handleBackNavigation() {
+    if (_isSubmitting) return;
+    if (_currentMode != RunnerScreenMode.question) {
+      setState(() => _currentMode = RunnerScreenMode.question);
+      return;
+    }
+    _showExitConfirmationDialog();
+  }
+
+  void _showExitConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Exit Test?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        content: const Text(
+          'Your answers will be saved. You can resume this test anytime from your test series.',
+          style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Resume', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              _saveProgressQuietly();
+              if (!mounted) return;
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/home');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Exit', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _goToQuestion(int index) {
@@ -405,8 +479,14 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
   }
 
   void _startSubmittingProcess() async {
-    setState(() => _currentMode = RunnerScreenMode.submitting);
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+      _currentMode = RunnerScreenMode.submitting;
+      _submitError = null;
+    });
     _timer?.cancel();
+    _autosaveTimer?.cancel();
     _progressAnimController.forward(from: 0.0);
 
     final catalogRepo = ref.read(catalogRepositoryProvider);
@@ -454,7 +534,29 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
           timeSpentSeconds: _elapsedSeconds,
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Submission failed: $e');
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _submitError = 'Submission failed: ${e.toString().replaceAll("Exception: ", "").replaceAll("Bad state: ", "").trim()}';
+          _currentMode = RunnerScreenMode.review;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_submitError!),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _startSubmittingProcess(),
+            ),
+          ),
+        );
+        return;
+      }
+    }
 
     // Use server result if available, otherwise fall back to client calculation
     final finalScore = serverResult.isNotEmpty
@@ -526,7 +628,13 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/home');
+              }
+            },
           ),
         ),
         body: Center(
@@ -535,17 +643,31 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
       );
     }
 
-    // Switch between Screen 5, Screen 6, Screen 7, Screen 9
+    Widget screenWidget;
     switch (_currentMode) {
       case RunnerScreenMode.palette:
-        return _buildScreen6Palette();
+        screenWidget = _buildScreen6Palette();
+        break;
       case RunnerScreenMode.review:
-        return _buildScreen7ReviewAndSubmit();
+        screenWidget = _buildScreen7ReviewAndSubmit();
+        break;
       case RunnerScreenMode.submitting:
-        return _buildScreen9Submitting();
+        screenWidget = _buildScreen9Submitting();
+        break;
       case RunnerScreenMode.question:
-        return _buildScreen5Question();
+        screenWidget = _buildScreen5Question();
+        break;
     }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isSubmitting) return;
+        _handleBackNavigation();
+      },
+      child: screenWidget,
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -569,34 +691,7 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
             size: 18,
             color: AppColors.navy,
           ),
-          onPressed: () {
-            // Prompt exit
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Exit Test?'),
-                content: const Text(
-                  'Your answers will be saved. You can submit when you are ready.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Resume'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      context.pop();
-                    },
-                    child: const Text(
-                      'Exit',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+          onPressed: _showExitConfirmationDialog,
         ),
         title: Text(
           _test?.title ?? 'WBP Constable Mock Test 1',
@@ -1250,6 +1345,44 @@ class _TestRunnerScreenState extends ConsumerState<TestRunnerScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 children: [
+                  if (_submitError != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _submitError!,
+                              style: const TextStyle(fontSize: 12.5, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _startSubmittingProcess,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFDC2626),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Retry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Top Spec Bar
                   FittedBox(
                     fit: BoxFit.scaleDown,

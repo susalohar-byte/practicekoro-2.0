@@ -1228,8 +1228,18 @@ export interface PerformanceTrendPoint {
   averageScore: number;
 }
 
+export interface HistoricalSubjectTrendPoint {
+  date: string;
+  label: string;
+  subjects: { subjectId: string; subjectName: string; attempts: number; accuracy: number }[];
+}
+
 export interface PlatformAnalyticsData {
-  demographics?: { districts: { district: string; studentCount: number }[] };
+  demographics?: {
+    districts: { district: string; studentCount: number }[];
+    genders?: { gender: string; studentCount: number }[];
+  };
+  historicalSubjectTrends?: HistoricalSubjectTrendPoint[];
   studentPerformance: {
     newStudents?: number;
     totalStudents: number;
