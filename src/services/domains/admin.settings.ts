@@ -50,7 +50,7 @@ export async function updateAppSettings(
     return { success: false, error: 'Duplicate setting IDs are not allowed.' };
   if (
     updates.some(
-      (u) => !u.id.trim() || /secret|password|service[._ ]?role|private[._ ]?key/i.test(u.id)
+      (u) => !u.id.trim() || /secret|password|service[._ ]?role|private[._ ]?key|gateway_fast2sms_api_key|gateway_fcm_server_key/i.test(u.id)
     )
   )
     return { success: false, error: 'Credentials must be configured server-side.' };

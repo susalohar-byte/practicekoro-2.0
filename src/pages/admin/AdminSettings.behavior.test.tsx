@@ -8,6 +8,10 @@ const m = vi.hoisted(() => ({
   log: vi.fn(),
   refresh: vi.fn(),
   upload: vi.fn(),
+  avatarUpload: vi.fn(),
+  profile: vi.fn(),
+  profileAvailable: true,
+  avatarUrl: '',
   role: 'super_admin',
 }));
 vi.mock('@/services/api', () => ({
@@ -20,12 +24,19 @@ vi.mock('@/services/api', () => ({
   },
 }));
 vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'fixture-admin', role: 'admin' }, adminRole: m.role }),
+  useAuth: () => ({
+    user: { id: 'fixture-admin', role: 'admin', avatarUrl: m.avatarUrl },
+    adminRole: m.role,
+    updateProfile: m.profileAvailable ? m.profile : undefined,
+  }),
 }));
 vi.mock('@/context/MaintenanceContext', () => ({
   useMaintenance: () => ({ checkMaintenanceMode: m.refresh }),
 }));
-vi.mock('@/services/domains/admin.questions', () => ({ uploadQuestionImage: m.upload }));
+vi.mock('@/services/domains/admin.questions', () => ({
+  uploadQuestionImage: m.upload,
+  uploadUserAvatar: m.avatarUpload,
+}));
 import { AdminSettings } from './AdminSettings';
 const initial = [
   { id: 'general_app_name', key: 'app_name', value: 'Saved Name' },
@@ -55,16 +66,64 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.resetAllMocks();
   m.role = 'super_admin';
+  m.profileAvailable = true;
+  m.avatarUrl = '';
   m.settings.mockResolvedValue(structuredClone(initial));
   m.gateway.mockResolvedValue({ keyId: 'rzp_test_fixture', isActive: false });
   m.update.mockResolvedValue({ success: true });
   m.pay.mockResolvedValue({ success: true });
   m.refresh.mockResolvedValue(false);
   m.upload.mockResolvedValue('https://example.test/new.png');
+  m.avatarUpload.mockResolvedValue('https://example.test/avatars/fixture-admin/new.png');
   localStorage.clear();
   sessionStorage.clear();
 });
 describe('Truthful Settings workflows', () => {
+  it('uses the owned-avatar helper and requires the profile callback to confirm the saved avatar', async () => {
+    const avatarUrl = 'https://example.test/avatars/fixture-admin/new.png';
+    m.profile.mockResolvedValue({ error: null, user: { id: 'fixture-admin', avatarUrl } });
+    await mount();
+    const file = new File(['png'], 'avatar.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Upload profile picture'), {
+      target: { files: [file] },
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent('profile picture updated');
+    expect(m.avatarUpload).toHaveBeenCalledWith(file, 'fixture-admin');
+    expect(m.profile).toHaveBeenCalledWith({ avatarUrl });
+    expect(m.upload).not.toHaveBeenCalled();
+    expect(m.update).not.toHaveBeenCalled();
+  });
+  it('preserves the previous avatar and reports profile-save rejection without success', async () => {
+    m.avatarUrl = 'https://example.test/avatars/fixture-admin/old.png';
+    m.profile.mockResolvedValue({ error: new Error('Profile denied') });
+    await mount();
+    fireEvent.change(screen.getByLabelText('Upload profile picture'), {
+      target: { files: [new File(['png'], 'avatar.png', { type: 'image/png' })] },
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profile denied');
+    expect(screen.getByAltText('Super Admin')).toHaveAttribute('src', m.avatarUrl);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+  it('does not upload an avatar when profile persistence is unavailable', async () => {
+    m.profileAvailable = false;
+    await mount();
+    fireEvent.change(screen.getByLabelText('Upload profile picture'), {
+      target: { files: [new File(['png'], 'avatar.png', { type: 'image/png' })] },
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profile update is unavailable');
+    expect(m.avatarUpload).not.toHaveBeenCalled();
+    expect(m.upload).not.toHaveBeenCalled();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+  it('does not claim avatar removal when profile persistence is unavailable', async () => {
+    m.profileAvailable = false;
+    m.avatarUrl = 'https://example.test/avatars/fixture-admin/old.png';
+    await mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove profile picture' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No removal was confirmed');
+    expect(screen.getByAltText('Super Admin')).toHaveAttribute('src', m.avatarUrl);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
   it('hydrates description, assets and SMTP references instead of overwriting them with examples', async () => {
     await mount();
     expect(screen.getByLabelText('Platform Description')).toHaveValue('Actual description');
@@ -219,12 +278,10 @@ describe('Truthful Settings workflows', () => {
     expect(m.update).toHaveBeenCalledTimes(1);
     expect(m.update.mock.calls[0][0].map((row: { id: string }) => row.id)).toEqual([
       'gateway_fast2sms_enabled',
-      'gateway_fast2sms_api_key',
       'gateway_fast2sms_route',
       'gateway_fast2sms_sender_id',
       'gateway_fcm_enabled',
       'gateway_fcm_project_id',
-      'gateway_fcm_server_key',
       'gateway_fcm_vapid_key',
     ]);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();

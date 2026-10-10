@@ -20,7 +20,10 @@ vi.mock('@/context/AuthContext', () => ({
 vi.mock('@/context/MaintenanceContext', () => ({
   useMaintenance: () => ({ checkMaintenanceMode: vi.fn() }),
 }));
-vi.mock('@/services/domains/admin.questions', () => ({ uploadQuestionImage: vi.fn() }));
+vi.mock('@/services/domains/admin.questions', () => ({
+  uploadQuestionImage: vi.fn(),
+  uploadUserAvatar: vi.fn(),
+}));
 import { AdminSettings } from './AdminSettings';
 beforeEach(() => {
   vi.clearAllMocks();

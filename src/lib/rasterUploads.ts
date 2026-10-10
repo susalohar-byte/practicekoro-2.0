@@ -13,7 +13,9 @@ export async function uploadValidatedImage(file:File,bucket:RasterBucket):Promis
  const bitmap=await createImageBitmap(file);
  let png:Blob|null;
  try{
-  const scale=Math.min(1,2048/bitmap.width,2048/bitmap.height);
+  // Avatars need a thumbnail; other images must stay within the server's 4 MP cap.
+  const maximumDimension=bucket==='avatars'?512:2000;
+  const scale=Math.min(1,maximumDimension/bitmap.width,maximumDimension/bitmap.height);
   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.floor(bitmap.width*scale));canvas.height=Math.max(1,Math.floor(bitmap.height*scale));
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Image processing is unavailable.');
   ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);

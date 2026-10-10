@@ -16,7 +16,7 @@ import {
   validateSmtpReference,
   validateSettingsImage,
 } from '@/services/domains/admin.settingsForm';
-import { uploadQuestionImage } from '@/services/domains/admin.questions';
+import { uploadQuestionImage, uploadUserAvatar } from '@/services/domains/admin.questions';
 import {
   Settings,
   User,
@@ -339,7 +339,6 @@ export const AdminSettings: React.FC = () => {
           if (s.id === 'seo_google_tag') setSearchConsoleToken(String(val ?? ''));
           if (s.id === 'gateway_fast2sms_enabled')
             setFast2smsEnabled(val === true || val === 'true');
-          if (s.id === 'gateway_fast2sms_api_key') setFast2smsApiKey(String(val ?? ''));
           if (s.id === 'gateway_fast2sms_route')
             setFast2smsRoute(val === 'dlt' || val === 'otp' ? val : 'q');
           if (s.id === 'gateway_fast2sms_sender_id')
@@ -347,7 +346,6 @@ export const AdminSettings: React.FC = () => {
           if (s.id === 'gateway_fcm_enabled') setFcmEnabled(val === true || val === 'true');
           if (s.id === 'gateway_fcm_project_id')
             setFcmProjectId(String(val || 'practicekoro-app'));
-          if (s.id === 'gateway_fcm_server_key') setFcmServerKey(String(val ?? ''));
           if (s.id === 'gateway_fcm_vapid_key') setFcmVapidKey(String(val ?? ''));
         });
       }
@@ -544,16 +542,15 @@ export const AdminSettings: React.FC = () => {
   };
 
   const handleSaveIntegrations = async () => {
+    if (fast2smsRoute !== 'q') {showToast('Only the single-recipient Quick SMS test route is supported. DLT/OTP need server-side template configuration.');return;}
     if (!beginOperation()) return;
     try {
       const result = await api.updateAppSettings([
         { id: 'gateway_fast2sms_enabled', value: fast2smsEnabled },
-        { id: 'gateway_fast2sms_api_key', value: fast2smsApiKey.trim() },
         { id: 'gateway_fast2sms_route', value: fast2smsRoute },
         { id: 'gateway_fast2sms_sender_id', value: fast2smsSenderId.trim() || 'FSTSMS' },
         { id: 'gateway_fcm_enabled', value: fcmEnabled },
         { id: 'gateway_fcm_project_id', value: fcmProjectId.trim() },
-        { id: 'gateway_fcm_server_key', value: fcmServerKey.trim() },
         { id: 'gateway_fcm_vapid_key', value: fcmVapidKey.trim() },
       ]);
       if (!result.success) throw new Error(result.error || 'Gateway configuration was not saved.');
@@ -562,7 +559,7 @@ export const AdminSettings: React.FC = () => {
       } catch {
         // non-blocking
       }
-      showToast('SMS & Push Gateway settings saved successfully in the database!', 'success');
+      showToast('Gateway preferences saved. Server credentials and actual delivery are not verified.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Gateway save failed.');
     } finally {
@@ -575,6 +572,7 @@ export const AdminSettings: React.FC = () => {
       showToast('Enter a 10-digit mobile number for test SMS.', 'info');
       return;
     }
+    if (!beginOperation()) return;
     setIsSendingTestSms(true);
     try {
       const res = await sendTestSms(fast2smsApiKey, testSmsMobile, fast2smsSenderId);
@@ -587,10 +585,12 @@ export const AdminSettings: React.FC = () => {
       showToast(err?.message || 'Failed to send test SMS.', 'error');
     } finally {
       setIsSendingTestSms(false);
+      endOperation();
     }
   };
 
   const handleCheckBalance = async () => {
+    if (!beginOperation()) return;
     setIsCheckingBalance(true);
     try {
       const res = await checkFast2SmsBalance(fast2smsApiKey);
@@ -600,6 +600,7 @@ export const AdminSettings: React.FC = () => {
       showToast(err?.message || 'Failed to check balance.', 'info');
     } finally {
       setIsCheckingBalance(false);
+      endOperation();
     }
   };
 
@@ -696,13 +697,15 @@ export const AdminSettings: React.FC = () => {
     setIsUploadingAvatar(true);
     try {
       validateSettingsImage(file, 'avatar');
-      const url = await uploadQuestionImage(file);
+      if (!currentAdmin?.id || typeof updateProfile !== 'function')
+        throw new Error('Profile update is unavailable. No avatar was uploaded.');
+      const url = await uploadUserAvatar(file, currentAdmin.id);
       if (!url.startsWith('https://'))
         throw new Error('Upload did not return a durable HTTPS storage URL.');
-      if (updateProfile) {
-        const res = await updateProfile({ avatarUrl: url });
-        if (res?.error) throw res.error;
-      }
+      const res = await updateProfile({ avatarUrl: url });
+      if (res?.error) throw res.error;
+      if (res?.error !== null || res.user?.avatarUrl !== url)
+        throw new Error('Profile avatar save was not confirmed.');
       showToast('Super Admin profile picture updated successfully!', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Avatar upload failed.');
@@ -717,10 +720,12 @@ export const AdminSettings: React.FC = () => {
     if (!beginOperation()) return;
     setIsUploadingAvatar(true);
     try {
-      if (updateProfile) {
-        const res = await updateProfile({ avatarUrl: '' });
-        if (res?.error) throw res.error;
-      }
+      if (typeof updateProfile !== 'function')
+        throw new Error('Profile update is unavailable. No removal was confirmed.');
+      const res = await updateProfile({ avatarUrl: '' });
+      if (res?.error) throw res.error;
+      if (res?.error !== null || !res.user || res.user.avatarUrl)
+        throw new Error('Profile avatar removal was not confirmed.');
       showToast('Profile picture removed.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to remove avatar.');
@@ -2670,7 +2675,7 @@ export const AdminSettings: React.FC = () => {
                   SMS & Push Notification Gateways
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Configure Fast2SMS for carrier text alerts and Firebase Cloud Messaging (FCM) for mobile & web push notifications.
+                  Provider secrets are configured server-side only. These controls save preferences, not verified delivery. Bulk SMS and device push tests remain unavailable until their prerequisites are configured.
                 </p>
               </div>
             </div>
@@ -2746,7 +2751,7 @@ export const AdminSettings: React.FC = () => {
               {/* API Key */}
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Fast2SMS Authorization API Key</span>
+                  <span>Fast2SMS API Key (server-side only)</span>
                   <span className="text-[11px] font-normal text-slate-400">
                     From Fast2SMS Dev Dashboard (bulkV2)
                   </span>
@@ -2754,9 +2759,10 @@ export const AdminSettings: React.FC = () => {
                 <div className="relative">
                   <input
                     type={fast2smsShowKey ? 'text' : 'password'}
-                    value={fast2smsApiKey}
+                    value=""
                     onChange={(e) => setFast2smsApiKey(e.target.value)}
-                    placeholder="e.g. gM4oP2hJbS7iZ5rK... (Your Fast2SMS API Key)"
+                    disabled
+                    placeholder="Managed server-side in Supabase Edge Function secrets"
                     className="w-full h-10 px-3.5 pr-20 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                   <div className="absolute right-2 top-2 flex items-center gap-1">
@@ -2840,7 +2846,7 @@ export const AdminSettings: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => void handleCheckBalance()}
-                  disabled={isCheckingBalance}
+                  disabled={!canManageSettings || isSaving || isCheckingBalance}
                   className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={cn('w-3.5 h-3.5', isCheckingBalance && 'animate-spin')} />
@@ -2858,7 +2864,7 @@ export const AdminSettings: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => void handleTestSms()}
-                    disabled={isSendingTestSms}
+                    disabled={!canManageSettings || isSaving || isSendingTestSms}
                     className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -2964,17 +2970,18 @@ export const AdminSettings: React.FC = () => {
               {/* Server Key / Auth Token */}
               <div className="md:col-span-2 space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>FCM Server Key / Cloud Messaging Token</span>
+                  <span>FCM Server Credentials (server-side only)</span>
                   <span className="text-[11px] font-normal text-slate-400">
-                    From Firebase Project Settings &gt; Cloud Messaging
+                    Server-side HTTP v1 credentials only
                   </span>
                 </label>
                 <div className="relative">
                   <input
                     type={fcmShowKey ? 'text' : 'password'}
-                    value={fcmServerKey}
+                    value=""
                     onChange={(e) => setFcmServerKey(e.target.value)}
-                    placeholder="e.g. AAAA... (FCM Legacy Server Key or Service Token)"
+                    disabled
+                    placeholder="HTTP v1 service account managed server-side; legacy keys unsupported"
                     className="w-full h-10 px-3.5 pr-20 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                   <div className="absolute right-2 top-2 flex items-center gap-1">
@@ -3011,13 +3018,13 @@ export const AdminSettings: React.FC = () => {
                   FCM Push Notification Test
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Dispatches a test push notification to verify gateway handshake and credentials.
+                  Unavailable until a registered test device is selected; this never broadcasts a test to students.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => void handleTestPush()}
-                disabled={isSendingTestPush}
+                disabled={true}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors disabled:opacity-50 shrink-0"
               >
                 <Bell className="w-3.5 h-3.5" />

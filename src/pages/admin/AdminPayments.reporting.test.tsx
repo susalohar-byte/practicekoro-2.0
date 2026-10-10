@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { AdminPayments } from './AdminPayments';
 import { api } from '@/services/api';
 import type { AdminPaymentRow } from '@/types';
@@ -95,8 +95,11 @@ describe('Payment period reporting UI', () => {
     expect(
       await screen.findByText(/Cash flow mode: Refunds are attributed to actual refund settlement date/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Disbursed Refunds:/)).toBeInTheDocument();
-    expect(screen.getByText('-₹50')).toBeInTheDocument();
-    expect(screen.getAllByText('₹150').length).toBeGreaterThan(0);
+    // The chart also displays refund values; verify the labeled cash-flow
+    // summary rather than relying on globally unique currency text.
+    const refundSummary = screen.getByText('Disbursed Refunds:').parentElement!;
+    expect(within(refundSummary).getByText('-₹50')).toBeInTheDocument();
+    const netSummary = screen.getByText('Net Cash Flow:').parentElement!;
+    expect(within(netSummary).getByText('₹150')).toBeInTheDocument();
   });
 });

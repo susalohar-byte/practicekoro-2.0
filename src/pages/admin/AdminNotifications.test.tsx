@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { AdminNotifications } from './AdminNotifications';
 import { api } from '@/services/api';
+import { sendFcmPush } from '@/services/domains/fcmGateway';
+
+vi.mock('@/services/domains/fcmGateway', () => ({
+  sendFcmPush: vi.fn(),
+}));
 
 vi.mock('@/services/api', () => ({
   api: {
@@ -126,5 +131,49 @@ describe('AdminNotifications Page', () => {
     fireEvent.click(sendNowBtn);
 
     expect(api.sendNotificationNow).toHaveBeenCalledWith('n3');
+  });
+
+  it('reports external push failure separately from a successful in-app save', async () => {
+    vi.mocked(api.createNotification).mockResolvedValue({
+      success: true,
+      notification: { id: 'saved-fixture' },
+    } as never);
+    vi.mocked(sendFcmPush).mockResolvedValue({
+      success: false,
+      message: 'Gateway not configured; nothing sent',
+      recipientCount: 0,
+    });
+    render(<AdminNotifications />);
+    await screen.findByText('General Update for All');
+    fireEvent.change(screen.getByPlaceholderText(/enter notification title/i), {
+      target: { value: 'Fixture Notice' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/enter your message/i), {
+      target: { value: 'Fixture only; no real messages' },
+    });
+    const push = screen.getByRole('button', { name: 'Send push notification' });
+    expect(push).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(push);
+    fireEvent.click(screen.getByRole('button', { name: 'Send Notification' }));
+    expect(
+      await screen.findByText(/External delivery unconfirmed: Gateway not configured/)
+    ).toBeInTheDocument();
+    expect(api.createNotification).toHaveBeenCalledTimes(1);
+    expect(sendFcmPush).toHaveBeenCalledTimes(1);
+    expect(sendFcmPush).toHaveBeenCalledWith(
+      expect.not.objectContaining({ serverKey: expect.anything() })
+    );
+    expect(screen.queryByText(/FCM accepted/)).not.toBeInTheDocument();
+  });
+
+  it('keeps bulk SMS unavailable instead of substituting arbitrary recipients', async () => {
+    render(<AdminNotifications />);
+    await screen.findByText('General Update for All');
+    const sms = screen.getByRole('button', { name: 'Send carrier SMS' });
+    expect(sms).toBeDisabled();
+    expect(sms).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(sms);
+    expect(sms).toHaveAttribute('aria-pressed', 'false');
+    expect(api.createNotification).not.toHaveBeenCalled();
   });
 });

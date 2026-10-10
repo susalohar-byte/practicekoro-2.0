@@ -41,7 +41,6 @@ import { cn } from '@/lib/utils';
 import { notificationDateInput, notificationDateMatches } from '@/utils/adminNotificationDates';
 import { api } from '@/services/api';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { sendFast2Sms } from '@/services/domains/smsGateway';
 import { sendFcmPush } from '@/services/domains/fcmGateway';
 
 // ============================================================================
@@ -1024,7 +1023,7 @@ export const AdminNotifications: React.FC = () => {
   const [formMessage, setFormMessage] = useState('');
   const [formType, setFormType] = useState<NotificationCategory>('General');
   const [formActionLink, setFormActionLink] = useState('');
-  const [formSendPush, setFormSendPush] = useState(true);
+  const [formSendPush, setFormSendPush] = useState(false);
   const [formSendEmail, setFormSendEmail] = useState(false);
   const [formSendSms, setFormSendSms] = useState(false);
   const [formAudience, setFormAudience] = useState('All Students');
@@ -1125,7 +1124,7 @@ export const AdminNotifications: React.FC = () => {
     setFormActionLink(item.actionLink || '');
     setFormAudience(item.audience);
     setFormAudienceCount(item.audienceCount);
-    setFormSendPush(item.sendPush ?? true);
+    setFormSendPush(item.sendPush ?? false);
     setFormSendEmail(item.sendEmail ?? false);
     setFormScheduledDate(item.scheduledAt || '2026-09-20T10:00');
     setFormTab('General');
@@ -1162,6 +1161,12 @@ export const AdminNotifications: React.FC = () => {
       );
       return;
     }
+    if (formSendSms) {
+      showToast(
+        'Bulk SMS is unavailable until a verified server-side audience resolver is configured. No SMS was sent.'
+      );
+      return;
+    }
     setFormIsSubmitting(true);
     try {
       const status = isDraft ? 'draft' : formTab === 'Schedule' ? 'scheduled' : 'sent';
@@ -1188,21 +1193,13 @@ export const AdminNotifications: React.FC = () => {
         if (!result.notification?.id) throw new Error('Saved notification ID is missing.');
       }
 
-      const deliveryChannels: string[] = ['In-App'];
+      const deliveryChannels: string[] = ['In-App saved'];
+      const deliveryWarnings: string[] = [];
 
       // Dispatch external FCM Push Notification if enabled
       if (status === 'sent' && formSendPush) {
         try {
-          const settings = await api.getAppSettings();
-          const serverKey = String(
-            settings.find((s) => s.id === 'gateway_fcm_server_key')?.value || ''
-          );
-          const projectId = String(
-            settings.find((s) => s.id === 'gateway_fcm_project_id')?.value || 'practicekoro-app'
-          );
           const pushRes = await sendFcmPush({
-            serverKey,
-            projectId,
             title: formTitle.trim(),
             body: formMessage.trim(),
             actionUrl: formActionLink.trim() || 'https://practicekoro.online/dashboard',
@@ -1214,54 +1211,12 @@ export const AdminNotifications: React.FC = () => {
                   : 'all_students',
           });
           if (pushRes.success) {
-            deliveryChannels.push('FCM Push');
+            deliveryChannels.push('FCM accepted (device delivery unverified)');
+          } else {
+            deliveryWarnings.push(pushRes.message);
           }
         } catch {
-          // non-blocking external dispatch
-        }
-      }
-
-      // Dispatch external Fast2SMS direct carrier SMS if enabled
-      if (status === 'sent' && formSendSms) {
-        try {
-          const settings = await api.getAppSettings();
-          const apiKey = String(
-            settings.find((s) => s.id === 'gateway_fast2sms_api_key')?.value || ''
-          );
-          const route = String(
-            settings.find((s) => s.id === 'gateway_fast2sms_route')?.value || 'q'
-          );
-          const senderId = String(
-            settings.find((s) => s.id === 'gateway_fast2sms_sender_id')?.value || 'FSTSMS'
-          );
-
-          let targetNumbers: string[] = [];
-          try {
-            const students = await api.getAdminStudents(undefined, undefined, undefined, 50, 0);
-            targetNumbers = students
-              .map((s) => s.phone || '')
-              .filter((p) => p && p.length >= 10);
-          } catch {
-            // fallback
-          }
-
-          if (targetNumbers.length === 0) {
-            targetNumbers = ['9547771118'];
-          }
-
-          const smsRes = await sendFast2Sms({
-            apiKey,
-            numbers: targetNumbers,
-            message: formMessage.trim(),
-            route,
-            senderId,
-          });
-
-          if (smsRes.success) {
-            deliveryChannels.push(`Fast2SMS (${smsRes.recipientCount} SMS)`);
-          }
-        } catch {
-          // non-blocking external dispatch
+          deliveryWarnings.push('Push acceptance could not be confirmed');
         }
       }
 
@@ -1271,7 +1226,7 @@ export const AdminNotifications: React.FC = () => {
       setFormActionLink('');
       await loadBackendNotifications();
       showToast(
-        `Notification broadcasted successfully via ${deliveryChannels.join(' + ')}!`
+        `Notification ${status === 'sent' ? 'saved' : status} via ${deliveryChannels.join(' + ')}.${deliveryWarnings.length ? ' External delivery unconfirmed: ' + deliveryWarnings.join('; ') : ''}`
       );
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Save failed');
@@ -2373,6 +2328,8 @@ export const AdminNotifications: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      aria-label="Send push notification"
+                      aria-pressed={formSendPush}
                       onClick={() => setFormSendPush(!formSendPush)}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -2405,6 +2362,10 @@ export const AdminNotifications: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      disabled
+                      title="Bulk SMS requires a verified server-side audience resolver"
+                      aria-label="Send carrier SMS"
+                      aria-pressed={formSendSms}
                       onClick={() => setFormSendSms(!formSendSms)}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
@@ -2428,7 +2389,7 @@ export const AdminNotifications: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
-                        Deliver SMS directly to student mobile phones
+                        Unavailable until a verified server-side audience resolver is configured
                       </span>
                     </div>
                   </div>
@@ -2441,7 +2402,7 @@ export const AdminNotifications: React.FC = () => {
                         <span>{Math.ceil(formMessage.length / 160) || 1} Credit/recipient</span>
                       </div>
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                        Carrier SMS will be dispatched via Fast2SMS API on broadcast.
+                        Carrier broadcast is unavailable; no substitute recipients are used.
                       </p>
                     </div>
                   )}
@@ -2450,6 +2411,8 @@ export const AdminNotifications: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
+                      aria-label="Send email notification"
+                      aria-pressed={formSendEmail}
                       onClick={() => setFormSendEmail(!formSendEmail)}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',

@@ -4,6 +4,14 @@ vi.mock('./supabase',()=>({isSupabaseConfigured:true,supabaseRuntime:{functions:
 import { validateRasterFile,uploadValidatedImage } from './rasterUploads';
 beforeEach(()=>{state.invoke.mockReset();vi.stubGlobal('createImageBitmap',vi.fn().mockResolvedValue({width:100,height:50,close:vi.fn()}));vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue({drawImage:vi.fn()} as never);vi.spyOn(HTMLCanvasElement.prototype,'toBlob').mockImplementation(cb=>cb(new Blob(['normalized pixels'],{type:'image/png'})));});
 describe('validated image upload boundary',()=>{
+ it.each([['avatars',512],['question-images',2000]] as const)('normalizes large %s images within the server pixel budget',async(bucket,size)=>{
+  vi.stubGlobal('createImageBitmap',vi.fn().mockResolvedValue({width:4096,height:4096,close:vi.fn()}));
+  state.invoke.mockResolvedValue({data:{success:true,publicUrl:`https://prycanbnxuihxhskallw.supabase.co/storage/v1/object/public/${bucket}/user/id.png`},error:null});
+  await uploadValidatedImage(new File(['fixture'],'photo.png',{type:'image/png'}),bucket);
+  const canvas=vi.mocked(HTMLCanvasElement.prototype.getContext).mock.contexts.at(-1) as HTMLCanvasElement;
+  expect(canvas.width).toBe(size);expect(canvas.height).toBe(size);
+  expect(canvas.width*canvas.height).toBeLessThanOrEqual(4_000_000);
+ });
  it.each(['image/svg+xml','text/html','application/javascript'])('rejects %s before invoking the server',async type=>{await expect(uploadValidatedImage(new File(['x'],'x.png',{type}),'banners')).rejects.toThrow('SVG');expect(state.invoke).not.toHaveBeenCalled();});
  it('rejects oversized/empty avatars',()=>{expect(()=>validateRasterFile(new File([],'x.png',{type:'image/png'}),'avatars')).toThrow('2 MB');expect(()=>validateRasterFile(new File([new Uint8Array(2097153)],'x.jpg',{type:'image/jpeg'}),'avatars')).toThrow('2 MB');});
  it('submits normalized PNG via authenticated function and returns a durable bucket URL',async()=>{

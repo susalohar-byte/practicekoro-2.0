@@ -47,6 +47,8 @@ CSP allows self-hosted application scripts and the observed Razorpay checkout/CD
 
 Upstream commit `558a3ea` introduced Fast2SMS/FCM integrations while this work was in progress. Those changes were preserved, not overwritten. Their browser-side provider-key usage and simulated-success fallbacks warrant a separate security review before enabling them with real secrets. This rollout does **not** certify those new integrations as secure or successfully delivered. CSP was not broadened to permit browser dispatch of provider secrets.
 
+Subsequent readiness work replaced the unsafe browser dispatch and fabricated-success behavior with an authorized server-side gateway. See `docs/production-readiness.md` for the current status, verification and remaining provider/hosting prerequisites; actual delivery is still not certified.
+
 ## Reproducing isolated tests
 
 Run the repository's normal `npm run typecheck`, `npm run build` and `npm test`.
