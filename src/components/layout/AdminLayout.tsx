@@ -38,7 +38,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Sparkles,
   AlertTriangle,
   ExternalLink,
   Radio,
@@ -75,7 +74,7 @@ interface NavSection {
 
 export const AdminLayout: React.FC = () => {
   const { user, logout, adminRole, hasPermission } = useAuth();
-  const { appName, logoUrl } = usePlatformBrand();
+  const { appName } = usePlatformBrand();
   const { isMaintenanceMode } = useMaintenance();
   const navigate = useNavigate();
   const location = useLocation();
@@ -465,12 +464,11 @@ export const AdminLayout: React.FC = () => {
             )}
             title={`${appName} Admin Dashboard`}
           >
-            <div className="relative w-9 h-9 rounded-xl bg-[#026BFC] flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20">
-              {logoUrl ? (
-                <BrandLogo className="w-7 h-7 object-contain" />
-              ) : (
-                <Sparkles className="w-5 h-5" />
-              )}
+            <div className="relative w-9 h-9 rounded-full bg-[#026BFC] flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/25 overflow-hidden">
+              <BrandLogo
+                fallback="/logo-circle.png"
+                className="w-full h-full rounded-full object-cover"
+              />
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
