@@ -162,20 +162,28 @@ describe('Truthful Settings workflows', () => {
   });
   it('keeps the previous asset if durable upload metadata cannot be saved', async () => {
     m.update.mockResolvedValue({ success: false, error: 'Metadata denied' });
-    const r = await mount();
-    fireEvent.change(r.container.querySelectorAll('input[type=file]')[0], {
+    await mount();
+    fireEvent.change(screen.getByLabelText('Upload platform logo'), {
       target: { files: [new File(['png'], 'valid.png', { type: 'image/png' })] },
     });
     expect(await screen.findByRole('alert')).toHaveTextContent('Metadata denied');
+    expect(m.upload).toHaveBeenCalledTimes(1);
+    expect(m.update).toHaveBeenCalledWith([
+      { id: 'general_platform_logo', value: 'https://example.test/new.png' },
+    ]);
     expect(screen.getByAltText('Logo')).toHaveAttribute('src', 'https://example.test/logo.png');
+    expect(screen.getByAltText('Favicon')).toHaveAttribute('src', 'https://example.test/icon.png');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
   it('rejects unsafe/unsupported image formats before upload', async () => {
-    const r = await mount();
-    fireEvent.change(r.container.querySelectorAll('input[type=file]')[0], {
+    await mount();
+    fireEvent.change(screen.getByLabelText('Upload platform logo'), {
       target: { files: [new File(['svg'], 'logo.svg', { type: 'image/svg+xml' })] },
     });
     expect(await screen.findByRole('alert')).toHaveTextContent('Logo must be PNG or JPEG');
     expect(m.upload).not.toHaveBeenCalled();
+    expect(m.update).not.toHaveBeenCalled();
+    expect(screen.getByAltText('Logo')).toHaveAttribute('src', 'https://example.test/logo.png');
   });
   it('keeps read-only staff controls disabled without trusting client mutation permissions', async () => {
     m.role = 'content_writer';
@@ -185,19 +193,50 @@ describe('Truthful Settings workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(m.update).not.toHaveBeenCalled();
   });
-  it('enables connected SEO but keeps unimplemented security, integration and notification actions disabled', async () => {
+  it('enables connected editors while keeping unimplemented security and email delivery unavailable', async () => {
     await mount();
     tab('SEO & Meta');
     expect(screen.getByRole('button', { name: 'Save SEO Settings' })).toBeEnabled();
     tab('Security');
     expect(screen.getByRole('button', { name: 'Update Security Policies' })).toBeDisabled();
     tab('Integrations');
-    expect(screen.getAllByRole('button', { name: 'Not managed here' })).toHaveLength(4);
-    screen
-      .getAllByRole('button', { name: 'Not managed here' })
-      .forEach((b) => expect(b).toBeDisabled());
+    expect(
+      screen.getByRole('heading', { name: 'SMS & Push Notification Gateways' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Gateways' })).toBeEnabled();
     tab('Email & Notifications');
+    expect(screen.getAllByText('Not managed here')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Send Sample Notification' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Send Sample Notification' }));
+    expect(m.update).not.toHaveBeenCalled();
+  });
+  it('reports integration save rejection without claiming a successful database save', async () => {
+    m.update.mockResolvedValue({ success: false, error: 'Gateway permission denied' });
+    await mount();
+    tab('Integrations');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Gateways' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Gateway permission denied');
+    expect(m.update).toHaveBeenCalledTimes(1);
+    expect(m.update.mock.calls[0][0].map((row: { id: string }) => row.id)).toEqual([
+      'gateway_fast2sms_enabled',
+      'gateway_fast2sms_api_key',
+      'gateway_fast2sms_route',
+      'gateway_fast2sms_sender_id',
+      'gateway_fcm_enabled',
+      'gateway_fcm_project_id',
+      'gateway_fcm_server_key',
+      'gateway_fcm_vapid_key',
+    ]);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(m.refresh).not.toHaveBeenCalled();
+  });
+  it('keeps integration save unavailable to read-only staff', async () => {
+    m.role = 'content_writer';
+    await mount();
+    tab('Integrations');
+    const save = screen.getByRole('button', { name: 'Save Gateways' });
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
     expect(m.update).not.toHaveBeenCalled();
   });
   it('clears only the named offline cache, preserving sign-in/session state', async () => {

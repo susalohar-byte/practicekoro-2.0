@@ -36,7 +36,7 @@ CSP allows self-hosted application scripts and the observed Razorpay checkout/CD
 
 - Production build/typecheck and changed-file lint passed. All seven new frontend upload tests passed.
 - Isolated tests: 25 PostgreSQL assertions and 16 actual raster-decoder assertions passed.
-- Full merged regression suite: 785 passed, 3 failed. All three failures are in `AdminSettings.behavior.test.tsx` and reproduce unchanged on upstream commit `558a3ea` (18 passed, 3 failed for that file). The suite is **not** reported as entirely green.
+- Initial merged regression suite before the Settings test repair: 785 passed, 3 failed. All three failures were in `AdminSettings.behavior.test.tsx` and reproduced unchanged on upstream commit `558a3ea` (18 passed, 3 failed for that file).
 - Isolated PostgreSQL checks cover unchanged function bodies/ACLs, hostile caller search paths, signup/access/topic compatibility, raster bucket settings, client-denied rate RPC and throttling.
 - Real raster decoder checks cover PNG/JPEG, content/MIME mismatch, SVG denial, polyglots, CRC, size and pixel limits.
 - Local browser preview boots the application, blocks injected inline/unlisted scripts and loads the Razorpay SDK. No order or payment was created.
@@ -54,3 +54,14 @@ Run the repository's normal `npm run typecheck`, `npm run build` and `npm test`.
 For isolated decoder tests, install `pngjs@7.0.0` and `jpeg-js@0.4.4` in a separate test directory and set `RASTER_DECODER_PACKAGE` to that directory's `package.json`, then run `node scripts/tests/raster-content-validation.mjs`.
 
 For SQL tests, install `@electric-sql/pglite` in a separate directory and set `PGLITE_MODULE` to its module entry, then run `node scripts/tests/search-path-storage-sql.mjs`.
+
+## Settings regression repair follow-up
+
+- Named the logo/favicon file inputs accessibly and replaced positional file-input selectors. Adding the upstream profile-photo input had caused the logo tests to exercise the wrong handler.
+- Retained and strengthened metadata-save failure checks: the logo metadata request is verified, the previous logo/favicon remain visible, and no success status is emitted on rejection.
+- Retained unsupported-format rejection checks: SVG never reaches upload or metadata save, and the old logo remains unchanged.
+- Updated stale integration expectations for the current gateway editor. The four email-template “Not managed here” labels are informational text, not buttons. Unimplemented security/email-delivery actions still must be disabled.
+- Added backend rejection and read-only-role tests for gateway saves. These are mocked UI regression tests, not provider delivery or live production-security certification.
+- Targeted verification: all 23 behavior tests and 4 loading tests passed; build/typecheck and changed-file lint passed. No tests were skipped or deleted.
+- Final full-suite verification after this repair: **106 test files passed, 790 tests passed, zero failures**.
+- This follow-up is source/test work only; it does not change the pending hosting rollout or the Free-plan blocker above.

@@ -795,6 +795,7 @@ export const AdminSettings: React.FC = () => {
         accept="image/png,image/jpeg"
         className="hidden"
         onChange={handleLogoUpload}
+        aria-label="Upload platform logo"
       />
       <input
         disabled={!canManageSettings || isSaving}
@@ -803,6 +804,7 @@ export const AdminSettings: React.FC = () => {
         accept="image/png"
         className="hidden"
         onChange={handleFaviconUpload}
+        aria-label="Upload platform favicon"
       />
 
       {/* ==================================================================== */}
