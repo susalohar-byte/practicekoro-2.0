@@ -53,7 +53,7 @@ export const Footer: React.FC = () => {
               <img
                 src="/logo-icon-circle.png"
                 alt="PracticeKoro"
-                className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105"
+                className="w-9 h-9 rounded-full object-cover transition-transform group-hover:scale-105"
               />
               <span className="font-black text-xl text-slate-900 tracking-tight">
                 Practice<span className="text-blue-600 dark:text-blue-400">Koro</span>

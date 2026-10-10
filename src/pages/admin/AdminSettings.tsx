@@ -893,7 +893,7 @@ export const AdminSettings: React.FC = () => {
                       Platform Logo
                     </label>
                     <div className="flex items-start gap-3">
-                      <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
+                      <div className="w-14 h-14 rounded-full bg-[#026BFC] flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
                         {platformLogo ? (
                           <img
                             src={platformLogo}
@@ -901,7 +901,7 @@ export const AdminSettings: React.FC = () => {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-lg border-2 border-white/80 flex items-center justify-center">
+                          <div className="w-9 h-9 rounded-full border-2 border-white/80 flex items-center justify-center">
                             <span className="font-black text-sm tracking-tighter">PK</span>
                           </div>
                         )}

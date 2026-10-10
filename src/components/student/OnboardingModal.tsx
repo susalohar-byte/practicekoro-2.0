@@ -96,11 +96,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               {/* Floating Animated 3D Logo Box with Pulsing Radar Ring & Shine Glint */}
               <div className="relative">
                 {/* Concentric ambient radar pulse ring */}
-                <div className="absolute -inset-2 rounded-3xl border border-white/25 animate-pulse-ring pointer-events-none" />
+                <div className="absolute -inset-2 rounded-full border border-white/25 animate-pulse-ring pointer-events-none" />
                 <img
                   src="/logo-icon-circle.png"
                   alt="PracticeKoro"
-                  className="w-24 h-24 rounded-3xl object-contain filter drop-shadow-lg animate-float hover:scale-110 hover:rotate-2 transition-all duration-300 cursor-pointer"
+                  className="w-24 h-24 rounded-full object-cover filter drop-shadow-lg animate-float hover:scale-110 hover:rotate-2 transition-all duration-300 cursor-pointer"
                 />
                 {/* Rotating Sparkle Star */}
                 <Sparkles className="w-6 h-6 text-amber-300 absolute -top-2.5 -right-2.5 animate-spin-slow drop-shadow-md" />

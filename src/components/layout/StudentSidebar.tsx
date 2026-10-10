@@ -122,8 +122,11 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             className="flex items-center gap-2.5 overflow-hidden group"
           >
             {/* Official PracticeKoro App Icon */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#026BFC] to-[#051A43] p-1 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 overflow-hidden">
-              <BrandLogo className="w-full h-full object-contain" />
+            <div className="w-9 h-9 rounded-full bg-[#026BFC] flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/25 overflow-hidden">
+              <BrandLogo
+                fallback="/logo-circle.png"
+                className="w-full h-full rounded-full object-cover"
+              />
             </div>
 
             <div className={cn('flex flex-col min-w-0', isCollapsed && 'lg:hidden')}>

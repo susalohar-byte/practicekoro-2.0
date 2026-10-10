@@ -51,7 +51,7 @@ export const Navbar: React.FC = () => {
           <img
             src="/logo-icon-circle.png"
             alt="PracticeKoro"
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain transition-transform group-hover:scale-105"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover transition-transform group-hover:scale-105"
           />
           <span className="font-black text-lg sm:text-2xl text-pk-navy dark:text-white tracking-tight flex items-center">
             Practice<span className="text-pk-primary">Koro</span>

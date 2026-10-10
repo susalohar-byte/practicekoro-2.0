@@ -27,7 +27,7 @@ export const Onboarding: React.FC = () => {
         <img
           src="/logo-icon-circle.png"
           alt="PracticeKoro"
-          className="w-20 h-20 mx-auto rounded-3xl object-contain filter drop-shadow-md animate-float"
+          className="w-20 h-20 mx-auto rounded-full object-cover filter drop-shadow-md animate-float"
         />
 
         <div className="space-y-2">

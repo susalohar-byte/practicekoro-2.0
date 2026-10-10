@@ -66,7 +66,7 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
         <div className="flex items-center gap-3">
           <BrandLogo
             fallback="/logo-icon-circle.png"
-            className="w-8 h-8 rounded-xl object-contain"
+            className="w-8 h-8 rounded-full object-cover"
           />
           <span className="text-base font-black tracking-tight text-white">
             {appName || 'Practice'}
