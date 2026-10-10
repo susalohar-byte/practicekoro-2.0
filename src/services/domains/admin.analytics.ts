@@ -55,8 +55,27 @@ export async function getAuthoritativeAnalytics(
       )
     );
   const dated = (q: any) => q.gte('created_at', b.startIso).lte('created_at', b.endIso);
+  const readProfiles = async () => {
+    try {
+      return await read('profiles', 'id,full_name,email,role,created_at,district,gender', (q) =>
+        q.eq('role', 'student')
+      );
+    } catch (err: any) {
+      console.warn('Profiles query with gender failed, trying without gender:', err?.message);
+      try {
+        return await read('profiles', 'id,full_name,email,role,created_at,district', (q) =>
+          q.eq('role', 'student')
+        );
+      } catch (err2: any) {
+        console.warn('Profiles query with district failed, trying minimal:', err2?.message);
+        return await read('profiles', 'id,full_name,email,role,created_at', (q) =>
+          q.eq('role', 'student')
+        );
+      }
+    }
+  };
   const [profiles, attempts, answers, payments, subscriptions] = await Promise.all([
-    read('profiles', 'id,full_name,email,role,created_at,district,gender', (q) => q.eq('role', 'student')),
+    readProfiles(),
     read('test_attempts', 'id,user_id,status,score,created_at', dated),
     read(
       'attempt_answers',
