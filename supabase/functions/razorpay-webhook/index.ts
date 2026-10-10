@@ -1,6 +1,7 @@
 // supabase/functions/razorpay-webhook/index.ts
 // PracticeKoro 2.0 - Razorpay Webhook & Payment Reconciliation Edge Function
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
+import { isRecord, isCompletedRefund } from '../_shared/payment-validation.ts';
 import { paiseToRupees, verifyHmacSha256 } from '../_shared/razorpay-signature.ts';
 
 interface RazorpayWebhookPayload {
@@ -113,7 +114,11 @@ Deno.serve(async (req: Request) => {
   // 6. Parse validated JSON payload
   let data: RazorpayWebhookPayload;
   try {
-    data = JSON.parse(rawBody);
+    const parsed: unknown = JSON.parse(rawBody);
+    if (!isRecord(parsed) || typeof parsed.event !== 'string' || !isRecord(parsed.payload)) {
+      throw new Error('Invalid webhook body');
+    }
+    data = parsed as unknown as RazorpayWebhookPayload;
   } catch {
     return new Response(JSON.stringify({ error: 'Malformed JSON payload' }), {
       status: 400,
@@ -145,6 +150,15 @@ Deno.serve(async (req: Request) => {
   // 7b. Handle Refund Webhook Events -> Automatically revoke Pro subscription
   if (isRefundEvent) {
     const refundEntity = data.payload?.refund?.entity;
+    if (!isCompletedRefund(event, refundEntity?.status)) {
+      return new Response(
+        JSON.stringify({ status: 'ignored', message: 'Refund is not completed; access unchanged' }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
     const paymentEntity = data.payload?.payment?.entity;
     const paymentId = refundEntity?.payment_id || paymentEntity?.id;
     const refundId = refundEntity?.id || `rfnd_${Date.now()}`;

@@ -3,12 +3,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 import { buildPaymentSignaturePayload, verifyHmacSha256 } from '../_shared/razorpay-signature.ts';
 
-interface PaymentVerificationPayload {
-  orderId: string;
-  paymentId: string;
-  signature: string;
-  planId: string;
-}
+import { isVerificationPayload, isRecord } from '../_shared/payment-validation.ts';
 
 Deno.serve(async (req: Request) => {
   // 1. CORS headers — restricted to ALLOWED_ORIGINS; when unset, defaults
@@ -85,9 +80,7 @@ Deno.serve(async (req: Request) => {
   const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
 
   if (!keySecret) {
-    console.error(
-      'Server misconfiguration: RAZORPAY_KEY_SECRET is not set in Supabase secrets'
-    );
+    console.error('Server misconfiguration: RAZORPAY_KEY_SECRET is not set in Supabase secrets');
     return new Response(JSON.stringify({ error: 'Payment gateway secret not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -95,7 +88,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // 4. Parse request payload
-  let payload: PaymentVerificationPayload;
+  let payload: unknown;
   try {
     payload = await req.json();
   } catch {
@@ -105,13 +98,14 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { orderId, paymentId, signature, planId } = payload;
-  if (!orderId || !paymentId || !signature || !planId) {
+  if (!isVerificationPayload(payload)) {
     return new Response(JSON.stringify({ error: 'Missing required verification fields' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  const { orderId, paymentId, signature, planId } = payload;
 
   // 5. Cryptographic signature verification
   const isValid = await verifyHmacSha256(
@@ -127,16 +121,90 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // 6. Invoke server RPC to activate subscription
-  const { data: rpcResult, error: rpcError } = await serviceClient.rpc('verify_razorpay_payment', {
-    p_order_id: orderId,
-    p_payment_id: paymentId,
-    p_signature: signature,
-    p_plan_id: planId,
-  });
+  // Bind proof to this authenticated user's exact recorded order. Never use
+  // an arbitrary/latest pending order as a fallback.
+  const { data: payment, error: paymentError } = await serviceClient
+    .from('payments')
+    .select('id, user_id, plan_id, amount, currency')
+    .eq('razorpay_order_id', orderId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (paymentError || !payment || payment.plan_id !== planId) {
+    return new Response(
+      JSON.stringify({ error: 'Payment order not found for this account and plan' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
 
-  if (rpcError) {
-    console.error('Payment verification RPC rejected. Error code:', rpcError.code);
+  // A checkout signature alone does not assert that the payment was captured.
+  // Fetch provider-authoritative status/amount before service-only activation.
+  const keyId = Deno.env.get('RAZORPAY_KEY_ID');
+  if (!keyId)
+    return new Response(JSON.stringify({ error: 'Payment key not configured' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  try {
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`,
+      {
+        headers: { Authorization: 'Basic ' + btoa(`${keyId}:${keySecret}`) },
+      }
+    );
+    const captured: unknown = await response.json();
+    if (
+      !response.ok ||
+      !isRecord(captured) ||
+      captured.id !== paymentId ||
+      captured.order_id !== orderId ||
+      captured.status !== 'captured' ||
+      captured.currency !== payment.currency ||
+      typeof captured.amount !== 'number' ||
+      !Number.isSafeInteger(captured.amount) ||
+      captured.amount !== Math.round(Number(payment.amount) * 100)
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: 'Captured payment could not be confirmed. Do not pay again; retry verification.',
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Payment provider unavailable. Retry verification, not payment.' }),
+      {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // 6. Only this trusted endpoint (or another service) may activate access.
+  const { data: rpcResult, error: rpcError } = await serviceClient.rpc(
+    'activate_verified_razorpay_payment',
+    {
+      p_user_id: user.id,
+      p_order_id: orderId,
+      p_payment_id: paymentId,
+      p_signature: signature,
+      p_plan_id: planId,
+    }
+  );
+
+  if (
+    rpcError ||
+    !isRecord(rpcResult) ||
+    rpcResult.success !== true ||
+    !rpcResult.subscription_id
+  ) {
+    console.error('Payment verification RPC rejected. Error code:', rpcError?.code);
     return new Response(JSON.stringify({ error: 'Payment verification failed' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

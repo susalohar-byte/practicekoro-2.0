@@ -2,9 +2,7 @@
 // PracticeKoro 2.0 - Server-Side Razorpay Order Creation via Orders API
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
-interface CreateOrderPayload {
-  planId: string;
-}
+import { isOrderPayload, isRecord } from '../_shared/payment-validation.ts';
 
 Deno.serve(async (req: Request) => {
   // 1. CORS headers — restricted to ALLOWED_ORIGINS; when unset, defaults
@@ -77,7 +75,7 @@ Deno.serve(async (req: Request) => {
   const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
   // 3. Parse request payload
-  let payload: CreateOrderPayload;
+  let payload: unknown;
   try {
     payload = await req.json();
   } catch {
@@ -87,11 +85,23 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  if (!payload.planId) {
+  if (!isOrderPayload(payload)) {
     return new Response(JSON.stringify({ error: 'Missing planId parameter' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  // No coupon redemption exists in this service. Never silently accept a
+  // requested discount and charge full price, even from an older client.
+  if (isRecord(payload) && (payload.couponCode != null || payload.couponId != null)) {
+    return new Response(
+      JSON.stringify({ error: 'Coupon checkout is unavailable. Remove the coupon before paying.' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   // 4. Retrieve authoritative plan details from database
@@ -116,7 +126,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const priceNum = Number(plan.price);
-  if (priceNum <= 0) {
+  if (
+    !Number.isFinite(priceNum) ||
+    priceNum <= 0 ||
+    !Number.isSafeInteger(Math.round(priceNum * 100))
+  ) {
     return new Response(JSON.stringify({ error: 'Free plans do not require payment processing' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -203,7 +217,15 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    rzpOrder = rzpData;
+    if (
+      !isRecord(rzpData) ||
+      typeof rzpData.id !== 'string' ||
+      rzpData.amount !== amountInPaise ||
+      rzpData.currency !== (plan.currency || 'INR')
+    ) {
+      throw new Error('Invalid provider order response');
+    }
+    rzpOrder = { id: rzpData.id, amount: amountInPaise, currency: rzpData.currency as string };
   } catch (apiErr) {
     console.error('Failed to communicate with Razorpay API:', apiErr);
     return new Response(
@@ -224,6 +246,7 @@ Deno.serve(async (req: Request) => {
       amount: plan.price,
       currency: plan.currency || 'INR',
       gateway: 'razorpay',
+      verification_version: 2,
       order_id: rzpOrder.id,
       razorpay_order_id: rzpOrder.id,
       status: 'pending',
@@ -231,13 +254,22 @@ Deno.serve(async (req: Request) => {
     .select('id')
     .single();
 
-  if (paymentInsertError) {
+  if (paymentInsertError || !paymentRow?.id) {
     console.error('Failed to record pending payment in database:', paymentInsertError);
-    // Still return order details so checkout can proceed, webhook/verification will reconcile
+    return new Response(
+      JSON.stringify({
+        error: 'Could not record payment order. Checkout was not opened; please retry.',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   return new Response(
     JSON.stringify({
+      verification_version: 2,
       order_id: rzpOrder.id,
       payment_id: paymentRow?.id || rzpOrder.id,
       plan_id: plan.id,

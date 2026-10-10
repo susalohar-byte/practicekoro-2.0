@@ -35,6 +35,9 @@ export const Subscription: React.FC = () => {
 
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRetry, setHistoryRetry] = useState(0);
 
   // Payment states: idle | preparing | processing | success | failed | cancelled | delayed
   const [paymentStatus, setPaymentStatus] = useState<
@@ -51,7 +54,7 @@ export const Subscription: React.FC = () => {
   // Coupon state
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const isValidatingCoupon = false;
   const [couponError, setCouponError] = useState('');
 
   // Support intake modal state
@@ -63,27 +66,9 @@ export const Subscription: React.FC = () => {
   const [supportIssue, setSupportIssue] = useState('');
 
   const handleApplyCoupon = async () => {
-    if (!couponInput.trim() || !activePlan) return;
-    try {
-      setIsValidatingCoupon(true);
-      setCouponError('');
-      const res = await api.validateCoupon(
-        couponInput.trim(),
-        activePlan.id,
-        activePlan.price,
-        user?.id
-      );
-      if (res.valid) {
-        setAppliedCoupon(res);
-        setCouponInput('');
-      } else {
-        setCouponError(res.message || 'Invalid coupon code');
-      }
-    } catch {
-      setCouponError('Failed to validate coupon code');
-    } finally {
-      setIsValidatingCoupon(false);
-    }
+    // Coupon redemption is not implemented in the authoritative order service.
+    // Fail closed rather than advertising a discount and charging full price.
+    setCouponError('Coupon checkout is currently unavailable. No discount has been applied.');
   };
 
   useEffect(() => {
@@ -96,13 +81,29 @@ export const Subscription: React.FC = () => {
   }, [plans, selectedPlan]);
 
   useEffect(() => {
-    if (user) {
-      api
-        .getStudentPaymentHistory()
-        .then(setPayments)
-        .catch((err) => console.error('Error fetching payments:', err));
+    let cancelled = false;
+    setPayments([]);
+    setHistoryError('');
+    if (!user) {
+      setHistoryLoading(false);
+      return;
     }
-  }, [user, paymentStatus]);
+    setHistoryLoading(true);
+    api
+      .getStudentPaymentHistory()
+      .then((rows) => {
+        if (!cancelled) setPayments(rows);
+      })
+      .catch((err) => {
+        if (!cancelled) setHistoryError(getErrorMessage(err, 'Could not load payment history'));
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, paymentStatus, historyRetry]);
 
   const activeSub = subscriptionDetails?.isActive;
   const isExpired =
@@ -125,6 +126,8 @@ export const Subscription: React.FC = () => {
     setErrorMessage(null);
 
     try {
+      if (appliedCoupon)
+        throw new Error('Coupon checkout is unavailable. Remove the coupon before continuing.');
       // 1. Create order on server (authoritative database pricing enforced)
       const order = await api.createRazorpayOrder(plan.id);
 
@@ -601,7 +604,8 @@ export const Subscription: React.FC = () => {
                       <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
-                        placeholder="Coupon code (e.g. WELCOME50)"
+                        disabled
+                        placeholder="Coupon checkout unavailable"
                         value={couponInput}
                         onChange={(e) => {
                           setCouponInput(e.target.value.toUpperCase());
@@ -615,12 +619,15 @@ export const Subscription: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleApplyCoupon}
-                      disabled={isValidatingCoupon || !couponInput.trim()}
+                      disabled
                       className="text-xs font-bold shrink-0 cursor-pointer"
                     >
                       {isValidatingCoupon ? 'Checking…' : 'Apply'}
                     </Button>
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Coupon checkout is unavailable. Purchases use the listed plan price.
+                  </p>
                   {couponError && (
                     <p className="text-[11px] font-semibold text-rose-600 pl-1">{couponError}</p>
                   )}
@@ -901,7 +908,18 @@ export const Subscription: React.FC = () => {
           </div>
         </div>
 
-        {payments.length === 0 ? (
+        {historyError ? (
+          <Card className="p-6" role="alert">
+            <p>{historyError}</p>
+            <Button onClick={() => setHistoryRetry((value) => value + 1)}>
+              Retry payment history
+            </Button>
+          </Card>
+        ) : historyLoading ? (
+          <Card className="p-6" role="status">
+            Loading payment history…
+          </Card>
+        ) : payments.length === 0 ? (
           <Card className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 border-dashed">
             No payment records found. Your completed transactions will appear here.
           </Card>

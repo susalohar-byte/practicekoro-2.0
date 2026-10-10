@@ -13,6 +13,14 @@ interface ExamContextType {
   refreshExams: () => Promise<void>;
 }
 
+function readSavedExamId(): string | null {
+  try {
+    return localStorage.getItem('practicekoro_selected_exam');
+  } catch {
+    return null;
+  }
+}
+
 const ExamContext = createContext<ExamContextType | undefined>(undefined);
 
 export const ExamProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,7 +37,7 @@ export const ExamProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (prev && data.some((e) => e.id === prev.id)) {
           return data.find((e) => e.id === prev.id)!;
         }
-        const savedExamId = localStorage.getItem('practicekoro_selected_exam');
+        const savedExamId = readSavedExamId();
         return data.find((e) => e.id === savedExamId) || data[0] || null;
       });
     } catch (err) {
@@ -44,7 +52,7 @@ export const ExamProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setExams(data);
 
         // Load saved exam preference or default to WBP Constable
-        const savedExamId = localStorage.getItem('practicekoro_selected_exam');
+        const savedExamId = readSavedExamId();
         const found = data.find((e) => e.id === savedExamId) || data[0] || null;
         setSelectedExamState(found);
       } catch (err) {
@@ -66,7 +74,11 @@ export const ExamProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setSelectedExam = (exam: Exam) => {
     setSelectedExamState(exam);
-    localStorage.setItem('practicekoro_selected_exam', exam.id);
+    try {
+      localStorage.setItem('practicekoro_selected_exam', exam.id);
+    } catch {
+      /* In-memory selection still works when storage is blocked. */
+    }
   };
 
   const selectExamById = (examId: string) => {

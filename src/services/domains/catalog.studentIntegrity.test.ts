@@ -168,7 +168,7 @@ describe('Student backend integrity', () => {
     expect(result).toHaveLength(5);
     expect(result[0].testSeriesId).toBe('series');
   });
-  it('returns failed server autosave status while retaining local recovery', async () => {
+  it('returns failed server autosave status without overwriting hook-owned recovery', async () => {
     m.error = 'offline';
     const answers = [
       {
@@ -178,8 +178,15 @@ describe('Student backend integrity', () => {
         timeSpentSeconds: 2,
       },
     ];
+    // The hook writes recovery immediately, before calling this service.
+    // A late/failed RPC must preserve that newer snapshot, not recreate the old one.
+    const recovery = JSON.stringify({
+      answers: [{ ...answers[0], selectedOption: 'B' }],
+      timeSpentSeconds: 8,
+    });
+    localStorage.setItem('practicekoro_attempt_a', recovery);
     expect(await catalogApi.saveAnswers('a', answers, 2)).toBe(false);
-    expect(JSON.parse(localStorage.getItem('practicekoro_attempt_a')!).answers).toEqual(answers);
+    expect(localStorage.getItem('practicekoro_attempt_a')).toBe(recovery);
   });
   it('does not use a fake attempt when configured RPC returns no session', async () => {
     m.rows.tests = [{ id: 't', is_active: true, status: 'published', duration_minutes: 15 }];

@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -1496,7 +1497,10 @@ export const AdminBlog: React.FC = () => {
                   <div
                     className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-700 leading-relaxed prose prose-sm max-h-80 overflow-y-auto"
                     dangerouslySetInnerHTML={{
-                      __html: selectedPost.content || '<p>No content written yet.</p>',
+                      __html: DOMPurify.sanitize(
+                        selectedPost.content || '<p>No content written yet.</p>',
+                        { USE_PROFILES: { html: true } }
+                      ),
                     }}
                   />
                   <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100 text-xs text-blue-800 space-y-1">
@@ -1723,7 +1727,9 @@ export const AdminBlog: React.FC = () => {
 
             <div
               className="prose prose-sm max-w-none text-slate-700 leading-relaxed max-h-72 overflow-y-auto"
-              dangerouslySetInnerHTML={{ __html: previewPost.content }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(previewPost.content, { USE_PROFILES: { html: true } }),
+              }}
             />
 
             <div className="flex justify-end pt-3 border-t border-slate-100">

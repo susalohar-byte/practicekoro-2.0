@@ -65,7 +65,10 @@ export const subscriptionApi = {
       if (edgeError) {
         let detail = edgeError.message || 'Payment gateway error';
         try {
-          if ((edgeError as any)?.context && typeof (edgeError as any).context.json === 'function') {
+          if (
+            (edgeError as any)?.context &&
+            typeof (edgeError as any).context.json === 'function'
+          ) {
             const body = await (edgeError as any).context.json();
             if (body?.error) detail = body.error;
           }
@@ -73,6 +76,14 @@ export const subscriptionApi = {
           // ignore
         }
         throw new Error(detail);
+      }
+
+      // Fail before opening checkout if the security backend has not rolled out.
+      // Deploy the new order function last, after SQL and verify-payment.
+      if (edgeData?.verification_version !== 2) {
+        throw new Error(
+          'Checkout temporarily unavailable pending the payment security update. No payment was taken.'
+        );
       }
 
       if (!edgeData || !edgeData.order_id) {
@@ -157,38 +168,27 @@ export const subscriptionApi = {
             planTitle: edgeData.planTitle || edgeData.plan_title,
           };
         } else if (edgeError) {
-          console.warn('Edge function payment verification issue, falling back to database RPC:', edgeError);
+          console.warn(
+            'Edge function payment verification issue, verification rejected:',
+            edgeError
+          );
         }
       } catch (invokeErr: any) {
-        console.warn('Edge function invoke failed, fallback to database RPC:', invokeErr);
+        console.warn('Edge function invoke failed, no insecure fallback:', invokeErr);
       }
 
-      // 2. Fallback to database RPC if Edge Function is not deployed or network unavailable
       if (!verificationResult) {
-        const { data, error } = await supabase.rpc('verify_razorpay_payment', {
-          p_order_id: payload.orderId,
-          p_payment_id: payload.paymentId,
-          p_signature: payload.signature || '',
-          p_plan_id: payload.planId,
-        });
-
-        if (error) {
-          throw new Error(error.message || 'Payment verification failed on server');
-        }
-
-        verificationResult = {
-          success: data.success,
-          subscriptionId: data.subscription_id,
-          status: data.status,
-          startsAt: data.starts_at,
-          expiresAt: data.expires_at,
-          isRenewal: !!data.is_renewal,
-          planTitle: data.plan_title,
-        };
+        throw new Error(
+          'Payment verification unavailable. Do not pay again; retry status or contact support.'
+        );
       }
 
       if (verificationResult && verificationResult.success) {
-        localStorage.setItem('practicekoro_is_pro', 'true');
+        try {
+          localStorage.setItem('practicekoro_is_pro', 'true');
+        } catch {
+          /* optional cache */
+        }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('practicekoro:subscription_updated'));
         }
@@ -307,7 +307,10 @@ export const subscriptionApi = {
           .select('*, subscription_plans(title)')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error || !Array.isArray(data)) {
+          throw new Error(error?.message || 'Payment history was not returned');
+        }
+        {
           return data.map((d) => ({
             id: d.id,
             userId: d.user_id,
@@ -325,7 +328,7 @@ export const subscriptionApi = {
           }));
         }
       } catch (err) {
-        console.warn('Could not fetch student payments from table:', err);
+        throw new Error(err instanceof Error ? err.message : 'Could not load payment history');
       }
     }
 

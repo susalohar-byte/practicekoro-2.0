@@ -786,12 +786,12 @@ export const catalogApi = {
     let persisted = !isSupabaseConfigured;
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.rpc('save_test_answers', {
+        const { data, error } = await supabase.rpc('save_test_answers', {
           p_attempt_id: attemptId,
           p_answers: answers,
           p_time_spent_seconds: timeSpentSeconds,
         });
-        persisted = !error;
+        persisted = !error && data === true;
       } catch (err) {
         console.warn('Autosave RPC failed:', err);
       }
@@ -805,18 +805,17 @@ export const catalogApi = {
       });
     }
 
-    // Persist in localStorage for complete page refresh recovery
-    try {
-      localStorage.setItem(
-        `practicekoro_attempt_${attemptId}`,
-        JSON.stringify({
-          answers,
-          timeSpentSeconds,
-          updatedAt: Date.now(),
-        })
-      );
-    } catch {
-      // localStorage fallback
+    // Production recovery is written immediately by useAttemptAutosave. Never
+    // overwrite its newer snapshot when an older network request completes.
+    if (!isSupabaseConfigured) {
+      try {
+        localStorage.setItem(
+          `practicekoro_attempt_${attemptId}`,
+          JSON.stringify({ answers, timeSpentSeconds, updatedAt: Date.now() })
+        );
+      } catch {
+        // Demo mode can continue without browser storage.
+      }
     }
 
     return persisted;
@@ -841,19 +840,38 @@ export const catalogApi = {
         throw new Error(error.message || 'Submission failed on server');
       }
 
-      if (data && typeof data === 'object') {
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
         const res = data as Record<string, unknown>;
+        const numericFields = [
+          'score', 'total_marks', 'percentage', 'accuracy',
+          'correct_count', 'wrong_count', 'skipped_count',
+        ];
+        if (
+          res.success === false ||
+          !numericFields.every((key) =>
+            (typeof res[key] === 'number' ||
+              (typeof res[key] === 'string' && res[key].trim() !== '')) &&
+            Number.isFinite(Number(res[key]))
+          ) ||
+          Number(res.total_marks) <= 0 ||
+          !['correct_count', 'wrong_count', 'skipped_count'].every((key) =>
+            Number.isInteger(Number(res[key])) && Number(res[key]) >= 0
+          ) ||
+          Number(res.accuracy) < 0 || Number(res.accuracy) > 100
+        ) {
+          throw new Error('Invalid grading response. Please retry submission.');
+        }
         return {
           attemptId,
           testId,
           testTitle: test?.title,
-          score: Number(res.score || 0),
-          totalMarks: Number(res.total_marks || test?.totalMarks || 5),
-          percentage: Number(res.percentage || 0),
-          accuracy: Number(res.accuracy || 0),
-          correctCount: Number(res.correct_count || 0),
-          wrongCount: Number(res.wrong_count || 0),
-          skippedCount: Number(res.skipped_count || 0),
+          score: Number(res.score),
+          totalMarks: Number(res.total_marks),
+          percentage: Number(res.percentage),
+          accuracy: Number(res.accuracy),
+          correctCount: Number(res.correct_count),
+          wrongCount: Number(res.wrong_count),
+          skippedCount: Number(res.skipped_count),
           timeSpentSeconds,
           rank: res.rank !== undefined && res.rank !== null ? Number(res.rank) : null,
           totalCandidates: Number(res.total_candidates || 1),
