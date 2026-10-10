@@ -4,9 +4,10 @@
         android:label="PracticeKoro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round">
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:extractNativeLibs="true">
         <activity
-            android:name="com.practicekoro.app.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/LaunchTheme"
@@ -57,8 +58,8 @@
                     android:host="login-callback" />
             </intent-filter>
 
-            <!-- App Links: https://practicekoro.online (with autoVerify) -->
-            <intent-filter android:autoVerify="true">
+            <!-- App Links: https://practicekoro.online -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

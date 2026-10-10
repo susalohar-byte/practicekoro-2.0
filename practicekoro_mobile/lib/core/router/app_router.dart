@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -32,21 +33,30 @@ import '../../features/auth/login_screen.dart';
 import '../../features/auth/auth_callback_screen.dart';
 import '../../data/models/attempt_model.dart';
 
-class _AuthRefreshNotifier extends ChangeNotifier {
-  _AuthRefreshNotifier() {
+class AuthRefreshNotifier extends ChangeNotifier {
+  StreamSubscription? _sub;
+
+  void startListening() {
+    _sub?.cancel();
     try {
-      Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      _sub = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
         notifyListeners();
       });
     } catch (_) {}
   }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 }
 
-final _authRefreshNotifier = _AuthRefreshNotifier();
+final authRefreshNotifier = AuthRefreshNotifier();
 
 final appRouter = GoRouter(
   initialLocation: kIsWeb ? '/home' : '/splash',
-  refreshListenable: _authRefreshNotifier,
+  refreshListenable: authRefreshNotifier,
   redirect: (context, state) {
     User? currentUser;
     try {

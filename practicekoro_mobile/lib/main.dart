@@ -10,6 +10,16 @@ import 'data/datasources/local_storage.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global crash shields to protect app from unexpected unhandled errors
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('Flutter Error: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Platform Dispatcher Error: $error\n$stack');
+    return true; // Return true to prevent hard app crash
+  };
+
   // Initialize local storage for offline support
   try {
     await LocalStorageService.init();
@@ -25,8 +35,10 @@ void main() async {
         url: AppConstants.supabaseUrl,
         publishableKey: AppConstants.supabaseAnonKey,
       );
+      authRefreshNotifier.startListening();
     }
-  } catch (_) {
+  } catch (e) {
+    debugPrint('Supabase init fallback: $e');
     // Graceful offline fallback
   }
 
