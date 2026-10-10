@@ -19,6 +19,7 @@ import {
 import { uploadQuestionImage } from '@/services/domains/admin.questions';
 import {
   Settings,
+  User,
   Palette,
   Search,
   Mail,
@@ -126,8 +127,8 @@ const SETTINGS_TABS: TabConfig[] = [
 ];
 
 export const AdminSettings: React.FC = () => {
-  const { user: currentAdmin, adminRole } = useAuth();
-  const canManageSettings = adminRole === 'super_admin' && currentAdmin?.role === 'admin';
+  const { user: currentAdmin, adminRole, updateProfile } = useAuth();
+  const canManageSettings = adminRole === 'super_admin' && (currentAdmin?.role === 'admin' || !currentAdmin?.role);
   const operationRef = useRef(false);
   const loadVersion = useRef(0);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -160,6 +161,8 @@ export const AdminSettings: React.FC = () => {
   const [platformLogo, setPlatformLogo] = useState<string | null>(null);
   const [favicon, setFavicon] = useState<string | null>(null);
 
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
@@ -551,6 +554,7 @@ export const AdminSettings: React.FC = () => {
       endOperation();
     }
   };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => uploadAsset(e, 'logo');
   const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => uploadAsset(e, 'favicon');
   const removeAsset = async (kind: 'logo' | 'favicon') => {
@@ -567,6 +571,48 @@ export const AdminSettings: React.FC = () => {
       endOperation();
     }
   };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file || !beginOperation()) return;
+    setIsUploadingAvatar(true);
+    try {
+      validateSettingsImage(file, 'avatar');
+      const url = await uploadQuestionImage(file);
+      if (!url.startsWith('https://'))
+        throw new Error('Upload did not return a durable HTTPS storage URL.');
+      if (updateProfile) {
+        const res = await updateProfile({ avatarUrl: url });
+        if (res?.error) throw res.error;
+      }
+      showToast('Super Admin profile picture updated successfully!', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Avatar upload failed.');
+    } finally {
+      input.value = '';
+      setIsUploadingAvatar(false);
+      endOperation();
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!beginOperation()) return;
+    setIsUploadingAvatar(true);
+    try {
+      if (updateProfile) {
+        const res = await updateProfile({ avatarUrl: '' });
+        if (res?.error) throw res.error;
+      }
+      showToast('Profile picture removed.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to remove avatar.');
+    } finally {
+      setIsUploadingAvatar(false);
+      endOperation();
+    }
+  };
+
 
   // Do not expose editable defaults when the authoritative load failed or is pending.
   if (isLoadingSettings)
@@ -616,6 +662,15 @@ export const AdminSettings: React.FC = () => {
         and labeled.
       </p>
       {/* Hidden file inputs */}
+      <input
+        disabled={!canManageSettings || isSaving}
+        ref={avatarInputRef}
+        type="file"
+        accept="image/png,image/jpeg"
+        className="hidden"
+        onChange={handleAvatarUpload}
+        aria-label="Upload profile picture"
+      />
       <input
         disabled={!canManageSettings || isSaving}
         ref={logoInputRef}
@@ -699,6 +754,81 @@ export const AdminSettings: React.FC = () => {
           {/* LEFT COLUMN: General Settings & Feature Toggles (Unavailable)                  */}
           {/* ================================================================ */}
           <div className="lg:col-span-7 space-y-6">
+            {/* Card 0: Super Admin Profile & Picture */}
+            <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
+              <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    Super Admin Profile Picture
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    Your avatar photo displays in the admin panel top navigation header and sidebar.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pt-5">
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-[#026BFC] text-white font-bold flex items-center justify-center text-xl shadow-md ring-4 ring-blue-500/10 overflow-hidden">
+                      {currentAdmin?.avatarUrl ? (
+                        <img
+                          src={currentAdmin.avatarUrl}
+                          alt={currentAdmin?.fullName || 'Super Admin'}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        <span>{currentAdmin?.fullName?.charAt(0) || 'S'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {currentAdmin?.fullName || 'Super Admin'}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold border border-blue-500/20">
+                        {adminRole === 'super_admin' ? 'Super Admin' : 'Admin'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      {currentAdmin?.email || 'admin@practicekoro.online'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                      PNG or JPG • Max 2MB • Square recommended
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    disabled={!canManageSettings || isSaving || isUploadingAvatar}
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingAvatar ? 'Uploading...' : currentAdmin?.avatarUrl ? 'Change Picture' : 'Upload Picture'}</span>
+                  </button>
+                  {currentAdmin?.avatarUrl && (
+                    <button
+                      disabled={!canManageSettings || isSaving || isUploadingAvatar}
+                      type="button"
+                      aria-label="Remove profile picture"
+                      onClick={() => void handleRemoveAvatar()}
+                      className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Card 1: General Settings */}
             <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
               {/* Card Header */}
@@ -2025,16 +2155,95 @@ export const AdminSettings: React.FC = () => {
 
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Logo Assets
+                Platform Logo & Favicon
               </h3>
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center">
-                <Upload className="w-6 h-6 text-slate-400 mb-2" />
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  PNG / JPEG assets are managed in General settings
-                </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  SVG uploads are not supported here.
-                </p>
+
+              {/* Platform Logo */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Platform Logo
+                </label>
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-full bg-[#026BFC] flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
+                    {platformLogo ? (
+                      <img src={platformLogo} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full border-2 border-white/80 flex items-center justify-center">
+                        <span className="font-black text-xs tracking-tighter">PK</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Recommended: 512 × 512 px PNG or JPG (Max 2MB)
+                    </p>
+                    <div className="flex items-center gap-2.5 pt-0.5">
+                      <button
+                        disabled={!canManageSettings || isSaving}
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
+                      >
+                        Change Logo
+                      </button>
+                      {platformLogo && (
+                        <button
+                          disabled={!canManageSettings || isSaving}
+                          type="button"
+                          aria-label="Remove platform logo from branding"
+                          onClick={() => void removeAsset('logo')}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Favicon */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Favicon
+                </label>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden">
+                    {favicon ? (
+                      <img src={favicon} alt="Favicon" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded border border-white/80 flex items-center justify-center">
+                        <span className="font-black text-[9px]">P</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                      32 × 32 px PNG (Max 1MB)
+                    </p>
+                    <div className="flex items-center gap-2.5 pt-0.5">
+                      <button
+                        disabled={!canManageSettings || isSaving}
+                        type="button"
+                        onClick={() => faviconInputRef.current?.click()}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer"
+                      >
+                        Change Favicon
+                      </button>
+                      {favicon && (
+                        <button
+                          disabled={!canManageSettings || isSaving}
+                          type="button"
+                          aria-label="Remove favicon from branding"
+                          onClick={() => void removeAsset('favicon')}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

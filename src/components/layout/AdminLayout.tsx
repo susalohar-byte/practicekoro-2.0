@@ -92,7 +92,14 @@ export const AdminLayout: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSidebarUserOpen, setIsSidebarUserOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [headerAvatarFailed, setHeaderAvatarFailed] = useState(false);
+  const [sidebarAvatarFailed, setSidebarAvatarFailed] = useState(false);
   const sidebarUserRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setHeaderAvatarFailed(false);
+    setSidebarAvatarFailed(false);
+  }, [user?.avatarUrl]);
 
   // Close sidebar user menu on click outside
   useEffect(() => {
@@ -726,16 +733,18 @@ export const AdminLayout: React.FC = () => {
             aria-expanded={isSidebarUserOpen}
             aria-label="User profile menu"
           >
-            {/* Avatar - Rounded square (rounded-lg) matching shadcn nav-user */}
-            <div className="relative shrink-0 w-8 h-8 rounded-lg overflow-hidden bg-slate-800 text-white font-bold flex items-center justify-center text-xs shadow-sm ring-1 ring-white/10">
-              <img
-                src={user?.avatarUrl || '/images/student_avatar_hd.png'}
-                alt={user?.fullName || 'Susanta Lohar'}
-                className="w-full h-full object-cover rounded-lg"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = '/images/student_avatar_hd.png';
-                }}
-              />
+            {/* Avatar - Circular badge matching brand style */}
+            <div className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden bg-[#026BFC] text-white font-bold flex items-center justify-center text-xs shadow-sm ring-1 ring-white/10">
+              {user?.avatarUrl && !sidebarAvatarFailed ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user?.fullName || 'Susanta Lohar'}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={() => setSidebarAvatarFailed(true)}
+                />
+              ) : (
+                <span>{user?.fullName?.charAt(0) || 'S'}</span>
+              )}
             </div>
 
             {!isCollapsed && (
@@ -768,15 +777,17 @@ export const AdminLayout: React.FC = () => {
             >
               {/* Header inside popup */}
               <div className="flex items-center gap-2.5 p-2 border-b border-[#182650]/80 mb-1">
-                <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-800 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm ring-1 ring-white/10">
-                  <img
-                    src={user?.avatarUrl || '/images/student_avatar_hd.png'}
-                    alt={user?.fullName || 'Susanta Lohar'}
-                    className="w-full h-full object-cover rounded-lg"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/images/student_avatar_hd.png';
-                    }}
-                  />
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-[#026BFC] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm ring-1 ring-white/10">
+                  {user?.avatarUrl && !sidebarAvatarFailed ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user?.fullName || 'Susanta Lohar'}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={() => setSidebarAvatarFailed(true)}
+                    />
+                  ) : (
+                    <span>{user?.fullName?.charAt(0) || 'S'}</span>
+                  )}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <span className="truncate font-semibold text-white text-xs">
@@ -901,8 +912,17 @@ export const AdminLayout: React.FC = () => {
                 className="flex items-center gap-2.5 pl-2 py-1 pr-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
                 aria-expanded={isUserMenuOpen}
               >
-                <div className="w-8 h-8 rounded-full bg-[#026BFC] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs">
-                  {user?.fullName?.charAt(0) || 'A'}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-[#026BFC] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                  {user?.avatarUrl && !headerAvatarFailed ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user?.fullName || 'Admin'}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={() => setHeaderAvatarFailed(true)}
+                    />
+                  ) : (
+                    <span>{user?.fullName?.charAt(0) || 'A'}</span>
+                  )}
                 </div>
                 <div className="text-left hidden md:block">
                   <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
@@ -920,13 +940,27 @@ export const AdminLayout: React.FC = () => {
 
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-1.5 w-52 rounded-xl bg-white dark:bg-[#0E1738] border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 z-50 text-xs font-medium animate-in fade-in-50 slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800/80 mb-1">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {user?.fullName || 'Admin'}
-                    </p>
-                    <p className="text-[10px] text-slate-400 truncate">
-                      {user?.email || 'admin@practicekoro.online'}
-                    </p>
+                  <div className="flex items-center gap-2.5 px-3 py-2 border-b border-slate-100 dark:border-slate-800/80 mb-1">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-[#026BFC] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                      {user?.avatarUrl && !headerAvatarFailed ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user?.fullName || 'Admin'}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={() => setHeaderAvatarFailed(true)}
+                        />
+                      ) : (
+                        <span>{user?.fullName?.charAt(0) || 'A'}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {user?.fullName || 'Admin'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {user?.email || 'admin@practicekoro.online'}
+                      </p>
+                    </div>
                   </div>
                   <Link
                     to="/admin/settings"

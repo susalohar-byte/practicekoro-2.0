@@ -28,13 +28,15 @@ export function validateSmtpReference(host: string, port: string) {
   if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535)
     throw new Error('SMTP port must be an integer from 1 to 65535.');
 }
-export function validateSettingsImage(file: File, kind: 'logo' | 'favicon') {
-  const allowed = kind === 'logo' ? ['image/png', 'image/jpeg'] : ['image/png'];
+export function validateSettingsImage(file: File, kind: 'logo' | 'favicon' | 'avatar') {
+  const allowed = kind === 'favicon' ? ['image/png'] : ['image/png', 'image/jpeg'];
   if (!allowed.includes(file.type))
     throw new Error(
       kind === 'logo'
         ? 'Logo must be PNG or JPEG. SVG uploads are not supported.'
-        : 'Favicon must be PNG. ICO uploads are not supported.'
+        : kind === 'avatar'
+          ? 'Profile photo must be PNG or JPEG.'
+          : 'Favicon must be PNG. ICO uploads are not supported.'
     );
   if (!file.size || file.size > 2 * 1024 * 1024)
     throw new Error('Choose a non-empty image no larger than 2 MB.');
