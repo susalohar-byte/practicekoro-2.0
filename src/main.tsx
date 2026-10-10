@@ -87,6 +87,7 @@ async function bootstrap(): Promise<void> {
       { ErrorBoundary },
       { App },
       { HelmetProvider },
+      { PlatformRuntimeSettings },
     ] = await Promise.all([
       import('react'),
       import('react-dom/client'),
@@ -100,6 +101,7 @@ async function bootstrap(): Promise<void> {
       import('@/components/common/ErrorBoundary'),
       import('./App'),
       import('react-helmet-async'),
+      import('@/components/common/PlatformRuntimeSettings'),
     ]);
 
     clearChunkReloadGuard();
@@ -124,6 +126,7 @@ async function bootstrap(): Promise<void> {
                     <AuthProvider>
                       <ExamProvider>
                         <MaintenanceProvider>
+                          <PlatformRuntimeSettings />
                           <App />
                         </MaintenanceProvider>
                       </ExamProvider>

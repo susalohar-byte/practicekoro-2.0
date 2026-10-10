@@ -55,23 +55,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: [
-          'Inter',
-          '"Hind Siliguri"',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'Segoe UI',
-          'Roboto',
-          'Noto Sans Bengali',
-          '"PracticeKoro Bengali Fallback"',
-          'sans-serif',
-        ],
-        headline: [
-          '"Hind Siliguri"',
-          '"Anek Bangla"',
-          '"Noto Sans Bengali"',
-          'sans-serif',
-        ],
+        sans: ['var(--font-sans)'],
+        headline: ['"Hind Siliguri"', '"Anek Bangla"', '"Noto Sans Bengali"', 'sans-serif'],
         letterpress: [
           '"Li Subha Letterpress Unicode"',
           '"Subha Letterpress"',

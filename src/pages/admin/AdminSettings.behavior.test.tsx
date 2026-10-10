@@ -111,6 +111,8 @@ describe('Truthful Settings workflows', () => {
       'primary_color',
       'secondary_color',
       'accent_color',
+      'theme_mode',
+      'font_family',
     ]);
   });
   it('calls the real payment action and checks its structured failure without prewriting general settings', async () => {
@@ -183,10 +185,10 @@ describe('Truthful Settings workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(m.update).not.toHaveBeenCalled();
   });
-  it('disables placeholder SEO, security, integration and notification actions', async () => {
+  it('enables connected SEO but keeps unimplemented security, integration and notification actions disabled', async () => {
     await mount();
     tab('SEO & Meta');
-    expect(screen.getByRole('button', { name: 'Save SEO Settings' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save SEO Settings' })).toBeEnabled();
     tab('Security');
     expect(screen.getByRole('button', { name: 'Update Security Policies' })).toBeDisabled();
     tab('Integrations');
@@ -266,6 +268,62 @@ it('makes the accent color editable in the Branding tab', async () => {
   await waitFor(() =>
     expect(m.update).toHaveBeenCalledWith(
       expect.arrayContaining([{ id: 'accent_color', value: '#123456' }])
+    )
+  );
+});
+
+it('saves SEO through a confirmed backend result and refreshes runtime settings', async () => {
+  await mount();
+  tab('SEO & Meta');
+  fireEvent.change(screen.getByLabelText('Default Meta Title'), {
+    target: { value: 'Updated SEO Title' },
+  });
+  fireEvent.change(screen.getByLabelText('Default Meta Description'), {
+    target: { value: 'Updated description.' },
+  });
+  fireEvent.change(screen.getByLabelText('Google Search Console Verification Tag'), {
+    target: { value: 'verified_token_fixture' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save SEO Settings' }));
+  await waitFor(() =>
+    expect(m.update).toHaveBeenCalledWith([
+      { id: 'seo_meta_title', value: 'Updated SEO Title' },
+      { id: 'seo_meta_description', value: 'Updated description.' },
+      { id: 'seo_google_tag', value: 'verified_token_fixture' },
+    ])
+  );
+  expect(m.refresh).toHaveBeenCalled();
+});
+it('does not acknowledge failed SEO saves or persist a pasted HTML verification tag', async () => {
+  await mount();
+  tab('SEO & Meta');
+  fireEvent.change(screen.getByLabelText('Google Search Console Verification Tag'), {
+    target: { value: '<script>alert(1)</script>' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save SEO Settings' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('not HTML');
+  expect(m.update).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Google Search Console Verification Tag'), {
+    target: { value: '' },
+  });
+  m.update.mockResolvedValueOnce({ success: false, error: 'SEO denied' });
+  fireEvent.click(screen.getByRole('button', { name: 'Save SEO Settings' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('SEO denied');
+});
+it('saves connected theme/font defaults separately from General', async () => {
+  await mount();
+  tab('Branding');
+  fireEvent.change(screen.getByLabelText('Platform Default Theme'), { target: { value: 'dark' } });
+  fireEvent.change(screen.getByLabelText('Primary Font Family'), {
+    target: { value: 'System UI' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Branding Settings' }));
+  await waitFor(() =>
+    expect(m.update).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        { id: 'theme_mode', value: 'dark' },
+        { id: 'font_family', value: 'System UI' },
+      ])
     )
   );
 });

@@ -1,3 +1,8 @@
+import {
+  PLATFORM_FONTS,
+  validateSeoSettings,
+  validatePresentation,
+} from '@/utils/platformPresentation';
 import { clearOfflineCache } from '@/utils/clearOfflineCache';
 import { AdminPageSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -182,8 +187,13 @@ export const AdminSettings: React.FC = () => {
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [secondaryColor, setSecondaryColor] = useState('#10B981');
   const [accentColor, setAccentColor] = useState('#8B5CF6');
-  const [themeMode] = useState<'light' | 'dark' | 'system'>('light');
-  const fontFamily = 'Managed by deployed theme';
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
+  const [fontFamily, setFontFamily] = useState('Inter (Default)');
+  const [metaTitle, setMetaTitle] = useState('PracticeKoro | Mock Test & Practice Platform');
+  const [metaDescription, setMetaDescription] = useState(
+    'Practice mock tests and track your exam preparation.'
+  );
+  const [searchConsoleToken, setSearchConsoleToken] = useState('');
 
   // --------------------------------------------------------------------------
   // Email SMTP Configuration
@@ -285,6 +295,16 @@ export const AdminSettings: React.FC = () => {
           if (s.id === 'secondary_color' || s.key === 'secondary_color')
             setSecondaryColor(String(val));
           if (s.id === 'accent_color' || s.key === 'accent_color') setAccentColor(String(val));
+          if (s.id === 'theme_mode' && ['light', 'dark', 'system'].includes(String(val)))
+            setThemeMode(val as 'light' | 'dark' | 'system');
+          if (
+            s.id === 'font_family' &&
+            Object.prototype.hasOwnProperty.call(PLATFORM_FONTS, String(val))
+          )
+            setFontFamily(String(val));
+          if (s.id === 'seo_meta_title') setMetaTitle(String(val ?? ''));
+          if (s.id === 'seo_meta_description') setMetaDescription(String(val ?? ''));
+          if (s.id === 'seo_google_tag') setSearchConsoleToken(String(val ?? ''));
         });
       }
 
@@ -410,19 +430,54 @@ export const AdminSettings: React.FC = () => {
   const handleSaveBranding = async () => {
     if (!beginOperation()) return;
     try {
+      validatePresentation(themeMode, fontFamily);
       validateBrandColors([primaryColor, secondaryColor, accentColor]);
       const result = await api.updateAppSettings([
         { id: 'primary_color', value: primaryColor },
         { id: 'secondary_color', value: secondaryColor },
         { id: 'accent_color', value: accentColor },
+        { id: 'theme_mode', value: themeMode },
+        { id: 'font_family', value: fontFamily },
       ]);
       if (!result.success) throw new Error(result.error || 'Brand colors were not saved.');
+      try {
+        await checkMaintenanceMode();
+      } catch {
+        showToast('Branding saved, but runtime refresh failed. Refresh the page.', 'info');
+        return;
+      }
       showToast(
-        'Brand preview colors saved. Global site styling is controlled by the deployed theme.',
+        'Default theme and font saved. Existing user theme choices are preserved; colors remain palette previews.',
         'success'
       );
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Branding save failed.');
+    } finally {
+      endOperation();
+    }
+  };
+  const handleSaveSEO = async () => {
+    if (!beginOperation()) return;
+    try {
+      validateSeoSettings(metaTitle, metaDescription, searchConsoleToken);
+      const result = await api.updateAppSettings([
+        { id: 'seo_meta_title', value: metaTitle.trim() },
+        { id: 'seo_meta_description', value: metaDescription.trim() },
+        { id: 'seo_google_tag', value: searchConsoleToken.trim() },
+      ]);
+      if (!result.success) throw new Error(result.error || 'SEO settings were not saved.');
+      try {
+        await checkMaintenanceMode();
+      } catch {
+        showToast('SEO saved, but live refresh failed. Refresh the page.', 'info');
+        return;
+      }
+      showToast(
+        'SEO defaults saved. Page-specific metadata is preserved; Search Console ownership is not automatically verified.',
+        'success'
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'SEO save failed.');
     } finally {
       endOperation();
     }
@@ -1373,12 +1428,21 @@ export const AdminSettings: React.FC = () => {
                     Theme & Branding
                   </h2>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                    Customize the look and feel of your platform.
+                    Saved defaults apply to the website; explicit user theme preferences win. Save
+                    these separately from General settings.
                   </p>
                 </div>
               </div>
 
               {/* Card Body: Controls (Left) & Preview (Right) */}
+              <button
+                type="button"
+                disabled={!canManageSettings || isSaving}
+                onClick={() => void handleSaveBranding()}
+                className="my-3 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold"
+              >
+                Save Theme Defaults
+              </button>
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 pt-5">
                 {/* Controls (6 cols) */}
                 <div className="sm:col-span-6 space-y-3.5">
@@ -1451,13 +1515,15 @@ export const AdminSettings: React.FC = () => {
                   {/* Theme Mode */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                      Theme Mode
+                      Platform Default Theme
                     </label>
                     <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
                       <button
                         type="button"
-                        disabled
-                        title="Global theme switching is not implemented here"
+                        disabled={!canManageSettings || isSaving}
+                        onClick={() => setThemeMode('light')}
+                        aria-pressed={themeMode === 'light'}
+                        title="Default for users without an explicit theme preference"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'light'
@@ -1471,8 +1537,10 @@ export const AdminSettings: React.FC = () => {
 
                       <button
                         type="button"
-                        disabled
-                        title="Global theme switching is not implemented here"
+                        disabled={!canManageSettings || isSaving}
+                        onClick={() => setThemeMode('dark')}
+                        aria-pressed={themeMode === 'dark'}
+                        title="Default for users without an explicit theme preference"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'dark'
@@ -1486,8 +1554,10 @@ export const AdminSettings: React.FC = () => {
 
                       <button
                         type="button"
-                        disabled
-                        title="Global theme switching is not implemented here"
+                        disabled={!canManageSettings || isSaving}
+                        onClick={() => setThemeMode('system')}
+                        aria-pressed={themeMode === 'system'}
+                        title="Default for users without an explicit theme preference"
                         className={cn(
                           'flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
                           themeMode === 'system'
@@ -1508,16 +1578,17 @@ export const AdminSettings: React.FC = () => {
                     </label>
                     <div className="relative">
                       <select
+                        aria-label="Platform Font Family"
                         value={fontFamily}
-                        disabled
-                        title="Not wired to runtime settings"
+                        disabled={!canManageSettings || isSaving}
+                        onChange={(e) => setFontFamily(e.target.value)}
                         className="w-full appearance-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-8"
                       >
-                        <option value="Managed by deployed theme">Managed by deployed theme</option>
-                        <option value="Inter (Default)">Inter (Default)</option>
-                        <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
-                        <option value="Roboto">Roboto</option>
-                        <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+                        {Object.keys(PLATFORM_FONTS).map((font) => (
+                          <option key={font} value={font}>
+                            {font}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
                     </div>
@@ -1913,21 +1984,41 @@ export const AdminSettings: React.FC = () => {
                 Typography
               </h3>
               <div>
+                <label
+                  htmlFor="platform-theme"
+                  className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1"
+                >
+                  Platform Default Theme
+                </label>
+                <select
+                  id="platform-theme"
+                  aria-label="Platform Default Theme"
+                  value={themeMode}
+                  onChange={(e) => setThemeMode(e.target.value as 'light' | 'dark' | 'system')}
+                  disabled={!canManageSettings || isSaving}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                >
+                  <option value="system">System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Primary Font Family
                 </label>
                 <select
                   aria-label="Primary Font Family"
                   value={fontFamily}
-                  disabled
-                  title="Not wired to runtime settings"
+                  disabled={!canManageSettings || isSaving}
+                  onChange={(e) => setFontFamily(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
                 >
-                  <option value="Managed by deployed theme">Managed by deployed theme</option>
-                  <option value="Inter (Default)">Inter (Default)</option>
-                  <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
-                  <option value="Roboto">Roboto</option>
-                  <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+                  {Object.keys(PLATFORM_FONTS).map((font) => (
+                    <option key={font} value={font}>
+                      {font}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1975,7 +2066,9 @@ export const AdminSettings: React.FC = () => {
                 SEO & Meta Configuration
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                SEO is managed by page-level metadata and deployment. This editor is not connected.
+                Saved defaults apply to browser metadata. Page-specific titles/descriptions remain
+                authoritative. Search Console requires verification with Google;
+                server-rendered/prerendered SEO needs a separate rebuild.
               </p>
             </div>
           </div>
@@ -1988,8 +2081,10 @@ export const AdminSettings: React.FC = () => {
               <input
                 aria-label="Default Meta Title"
                 type="text"
-                disabled
-                placeholder="Managed by page-level SEO metadata"
+                value={metaTitle}
+                onChange={(e) => setMetaTitle(e.target.value)}
+                disabled={!canManageSettings || isSaving}
+                placeholder="Website default metadata"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -2000,8 +2095,10 @@ export const AdminSettings: React.FC = () => {
               <input
                 aria-label="Google Search Console Verification Tag"
                 type="text"
-                disabled
-                placeholder="Managed during deployment"
+                value={searchConsoleToken}
+                onChange={(e) => setSearchConsoleToken(e.target.value)}
+                disabled={!canManageSettings || isSaving}
+                placeholder="Verification token only, not HTML"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono"
               />
             </div>
@@ -2012,8 +2109,10 @@ export const AdminSettings: React.FC = () => {
               <textarea
                 aria-label="Default Meta Description"
                 rows={3}
-                disabled
-                placeholder="Managed by page-level SEO metadata"
+                value={metaDescription}
+                onChange={(e) => setMetaDescription(e.target.value)}
+                disabled={!canManageSettings || isSaving}
+                placeholder="Website default metadata"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
               />
             </div>
@@ -2022,8 +2121,9 @@ export const AdminSettings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              disabled
-              title="SEO metadata is managed by page components and deployment, not this placeholder"
+              disabled={!canManageSettings || isSaving}
+              onClick={() => void handleSaveSEO()}
+              title="Save website defaults without replacing page-specific SEO"
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save SEO Settings

@@ -1,33 +1,34 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
+export type PlatformThemeMode = ThemeMode | 'system';
 
 interface ThemeContextValue {
   theme: ThemeMode;
   resolvedTheme: 'light' | 'dark';
   setTheme: (mode: ThemeMode) => void;
   toggleTheme: () => void;
+  setPlatformDefault: (mode: PlatformThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'pk_theme';
 
-function getInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
+function savedPreference(): ThemeMode | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'light' || saved === 'dark') return saved;
+    const value = localStorage.getItem(STORAGE_KEY);
+    return value === 'light' || value === 'dark' ? value : null;
   } catch {
-    // Ignore inaccessible storage
+    return null;
   }
-  if (
+}
+function deviceTheme(): ThemeMode {
+  return typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
-  ) {
-    return 'dark';
-  }
-  return 'light';
+    ? 'dark'
+    : 'light';
 }
 
 function applyToDocument(resolved: 'light' | 'dark', animate = false) {
@@ -45,7 +46,33 @@ function applyToDocument(resolved: 'light' | 'dark', animate = false) {
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeMode>(getInitialTheme);
+  const [preference, setPreference] = useState<ThemeMode | null>(savedPreference);
+  const [platformDefault, setPlatformDefaultState] = useState<PlatformThemeMode>('system');
+  const [systemTheme, setSystemTheme] = useState<ThemeMode>(deviceTheme);
+  const theme: ThemeMode =
+    preference ?? (platformDefault === 'system' ? systemTheme : platformDefault);
+  const setPlatformDefault = useCallback((mode: PlatformThemeMode) => {
+    if (['light', 'dark', 'system'].includes(mode)) setPlatformDefaultState(mode);
+  }, []);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const changed = () => setSystemTheme(media.matches ? 'dark' : 'light');
+    changed();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', changed);
+      return () => media.removeEventListener('change', changed);
+    }
+    media.addListener?.(changed);
+    return () => media.removeListener?.(changed);
+  }, []);
+  useEffect(() => {
+    const changed = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY || e.key === null) setPreference(savedPreference());
+    };
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, []);
 
   // Apply on every change (animated; first mount applies silently)
   const firstRun = React.useRef(true);
@@ -55,7 +82,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [theme]);
 
   const setTheme = useCallback((mode: ThemeMode) => {
-    setThemeState(mode);
+    if (mode !== 'light' && mode !== 'dark') return;
+    setPreference(mode);
     try {
       localStorage.setItem(STORAGE_KEY, mode);
     } catch {
@@ -64,19 +92,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // Ignore inaccessible storage
-      }
-      return next;
-    });
-  }, []);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, setTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme: theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, resolvedTheme: theme, setTheme, toggleTheme, setPlatformDefault }}
+    >
       {children}
     </ThemeContext.Provider>
   );
