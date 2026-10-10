@@ -128,6 +128,21 @@ describe('StudentNavbar Notification Audience & Schedule Filtering', () => {
     vi.mocked(api.getNotifications).mockResolvedValue(testNotifications);
   });
 
+  it('does not invent an unread badge when there are no notifications', async () => {
+    vi.mocked(api.getNotifications).mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <StudentNavbar />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(api.getNotifications).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Notifications' })).not.toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: 'Notifications' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+  });
+
   it('delivers free and free_users notices to Free candidates, and suppresses pro notices and future scheduled notices', async () => {
     mockAuthUser = {
       user: {

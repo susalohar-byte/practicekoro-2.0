@@ -1,6 +1,6 @@
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { usePlatformBrand } from '@/context/MaintenanceContext';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { StudentSupportModal } from '@/components/student/StudentSupportModal';
@@ -52,11 +52,19 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
   const { user, isPro, isAdmin, logout } = useAuth();
 
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [isOpen, onClose]);
 
   // 1. PRIMARY APP NAVIGATION
   const primaryNavItems: NavItem[] = [
     { label: 'Home', path: '/dashboard', icon: Home },
-    { label: 'Test Series', path: '/test-series', icon: FileText, badge: '120+' },
+    { label: 'Test Series', path: '/test-series', icon: FileText },
     { label: 'Practice', path: '/practice', icon: Zap, badge: 'Topic' },
     {
       label: 'Live Tests',
@@ -104,7 +112,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
         className={cn(
           'fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-[#E2EAF8] dark:border-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out select-none shadow-[2px_0_12px_rgba(11,31,91,0.03)]',
           'lg:sticky lg:top-0 lg:h-screen lg:transform-none shrink-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          isOpen ? 'translate-x-0 visible' : '-translate-x-full invisible lg:visible',
           'w-72 sm:w-80',
           isCollapsed ? 'lg:w-[76px]' : 'lg:w-[260px]'
         )}
@@ -167,7 +175,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="lg:hidden p-1.5 rounded-lg text-[#64748B] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="lg:hidden flex h-11 w-11 items-center justify-center rounded-lg text-[#64748B] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Close menu"
             >
               <X className="w-5 h-5" />
@@ -194,9 +202,11 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                   <Link
                     key={item.label}
                     to={item.path}
+                    aria-label={item.label}
+                    aria-current={active ? 'page' : undefined}
                     onClick={onClose}
                     className={cn(
-                      'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all duration-150',
+                      'group relative flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-lg text-sm transition-all duration-150',
                       isCollapsed ? 'justify-center px-0' : '',
                       active
                         ? 'bg-[#EFF5FF] dark:bg-blue-950/40 text-[#026BFC] dark:text-blue-400 font-bold border border-[#DBEAFE] dark:border-blue-900/60 shadow-2xs'
@@ -275,6 +285,8 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                   <Link
                     key={item.label}
                     to={item.path}
+                    aria-label={item.label}
+                    aria-current={active ? 'page' : undefined}
                     onClick={onClose}
                     className={cn(
                       'group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all duration-150',

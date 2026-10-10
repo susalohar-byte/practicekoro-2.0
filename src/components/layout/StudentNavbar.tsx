@@ -215,36 +215,36 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
 
   const unreadCount = notifications.length > 0
     ? notifications.filter((n) => !readNotifIds.includes(n.id)).length
-    : 3; // Default 3 unread updates matching mobile app
+    : 0;
 
   return (
     <>
       <header
         className={cn(
-          'sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E2EAF8] dark:border-slate-800 transition-all select-none',
+          'student-navbar sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E2EAF8] dark:border-slate-800 transition-all select-none',
           embedded ? 'border-b-0' : 'shadow-[0_2px_12px_rgba(10,46,101,0.03)]'
         )}
       >
         <div className="w-full px-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex items-center justify-between h-16 gap-1 sm:gap-3">
             {/* 1. LEFT: Mobile brand / Desktop Search Bar */}
             <div className="flex items-center gap-3 min-w-0">
               {/* Mobile View: Hamburger Button + Brand */}
-              <div className="flex items-center gap-2.5 lg:hidden">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 lg:hidden">
                 <button
                   type="button"
                   onClick={onToggleMobileSidebar}
-                  className="p-2 rounded-xl text-[#051A43] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl text-[#051A43] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   aria-label="Open navigation menu"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
 
-                <Link to="/dashboard" className="flex items-center gap-2">
+                <Link to="/dashboard" aria-label="PracticeKoro home" className="flex min-h-[44px] items-center gap-2">
                   <div className="w-8 h-8 rounded-[10px] bg-[#026BFC] flex items-center justify-center text-white font-black text-lg shadow-xs">
                     P
                   </div>
-                  <span className="text-lg font-black tracking-tight text-[#051A43] dark:text-white">
+                  <span className="hidden min-[480px]:inline text-lg font-black tracking-tight text-[#051A43] dark:text-white">
                     Practice<span className="text-[#026BFC]">Koro</span>
                   </span>
                 </Link>
@@ -269,7 +269,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
 
               {/* Desktop View: Clean Integrated Search Bar */}
               {showSearch && (
-                <div ref={searchContainerRef} className="hidden lg:block relative w-80 xl:w-96 focus-within:w-96 xl:focus-within:w-[420px] transition-all duration-200">
+                <div ref={searchContainerRef} className="hidden lg:block relative w-64 xl:w-80 transition-all duration-200">
                   <form onSubmit={handleSearchSubmit} className="relative">
                     <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
@@ -281,6 +281,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                         if (!isSearchOpen) setIsSearchOpen(true);
                       }}
                       onFocus={() => setIsSearchOpen(true)}
+                      aria-label="Search tests, exams and topics"
                       placeholder="Search tests, exams, topics... (⌘K)"
                       className="w-full pl-9 pr-8 py-2 rounded-full bg-[#F1F5FC] dark:bg-slate-800/80 border border-[#E2ECF8] dark:border-slate-700/80 text-xs font-semibold text-[#051A43] dark:text-white placeholder:text-[#94A3B8] focus:outline-none focus:border-[#026BFC] focus:bg-white dark:focus:bg-slate-800 transition-all shadow-2xs"
                     />
@@ -349,7 +350,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
             <div className="flex-1" />
 
             {/* 3. RIGHT ACTIONS: NOTIFICATIONS BELL '3', PRO PASS, THEME, AVATAR */}
-            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
               {/* Mobile Search Button */}
               {showSearch && (
                 <div className="lg:hidden relative">
@@ -359,16 +360,17 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                       setIsSearchOpen((prev) => !prev);
                       setTimeout(() => searchInputRef.current?.focus(), 50);
                     }}
-                    className="w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer"
+                    className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer"
                     title="Search"
                     aria-label="Search"
+                    aria-expanded={isSearchOpen}
                   >
                     <Search className="w-4 h-4 text-[#051A43] dark:text-slate-200" />
                   </button>
 
                   {/* Mobile Search Modal Dropdown */}
                   {isSearchOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="student-navbar-popover absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <form onSubmit={handleSearchSubmit} className="relative mb-2">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#026BFC]" />
                         <input
@@ -433,9 +435,10 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer relative"
+                  className="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-[#E2ECF8] dark:border-slate-700 flex items-center justify-center text-[#051A43] dark:text-slate-200 shadow-2xs hover:border-[#026BFC]/50 transition-all cursor-pointer relative"
                   title="Notifications"
                   aria-label="Notifications"
+                  aria-expanded={notifDropdownOpen}
                 >
                   <Bell className="w-4 h-4 text-[#051A43] dark:text-slate-200" />
                   {unreadCount > 0 && (
@@ -447,7 +450,7 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
 
                 {/* Notifications Dropdown Panel */}
                 {notifDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="student-navbar-popover absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-[#E2ECF8] dark:border-slate-800 p-4 z-50 animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <Bell className="w-4 h-4 text-[#026BFC]" />
@@ -518,14 +521,16 @@ export const StudentNavbar: React.FC<StudentNavbarProps> = ({
               </div>
 
               {/* Theme Toggle */}
-              <ThemeToggle />
+              <ThemeToggle className="h-11 w-11" />
 
               {/* Candidate Profile Avatar Chip */}
               <div ref={profileContainerRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-2 p-0.5 sm:px-2 sm:py-1 rounded-full border border-[#E2ECF8] dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#026BFC]/50 transition-all cursor-pointer shadow-2xs group"
+                  aria-label="Open profile menu"
+                  aria-expanded={profileDropdownOpen}
+                  className="flex min-h-[44px] min-w-[44px] justify-center items-center gap-2 p-0.5 sm:px-2 sm:py-1 rounded-full border border-[#E2ECF8] dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#026BFC]/50 transition-all cursor-pointer shadow-2xs group"
                 >
                   <div className="relative shrink-0">
                     <img
