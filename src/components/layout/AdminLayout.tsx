@@ -1,3 +1,5 @@
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { usePlatformBrand } from '@/context/MaintenanceContext';
 import { AdminRouteSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -73,6 +75,7 @@ interface NavSection {
 
 export const AdminLayout: React.FC = () => {
   const { user, logout, adminRole, hasPermission } = useAuth();
+  const { appName, logoUrl } = usePlatformBrand();
   const { isMaintenanceMode } = useMaintenance();
   const navigate = useNavigate();
   const location = useLocation();
@@ -127,9 +130,7 @@ export const AdminLayout: React.FC = () => {
         const target = e.target as HTMLElement | null;
         if (
           target &&
-          (target.tagName === 'INPUT' ||
-            target.tagName === 'TEXTAREA' ||
-            target.isContentEditable)
+          (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
         ) {
           return;
         }
@@ -462,15 +463,19 @@ export const AdminLayout: React.FC = () => {
               'group flex items-center gap-2.5 min-w-0 transition-opacity hover:opacity-95',
               isCollapsed && 'lg:justify-center lg:w-full'
             )}
-            title="PracticeKoro Admin Dashboard"
+            title={`${appName} Admin Dashboard`}
           >
             <div className="relative w-9 h-9 rounded-xl bg-[#026BFC] flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20">
-              <Sparkles className="w-5 h-5" />
+              {logoUrl ? (
+                <BrandLogo className="w-7 h-7 object-contain" />
+              ) : (
+                <Sparkles className="w-5 h-5" />
+              )}
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
                 <span className="font-bold text-base tracking-tight text-white leading-tight truncate block">
-                  PracticeKoro
+                  {appName}
                 </span>
                 <span className="text-xs font-normal text-slate-400 block truncate">
                   Admin Panel
@@ -588,9 +593,7 @@ export const AdminLayout: React.FC = () => {
                           >
                             <Icon className="w-4 h-4" />
                           </div>
-                          <span className="truncate tracking-tight font-medium">
-                            {item.label}
-                          </span>
+                          <span className="truncate tracking-tight font-medium">{item.label}</span>
                         </div>
 
                         <ChevronDown
@@ -605,7 +608,9 @@ export const AdminLayout: React.FC = () => {
                       <div
                         className={cn(
                           'grid transition-[grid-template-rows,opacity] duration-250 ease-out',
-                          isGroupOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                          isGroupOpen
+                            ? 'grid-rows-[1fr] opacity-100'
+                            : 'grid-rows-[0fr] opacity-0 pointer-events-none'
                         )}
                       >
                         <div className="overflow-hidden">
@@ -632,7 +637,9 @@ export const AdminLayout: React.FC = () => {
                                     <SubIcon
                                       className={cn(
                                         'w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110',
-                                        isSubActive ? 'text-white' : 'opacity-70 group-hover:opacity-100'
+                                        isSubActive
+                                          ? 'text-white'
+                                          : 'opacity-70 group-hover:opacity-100'
                                       )}
                                     />
                                   ) : (
@@ -681,9 +688,7 @@ export const AdminLayout: React.FC = () => {
                       >
                         <Icon className="w-4 h-4 shrink-0" />
                       </div>
-                      <span className="truncate tracking-tight font-medium">
-                        {item.label}
-                      </span>
+                      <span className="truncate tracking-tight font-medium">{item.label}</span>
                     </div>
 
                     {item.badge ? (
@@ -701,7 +706,10 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         {/* Bottom User Info Area (Shadcn NavUser Style) */}
-        <div ref={sidebarUserRef} className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0">
+        <div
+          ref={sidebarUserRef}
+          className="relative p-2.5 border-t border-[#152146] bg-[#070B1A] shrink-0"
+        >
           {/* User Profile Card Button */}
           <button
             type="button"
@@ -712,7 +720,11 @@ export const AdminLayout: React.FC = () => {
               'active:scale-[0.98] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
               isCollapsed ? 'justify-center p-2' : 'gap-3 p-2'
             )}
-            title={isCollapsed ? `${user?.fullName || 'Susanta Lohar'} (${user?.email || 'admin@practicekoro.online'})` : undefined}
+            title={
+              isCollapsed
+                ? `${user?.fullName || 'Susanta Lohar'} (${user?.email || 'admin@practicekoro.online'})`
+                : undefined
+            }
             aria-expanded={isSidebarUserOpen}
             aria-label="User profile menu"
           >
@@ -974,7 +986,8 @@ export const AdminLayout: React.FC = () => {
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span className="truncate sm:whitespace-normal">
-                <strong>Maintenance Mode Active:</strong> Student portal is temporarily paused for updates. Only administrators have access.
+                <strong>Maintenance Mode Active:</strong> Student portal is temporarily paused for
+                updates. Only administrators have access.
               </span>
             </div>
             <Link

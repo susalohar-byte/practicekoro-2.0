@@ -229,3 +229,43 @@ describe('Truthful Settings workflows', () => {
     expect(m.update).toHaveBeenCalledTimes(1);
   });
 });
+
+it('General save does not validate or persist unrelated Branding drafts', async () => {
+  await mount();
+  tab('Branding');
+  fireEvent.change(screen.getByLabelText('Primary Brand Color'), { target: { value: 'invalid' } });
+  tab('General');
+  fireEvent.change(screen.getByLabelText('Support WhatsApp'), {
+    target: { value: ' +91 9999999999 ' },
+  });
+  fireEvent.change(screen.getByLabelText('Support Hours'), { target: { value: ' Mon–Fri 9–5 ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+  await waitFor(() => expect(m.update).toHaveBeenCalled());
+  const rows = m.update.mock.calls[0][0];
+  expect(rows.some((r: { id: string }) => r.id.includes('color'))).toBe(false);
+  expect(rows).toEqual(
+    expect.arrayContaining([
+      { id: 'general_support_whatsapp', value: '+91 9999999999' },
+      { id: 'general_support_hours', value: 'Mon–Fri 9–5' },
+    ])
+  );
+});
+it('preserves intentional quotes in saved text', async () => {
+  m.settings.mockResolvedValue([
+    ...initial.filter((r) => r.id !== 'general_app_name'),
+    { id: 'general_app_name', key: 'app_name', value: '"Quoted Name"' },
+  ]);
+  render(<AdminSettings />);
+  expect(await screen.findByDisplayValue('"Quoted Name"')).toBeInTheDocument();
+});
+it('makes the accent color editable in the Branding tab', async () => {
+  await mount();
+  tab('Branding');
+  fireEvent.change(screen.getByLabelText('Accent Brand Color'), { target: { value: '#123456' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Branding Settings' }));
+  await waitFor(() =>
+    expect(m.update).toHaveBeenCalledWith(
+      expect.arrayContaining([{ id: 'accent_color', value: '#123456' }])
+    )
+  );
+});

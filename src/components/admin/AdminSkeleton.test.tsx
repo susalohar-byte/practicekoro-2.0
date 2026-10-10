@@ -20,6 +20,7 @@ vi.mock('@/context/AuthContext', () => ({
   }),
 }));
 vi.mock('@/context/MaintenanceContext', () => ({
+  usePlatformBrand: () => ({ appName: 'PracticeKoro', logoUrl: null }),
   useMaintenance: () => ({ isMaintenanceMode: false }),
 }));
 vi.mock('@/components/common/ThemeToggle', () => ({ ThemeToggle: () => null }));

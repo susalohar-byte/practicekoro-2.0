@@ -50,3 +50,13 @@ it('returns real gateway state without inventing an active gateway', async () =>
   expect(result.isActive).toBe(false);
   expect(result.keyId).toBe('public_test_key');
 });
+it.each([
+  {},
+  [],
+  { gateway: 'stripe', key_id: 'key', is_active: true },
+  { gateway: 'razorpay', key_id: 'key', is_active: 'false' },
+  { gateway: 'razorpay', key_id: 42, is_active: true },
+])('rejects malformed gateway configuration %j', async (data) => {
+  mocks.rpc.mockResolvedValue({ data, error: null });
+  await expect(getPaymentGatewayConfig()).rejects.toThrow('malformed');
+});

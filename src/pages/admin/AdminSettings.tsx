@@ -1,3 +1,4 @@
+import { clearOfflineCache } from '@/utils/clearOfflineCache';
 import { AdminPageSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/services/api';
@@ -123,6 +124,7 @@ export const AdminSettings: React.FC = () => {
   const { user: currentAdmin, adminRole } = useAuth();
   const canManageSettings = adminRole === 'super_admin' && currentAdmin?.role === 'admin';
   const operationRef = useRef(false);
+  const loadVersion = useRef(0);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [toastKind, setToastKind] = useState<'success' | 'error' | 'info'>('info');
   const { checkMaintenanceMode } = useMaintenance();
@@ -141,6 +143,8 @@ export const AdminSettings: React.FC = () => {
   const [adminEmail, setAdminEmail] = useState('');
   const [supportEmail, setSupportEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [supportWhatsapp, setSupportWhatsapp] = useState('');
+  const [supportHours, setSupportHours] = useState('');
   const [address, setAddress] = useState('');
   const [timezone] = useState('Asia/Kolkata (GMT +5:30)');
   const [language] = useState('English');
@@ -234,6 +238,7 @@ export const AdminSettings: React.FC = () => {
   // Initial Data Fetching from app_settings
   // --------------------------------------------------------------------------
   const loadSettings = useCallback(async () => {
+    const version = ++loadVersion.current;
     setIsLoadingSettings(true);
     setSettingsLoadError('');
     try {
@@ -242,9 +247,11 @@ export const AdminSettings: React.FC = () => {
         api.getPaymentGatewayConfig('razorpay'),
       ]);
 
-      if (data && Array.isArray(data)) {
+      if (version !== loadVersion.current) return;
+      if (!Array.isArray(data)) throw new Error('Settings response was not confirmed.');
+      if (Array.isArray(data)) {
         data.forEach((s) => {
-          const val = typeof s.value === 'string' ? s.value.replace(/^"|"$/g, '') : s.value;
+          const val = s.value;
           if (s.key === 'app_name' || s.id === 'general_app_name') setPlatformName(String(val));
           if (s.key === 'website_url' || s.id === 'general_website_url') setWebsiteUrl(String(val));
           if (s.key === 'support_email' || s.id === 'general_support_email')
@@ -252,6 +259,10 @@ export const AdminSettings: React.FC = () => {
           if (s.key === 'admin_email' || s.id === 'general_admin_email') setAdminEmail(String(val));
           if (s.key === 'support_phone' || s.id === 'general_support_phone')
             setContactPhone(String(val));
+          if (s.key === 'support_whatsapp' || s.id === 'general_support_whatsapp')
+            setSupportWhatsapp(String(val ?? ''));
+          if (s.key === 'support_hours' || s.id === 'general_support_hours')
+            setSupportHours(String(val ?? ''));
           if (s.key === 'support_address' || s.id === 'general_support_address')
             setAddress(String(val));
           if (s.key === 'maintenance_mode' || s.id === 'sys_maintenance_mode') {
@@ -282,14 +293,20 @@ export const AdminSettings: React.FC = () => {
         setRzpIsActive(gatewayConfig.isActive);
       }
     } catch (err) {
-      setSettingsLoadError(err instanceof Error ? err.message : 'Settings could not be loaded.');
+      if (version === loadVersion.current)
+        setSettingsLoadError(err instanceof Error ? err.message : 'Settings could not be loaded.');
     } finally {
-      setIsLoadingSettings(false);
+      if (version === loadVersion.current) setIsLoadingSettings(false);
     }
   }, []);
 
   useEffect(() => {
-    loadSettings();
+    void loadSettings();
+    return () => {
+      // Request generation, not a DOM ref: deliberately invalidate the latest request.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      loadVersion.current++;
+    };
   }, [loadSettings]);
 
   // --------------------------------------------------------------------------
@@ -305,21 +322,19 @@ export const AdminSettings: React.FC = () => {
         adminEmail,
         supportEmail,
       });
-      validateBrandColors([primaryColor, secondaryColor, accentColor]);
       if (platformDescription.length > 300)
         throw new Error('Platform description may not exceed 300 characters.');
       const res = await api.updateAppSettings([
-        { id: 'general_app_name', value: platformName },
-        { id: 'general_website_url', value: websiteUrl },
-        { id: 'general_support_email', value: supportEmail },
-        { id: 'general_admin_email', value: adminEmail },
-        { id: 'general_support_phone', value: contactPhone },
-        { id: 'general_support_address', value: address },
+        { id: 'general_app_name', value: platformName.trim() },
+        { id: 'general_website_url', value: websiteUrl.trim() },
+        { id: 'general_support_email', value: supportEmail.trim() },
+        { id: 'general_admin_email', value: adminEmail.trim() },
+        { id: 'general_support_phone', value: contactPhone.trim() },
+        { id: 'general_support_whatsapp', value: supportWhatsapp.trim() },
+        { id: 'general_support_hours', value: supportHours.trim() },
+        { id: 'general_support_address', value: address.trim() },
         { id: 'sys_maintenance_mode', value: maintenanceMode },
-        { id: 'platform_description', value: platformDescription },
-        { id: 'primary_color', value: primaryColor },
-        { id: 'secondary_color', value: secondaryColor },
-        { id: 'accent_color', value: accentColor },
+        { id: 'platform_description', value: platformDescription.trim() },
       ]);
 
       if (!res.success) {
@@ -430,12 +445,11 @@ export const AdminSettings: React.FC = () => {
   };
   const handleSendTestEmail = () =>
     showToast('Email delivery is not configured through this page. No message was sent.', 'info');
-  const handleConfirmClearCache = () => {
+  const handleConfirmClearCache = async () => {
     if (!beginOperation()) return;
     setIsClearingCache(true);
     try {
-      localStorage.removeItem('practicekoro_offline_cache');
-      sessionStorage.removeItem('practicekoro_offline_cache');
+      await clearOfflineCache();
       setShowClearCacheModal(false);
       showToast(
         'Local offline cache cleared. Sign-in sessions and server caches were not changed.',
@@ -455,6 +469,11 @@ export const AdminSettings: React.FC = () => {
     if (!result.success) throw new Error(result.error || 'Asset setting was not saved.');
     if (kind === 'logo') setPlatformLogo(value);
     else setFavicon(value);
+    try {
+      await checkMaintenanceMode();
+    } catch {
+      throw new Error('Asset setting saved, but live refresh failed. Refresh the page.');
+    }
   };
   const uploadAsset = async (e: React.ChangeEvent<HTMLInputElement>, kind: 'logo' | 'favicon') => {
     const input = e.currentTarget,
@@ -467,7 +486,7 @@ export const AdminSettings: React.FC = () => {
         throw new Error('Upload did not return a durable HTTPS storage URL.');
       await persistAsset(kind, url);
       showToast(
-        'Asset uploaded and saved. Site-wide asset rendering is controlled by the deployed layout.',
+        'Asset uploaded and saved. Platform navigation and favicon use the saved assets.',
         'success'
       );
     } catch (error) {
@@ -677,7 +696,7 @@ export const AdminSettings: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Admin Email <span className="text-rose-500">*</span>
+                      Admin Email (Optional)
                     </label>
                     <input
                       disabled={!canManageSettings || isSaving}
@@ -714,6 +733,42 @@ export const AdminSettings: React.FC = () => {
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="supportWhatsapp"
+                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                    >
+                      Support WhatsApp (Optional)
+                    </label>
+                    <input
+                      id="supportWhatsapp"
+                      aria-label="Support WhatsApp"
+                      disabled={!canManageSettings || isSaving}
+                      type="text"
+                      value={supportWhatsapp}
+                      onChange={(e) => setSupportWhatsapp(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="supportHours"
+                      className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                    >
+                      Support Hours (Optional)
+                    </label>
+                    <input
+                      id="supportHours"
+                      aria-label="Support Hours"
+                      disabled={!canManageSettings || isSaving}
+                      type="text"
+                      value={supportHours}
+                      onChange={(e) => setSupportHours(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
                     />
                   </div>
 
@@ -928,7 +983,7 @@ export const AdminSettings: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleSaveGeneral()}
-                      disabled={!canManageSettings || isSaving || isSaving}
+                      disabled={!canManageSettings || isSaving}
                       className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {isSaving ? 'Saving...' : 'Save Changes'}
@@ -1704,7 +1759,7 @@ export const AdminSettings: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveSMTP}
-                    disabled={!canManageSettings || isSaving || isSaving}
+                    disabled={!canManageSettings || isSaving}
                     className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Save SMTP Settings
@@ -1789,6 +1844,7 @@ export const AdminSettings: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input
                     disabled={!canManageSettings || isSaving}
+                    aria-label="Primary Brand Color picker"
                     type="color"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
@@ -1796,10 +1852,11 @@ export const AdminSettings: React.FC = () => {
                   />
                   <input
                     disabled={!canManageSettings || isSaving}
+                    aria-label="Primary Brand Color"
                     type="text"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                    className="min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
                   />
                 </div>
               </div>
@@ -1810,6 +1867,7 @@ export const AdminSettings: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input
                     disabled={!canManageSettings || isSaving}
+                    aria-label="Secondary Brand Color picker"
                     type="color"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
@@ -1817,10 +1875,34 @@ export const AdminSettings: React.FC = () => {
                   />
                   <input
                     disabled={!canManageSettings || isSaving}
+                    aria-label="Secondary Brand Color"
                     type="text"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                    className="min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Accent Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    aria-label="Accent Brand Color picker"
+                    disabled={!canManageSettings || isSaving}
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="w-8 h-8 rounded border-0 p-0 cursor-pointer"
+                  />
+                  <input
+                    aria-label="Accent Brand Color"
+                    disabled={!canManageSettings || isSaving}
+                    type="text"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="min-w-0 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-mono"
                   />
                 </div>
               </div>
@@ -1870,7 +1952,7 @@ export const AdminSettings: React.FC = () => {
             <button
               type="button"
               onClick={() => void handleSaveBranding()}
-              disabled={!canManageSettings || isSaving || isSaving}
+              disabled={!canManageSettings || isSaving}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save Branding Settings
@@ -1988,9 +2070,9 @@ export const AdminSettings: React.FC = () => {
                 desc: 'Sent 7 days before subscription ends',
                 active: true,
               },
-            ].map((tmpl, idx) => (
+            ].map((tmpl) => (
               <div
-                key={idx}
+                key={tmpl.title}
                 className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
               >
                 <div>
@@ -2032,7 +2114,9 @@ export const AdminSettings: React.FC = () => {
                 Payment Gateway & Invoicing
               </h2>
               <p className="text-xs text-slate-400 dark:text-slate-500">
-                Razorpay payment processing, tax configurations, and currency.
+                Saved gateway configuration is not a live payment health check. The public Key ID
+                must match the server credentials; rotate both together. Tax/invoice controls are
+                unavailable.
               </p>
             </div>
           </div>
@@ -2133,7 +2217,7 @@ export const AdminSettings: React.FC = () => {
             <button
               type="button"
               onClick={() => void handleSavePayment()}
-              disabled={!canManageSettings || isSaving || isSaving}
+              disabled={!canManageSettings || isSaving}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
             >
               Save Payment Settings
@@ -2166,26 +2250,22 @@ export const AdminSettings: React.FC = () => {
               {
                 name: 'Google Analytics 4',
                 desc: 'Track visitor traffic and student exam funnels',
-                connected: true,
               },
               {
                 name: 'Firebase Cloud Messaging',
                 desc: 'Deliver real-time mobile push notifications',
-                connected: true,
               },
               {
                 name: 'WhatsApp Business API',
                 desc: 'Send test alerts and login OTPs via WhatsApp',
-                connected: false,
               },
               {
                 name: 'Telegram Bot Alerts',
                 desc: 'Receive instant admin error and purchase logs',
-                connected: true,
               },
-            ].map((integ, idx) => (
+            ].map((integ) => (
               <div
-                key={idx}
+                key={integ.name}
                 className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
               >
                 <div>
@@ -2196,12 +2276,7 @@ export const AdminSettings: React.FC = () => {
                   type="button"
                   disabled
                   title="Integration connectivity is not verified or managed by this page"
-                  className={cn(
-                    'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
-                    integ.connected
-                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  )}
+                  className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200"
                 >
                   Not managed here
                 </button>

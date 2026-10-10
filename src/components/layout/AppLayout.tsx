@@ -6,11 +6,17 @@ import { BottomNav } from './BottomNav';
 import { useMaintenance } from '@/context/MaintenanceContext';
 import { useAuth } from '@/context/AuthContext';
 import { MaintenanceScreen } from '@/components/common/MaintenanceScreen';
-import { StudentLoading } from '@/components/student/StudentLoadState';
+import { StudentLoading, StudentLoadError } from '@/components/student/StudentLoadState';
 import { MandatoryDistrictModal } from '@/components/student/MandatoryDistrictModal';
 
 export const AppLayout: React.FC = () => {
-  const { isMaintenanceMode, loading: maintLoading } = useMaintenance();
+  const {
+    isMaintenanceMode,
+    loading: maintLoading,
+    settingsError,
+    hasLoadedSettings,
+    checkMaintenanceMode,
+  } = useMaintenance();
   const { isAdmin } = useAuth();
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -33,6 +39,17 @@ export const AppLayout: React.FC = () => {
       return next;
     });
   };
+
+  if (!isAdmin && maintLoading) return <StudentLoading label="Checking platform availability" />;
+  if (!isAdmin && settingsError && hasLoadedSettings === false)
+    return (
+      <StudentLoadError
+        message="Platform settings could not be verified. Please retry."
+        onRetry={() => {
+          void checkMaintenanceMode().catch(() => {});
+        }}
+      />
+    );
 
   // If platform maintenance mode is enabled and user is NOT an admin, block student access and display MaintenanceScreen
   if (!maintLoading && isMaintenanceMode && !isAdmin) {
@@ -60,13 +77,13 @@ export const AppLayout: React.FC = () => {
 
         <main className="flex-1 w-full max-w-6xl xl:max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 lg:pb-12 transition-all duration-200">
           <React.Suspense fallback={<StudentLoading label="Loading student page" />}>
-          <Outlet
-            context={{
-              onToggleMobileSidebar: () => setIsMobileSidebarOpen(true),
-              onToggleCollapse: handleToggleCollapse,
-              isSidebarCollapsed,
-            }}
-          />
+            <Outlet
+              context={{
+                onToggleMobileSidebar: () => setIsMobileSidebarOpen(true),
+                onToggleCollapse: handleToggleCollapse,
+                isSidebarCollapsed,
+              }}
+            />
           </React.Suspense>
         </main>
 

@@ -1,3 +1,4 @@
+import { BrandLogo } from './BrandLogo';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMaintenance } from '@/context/MaintenanceContext';
@@ -63,7 +64,10 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
       {/* Top Brand Bar */}
       <header className="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/logo-icon-circle.png" alt={appName} className="w-8 h-8 rounded-xl object-contain" />
+          <BrandLogo
+            fallback="/logo-icon-circle.png"
+            className="w-8 h-8 rounded-xl object-contain"
+          />
           <span className="text-base font-black tracking-tight text-white">
             {appName || 'Practice'}
             <span className="text-amber-400">Koro</span>
@@ -104,7 +108,8 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
           </p>
           <p className="text-slate-400 text-xs">
             Test attempts, question evaluation, and results are temporarily paused. All services
-            will resume automatically once the upgrade concludes. We apologize for any inconvenience.
+            will resume automatically once the upgrade concludes. We apologize for any
+            inconvenience.
           </p>
         </div>
 
@@ -124,7 +129,9 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-bold transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-            <span>{isChecking ? 'Checking status...' : 'আবার চেষ্টা করুন (Check Status Again)'}</span>
+            <span>
+              {isChecking ? 'Checking status...' : 'আবার চেষ্টা করুন (Check Status Again)'}
+            </span>
           </button>
 
           {allowAdminBypass && isAdmin && (

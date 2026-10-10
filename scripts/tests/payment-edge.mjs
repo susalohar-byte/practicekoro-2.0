@@ -32,7 +32,10 @@ async function handler(name, state) {
         select: () => query,
         eq: () => query,
         insert: () => query,
-        maybeSingle: async () => ({ data: state.payment, error: null }),
+        maybeSingle: async () =>
+          table === 'payment_gateways'
+            ? { data: state.gateway, error: state.gatewayError || null }
+            : { data: state.payment, error: null },
         single: async () =>
           table === 'subscription_plans'
             ? {
@@ -81,6 +84,7 @@ async function handler(name, state) {
   return serve;
 }
 const state = () => ({
+  gateway: { key_id: 'key', is_active: true },
   calls: [],
   fetches: 0,
   payment: { id: 'row', user_id: 'u', plan_id: 'plan', amount: 100, currency: 'INR' },
@@ -201,3 +205,19 @@ console.log(
   assert.equal((await run(req({ planId: 'plan', couponCode: 'SAVE50' }))).status, 400);
   assert.equal(s.fetches, 0);
 }
+
+for (const change of [
+  { gateway: { key_id: 'key', is_active: false } },
+  { gateway: null },
+  { gatewayError: { message: 'connection unavailable' } },
+  { gateway: { key_id: 'other', is_active: true } },
+  { gateway: { key_id: 'key', is_active: 'true' } },
+]) {
+  const s = Object.assign(state(), change),
+    run = await handler('create-razorpay-order', s);
+  assert.equal((await run(req({ planId: 'plan' }))).status, 503);
+  assert.equal(s.fetches, 0, 'Disabled/unconfirmed gateway must never call provider');
+}
+console.log(
+  'Gateway settings: disabled, absent, read failure, key mismatch and malformed switch passed'
+);

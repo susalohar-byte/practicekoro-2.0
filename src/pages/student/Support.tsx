@@ -27,7 +27,7 @@ import type { SupportCategory } from '@/components/student/StudentSupportModal';
 
 export const Support: React.FC = () => {
   const { user, isPro } = useAuth();
-  const { supportEmail, supportPhone, supportWhatsapp } = useMaintenance();
+  const { supportEmail, supportPhone, supportWhatsapp, supportHours } = useMaintenance();
 
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
 
@@ -72,13 +72,18 @@ export const Support: React.FC = () => {
   const loadHistory = useCallback(async () => {
     const version = ++historyVersion.current;
     setHistoryError('');
-    if (!user?.id) { setMyTickets([]); setIsLoadingHistory(false); return; }
+    if (!user?.id) {
+      setMyTickets([]);
+      setIsLoadingHistory(false);
+      return;
+    }
     try {
       setIsLoadingHistory(true);
       const tickets = await api.getStudentSupportTickets(user.id);
       if (version === historyVersion.current) setMyTickets(tickets);
     } catch (err) {
-      if (version === historyVersion.current) setHistoryError(getErrorMessage(err, 'Support history could not be loaded.'));
+      if (version === historyVersion.current)
+        setHistoryError(getErrorMessage(err, 'Support history could not be loaded.'));
     } finally {
       if (version === historyVersion.current) setIsLoadingHistory(false);
     }
@@ -88,13 +93,18 @@ export const Support: React.FC = () => {
     setMyTickets([]);
     void loadHistory();
     const counter = historyVersion;
-    return () => { counter.current++; };
+    return () => {
+      counter.current++;
+    };
   }, [loadHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitLock.current) return;
-    if (!user?.id) { setErrorMsg('Please sign in before submitting a ticket.'); return; }
+    if (!user?.id) {
+      setErrorMsg('Please sign in before submitting a ticket.');
+      return;
+    }
     if (!subject.trim()) {
       setErrorMsg('Please enter a clear subject.');
       return;
@@ -188,9 +198,37 @@ export const Support: React.FC = () => {
               Direct Helpline / WhatsApp
             </p>
             <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-              {supportWhatsapp || supportPhone || 'Direct helpline not configured'}
+              {supportWhatsapp ? (
+                <a
+                  href={
+                    /^[+\d\s()-]+$/.test(supportWhatsapp) &&
+                    supportWhatsapp.replace(/\D/g, '').length >= 7
+                      ? `https://wa.me/${supportWhatsapp.replace(/\D/g, '')}`
+                      : undefined
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {supportWhatsapp}
+                </a>
+              ) : supportPhone ? (
+                <a
+                  href={
+                    /^[+\d\s()-]+$/.test(supportPhone) &&
+                    supportPhone.replace(/\D/g, '').length >= 7
+                      ? `tel:${supportPhone.replace(/[^+\d]/g, '')}`
+                      : undefined
+                  }
+                >
+                  {supportPhone}
+                </a>
+              ) : (
+                'Direct helpline not configured'
+              )}
             </p>
-            <p className="text-[10px] text-slate-400">Availability depends on the support team</p>
+            <p className="text-[10px] text-slate-400">
+              {supportHours || 'Availability depends on the support team'}
+            </p>
           </div>
         </Card>
 
@@ -199,9 +237,7 @@ export const Support: React.FC = () => {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              Account Status
-            </p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Account Status</p>
             <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1">
               <span>{isPro ? 'Pro Pass Active' : 'Free Aspirant'}</span>
               {isPro && <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}

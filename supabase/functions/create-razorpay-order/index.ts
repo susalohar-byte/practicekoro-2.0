@@ -137,29 +137,45 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // 5. Retrieve Razorpay credentials. The key SECRET comes from Supabase
-  // secrets ONLY (never the database). The key ID is publishable (it is
-  // returned to the browser for checkout), so it may come from env or the
-  // payment_gateways table.
-  const keyId = Deno.env.get('RAZORPAY_KEY_ID');
+  // New checkout must honor the saved gateway switch even when credentials exist in env.
+  // Existing payment verification/webhooks remain available when checkout is disabled.
+  const keyId = Deno.env.get('RAZORPAY_KEY_ID')?.trim();
   const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
-
-  let resolvedKeyId = keyId;
-  if (!resolvedKeyId) {
-    try {
-      const { data: gwData } = await serviceClient
-        .from('payment_gateways')
-        .select('key_id')
-        .eq('gateway', 'razorpay')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (gwData?.key_id) {
-        resolvedKeyId = gwData.key_id;
-      }
-    } catch (gwErr) {
-      console.warn('Error reading gateway key ID from database:', gwErr);
+  let resolvedKeyId: string | undefined;
+  try {
+    const { data: gateway, error } = await serviceClient
+      .from('payment_gateways')
+      .select('key_id,is_active')
+      .eq('gateway', 'razorpay')
+      .maybeSingle();
+    if (error || !gateway || gateway.is_active !== true || typeof gateway.key_id !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Payment checkout is unavailable or disabled.' }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
+    resolvedKeyId = gateway.key_id.trim();
+    // Rotating a public key in Settings cannot rotate its paired server secret.
+    if (keyId && keyId !== resolvedKeyId) {
+      return new Response(
+        JSON.stringify({ error: 'Payment credentials need coordinated server configuration.' }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Payment configuration could not be confirmed.' }),
+      {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   if (

@@ -234,7 +234,15 @@ export async function getPaymentGatewayConfig(gateway = 'razorpay'): Promise<Pay
       p_gateway: targetGateway,
     });
     if (error) throw new Error(error.message);
-    if (!data) throw new Error('Payment gateway configuration could not be loaded.');
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      Array.isArray(data) ||
+      data.gateway !== targetGateway ||
+      typeof data.key_id !== 'string' ||
+      typeof data.is_active !== 'boolean'
+    )
+      throw new Error('Payment gateway configuration could not be loaded or was malformed.');
     let keyId = data.key_id || '';
     // An older public Key ID may still be stored in the authoritative settings table.
     if (!keyId) {

@@ -1,3 +1,5 @@
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { usePlatformBrand } from '@/context/MaintenanceContext';
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -46,6 +48,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { appName } = usePlatformBrand();
   const { user, isPro, isAdmin, logout } = useAuth();
 
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -120,27 +123,19 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
           >
             {/* Official PracticeKoro App Icon */}
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#026BFC] to-[#051A43] p-1 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 overflow-hidden">
-              <img
-                src="/images/logo.png"
-                alt="PracticeKoro"
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const parent = e.currentTarget.parentElement;
-                  if (parent && !parent.querySelector('.fallback-letter')) {
-                    const span = document.createElement('span');
-                    span.className = 'fallback-letter text-white font-black text-lg';
-                    span.innerText = 'P';
-                    parent.appendChild(span);
-                  }
-                }}
-              />
+              <BrandLogo className="w-full h-full object-contain" />
             </div>
 
             <div className={cn('flex flex-col min-w-0', isCollapsed && 'lg:hidden')}>
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-[17px] text-[#051A43] dark:text-white tracking-tight leading-none">
-                  Practice<span className="text-[#026BFC]">Koro</span>
+                  {appName === 'PracticeKoro' ? (
+                    <>
+                      Practice<span className="text-[#026BFC]">Koro</span>
+                    </>
+                  ) : (
+                    appName
+                  )}
                 </span>
                 <span className="px-1.5 py-0.5 rounded-md bg-[#EFF5FF] dark:bg-blue-950/80 text-[#026BFC] dark:text-blue-300 text-[8.5px] font-black uppercase tracking-wider border border-[#DBEAFE] dark:border-blue-800">
                   2.0
@@ -220,9 +215,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                     />
 
                     {!isCollapsed && (
-                      <span className="truncate tracking-[-0.1px]">
-                        {item.label}
-                      </span>
+                      <span className="truncate tracking-[-0.1px]">{item.label}</span>
                     )}
 
                     {/* Badge (e.g. 120+, LIVE) */}
@@ -301,11 +294,7 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                       )}
                     />
 
-                    {!isCollapsed && (
-                      <span className="truncate">
-                        {item.label}
-                      </span>
-                    )}
+                    {!isCollapsed && <span className="truncate">{item.label}</span>}
 
                     {/* Badge */}
                     {item.badge && !isCollapsed && (
@@ -399,52 +388,50 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
                 </div>
               </div>
             )
+          ) : /* FREE USER UPGRADE BANNER */
+          isCollapsed ? (
+            <div className="pt-2 flex justify-center">
+              <Link
+                to="/subscription"
+                onClick={onClose}
+                className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#051A43] to-[#026BFC] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
+                aria-label="Upgrade to Pro Pass"
+              >
+                <Crown className="w-5 h-5 fill-amber-300 animate-pulse" />
+                <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-amber-300 text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center gap-1 border border-slate-700">
+                  Upgrade to Pro Pass
+                </span>
+              </Link>
+            </div>
           ) : (
-            /* FREE USER UPGRADE BANNER */
-            isCollapsed ? (
-              <div className="pt-2 flex justify-center">
+            <div className="pt-2">
+              <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#051A43] via-[#0E2874] to-[#026BFC] text-white shadow-md shadow-blue-900/15 space-y-2.5 relative overflow-hidden group">
+                <Crown className="absolute -right-3 -bottom-3 w-20 h-20 text-white/5 pointer-events-none group-hover:scale-110 transition-transform" />
+
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black tracking-wide">
+                    <Crown className="w-4 h-4 fill-amber-300 animate-pulse" />
+                    <span>PRO PASS</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-[#051A43] text-[9px] font-black uppercase tracking-wider shadow-xs">
+                    OFFER
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-blue-100 font-medium leading-tight relative z-10">
+                  Unlock all 120+ mock tests, chapter practice & All-Bengal rank.
+                </p>
+
                 <Link
                   to="/subscription"
                   onClick={onClose}
-                  className="group relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#051A43] to-[#026BFC] flex items-center justify-center text-amber-300 shadow-sm hover:scale-105 transition-transform"
-                  aria-label="Upgrade to Pro Pass"
+                  className="inline-flex items-center justify-between w-full px-3 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#026BFC] text-[11px] font-black shadow-xs transition-all relative z-10 cursor-pointer hover:shadow-md"
                 >
-                  <Crown className="w-5 h-5 fill-amber-300 animate-pulse" />
-                  <span className="hidden lg:group-hover:flex absolute left-full ml-3 px-2.5 py-1 rounded-lg bg-slate-900 text-amber-300 text-[11px] font-bold whitespace-nowrap shadow-xl z-50 pointer-events-none items-center gap-1 border border-slate-700">
-                    Upgrade to Pro Pass
-                  </span>
+                  <span>Upgrade Now</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
-            ) : (
-              <div className="pt-2">
-                <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#051A43] via-[#0E2874] to-[#026BFC] text-white shadow-md shadow-blue-900/15 space-y-2.5 relative overflow-hidden group">
-                  <Crown className="absolute -right-3 -bottom-3 w-20 h-20 text-white/5 pointer-events-none group-hover:scale-110 transition-transform" />
-
-                  <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black tracking-wide">
-                      <Crown className="w-4 h-4 fill-amber-300 animate-pulse" />
-                      <span>PRO PASS</span>
-                    </div>
-                    <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-[#051A43] text-[9px] font-black uppercase tracking-wider shadow-xs">
-                      OFFER
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-blue-100 font-medium leading-tight relative z-10">
-                    Unlock all 120+ mock tests, chapter practice & All-Bengal rank.
-                  </p>
-
-                  <Link
-                    to="/subscription"
-                    onClick={onClose}
-                    className="inline-flex items-center justify-between w-full px-3 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#026BFC] text-[11px] font-black shadow-xs transition-all relative z-10 cursor-pointer hover:shadow-md"
-                  >
-                    <span>Upgrade Now</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            )
+            </div>
           )}
 
           {/* 4. DAILY STUDY MOMENTUM CARD */}
@@ -453,7 +440,9 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-bounce" />
-                  <span className="text-xs font-black text-[#051A43] dark:text-white">Daily Streak</span>
+                  <span className="text-xs font-black text-[#051A43] dark:text-white">
+                    Daily Streak
+                  </span>
                 </div>
                 <span className="px-1.5 py-0.2 rounded-md bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 text-[9.5px] font-black border border-orange-200/60 dark:border-orange-800">
                   Target: 20 Qs
