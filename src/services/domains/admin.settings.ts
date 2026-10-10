@@ -160,6 +160,46 @@ export async function updateAppSettings(
       key: 'razorpay_active',
       description: 'Razorpay payment gateway active status',
     },
+    gateway_fast2sms_enabled: {
+      category: 'integrations',
+      key: 'fast2sms_enabled',
+      description: 'Enable Fast2SMS direct SMS delivery gateway',
+    },
+    gateway_fast2sms_api_key: {
+      category: 'integrations',
+      key: 'fast2sms_api_key',
+      description: 'Fast2SMS bulk SMS authorization key',
+    },
+    gateway_fast2sms_route: {
+      category: 'integrations',
+      key: 'fast2sms_route',
+      description: 'Fast2SMS delivery route: q (Quick), dlt (DLT), otp (OTP)',
+    },
+    gateway_fast2sms_sender_id: {
+      category: 'integrations',
+      key: 'fast2sms_sender_id',
+      description: 'Fast2SMS 6-character sender ID header',
+    },
+    gateway_fcm_enabled: {
+      category: 'integrations',
+      key: 'fcm_enabled',
+      description: 'Enable Firebase Cloud Messaging push notifications',
+    },
+    gateway_fcm_project_id: {
+      category: 'integrations',
+      key: 'fcm_project_id',
+      description: 'Firebase Project ID for push notifications',
+    },
+    gateway_fcm_server_key: {
+      category: 'integrations',
+      key: 'fcm_server_key',
+      description: 'Firebase Cloud Messaging Server Key / Auth token',
+    },
+    gateway_fcm_vapid_key: {
+      category: 'integrations',
+      key: 'fcm_vapid_key',
+      description: 'Web Push VAPID public key for browser push subscribers',
+    },
   };
 
   if (isSupabaseConfigured) {

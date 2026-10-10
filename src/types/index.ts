@@ -921,7 +921,7 @@ export interface NotificationItem {
   title: string;
   message: string;
   targetAudience: 'all' | 'free' | 'pro' | 'free_users' | 'pro_users' | string;
-  channel: 'in_app' | 'push' | 'both';
+  channel: 'in_app' | 'push' | 'sms' | 'both' | 'multi' | string;
   status: 'draft' | 'sent' | 'scheduled';
   sentAt?: string;
   scheduledAt?: string;

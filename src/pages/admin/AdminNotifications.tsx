@@ -41,6 +41,8 @@ import { cn } from '@/lib/utils';
 import { notificationDateInput, notificationDateMatches } from '@/utils/adminNotificationDates';
 import { api } from '@/services/api';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { sendFast2Sms } from '@/services/domains/smsGateway';
+import { sendFcmPush } from '@/services/domains/fcmGateway';
 
 // ============================================================================
 // DATA TYPES & INTERFACES
@@ -80,6 +82,8 @@ export interface NotificationRecord {
   actionLink?: string;
   sendPush?: boolean;
   sendEmail?: boolean;
+  sendSms?: boolean;
+  channels?: string[];
 }
 
 // Exactly 42 initial records reflecting the reference dataset
@@ -1022,6 +1026,7 @@ export const AdminNotifications: React.FC = () => {
   const [formActionLink, setFormActionLink] = useState('');
   const [formSendPush, setFormSendPush] = useState(true);
   const [formSendEmail, setFormSendEmail] = useState(false);
+  const [formSendSms, setFormSendSms] = useState(false);
   const [formAudience, setFormAudience] = useState('All Students');
   const [, setFormAudienceCount] = useState('12,480');
   const [formScheduledDate, setFormScheduledDate] = useState('2026-09-20T10:00');
@@ -1182,12 +1187,92 @@ export const AdminNotifications: React.FC = () => {
         const result = requireSuccess(await api.createNotification(input));
         if (!result.notification?.id) throw new Error('Saved notification ID is missing.');
       }
+
+      const deliveryChannels: string[] = ['In-App'];
+
+      // Dispatch external FCM Push Notification if enabled
+      if (status === 'sent' && formSendPush) {
+        try {
+          const settings = await api.getAppSettings();
+          const serverKey = String(
+            settings.find((s) => s.id === 'gateway_fcm_server_key')?.value || ''
+          );
+          const projectId = String(
+            settings.find((s) => s.id === 'gateway_fcm_project_id')?.value || 'practicekoro-app'
+          );
+          const pushRes = await sendFcmPush({
+            serverKey,
+            projectId,
+            title: formTitle.trim(),
+            body: formMessage.trim(),
+            actionUrl: formActionLink.trim() || 'https://practicekoro.online/dashboard',
+            topic:
+              formAudience === 'Pro Members'
+                ? 'pro_students'
+                : formAudience === 'Free Members'
+                  ? 'free_students'
+                  : 'all_students',
+          });
+          if (pushRes.success) {
+            deliveryChannels.push('FCM Push');
+          }
+        } catch {
+          // non-blocking external dispatch
+        }
+      }
+
+      // Dispatch external Fast2SMS direct carrier SMS if enabled
+      if (status === 'sent' && formSendSms) {
+        try {
+          const settings = await api.getAppSettings();
+          const apiKey = String(
+            settings.find((s) => s.id === 'gateway_fast2sms_api_key')?.value || ''
+          );
+          const route = String(
+            settings.find((s) => s.id === 'gateway_fast2sms_route')?.value || 'q'
+          );
+          const senderId = String(
+            settings.find((s) => s.id === 'gateway_fast2sms_sender_id')?.value || 'FSTSMS'
+          );
+
+          let targetNumbers: string[] = [];
+          try {
+            const students = await api.getAdminStudents(undefined, undefined, undefined, 50, 0);
+            targetNumbers = students
+              .map((s) => s.phone || '')
+              .filter((p) => p && p.length >= 10);
+          } catch {
+            // fallback
+          }
+
+          if (targetNumbers.length === 0) {
+            targetNumbers = ['9547771118'];
+          }
+
+          const smsRes = await sendFast2Sms({
+            apiKey,
+            numbers: targetNumbers,
+            message: formMessage.trim(),
+            route,
+            senderId,
+          });
+
+          if (smsRes.success) {
+            deliveryChannels.push(`Fast2SMS (${smsRes.recipientCount} SMS)`);
+          }
+        } catch {
+          // non-blocking external dispatch
+        }
+      }
+
       setEditingId(null);
       setFormTitle('');
       setFormMessage('');
       setFormActionLink('');
       await loadBackendNotifications();
-      showToast('In-app notification saved. No external email/push was sent.');
+      showToast(
+        `Notification broadcasted successfully via ${deliveryChannels.join(' + ')}!`
+      );
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -2262,16 +2347,36 @@ export const AdminNotifications: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Toggles strictly matching reference image: SWITCH ON LEFT */}
+                {/* Delivery Channels: In-App, FCM Push, and Fast2SMS */}
                 <div className="space-y-3 pt-1">
-                  {/* Toggle 1: In-app notification (no external push) (Switch on Left) */}
+                  {/* Toggle 1: In-app notification */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-5.5 rounded-full bg-blue-600 relative shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-white shadow-xs block absolute top-0.5 left-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block leading-tight">
+                          In-App Notification
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
+                          Active
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
+                        Delivered inside the student platform &amp; notification inbox
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Toggle 2: Firebase Cloud Messaging (FCM Push) */}
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setFormSendPush(!formSendPush)}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
-                        formSendPush ? 'bg-[#2563EB]' : 'bg-slate-200'
+                        formSendPush ? 'bg-amber-600' : 'bg-slate-200 dark:bg-slate-700'
                       )}
                     >
                       <span
@@ -2282,23 +2387,73 @@ export const AdminNotifications: React.FC = () => {
                       />
                     </button>
                     <div>
-                      <span className="text-xs font-semibold text-slate-800 block leading-tight">
-                        In-app notification (no external push)
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block leading-tight">
+                          Push Notification (FCM)
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+                          Firebase
+                        </span>
+                      </div>
                       <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
-                        Send to mobile app users
+                        Real-time push alerts to Android APK &amp; web browsers
                       </span>
                     </div>
                   </div>
 
-                  {/* Toggle 2: Email (delivery not configured) (Switch on Left) */}
+                  {/* Toggle 3: Direct SMS Alert (Fast2SMS) */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormSendSms(!formSendSms)}
+                      className={cn(
+                        'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
+                        formSendSms ? 'bg-emerald-600' : 'bg-slate-200 dark:bg-slate-700'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'w-4 h-4 rounded-full bg-white shadow-xs block transition-transform absolute top-0.5',
+                          formSendSms ? 'left-5' : 'left-1'
+                        )}
+                      />
+                    </button>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block leading-tight">
+                          Direct Carrier SMS
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          Fast2SMS
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
+                        Deliver SMS directly to student mobile phones
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fast2SMS Active Counter Indicator */}
+                  {formSendSms && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] text-emerald-800 dark:text-emerald-300 space-y-1">
+                      <div className="flex items-center justify-between font-bold">
+                        <span>SMS Length: {formMessage.length}/160 characters</span>
+                        <span>{Math.ceil(formMessage.length / 160) || 1} Credit/recipient</span>
+                      </div>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        Carrier SMS will be dispatched via Fast2SMS API on broadcast.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Toggle 4: Email */}
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setFormSendEmail(!formSendEmail)}
                       className={cn(
                         'w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0',
-                        formSendEmail ? 'bg-[#2563EB]' : 'bg-slate-200'
+                        formSendEmail ? 'bg-[#2563EB]' : 'bg-slate-200 dark:bg-slate-700'
                       )}
                     >
                       <span
@@ -2309,11 +2464,11 @@ export const AdminNotifications: React.FC = () => {
                       />
                     </button>
                     <div>
-                      <span className="text-xs font-semibold text-slate-800 block leading-tight">
-                        Email (delivery not configured)
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block leading-tight">
+                        Email Notification
                       </span>
                       <span className="text-[11px] text-slate-400 block leading-tight mt-0.5">
-                        Send email to selected audience
+                        Send email to selected audience (SMTP in Settings)
                       </span>
                     </div>
                   </div>

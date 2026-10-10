@@ -45,7 +45,16 @@ import {
   RotateCcw,
   CheckCircle2,
   Upload,
+  MessageSquare,
+  Eye,
+  EyeOff,
+  Save,
+  Copy,
+  RefreshCw,
+  Send,
 } from 'lucide-react';
+import { checkFast2SmsBalance, sendTestSms } from '@/services/domains/smsGateway';
+import { sendTestPushNotification } from '@/services/domains/fcmGateway';
 
 type SettingsTab =
   'general' | 'branding' | 'seo' | 'email' | 'payments' | 'integrations' | 'security' | 'system';
@@ -224,6 +233,26 @@ export const AdminSettings: React.FC = () => {
   const [showClearCacheModal, setShowClearCacheModal] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
 
+  // --------------------------------------------------------------------------
+  // SMS & Push Notification Gateways (Fast2SMS & Firebase Cloud Messaging)
+  // --------------------------------------------------------------------------
+  const [fast2smsEnabled, setFast2smsEnabled] = useState(false);
+  const [fast2smsApiKey, setFast2smsApiKey] = useState('');
+  const [fast2smsRoute, setFast2smsRoute] = useState<'q' | 'dlt' | 'otp'>('q');
+  const [fast2smsSenderId, setFast2smsSenderId] = useState('FSTSMS');
+  const [fast2smsShowKey, setFast2smsShowKey] = useState(false);
+  const [testSmsMobile, setTestSmsMobile] = useState('');
+  const [isSendingTestSms, setIsSendingTestSms] = useState(false);
+  const [isCheckingBalance, setIsCheckingBalance] = useState(false);
+  const [smsBalanceInfo, setSmsBalanceInfo] = useState<string | null>(null);
+
+  const [fcmEnabled, setFcmEnabled] = useState(false);
+  const [fcmProjectId, setFcmProjectId] = useState('practicekoro-app');
+  const [fcmServerKey, setFcmServerKey] = useState('');
+  const [fcmVapidKey, setFcmVapidKey] = useState('');
+  const [fcmShowKey, setFcmShowKey] = useState(false);
+  const [isSendingTestPush, setIsSendingTestPush] = useState(false);
+
   // Helper toast notification
   const showToast = (msg: string, kind: 'success' | 'error' | 'info' = 'error') => {
     clearTimeout(toastTimerRef.current);
@@ -308,6 +337,18 @@ export const AdminSettings: React.FC = () => {
           if (s.id === 'seo_meta_title') setMetaTitle(String(val ?? ''));
           if (s.id === 'seo_meta_description') setMetaDescription(String(val ?? ''));
           if (s.id === 'seo_google_tag') setSearchConsoleToken(String(val ?? ''));
+          if (s.id === 'gateway_fast2sms_enabled')
+            setFast2smsEnabled(val === true || val === 'true');
+          if (s.id === 'gateway_fast2sms_api_key') setFast2smsApiKey(String(val ?? ''));
+          if (s.id === 'gateway_fast2sms_route')
+            setFast2smsRoute(val === 'dlt' || val === 'otp' ? val : 'q');
+          if (s.id === 'gateway_fast2sms_sender_id')
+            setFast2smsSenderId(String(val || 'FSTSMS'));
+          if (s.id === 'gateway_fcm_enabled') setFcmEnabled(val === true || val === 'true');
+          if (s.id === 'gateway_fcm_project_id')
+            setFcmProjectId(String(val || 'practicekoro-app'));
+          if (s.id === 'gateway_fcm_server_key') setFcmServerKey(String(val ?? ''));
+          if (s.id === 'gateway_fcm_vapid_key') setFcmVapidKey(String(val ?? ''));
         });
       }
 
@@ -499,6 +540,82 @@ export const AdminSettings: React.FC = () => {
       showToast(error instanceof Error ? error.message : 'Payment save failed.');
     } finally {
       endOperation();
+    }
+  };
+
+  const handleSaveIntegrations = async () => {
+    if (!beginOperation()) return;
+    try {
+      const result = await api.updateAppSettings([
+        { id: 'gateway_fast2sms_enabled', value: fast2smsEnabled },
+        { id: 'gateway_fast2sms_api_key', value: fast2smsApiKey.trim() },
+        { id: 'gateway_fast2sms_route', value: fast2smsRoute },
+        { id: 'gateway_fast2sms_sender_id', value: fast2smsSenderId.trim() || 'FSTSMS' },
+        { id: 'gateway_fcm_enabled', value: fcmEnabled },
+        { id: 'gateway_fcm_project_id', value: fcmProjectId.trim() },
+        { id: 'gateway_fcm_server_key', value: fcmServerKey.trim() },
+        { id: 'gateway_fcm_vapid_key', value: fcmVapidKey.trim() },
+      ]);
+      if (!result.success) throw new Error(result.error || 'Gateway configuration was not saved.');
+      try {
+        await checkMaintenanceMode();
+      } catch {
+        // non-blocking
+      }
+      showToast('SMS & Push Gateway settings saved successfully in the database!', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Gateway save failed.');
+    } finally {
+      endOperation();
+    }
+  };
+
+  const handleTestSms = async () => {
+    if (!testSmsMobile.trim()) {
+      showToast('Enter a 10-digit mobile number for test SMS.', 'info');
+      return;
+    }
+    setIsSendingTestSms(true);
+    try {
+      const res = await sendTestSms(fast2smsApiKey, testSmsMobile, fast2smsSenderId);
+      if (res.success) {
+        showToast(res.message, 'success');
+      } else {
+        showToast(res.message || 'Test SMS failed.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to send test SMS.', 'error');
+    } finally {
+      setIsSendingTestSms(false);
+    }
+  };
+
+  const handleCheckBalance = async () => {
+    setIsCheckingBalance(true);
+    try {
+      const res = await checkFast2SmsBalance(fast2smsApiKey);
+      setSmsBalanceInfo(res.message);
+      showToast(res.message, res.success ? 'success' : 'info');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to check balance.', 'info');
+    } finally {
+      setIsCheckingBalance(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setIsSendingTestPush(true);
+    try {
+      const res = await sendTestPushNotification(fcmServerKey, fcmProjectId);
+      if (res.success) {
+        showToast(res.message, 'success');
+      } else {
+        showToast(res.message || 'Test push notification failed.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to send test push alert.', 'error');
+    } finally {
+      setIsSendingTestPush(false);
     }
   };
   const handleSendTestEmail = () =>
@@ -2539,58 +2656,372 @@ export const AdminSettings: React.FC = () => {
       {/* TAB 6: INTEGRATIONS                                                  */}
       {/* ==================================================================== */}
       {activeTab === 'integrations' && (
-        <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
-              <LinkIcon className="w-5 h-5" />
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Header Action Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <LinkIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  SMS & Push Notification Gateways
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Configure Fast2SMS for carrier text alerts and Firebase Cloud Messaging (FCM) for mobile & web push notifications.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Third-Party Integrations
-              </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                Connection status is not verified here. Configure integrations server-side.
-              </p>
+            <button
+              type="button"
+              onClick={() => void handleSaveIntegrations()}
+              disabled={!canManageSettings || isSaving}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Gateways'}
+            </button>
+          </div>
+
+          {/* Section 1: Fast2SMS Gateway */}
+          <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Fast2SMS Gateway (Direct SMS)
+                    </h3>
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                        fast2smsEnabled
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                      )}
+                    >
+                      {fast2smsEnabled ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Send instant test reminders, result alerts, and login OTPs directly to Indian mobile numbers via Fast2SMS.
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <label className="flex items-center gap-2 cursor-pointer select-none self-start sm:self-auto">
+                <input
+                  type="checkbox"
+                  checked={fast2smsEnabled}
+                  onChange={(e) => setFast2smsEnabled(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={cn(
+                    'w-11 h-6 rounded-full transition-colors relative cursor-pointer',
+                    fast2smsEnabled ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'w-5 h-5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5',
+                      fast2smsEnabled ? 'left-5.5' : 'left-0.5'
+                    )}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {fast2smsEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
+            </div>
+
+            {/* Fast2SMS Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* API Key */}
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Fast2SMS Authorization API Key</span>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    From Fast2SMS Dev Dashboard (bulkV2)
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={fast2smsShowKey ? 'text' : 'password'}
+                    value={fast2smsApiKey}
+                    onChange={(e) => setFast2smsApiKey(e.target.value)}
+                    placeholder="e.g. gM4oP2hJbS7iZ5rK... (Your Fast2SMS API Key)"
+                    className="w-full h-10 px-3.5 pr-20 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <div className="absolute right-2 top-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setFast2smsShowKey(!fast2smsShowKey)}
+                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title={fast2smsShowKey ? 'Hide key' : 'Show key'}
+                    >
+                      {fast2smsShowKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    {fast2smsApiKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(fast2smsApiKey);
+                          showToast('Fast2SMS API Key copied to clipboard', 'info');
+                        }}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        title="Copy API Key"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Route */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  SMS Route
+                </label>
+                <select
+                  value={fast2smsRoute}
+                  onChange={(e) => setFast2smsRoute(e.target.value as any)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="q">Quick (Standard Transactional / Promotional)</option>
+                  <option value="dlt">DLT (TRAI Registered Headers & Templates)</option>
+                  <option value="otp">OTP (Priority Service for Login Verification)</option>
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Select &quot;Quick&quot; for instant sending without DLT template approval, or &quot;DLT&quot; for official header delivery.
+                </p>
+              </div>
+
+              {/* Sender ID */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  Sender ID / Header
+                </label>
+                <input
+                  type="text"
+                  value={fast2smsSenderId}
+                  onChange={(e) => setFast2smsSenderId(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  placeholder="FSTSMS (6 chars)"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Default: FSTSMS. Use your DLT approved header (e.g. PRCKRO) when using DLT route.
+                </p>
+              </div>
+            </div>
+
+            {/* Live Tools: Balance Check & Test SMS */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Fast2SMS Live Testing & Balance
+                </h4>
+                {smsBalanceInfo && (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {smsBalanceInfo}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => void handleCheckBalance()}
+                  disabled={isCheckingBalance}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', isCheckingBalance && 'animate-spin')} />
+                  {isCheckingBalance ? 'Checking...' : 'Check Balance'}
+                </button>
+
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    type="tel"
+                    value={testSmsMobile}
+                    onChange={(e) => setTestSmsMobile(e.target.value)}
+                    placeholder="Enter 10-digit mobile (e.g. 9876543210)"
+                    className="flex-1 h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleTestSms()}
+                    disabled={isSendingTestSms}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    {isSendingTestSms ? 'Sending...' : 'Send Test SMS'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              {
-                name: 'Google Analytics 4',
-                desc: 'Track visitor traffic and student exam funnels',
-              },
-              {
-                name: 'Firebase Cloud Messaging',
-                desc: 'Deliver real-time mobile push notifications',
-              },
-              {
-                name: 'WhatsApp Business API',
-                desc: 'Send test alerts and login OTPs via WhatsApp',
-              },
-              {
-                name: 'Telegram Bot Alerts',
-                desc: 'Receive instant admin error and purchase logs',
-              },
-            ].map((integ) => (
-              <div
-                key={integ.name}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-900 dark:text-white">{integ.name}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{integ.desc}</p>
+          {/* Section 2: Firebase Cloud Messaging (FCM) */}
+          <div className="bg-white dark:bg-[#0B132B] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Bell className="w-5 h-5" />
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  title="Integration connectivity is not verified or managed by this page"
-                  className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200"
-                >
-                  Not managed here
-                </button>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Firebase Cloud Messaging (FCM Push)
+                    </h3>
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                        fcmEnabled
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                      )}
+                    >
+                      {fcmEnabled ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Broadcast real-time push alerts to students on Android APK and Web browsers.
+                  </p>
+                </div>
               </div>
-            ))}
+
+              {/* Toggle Switch */}
+              <label className="flex items-center gap-2 cursor-pointer select-none self-start sm:self-auto">
+                <input
+                  type="checkbox"
+                  checked={fcmEnabled}
+                  onChange={(e) => setFcmEnabled(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={cn(
+                    'w-11 h-6 rounded-full transition-colors relative cursor-pointer',
+                    fcmEnabled ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'w-5 h-5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5',
+                      fcmEnabled ? 'left-5.5' : 'left-0.5'
+                    )}
+                  />
+                </div>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {fcmEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
+            </div>
+
+            {/* FCM Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Project ID */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  Firebase Project ID
+                </label>
+                <input
+                  type="text"
+                  value={fcmProjectId}
+                  onChange={(e) => setFcmProjectId(e.target.value)}
+                  placeholder="e.g. practicekoro-app"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Your Google Firebase project identifier from Firebase Console Settings.
+                </p>
+              </div>
+
+              {/* VAPID Public Key */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                  Web Push VAPID Key (Public)
+                </label>
+                <input
+                  type="text"
+                  value={fcmVapidKey}
+                  onChange={(e) => setFcmVapidKey(e.target.value)}
+                  placeholder="e.g. BBa... (Web Push Certificate Key)"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Used by service worker to subscribe student web browsers to notifications.
+                </p>
+              </div>
+
+              {/* Server Key / Auth Token */}
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>FCM Server Key / Cloud Messaging Token</span>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    From Firebase Project Settings &gt; Cloud Messaging
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={fcmShowKey ? 'text' : 'password'}
+                    value={fcmServerKey}
+                    onChange={(e) => setFcmServerKey(e.target.value)}
+                    placeholder="e.g. AAAA... (FCM Legacy Server Key or Service Token)"
+                    className="w-full h-10 px-3.5 pr-20 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <div className="absolute right-2 top-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setFcmShowKey(!fcmShowKey)}
+                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title={fcmShowKey ? 'Hide key' : 'Show key'}
+                    >
+                      {fcmShowKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    {fcmServerKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(fcmServerKey);
+                          showToast('FCM Server Key copied to clipboard', 'info');
+                        }}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        title="Copy Server Key"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FCM Live Test Tool */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  FCM Push Notification Test
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Dispatches a test push notification to verify gateway handshake and credentials.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleTestPush()}
+                disabled={isSendingTestPush}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors disabled:opacity-50 shrink-0"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {isSendingTestPush ? 'Testing...' : 'Send Test Push Alert'}
+              </button>
+            </div>
           </div>
         </div>
       )}
