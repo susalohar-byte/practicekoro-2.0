@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
@@ -519,11 +520,10 @@ export const AdminPayments: React.FC = () => {
     ]);
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [
-        headers.join(','),
-        ...rows.map((e) => e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')),
-      ].join('\n');
-    const encodedUri = encodeURI(csvContent);
+      [headers.join(','), ...rows.map((e) => e.map(csvCell).join(','))].join('\n');
+    const encodedUri =
+      'data:text/csv;charset=utf-8,' +
+      encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `practicekoro_payments_${Date.now()}.csv`);

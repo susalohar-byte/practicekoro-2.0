@@ -46,7 +46,6 @@ export function getAdminPermissions(adminRole?: AdminRole): AdminPermissions {
         canViewAuditLogs: false,
       };
     case 'super_admin':
-    default:
       return {
         canManageQuestions: true,
         canManageTests: true,
@@ -59,6 +58,20 @@ export function getAdminPermissions(adminRole?: AdminRole): AdminPermissions {
         canManageSettings: true,
         canManageStaff: true,
         canViewAuditLogs: true,
+      };
+    default:
+      return {
+        canManageQuestions: false,
+        canManageTests: false,
+        canDeleteTests: false,
+        canManageExams: false,
+        canManageSubscriptions: false,
+        canManageCoupons: false,
+        canManageSupport: false,
+        canManageNotifications: false,
+        canManageSettings: false,
+        canManageStaff: false,
+        canViewAuditLogs: false,
       };
   }
 }
@@ -1004,7 +1017,7 @@ export interface AdminAuditLog {
   adminId?: string;
   adminEmail: string;
   adminName?: string;
-  adminRole: AdminRole;
+  adminRole: AdminRole | 'service_role';
   action: string;
   entityType: string;
   entityId?: string;

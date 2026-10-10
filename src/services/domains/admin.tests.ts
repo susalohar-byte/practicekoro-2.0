@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { readCompleteQuery } from './admin.reporting';
 import { deleteAdminRecord, requireSavedRow } from './admin.mutations';
 import { supabaseRuntime as supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -640,21 +641,13 @@ export function exportTestResultsToCsv(testTitle: string, rows: StudentAttemptEx
     'Submitted At',
   ];
 
-  const escapeCsv = (val: unknown) => {
-    const str = String(val ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
   const csvLines = [headers.join(',')];
   for (const r of rows) {
     csvLines.push(
       [
         r.rank,
-        escapeCsv(r.candidateName),
-        escapeCsv(r.email || r.phone || '-'),
+        r.candidateName,
+        r.email || r.phone || '-',
         r.score,
         r.totalMarks,
         r.percentage,
@@ -662,9 +655,11 @@ export function exportTestResultsToCsv(testTitle: string, rows: StudentAttemptEx
         r.correctCount,
         r.wrongCount,
         r.skippedCount,
-        escapeCsv(r.timeSpentMinutes),
-        escapeCsv(new Date(r.attemptDate).toLocaleString('en-IN')),
-      ].join(',')
+        r.timeSpentMinutes,
+        new Date(r.attemptDate).toLocaleString('en-IN'),
+      ]
+        .map(csvCell)
+        .join(',')
     );
   }
 
@@ -701,33 +696,27 @@ export function exportTestQuestionsToCsv(testTitle: string, questions: Question[
     'Explanation / Short Notes',
   ];
 
-  const escapeCsv = (val: unknown) => {
-    const str = String(val ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
   const csvLines = [headers.join(',')];
   questions.forEach((q, idx) => {
     csvLines.push(
       [
         idx + 1,
-        escapeCsv(q.questionBengaliText || q.questionText),
-        escapeCsv(q.optionA),
-        escapeCsv(q.optionB),
-        escapeCsv(q.optionC),
-        escapeCsv(q.optionD),
+        q.questionBengaliText || q.questionText,
+        q.optionA,
+        q.optionB,
+        q.optionC,
+        q.optionD,
         q.correctOption,
         q.defaultMarks ?? 1,
         q.defaultNegativeMarks ?? 0,
-        escapeCsv(q.difficulty),
-        escapeCsv(q.subjectName || '-'),
-        escapeCsv(q.chapterName || q.topicName || '-'),
-        escapeCsv(q.imageUrl || ''),
-        escapeCsv(q.explanationBengali || q.explanation || ''),
-      ].join(',')
+        q.difficulty,
+        q.subjectName || '-',
+        q.chapterName || q.topicName || '-',
+        q.imageUrl || '',
+        q.explanationBengali || q.explanation || '',
+      ]
+        .map(csvCell)
+        .join(',')
     );
   });
 

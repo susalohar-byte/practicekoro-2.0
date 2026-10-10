@@ -4,7 +4,6 @@ import {
   isSupabaseConfigured,
   isDemoModeEnabled,
 } from '@/lib/supabase';
-import { isAdminEmail } from '@/lib/authPolicy';
 import type { Database } from '@/types/database';
 import type {
   UserProfile,
@@ -52,32 +51,21 @@ const resolveUserProfile = async (supabaseUser: {
     let profile = profileRes.data as ProfileRow | null;
     if (profile?.account_status === 'inactive')
       throw new InactiveAccountError('This account is inactive. Contact support.');
-    let userRoles = (rolesRes.data as { role: string }[] | null) || [];
-    const emailIsAdmin = isAdminEmail(supabaseUser.email);
-
-    // Server-side promotion only: ask the RPC to promote allow-listed
-    // emails, then re-read the authoritative role from the database.
-    if (emailIsAdmin && (profile?.role !== 'admin' || !userRoles.some((r) => r.role === 'admin'))) {
-      try {
-        const rpcResult = await supabase.rpc('sync_admin_profile');
-        if (!rpcResult.error) {
-          const [profileRes2, rolesRes2] = await Promise.all([
-            supabase.from('profiles').select('*').eq('id', supabaseUser.id).maybeSingle(),
-            supabase.from('user_roles').select('role').eq('user_id', supabaseUser.id),
-          ]);
-          profile = (profileRes2.data as ProfileRow | null) || profile;
-          userRoles = (rolesRes2.data as { role: string }[] | null) || userRoles;
-        } else {
-          console.warn('Admin promotion RPC returned an error:', rpcResult.error);
-        }
-      } catch (promoteErr) {
-        console.warn('Auto admin promotion sync warning:', promoteErr);
-      }
-    }
-
+    if (profileRes.error || rolesRes.error) throw new Error('Unable to verify account permissions');
+    const validAdminRole =
+      profile?.admin_role === 'super_admin' ||
+      profile?.admin_role === 'content_writer' ||
+      profile?.admin_role === 'support_agent';
     const isAdminUser =
-      userRoles.some((r) => r.role === 'admin') || profile?.role === 'admin' || emailIsAdmin;
-    const effectiveRole: UserRole = isAdminUser ? 'admin' : profile?.role || 'student';
+      profile?.role === 'admin' &&
+      profile.account_status === 'active' &&
+      validAdminRole &&
+      (rolesRes.data || []).some((r: { role: string }) => r.role === 'admin');
+    const effectiveRole: UserRole = isAdminUser
+      ? 'admin'
+      : profile?.role === 'instructor'
+        ? 'instructor'
+        : 'student';
 
     const meta = supabaseUser.user_metadata || {};
     const metaFullName = ((meta.full_name || meta.name || '') as string).trim();
@@ -127,10 +115,7 @@ const resolveUserProfile = async (supabaseUser: {
       }
     }
 
-    const adminSubRole: AdminRole =
-      profile?.admin_role === 'content_writer' || profile?.admin_role === 'support_agent'
-        ? (profile.admin_role as AdminRole)
-        : 'super_admin';
+    const adminSubRole = isAdminUser ? (profile?.admin_role as AdminRole) : undefined;
 
     const prefSubs = Array.isArray(profile?.preferred_subjects)
       ? profile.preferred_subjects
@@ -435,8 +420,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) return { error };
 
-      // Registration creates student accounts unless email is in trusted ADMIN_EMAILS
-      const registeredRole: UserRole = isAdminEmail(cleanEmail) ? 'admin' : 'student';
+      // Registration never grants staff privileges.
+      const registeredRole: UserRole = 'student';
 
       // Email confirmation ON (production default): Supabase returns a user
       // but NO session. Never mark the visitor logged in without a session —
@@ -446,15 +431,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user && data.session) {
-        const newUser: UserProfile = {
-          id: data.user.id,
-          fullName: cleanName,
-          email: cleanEmail,
-          district: cleanDistrict || undefined,
-          role: registeredRole,
-          adminRole: registeredRole === 'admin' ? 'super_admin' : undefined,
-          createdAt: new Date().toISOString(),
-        };
+        const newUser = await resolveUserProfile(data.user);
         setUser(newUser);
         localStorage.setItem('practicekoro_user', JSON.stringify(newUser));
       }
@@ -625,12 +602,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Role is determined from user profile, with trusted admin email fallback
-  const role: UserRole = user?.role || (isAdminEmail(user?.email) ? 'admin' : 'student');
-  const isAdmin = role === 'admin' || isAdminEmail(user?.email);
+  const role: UserRole = user?.role || 'student';
+  const isAdmin =
+    role === 'admin' &&
+    ['super_admin', 'content_writer', 'support_agent'].includes(user?.adminRole || '');
   const isStudent = !isAdmin;
-  const adminRole: AdminRole = user?.adminRole || (isAdmin ? 'super_admin' : 'content_writer');
-  const permissions: AdminPermissions = getAdminPermissions(adminRole);
+  const adminRole: AdminRole = user?.adminRole || 'content_writer';
+  const permissions: AdminPermissions = getAdminPermissions(isAdmin ? user?.adminRole : undefined);
 
   const hasPermission = (permission: keyof AdminPermissions): boolean => {
     if (!isAdmin) return false;

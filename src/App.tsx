@@ -671,7 +671,7 @@ export const App: React.FC = () => {
           <Route
             path="analytics"
             element={
-              <AdminRoute requiredPermission="canManageQuestions">
+              <AdminRoute requiredPermission="canManageSubscriptions">
                 <AdminAnalytics />
               </AdminRoute>
             }

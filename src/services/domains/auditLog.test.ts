@@ -33,11 +33,9 @@ describe('Admin Roles & RBAC Permission Matrix', () => {
     expect(permissions.canViewAuditLogs).toBe(true);
   });
 
-  it('defaults to super_admin permissions when role is not specified', () => {
+  it('denies all permissions when role is not specified', () => {
     const permissions = getAdminPermissions(undefined);
-    expect(permissions.canDeleteTests).toBe(true);
-    expect(permissions.canViewAuditLogs).toBe(true);
-    expect(permissions.canManageStaff).toBe(true);
+    expect(Object.values(permissions).every((value) => value === false)).toBe(true);
   });
 
   it('restricts content_writer from destructive deletions, billing, settings, and staff management', () => {

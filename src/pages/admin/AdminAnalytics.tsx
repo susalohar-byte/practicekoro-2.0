@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { AdminDataBoundary } from '@/components/admin/AdminSkeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -45,7 +46,7 @@ export function analyticsCsv(data: PlatformAnalyticsData, period: string) {
     ['Active Pro students', data.revenue.activeSubscriptions, 'Current unexpired subscriptions'],
   ];
   return rows
-    .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+    .map((row) => row.map(csvCell).join(','))
     .join('\n');
 }
 

@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
@@ -446,6 +447,7 @@ const getSeverityBadge = (sev: AuditSeverity) => {
 
 export const AdminAuditLogs: React.FC = () => {
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [logsList, setLogsList] = useState<AuditLogItem[]>(
     isSupabaseConfigured ? [] : INITIAL_AUDIT_LOGS
   );
@@ -543,14 +545,14 @@ export const AdminAuditLogs: React.FC = () => {
             avatarTextColor: 'text-blue-600',
             action: actionFormatted,
             resource: resourceFormatted,
-            details: log.entityName
+            details: log.details?.source !== 'database_trigger' ? 'Legacy client log (unverified)' : log.entityName
               ? `${log.action} ${log.entityName}`.slice(0, 30) + '...'
               : log.action,
             fullDetails: log.entityName
               ? `${log.action}: ${log.entityName}`
               : JSON.stringify(log.details || {}),
             resourceId: log.entityId,
-            ipAddress: log.ipAddress || '127.0.0.1',
+            ipAddress: log.ipAddress || 'Not recorded',
             severity: log.action.toLowerCase().includes('delete') ? 'Warning' : 'Info',
             jsonData: {
               id: log.id,
@@ -570,7 +572,10 @@ export const AdminAuditLogs: React.FC = () => {
         });
       })
       .catch((err) => {
-        console.warn('[AdminAuditLogs] Failed to fetch real logs:', err);
+        if (isMounted) {
+          setLogsList([]);
+          setLoadError(err instanceof Error ? err.message : 'Audit logs could not be loaded');
+        }
       })
       .finally(() => {
         if (isMounted) setPageLoading(false);
@@ -695,14 +700,14 @@ export const AdminAuditLogs: React.FC = () => {
       l.adminEmail,
       l.action,
       l.resource,
-      `"${l.fullDetails || l.details}"`,
+      l.fullDetails || l.details,
       l.ipAddress,
       l.severity,
     ]);
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+      [headers.join(','), ...rows.map((e) => e.map(csvCell).join(','))].join('\n');
+    const encodedUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `practicekoro_audit_logs_${Date.now()}.csv`);
@@ -746,11 +751,12 @@ export const AdminAuditLogs: React.FC = () => {
       {/* ==================================================================== */}
       {/* 1. HEADER & TOP CONTROLS                                             */}
       {/* ==================================================================== */}
+      {loadError && <p role="alert" className="text-red-700">Audit logs unavailable: {loadError}</p>}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Audit Logs</h1>
           <p className="text-xs text-slate-500 font-normal mt-1 max-w-2xl">
-            Track and monitor all important activities performed by admins across the platform.
+            Database-trigger logs verify mutations. Legacy client logs are unverified; backend service actors are labeled separately.
           </p>
         </div>
 

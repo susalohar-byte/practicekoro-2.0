@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -152,11 +153,7 @@ export const AdminRevenueAnalytics: React.FC = () => {
     headers: string[],
     rows: (string | number | undefined | null)[][]
   ) => {
-    const escapeCell = (cell: any): string => {
-      if (cell == null) return '""';
-      const str = String(cell);
-      return `"${str.replace(/"/g, '""')}"`;
-    };
+    const escapeCell = csvCell;
 
     const csvRows = [
       headers.map(escapeCell).join(','),

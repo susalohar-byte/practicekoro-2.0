@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -773,13 +774,15 @@ export const AdminTopicManage: React.FC = () => {
               ];
               const rows = filteredTopics.map((t, idx) => [
                 idx + 1,
-                `"${t.name.replace(/"/g, '""')}"`,
-                `"${(subjectMap[t.subjectId]?.name || '').replace(/"/g, '""')}"`,
+                t.name,
+                subjectMap[t.subjectId]?.name || '',
                 questionCountsByTopic[t.id] || 0,
                 t.isActive ? 'Active' : 'Inactive',
                 t.updatedAt ? new Date(t.updatedAt).toISOString() : '',
               ]);
-              const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+              const csv = [headers.join(','), ...rows.map((r) => r.map(csvCell).join(','))].join(
+                '\n'
+              );
               const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -812,7 +815,13 @@ export const AdminTopicManage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
-              {isLoading ? <tr><td colSpan={7} className="p-4"><AdminSectionSkeleton label="Loading topics…" variant="table" /></td></tr> : pagedTopics.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="p-4">
+                    <AdminSectionSkeleton label="Loading topics…" variant="table" />
+                  </td>
+                </tr>
+              ) : pagedTopics.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-16">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">

@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -1274,11 +1275,18 @@ export const AdminNotifications: React.FC = () => {
 
   // Export selected or all to CSV
   const handleExportCSV = (recordsToExport = notificationsList) => {
-    const rows = recordsToExport.map(
-      (n) =>
-        `"${n.num}","${n.title}","${n.type}","${n.audience}","${n.status}","${n.sentAtDate || n.scheduledAt || ''}","${
-          n.stats ? `${n.stats.delivered}% / ${n.stats.opened}% / ${n.stats.clicked}%` : 'N/A'
-        }"`
+    const rows = recordsToExport.map((n) =>
+      [
+        n.num,
+        n.title,
+        n.type,
+        n.audience,
+        n.status,
+        n.sentAtDate || n.scheduledAt || '',
+        n.stats ? `${n.stats.delivered}% / ${n.stats.opened}% / ${n.stats.clicked}%` : 'N/A',
+      ]
+        .map(csvCell)
+        .join(',')
     );
     const csvContent =
       '#,Title,Type,Audience,Status,Date,Stats (Delivered/Opened/Clicked)\n' + rows.join('\n');

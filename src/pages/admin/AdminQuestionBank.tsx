@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { requireSuccess } from '@/services/domains/admin.mutations';
 import { runConfirmedBatch } from '@/services/domains/admin.mutations';
@@ -1086,12 +1087,7 @@ export const AdminQuestionBank: React.FC = () => {
       q.status || 'published',
     ]);
     const csvContent =
-      '\uFEFF' +
-      headers.join(',') +
-      '\n' +
-      rows
-        .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-        .join('\n');
+      '\uFEFF' + headers.join(',') + '\n' + rows.map((r) => r.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2183,7 +2179,8 @@ export const AdminQuestionBank: React.FC = () => {
             }}
             className="px-3 py-1.5 bg-white dark:bg-[#0A1024] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
           >
-            Select All ({filteredQuestions.length} {filteredQuestions.length === 1 ? 'Question' : 'Questions'})
+            Select All ({filteredQuestions.length}{' '}
+            {filteredQuestions.length === 1 ? 'Question' : 'Questions'})
           </button>
         </div>
       )}

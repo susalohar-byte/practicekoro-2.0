@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -655,21 +656,21 @@ export const AdminRankings: React.FC = () => {
 
     const rows = filteredStudents.map((s) => [
       s.rank,
-      `"${s.studentId}"`,
-      `"${s.name}"`,
-      `"${s.district}"`,
+      s.studentId,
+      s.name,
+      s.district,
       s.testsAttempted,
       s.questionsAnswered,
       `${s.accuracy}%`,
       `${s.avgScore}%`,
-      `"${s.lastActive}"`,
+      s.lastActive,
     ]);
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+      [headers.join(','), ...rows.map((e) => e.map(csvCell).join(','))].join('\n');
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute(

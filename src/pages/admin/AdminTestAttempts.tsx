@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton } from '@/components/admin/AdminSkeleton';
 import { requireSuccess, runConfirmedBatch } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -994,20 +995,20 @@ export const AdminTestAttempts: React.FC = () => {
     ];
 
     const rows = targetData.map((a) => [
-      `"${a.id}"`,
-      `"${a.studentId}"`,
-      `"${a.studentName}"`,
-      `"${a.studentEmail}"`,
-      `"${a.testName}"`,
-      `"${a.exam}"`,
-      `"${a.type}"`,
+      a.id,
+      a.studentId,
+      a.studentName,
+      a.studentEmail,
+      a.testName,
+      a.exam,
+      a.type,
       a.score,
       a.totalMarks,
       `${a.accuracy}%`,
-      `"${a.timeTaken}"`,
-      `"${a.status}"`,
-      `"${a.attemptedAtDate}"`,
-      `"${a.attemptedAtTime}"`,
+      a.timeTaken,
+      a.status,
+      a.attemptedAtDate,
+      a.attemptedAtTime,
       a.correctAnswers,
       a.wrongAnswers,
       a.skippedAnswers,
@@ -1015,9 +1016,11 @@ export const AdminTestAttempts: React.FC = () => {
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+      [headers.join(','), ...rows.map((e) => e.map(csvCell).join(','))].join('\n');
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri =
+      'data:text/csv;charset=utf-8,' +
+      encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute(

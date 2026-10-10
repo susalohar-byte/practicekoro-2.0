@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { parseStudentCsv } from '@/utils/parseStudentCsv';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1046,9 +1047,11 @@ export const AdminStudents: React.FC = () => {
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
+      [headers.join(','), ...rows.map((e) => e.map(csvCell).join(','))].join('\n');
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri =
+      'data:text/csv;charset=utf-8,' +
+      encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `practicekoro_students_export_${Date.now()}.csv`);
@@ -1090,11 +1093,11 @@ export const AdminStudents: React.FC = () => {
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...sampleRows.map((e) => e.map((val) => `"${val}"`).join(','))].join(
-        '\n'
-      );
+      [headers.join(','), ...sampleRows.map((e) => e.map(csvCell).join(','))].join('\n');
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri =
+      'data:text/csv;charset=utf-8,' +
+      encodeURIComponent(csvContent.replace(/^data:text\/csv;charset=utf-8,/, ''));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `sample_students_template.csv`);
@@ -1811,7 +1814,13 @@ export const AdminStudents: React.FC = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {isLoading ? <tr><td colSpan={10} className="p-4"><AdminSectionSkeleton label="Loading students..." variant="table" /></td></tr> : visibleStudents.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={10} className="p-4">
+                        <AdminSectionSkeleton label="Loading students..." variant="table" />
+                      </td>
+                    </tr>
+                  ) : visibleStudents.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-400">
                         No students match the selected criteria.

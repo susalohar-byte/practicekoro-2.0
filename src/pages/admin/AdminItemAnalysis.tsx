@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -118,11 +119,11 @@ export const AdminItemAnalysis: React.FC = () => {
     ];
 
     const rows = items.map((i) => [
-      `"${i.questionId}"`,
-      `"${(i.questionText || '').replace(/"/g, '""')}"`,
-      `"${(i.questionBengali || '').replace(/"/g, '""')}"`,
-      `"${(i.subjectName || '').replace(/"/g, '""')}"`,
-      `"${(i.chapterName || '').replace(/"/g, '""')}"`,
+      i.questionId,
+      i.questionText || '',
+      i.questionBengali || '',
+      i.subjectName || '',
+      i.chapterName || '',
       i.totalAttempts,
       i.correctCount,
       i.wrongCount,
@@ -132,14 +133,16 @@ export const AdminItemAnalysis: React.FC = () => {
       i.avgTimeSpentSeconds,
       i.isHighFailure ? 'YES' : 'NO',
       i.isTimeTrap ? 'YES' : 'NO',
-      `"${i.correctOption}"`,
+      i.correctOption,
       i.optionDistribution.A,
       i.optionDistribution.B,
       i.optionDistribution.C,
       i.optionDistribution.D,
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const csvContent = [headers.join(','), ...rows.map((r) => r.map(csvCell).join(','))].join(
+      '\r\n'
+    );
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -403,7 +406,9 @@ export const AdminItemAnalysis: React.FC = () => {
       </div>
 
       {/* ─── 4. ITEM ANALYSIS QUESTIONS LIST ─── */}
-      {isLoading ? <AdminSectionSkeleton label="Loading records…" variant="table" className="p-4" /> : items.length === 0 ? (
+      {isLoading ? (
+        <AdminSectionSkeleton label="Loading records…" variant="table" className="p-4" />
+      ) : items.length === 0 ? (
         <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
             <Filter className="w-6 h-6" />

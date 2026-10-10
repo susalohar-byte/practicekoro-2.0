@@ -1,3 +1,4 @@
+import { csvCell } from '@/utils/csvExport';
 import { withAdminSkeleton, AdminSectionSkeleton } from '@/components/admin/AdminSkeleton';
 import { runConfirmedBatch, requireSuccess } from '@/services/domains/admin.mutations';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -727,11 +728,11 @@ export const AdminTestSeries: React.FC = () => {
     ];
 
     const rows = dataToExport.map((s) => [
-      `"${s.id}"`,
-      `"${(s.title || '').replace(/"/g, '""')}"`,
-      `"${(s.subtitle || '').replace(/"/g, '""')}"`,
-      `"${(s.examTitle || s.examId || '').replace(/"/g, '""')}"`,
-      `"${(s.examCategory || '').replace(/"/g, '""')}"`,
+      s.id,
+      s.title || '',
+      s.subtitle || '',
+      s.examTitle || s.examId || '',
+      s.examCategory || '',
       s.fullMockCount || 0,
       s.topicTestCount || 0,
       s.pyqTestCount || 0,
@@ -739,11 +740,12 @@ export const AdminTestSeries: React.FC = () => {
         s.testsCount ||
         (s.fullMockCount || 0) + (s.topicTestCount || 0) + (s.pyqTestCount || 0),
       s.enrollmentCount || 0,
-      `"${s.status || (s.isActive ? 'published' : 'draft')}"`,
-      `"${s.isPremium ? 'Pro' : 'Free'}"`,
+      s.status || (s.isActive ? 'published' : 'draft'),
+      s.isPremium ? 'Pro' : 'Free',
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const csvContent =
+      '\uFEFF' + [headers.join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
